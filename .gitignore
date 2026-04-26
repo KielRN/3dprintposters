@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+.pnp/
+.pnp.*
+
+# Build outputs
+.next/
+out/
+dist/
+lib/
+coverage/
+*.tsbuildinfo
+.firebase/
+.vercel/
+
+# Local env and secrets
+.env
+.env.*
+!.env.example
+!.env.local.example
+service-account*.json
+*service-account*.json
+gcp-key*.json
+*gcp*.json
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+.next-dev*.log
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# OS and editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

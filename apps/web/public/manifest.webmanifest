@@ -1,0 +1,11 @@
+{
+  "name": "3D Print Posters",
+  "short_name": "3D Posters",
+  "description": "Create AI-generated 3D printed poster reliefs.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f6f7f8",
+  "theme_color": "#121212",
+  "icons": []
+}
+

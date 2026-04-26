@@ -1,0 +1,2 @@
+"""STL converter service package."""
+
