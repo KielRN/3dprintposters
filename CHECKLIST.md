@@ -13,9 +13,10 @@
 - [x] Verify Cloudflare account API token access for account AI Gateway reads and the `3dprintposters.com` zone.
 - [x] Verify Google/Gemini/Vertex API keys for initial live model-provider calls.
 - [ ] Confirm Cloudflare DNS target for the first deploy.
-- [ ] Create Cloudflare AI Gateway for the project.
-- [ ] Choose first AI Gateway provider and model strategy.
-- [ ] Route server-side AI calls through the selected AI Gateway.
+- [x] Choose direct GCP Vertex/Gemini as the first MVP AI route.
+- [x] Keep AI calls behind a provider adapter so Cloudflare AI Gateway can be added later without changing orchestration code.
+- [ ] Defer Cloudflare AI Gateway creation until provider comparison, centralized AI observability, rate limits, retries, or fallback are needed.
+- [ ] Defer Workers AI evaluation until after the direct Vertex/Gemini MVP path proves the product workflow.
 
 ## Phase 1 - Web MVP
 
@@ -34,10 +35,14 @@
 - [x] Scaffold Firebase Functions package.
 - [x] Add job creation boundary.
 - [x] Add checkout and Stripe webhook boundaries.
+- [x] Add internal AI provider adapter scaffold with direct Vertex/Gemini as the default route.
 - [ ] Add Firestore rules deployment.
 - [ ] Add Storage rules deployment.
 - [ ] Add Firebase emulator workflow.
-- [ ] Add server-side AI generation function behind the selected gateway/provider.
+- [ ] Add server-side AI generation callable or queue worker through the internal provider adapter.
+- [ ] Replace the adapter stub with a real direct Vertex/Gemini request.
+- [ ] Store generated preview images in user/job-scoped Cloud Storage paths.
+- [ ] Persist AI generation metadata on the Firestore job without storing secrets.
 - [ ] Add queueing with Cloud Tasks or Pub/Sub.
 - [ ] Add idempotency keys for job, checkout, and fulfillment actions.
 - [ ] Add user quotas and abuse controls.

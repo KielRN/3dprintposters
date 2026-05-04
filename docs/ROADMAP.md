@@ -12,13 +12,14 @@ This file tracks product direction and enhancement ideas that are not yet commit
 
 - Use `3dprintposters.com` as the product domain.
 - Choose the first hosting target before creating final DNS records.
-- Create the project AI Gateway after selecting the first model provider and model strategy.
+- Keep Cloudflare AI Gateway as a later traffic-management layer, not an MVP dependency.
 - Keep Cloudflare API access least-privilege and local-only until a CI/CD path is intentionally added.
 - Add rate limits for upload, job creation, and checkout after MVP flows are stable.
 
 ## AI Pipeline
 
-- Decide the first model provider and whether Cloudflare AI Gateway will route provider-native calls or Workers AI calls.
+- Start with direct GCP Vertex/Gemini integration for MVP speed.
+- Keep AI calls behind an internal provider adapter so Cloudflare AI Gateway can be added later for cross-provider routing, observability, rate limiting, and fallback.
 - Start with a single generation path before adding style variations, prompt tuning, or batch generation.
 - Add moderation, quota checks, and cost caps before public traffic.
 - Save enough metadata for each generation to debug quality, cost, and fulfillment issues without storing secrets.

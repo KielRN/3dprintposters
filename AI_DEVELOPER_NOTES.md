@@ -21,7 +21,7 @@ Note: use `STL` for the 3D model format. If any prompt or ticket says `SLT`, tre
 - Database: Cloud Firestore
 - Auth: Firebase Authentication
 - Storage: Firebase Storage or Google Cloud Storage for uploaded photos, generated previews, and print file artifacts
-- AI/image generation: provider undecided; Cloudflare AI Gateway is planned as the routing and observability layer
+- AI/image generation: start with direct GCP Vertex/Gemini integration for MVP speed, behind an internal provider adapter that can later route through Cloudflare AI Gateway
 - Fulfillment: Mimaki 3DUJ-2207 print partner first; Sculpteo API access is on hold until provider fit is confirmed
 - Future native/mobile packaging can be evaluated after the web MVP is stable.
 
@@ -48,7 +48,7 @@ Note: use `STL` for the 3D model format. If any prompt or ticket says `SLT`, tre
   - Firestore/Storage triggers for async pipeline steps.
   - HTTPS webhooks for Stripe and fulfillment callbacks.
   - Scheduled cleanup for abandoned uploads and expired generated assets.
-- AI Gateway plus selected model provider: image generation, image editing, classification, or moderation where needed.
+- Direct Vertex/Gemini first for image generation, image editing, classification, or moderation where needed; keep calls behind an internal adapter so Cloudflare AI Gateway can be introduced later without changing orchestration code.
 - Secret Manager: fulfillment provider credentials, Stripe keys, webhook secrets, model provider credentials.
 - Cloud Tasks or Pub/Sub: queue long-running generation and fulfillment steps.
 
@@ -99,7 +99,7 @@ Collections to consider:
 - The Cloudflare account API token was verified on 2026-04-26 for account token verification, AI Gateway list access, and zone lookup for `3dprintposters.com`.
 - Keep Cloudflare tokens local-only. Do not paste token values into chat, docs, source files, or issue text.
 - Browser Use dashboard automation is currently blocked on this machine because the Node runtime resolved for `node_repl` is `v22.17.1`, while the Browser Use plugin requires Node `>=22.22.0`.
-- AI Gateway is planned but not configured yet; choose the first provider/model before wiring app calls through the gateway.
+- AI Gateway is not an MVP dependency. Start with direct Vertex/Gemini calls from server runtimes, and add Cloudflare AI Gateway later if provider comparison, centralized AI observability, rate limits, retries, or fallback become important.
 
 ## AI Provider Credential Notes
 
@@ -159,9 +159,9 @@ firebase deploy --only functions
 
 ## Open Decisions
 
-- First AI model provider and whether to start with Cloudflare AI Gateway plus a provider-native API or Workers AI.
 - Whether any legacy STL-only service code should be folded into `services/print-file-generator` or kept as a temporary compatibility boundary.
 - Which AI model creates the printable source image, segmentation, or heightmap.
+- Whether and when Cloudflare AI Gateway should be added after direct Vertex/Gemini MVP integration.
 - Whether users can edit depth/relief settings before checkout.
 - Whether native iOS/Android packaging is needed after the web MVP.
 - Whether the same Firebase project should host production and staging, or whether a separate Firebase project should be created later for staging.

@@ -6,6 +6,7 @@ All notable project changes will be documented in this file.
 
 ### Added
 
+- Chose direct GCP Vertex/Gemini as the first MVP AI route and added a Functions provider adapter boundary for a future Cloudflare AI Gateway route.
 - Added `services/print-file-generator` as the broader Cloud Run service scaffold for relief geometry, full-color print packages, and filament painting support files.
 - Added a print file generation workflow doc and artifact manifest covering STL, 3MF/OBJ texture package, preview, metadata, palette, layer swaps, and print settings.
 - Verified Cloudflare account API token access for account-scoped API calls.
