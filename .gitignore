@@ -12,6 +12,9 @@ coverage/
 *.tsbuildinfo
 .firebase/
 .vercel/
+!apps/web/lib/
+!apps/web/lib/config.ts
+!apps/web/lib/firebase.ts
 
 # Local env and secrets
 .env

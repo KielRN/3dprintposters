@@ -2,6 +2,30 @@
 
 All notable project changes will be documented in this file.
 
+## [Unreleased] - 2026-05-04
+
+### Added
+
+- Added Firebase client initialization for the web app, including optional local emulator wiring.
+- Added web sign-in controls for email/password accounts and anonymous guest sessions.
+- Added authenticated source-photo upload to Firebase Storage under `uploads/{uid}/{jobId}/source.{jpg|png}`.
+- Wired the web flow to call `createGenerationJob` with the uploaded Storage path, selected style, and generated job id.
+- Wired checkout to call the authenticated `createCheckoutSession` Firebase Function with the real job id instead of the local preview placeholder.
+- Added responsive UI status/error states for auth, upload, job creation, and checkout readiness.
+
+### Changed
+
+- Tightened `createGenerationJob` validation so job ids are client-provided but constrained, unique, and tied to the signed-in user's upload path.
+- Updated the relief preview to show the MVP 5in x 7in dimensions as `127mm x 178mm` and keep the canvas framed on mobile.
+- Updated `.gitignore` so source files under `apps/web/lib` can be tracked while generated package `lib` folders remain ignored.
+- Marked the Phase 1 Firebase Auth, authenticated upload, and style/job creation checklist items as complete.
+
+### Verified
+
+- Verified web and Functions TypeScript checks.
+- Verified the Next.js production build.
+- Verified desktop and mobile rendering through a headless browser smoke check, including nonblank 3D canvas pixels and no mobile horizontal overflow.
+
 ## [Unreleased] - 2026-04-26
 
 ### Added

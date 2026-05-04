@@ -4,9 +4,10 @@ This file tracks product direction and enhancement ideas that are not yet commit
 
 ## Near-Term MVP
 
-- Finish the web-first PWA flow: sign-in, photo upload, style selection, job creation, preview, checkout, and order tracking.
+- Continue the web-first PWA flow from the now-wired sign-in, photo upload, style selection, and job creation path into generated image approval, real preview artifacts, checkout, and order tracking.
 - Keep the first customer journey narrow: one uploaded photo, one selected style, one generated 5in x 7in printable poster, and one checkout path.
 - Make every generated artifact traceable to a user, job, and order before fulfillment.
+- Replace remaining placeholder preview and local API scaffolds with the authenticated Firebase-backed workflow where needed.
 
 ## Cloudflare/Deployment
 

@@ -30,9 +30,26 @@ Recommended before production:
 - Create staging and production project aliases.
 - Enable Firestore.
 - Enable Firebase Auth.
+- Enable Email/Password sign-in for named test accounts.
+- Enable Anonymous sign-in if the guest-session MVP path should be available.
 - Enable Cloud Storage.
 - Configure Firebase Functions 2nd gen.
 - Add secrets with Firebase Functions secrets or Google Secret Manager.
+
+## Web App Local Config
+
+The customer app now initializes Firebase directly in the browser. Add these public web app values to `apps/web/.env.local` before testing sign-in or upload:
+
+- `NEXT_PUBLIC_FIREBASE_API_KEY`
+- `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`
+- `NEXT_PUBLIC_FIREBASE_PROJECT_ID`
+- `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`
+- `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
+- `NEXT_PUBLIC_FIREBASE_APP_ID`
+
+For local emulator testing, set `NEXT_PUBLIC_USE_FIREBASE_EMULATORS=true` and run Firebase emulators for Auth, Functions, Firestore, and Storage. Leave it `false` when using the shared Firebase project.
+
+Source uploads are written by the browser to `uploads/{uid}/{jobId}/source.{jpg|png}`. The `createGenerationJob` callable Function now requires the same `jobId` and source path, then verifies that they belong to the authenticated user before creating `jobs/{jobId}`.
 
 ## AI Provider Keys
 

@@ -12,6 +12,7 @@ const stripeSecretKey = defineSecret("STRIPE_SECRET_KEY");
 const stripeWebhookSecret = defineSecret("STRIPE_WEBHOOK_SECRET");
 
 const createJobSchema = z.object({
+  jobId: z.string().regex(/^[a-zA-Z0-9_-]{8,80}$/),
   sourceImagePath: z.string().min(1),
   selectedStyle: z.string().min(1)
 });
@@ -32,10 +33,30 @@ export const createGenerationJob = onCall(async (request) => {
 
   const parsed = createJobSchema.safeParse(request.data);
   if (!parsed.success) {
-    throw new HttpsError("invalid-argument", "sourceImagePath and selectedStyle are required.");
+    throw new HttpsError(
+      "invalid-argument",
+      "jobId, sourceImagePath, and selectedStyle are required."
+    );
   }
 
-  const jobRef = db.collection("jobs").doc();
+  const expectedUploadPrefix = `uploads/${request.auth.uid}/${parsed.data.jobId}/`;
+  const allowedImagePath = /\.(jpe?g|png)$/i.test(parsed.data.sourceImagePath);
+  if (
+    !parsed.data.sourceImagePath.startsWith(expectedUploadPrefix) ||
+    !allowedImagePath
+  ) {
+    throw new HttpsError(
+      "permission-denied",
+      "Source image must be an uploaded JPG or PNG under the signed-in user path."
+    );
+  }
+
+  const jobRef = db.collection("jobs").doc(parsed.data.jobId);
+  const existingJob = await jobRef.get();
+  if (existingJob.exists) {
+    throw new HttpsError("already-exists", "A job already exists for this upload.");
+  }
+
   await jobRef.set({
     uid: request.auth.uid,
     status: "created",

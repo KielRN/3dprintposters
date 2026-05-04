@@ -1,6 +1,6 @@
 # 3DPrintPosters - AI Developer Notes
 
-Last updated: 2026-04-26
+Last updated: 2026-05-04
 
 ## Project Intent
 
@@ -55,6 +55,8 @@ Note: use `STL` for the 3D model format. If any prompt or ticket says `SLT`, tre
 ## Important Architecture Notes
 
 - Do not run print file generation directly in the browser client. Keep geometry generation, texture packaging, and filament painting logic server-side so API keys, model logic, and fulfillment details remain private.
+- The current web MVP creates an authenticated Firebase session, uploads a source JPG or PNG to `uploads/{uid}/{jobId}/source.{jpg|png}`, and then calls `createGenerationJob` with the generated job id, upload path, and selected style.
+- `createGenerationJob` requires the supplied upload path to match the signed-in user's `uploads/{uid}/{jobId}` prefix before it creates `jobs/{jobId}`.
 - If print file generation needs Python, native libraries, or longer CPU time, use Cloud Run for that specific service instead of Cloud Functions.
 - Keep Cloud Functions for orchestration, webhooks, auth checks, Firestore writes, and short API calls.
 - Store user uploads and generated artifacts under user/job scoped paths, for example:
@@ -121,6 +123,8 @@ Use the same Firebase/GCP project:
 firebase use gen-lang-client-0675309660
 gcloud config set project gen-lang-client-0675309660
 ```
+
+For the web app, populate `apps/web/.env.local` with the public Firebase web config values from `apps/web/.env.local.example`. Set `NEXT_PUBLIC_USE_FIREBASE_EMULATORS=true` only when the local Firebase emulator suite is running.
 
 For Functions, use Node.js 22:
 

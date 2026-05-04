@@ -4,7 +4,7 @@
 
 3D Print Posters starts as a mobile-first web app/PWA. Users upload a photo, choose a style, approve generated art, preview a 5in x 7in 3D relief, pay for a physical poster, and track fulfillment.
 
-The native app path stays open because the product boundaries are server-centered. A future iOS or Android app can reuse the same Firebase Auth, Firestore records, Storage artifacts, Stripe order state, and STL conversion service.
+The native app path stays open because the product boundaries are server-centered. A future iOS or Android app can reuse the same Firebase Auth, Firestore records, Storage artifacts, Stripe order state, and print file generation service.
 
 ## System Components
 
@@ -14,8 +14,9 @@ Location: `apps/web`
 
 - Next.js App Router.
 - Mobile-first responsive UI.
-- Firebase Auth for user identity.
+- Firebase Auth for user identity, with email/password and anonymous guest sessions in the MVP UI.
 - Firebase Storage for source uploads and generated assets.
+- Firebase callable Functions for authenticated generation job creation and checkout session creation.
 - Firestore reads for job/order status.
 - Three.js/React Three Fiber for relief preview.
 - Stripe Checkout for physical poster payment.
@@ -27,9 +28,9 @@ Location: `apps/functions`
 Responsibilities:
 
 - Create authenticated generation jobs.
-- Validate user quota and upload metadata.
-- Trigger selected AI provider generation through Cloudflare AI Gateway.
-- Dispatch STL conversion work.
+- Validate user quota, upload ownership, and upload metadata.
+- Trigger selected AI provider generation through the internal provider adapter. Direct Vertex/Gemini is the default MVP route; Cloudflare AI Gateway can be added later behind the same adapter.
+- Dispatch print file generation work.
 - Create Stripe Checkout sessions.
 - Receive Stripe webhooks.
 - Receive fulfillment callbacks.
@@ -59,9 +60,9 @@ This is intentionally separate from Firebase Functions because geometry generati
 - Firebase Auth: account identity and order ownership.
 - Firestore: users, jobs, orders, fulfillment events, audit records.
 - Cloud Storage: original uploads, generated previews, STL files, thumbnails.
-- Cloudflare AI Gateway plus selected provider: AI image generation and possible depth/segmentation workflow.
+- Direct Vertex/Gemini through the internal provider adapter for the first AI image generation and possible depth/segmentation workflow. Cloudflare AI Gateway remains a later routing and observability layer.
 - Secret Manager/Firebase secrets: Stripe, fulfillment provider, webhook, and model credentials.
-- Cloud Tasks or Pub/Sub: async dispatch between generation, STL conversion, and fulfillment.
+- Cloud Tasks or Pub/Sub: async dispatch between generation, print file generation, and fulfillment.
 
 ### Stripe
 
@@ -89,11 +90,11 @@ The first implementation should isolate provider logic behind a small interface:
 
 ## Data Flow
 
-1. User signs in.
-2. User uploads a source image to Storage.
-3. Web app calls `createGenerationJob`.
-4. Function creates `jobs/{jobId}` with `status: "created"`.
-5. Backend validates upload and starts generation through the selected AI provider.
+1. User signs in with email/password or an anonymous guest session.
+2. Web app creates a job id and uploads a source JPG or PNG to `uploads/{uid}/{jobId}/source.{jpg|png}`.
+3. Web app calls `createGenerationJob` with `jobId`, `sourceImagePath`, and `selectedStyle`.
+4. Function verifies the signed-in user owns the upload path and creates `jobs/{jobId}` with `status: "created"`.
+5. Backend validates upload metadata and starts generation through the selected AI provider.
 6. Generated images are written to Storage and listed under the job.
 7. User selects one generated image.
 8. Backend dispatches `services/print-file-generator`.
@@ -169,7 +170,7 @@ Suggested statuses:
 ## Security Boundaries
 
 - The client can upload only to user-scoped Storage paths.
-- The client can create initial job records only for itself or call a function that creates them.
+- The active web flow calls a Function to create job records after upload. The Function rejects job ids or source image paths that are not under the signed-in user's `uploads/{uid}/{jobId}` prefix.
 - The client cannot mark jobs complete, set STL paths, set fulfillment data, or mark orders paid.
 - Stripe, fulfillment provider, model provider, Cloudflare, and service account credentials live only in server runtimes.
 - Every external side effect should be idempotent and logged.

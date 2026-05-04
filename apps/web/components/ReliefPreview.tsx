@@ -1,12 +1,14 @@
 "use client";
 
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Box, Maximize2 } from "lucide-react";
 import { useRef } from "react";
 import type { Mesh } from "three";
 
 function PosterReliefMesh() {
   const meshRef = useRef<Mesh>(null);
+  const { size } = useThree();
+  const meshScale = size.width < 520 ? 0.54 : 1;
 
   useFrame((_, delta) => {
     if (meshRef.current) {
@@ -16,7 +18,12 @@ function PosterReliefMesh() {
   });
 
   return (
-    <mesh ref={meshRef} rotation={[-0.78, 0, 0.08]} position={[0, 0, 0]}>
+    <mesh
+      ref={meshRef}
+      rotation={[-0.78, 0, 0.08]}
+      position={[0, 0, 0]}
+      scale={meshScale}
+    >
       <boxGeometry args={[2.25, 3.05, 0.14, 32, 32, 1]} />
       <meshStandardMaterial color="#f2f4f1" roughness={0.82} metalness={0.02} />
     </mesh>
@@ -25,7 +32,7 @@ function PosterReliefMesh() {
 
 export function ReliefPreview() {
   return (
-    <section className="panel grid min-h-[520px] overflow-hidden rounded-lg lg:min-h-0">
+    <section className="panel grid min-h-[520px] min-w-0 overflow-hidden rounded-lg lg:min-h-0">
       <div className="flex items-center justify-between border-b border-black/10 px-5 py-4">
         <div>
           <p className="text-sm font-bold text-[var(--coral)]">Relief preview</p>
@@ -56,7 +63,7 @@ export function ReliefPreview() {
           </div>
           <div className="flex items-center gap-2">
             <Box size={18} aria-hidden="true" />
-            <strong>216mm x 279mm</strong>
+            <strong>127mm x 178mm</strong>
           </div>
         </div>
       </div>

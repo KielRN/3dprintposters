@@ -29,4 +29,6 @@ Do not commit Stripe keys, Firebase service account JSON files, fulfillment prov
 
 ## Current Status
 
-This repository is now an architecture scaffold, not a finished product. Start with [CHECKLIST.md](./CHECKLIST.md) and [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md).
+This repository is still an MVP-in-progress, not a finished product. The web app now has the first Firebase-backed path for sign-in, source-photo upload, style selection, authenticated job creation, and checkout handoff. Generated image approval, real print artifact preview, order history, fulfillment, and production deployment are still pending.
+
+Start with [CHECKLIST.md](./CHECKLIST.md), [CHANGELOG.md](./CHANGELOG.md), and [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md).

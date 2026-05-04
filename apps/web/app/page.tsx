@@ -25,7 +25,7 @@ export default function Home() {
           </nav>
         </header>
 
-        <div className="grid flex-1 gap-5 py-5 lg:grid-cols-[minmax(0,0.92fr)_minmax(420px,1.08fr)]">
+        <div className="grid min-w-0 flex-1 gap-5 py-5 lg:grid-cols-[minmax(0,0.92fr)_minmax(420px,1.08fr)]">
           <UploadFlow />
           <ReliefPreview />
         </div>
@@ -33,4 +33,3 @@ export default function Home() {
     </main>
   );
 }
-

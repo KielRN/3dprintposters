@@ -22,9 +22,9 @@
 
 - [x] Scaffold mobile-first Next.js app shell.
 - [x] Add placeholder upload and 3D preview UI.
-- [ ] Add Firebase Auth sign-in.
-- [ ] Add authenticated upload to Cloud Storage.
-- [ ] Add style selection and job creation flow.
+- [x] Add Firebase Auth sign-in.
+- [x] Add authenticated upload to Cloud Storage.
+- [x] Add style selection and job creation flow.
 - [ ] Add generated image approval gallery.
 - [ ] Add real STL preview from backend output.
 - [ ] Add order history and fulfillment status screens.
