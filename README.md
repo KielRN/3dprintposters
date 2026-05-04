@@ -6,7 +6,8 @@
 
 - `apps/web` - Next.js customer app with upload, style selection, 3D preview, checkout, and order tracking screens.
 - `apps/functions` - Firebase Cloud Functions for authenticated orchestration, Stripe webhooks, Firestore status updates, and fulfillment callbacks.
-- `services/stl-converter` - Python Cloud Run service boundary for image-to-heightmap and STL generation.
+- `services/print-file-generator` - Python Cloud Run service boundary for heightmaps, relief geometry, full-color print packages, and filament painting support files.
+- `services/stl-converter` - Earlier STL-only service scaffold retained until the broader print file generator fully replaces it.
 - `infra/firebase` - Firestore, Storage, and emulator configuration.
 - `infra/cloudflare` - Domain and DNS deployment notes.
 - `docs` - Product architecture, deployment notes, and 3D conversion workflow.
@@ -24,7 +25,7 @@ Then open `http://localhost:3000`.
 
 ## Important Secret Rule
 
-Do not commit Stripe keys, Firebase service account JSON files, Sculpteo credentials, Cloudflare tokens, or model provider credentials. Use the `.env.example` files and Firebase/Google Secret Manager for deployed secrets.
+Do not commit Stripe keys, Firebase service account JSON files, fulfillment provider credentials, Cloudflare tokens, or model provider credentials. Use the `.env.example` files and Firebase/Google Secret Manager for deployed secrets.
 
 ## Current Status
 

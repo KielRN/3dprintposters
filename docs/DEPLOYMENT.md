@@ -7,12 +7,13 @@ Already detected locally:
 - Node.js 22
 - npm
 - Firebase CLI
+- Google Cloud CLI (`gcloud`)
 
-Not detected on PATH:
+Google Cloud CLI status:
 
-- `gcloud`
-
-Install or repair Google Cloud CLI before deploying Cloud Run services or managing GCP resources from this machine.
+- Existing user install repaired for this session at `C:\Users\Eliud\AppData\Local\Google\Cloud SDK\google-cloud-sdk\bin\gcloud.cmd`.
+- Active project set to `gen-lang-client-0675309660`.
+- Application Default Credentials were created on 2026-04-26 for local Google client libraries.
 
 Browser Use dashboard automation currently needs a newer Node runtime than the one resolved by `node_repl`; use Cloudflare API calls until Node is upgraded or `NODE_REPL_NODE_PATH` points to Node `>=22.22.0`.
 
@@ -33,6 +34,26 @@ Recommended before production:
 - Configure Firebase Functions 2nd gen.
 - Add secrets with Firebase Functions secrets or Google Secret Manager.
 
+## AI Provider Keys
+
+Required local variables for current AI-provider experiments:
+
+- `GOOGLE_API_KEY`
+- `GEMINI_API_KEY`
+- `VERTEX_API_KEY`
+- `VERTEX_PROJECT`
+- `VERTEX_LOCATION`
+- `VERTEX_GCS_BUCKET`
+
+Verification status on 2026-04-26:
+
+- `GOOGLE_API_KEY` and `GEMINI_API_KEY` are present in the root `.env`, currently match each other, and both completed a live Gemini Developer API `gemini-2.5-flash` request.
+- `VERTEX_API_KEY` is present in the root `.env`, is separate from the Google/Gemini key, and completed a live Vertex AI Gemini API `gemini-2.5-flash` request.
+- `VERTEX_PROJECT`, `VERTEX_LOCATION`, and `VERTEX_GCS_BUCKET` are present locally.
+- `gcloud auth application-default login --project=gen-lang-client-0675309660` completed successfully.
+- Vertex AI, Gemini API, and Cloud Storage APIs are enabled for the configured project.
+- The configured `VERTEX_GCS_BUCKET` was reachable with `gcloud storage buckets describe`.
+
 ## Web Hosting
 
 Recommended first deployment target:
@@ -41,9 +62,9 @@ Recommended first deployment target:
 
 Cloudflare should point `3dprintposters.com` to the selected hosting target.
 
-## Cloud Run STL Service
+## Cloud Run 3D Conversion Service
 
-Build and deploy `services/stl-converter` only after `gcloud` is available.
+Build and deploy `services/print-file-generator` with `gcloud` after the print file generation workflow is implemented. The older `services/stl-converter` scaffold should be treated as a temporary STL-only compatibility boundary.
 
 The service should be private at first. Firebase Functions can call it with service-to-service auth.
 

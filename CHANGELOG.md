@@ -6,9 +6,15 @@ All notable project changes will be documented in this file.
 
 ### Added
 
+- Added `services/print-file-generator` as the broader Cloud Run service scaffold for relief geometry, full-color print packages, and filament painting support files.
+- Added a print file generation workflow doc and artifact manifest covering STL, 3MF/OBJ texture package, preview, metadata, palette, layer swaps, and print settings.
 - Verified Cloudflare account API token access for account-scoped API calls.
 - Verified Cloudflare can resolve the `3dprintposters.com` zone through the API.
 - Verified AI Gateway API access for the Cloudflare account; no gateway is configured yet.
+- Verified Google/Gemini/Vertex API keys with small live Gemini and Vertex AI requests.
+- Repaired local `gcloud` usage, configured the project, and created Application Default Credentials for local Google client libraries.
+- Updated product and conversion docs for a 5in x 7in target relief and Mimaki 3DUJ-2207 print-partner strategy.
+- Added AI-provider environment placeholders and deployment notes.
 - Added this documentation cleanup path for project progress, roadmap, and Cloudflare setup tracking.
 
 ### Planned
@@ -38,4 +44,4 @@ All notable project changes will be documented in this file.
 - Connect Firebase Auth, Firestore, and Storage to the web UI.
 - Wire the selected AI provider behind a server-side job pipeline.
 - Implement the STL conversion pipeline and printability checks.
-- Connect Stripe checkout and Sculpteo fulfillment in test mode.
+- Connect Stripe checkout and the selected Mimaki-capable fulfillment partner in test mode.

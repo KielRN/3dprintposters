@@ -2,7 +2,7 @@
 
 ## **1\. Executive Summary**
 
-**3D Print Posters** is a web-based platform that allows users to transform their personal "vibe" into high-quality, physical 3D-printed posters (approx. 8.5" x 11"). By leveraging a selected AI image provider through Cloudflare AI Gateway for stylized image generation and the Sculpteo API for industrial-grade 3D printing and shipping, we provide a seamless "Pixel-to-Plastic" experience.
+**3D Print Posters** is a web-based platform that allows users to transform their personal "vibe" into high-quality, physical 3D-printed posters sized 5" x 7". By leveraging a selected AI image provider through Cloudflare AI Gateway for stylized image generation and a fulfillment business that can print on a Mimaki 3DUJ-2207 or comparable full-color 3D printer, we provide a seamless "Pixel-to-Plastic" experience.
 
 ## **2\. Target Audience**
 
@@ -17,7 +17,7 @@
 3. **Approval Gallery:** User views 3-4 generated variations.  
 4. **3D Conversion:** Upon selection, a Python backend converts the 2D image into a 3D Heightmap (STL file).  
 5. **Checkout:** Integrated Stripe checkout for the physical product.  
-6. **Fulfillment:** STL and shipping details are sent to Sculpteo via API for printing and worldwide delivery.
+6. **Fulfillment:** The locked geometry, color-capable print package, and shipping details are sent to a qualified Mimaki 3DUJ-2207 print partner. Sculpteo API access is on hold until provider fit is confirmed.
 
 ## **4\. Technical Requirements**
 
@@ -36,16 +36,18 @@
 
 ### **4.3 Image-to-STL Engine**
 
-* **Logic:** Convert grayscale luminosity values to Z-axis height (0.4mm to 3.0mm).  
-* **Format:** Export high-resolution Binary STL.  
-* **Slicing Meta:** Generate a "Color Swap Recipe" if using multi-material services, or standard relief maps for Sculpteo's industrial resins.
+* **Logic:** Convert grayscale luminosity values to Z-axis height (0.4mm to 3.0mm), with optional subject-aware depth and segmentation.
+* **Geometry Format:** Export high-resolution Binary STL for baseline geometry validation.
+* **Color Format:** Export a Mimaki-partner package such as 3MF, OBJ plus texture, VRML, or PLY so full-color print data survives beyond the STL.
+* **Size:** Target physical output is 127mm x 177.8mm (5" x 7").
 
-### **4.4 Fulfillment Integration (Sculpteo API)**
+### **4.4 Fulfillment Integration (Mimaki 3DUJ-2207 Partner)**
 
-* **Endpoint:** POST /designs (to upload the STL).  
-* **Scaling:** Automate resizing to 216mm x 279mm (8.5" x 11").  
-* **Material Selection:** Default to "White Resin" (High Detail) or "PLA" (if using a different partner like Slant 3D).  
-* **Shipping:** Automated POST /orders call upon successful Stripe webhook trigger.
+* **Target Printer:** Mimaki 3DUJ-2207 full-color UV-curable inkjet 3D printer.
+* **Partner Search:** Prioritize businesses that can accept 5x7 color relief jobs and confirm preferred file format, wall/base thickness, color handling, quoting, and turnaround.
+* **Scaling:** Automate resizing to 127mm x 177.8mm (5" x 7") before partner handoff.
+* **Material Selection:** Start with the Mimaki 3DUJ-2207 partner's default full-color UV resin workflow.
+* **Shipping:** Trigger partner order or manual review only after successful Stripe webhook confirmation.
 
 ## **5\. Competitive Differentiators**
 
@@ -56,7 +58,7 @@
 ## **6\. Success Metrics**
 
 * **Conversion Rate:** Percentage of generated images that turn into paid orders.  
-* **Print Success Rate:** Percentage of STLs that pass Sculpteo's automated "Printability Check."  
+* **Print Success Rate:** Percentage of 5x7 relief packages that pass internal printability checks and the selected Mimaki partner's review.
 * **Customer NPS:** Focus on "Wow Factor" when the physical product arrives.
 
 ## **7\. Future Roadmap**

@@ -111,7 +111,7 @@ export function UploadFlow() {
         </div>
         <div className="flex items-center justify-between gap-3">
           <span className="text-[var(--muted)]">Size</span>
-          <strong>8.5in x 11in</strong>
+          <strong>5in x 7in</strong>
         </div>
         <div className="flex items-center justify-between gap-3">
           <span className="text-[var(--muted)]">Relief depth</span>

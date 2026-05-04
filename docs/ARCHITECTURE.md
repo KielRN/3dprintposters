@@ -2,7 +2,7 @@
 
 ## Product Shape
 
-3D Print Posters starts as a mobile-first web app/PWA. Users upload a photo, choose a style, approve generated art, preview a 3D relief, pay for a physical poster, and track fulfillment.
+3D Print Posters starts as a mobile-first web app/PWA. Users upload a photo, choose a style, approve generated art, preview a 5in x 7in 3D relief, pay for a physical poster, and track fulfillment.
 
 The native app path stays open because the product boundaries are server-centered. A future iOS or Android app can reuse the same Firebase Auth, Firestore records, Storage artifacts, Stripe order state, and STL conversion service.
 
@@ -35,22 +35,24 @@ Responsibilities:
 - Receive fulfillment callbacks.
 - Own Firestore status transitions that users cannot write directly.
 
-### STL Conversion Service
+### Print File Generator Service
 
-Location: `services/stl-converter`
+Location: `services/print-file-generator`
 
 Runtime target: Python on Cloud Run.
 
 Responsibilities:
 
 - Read selected generated image from Cloud Storage.
-- Convert image into a relief heightmap.
-- Generate binary STL.
+- Convert image into a relief heightmap and geometry.
+- Generate binary STL as a baseline geometry artifact.
+- Generate a color-capable print package for Mimaki 3DUJ-2207 partners, such as 3MF or OBJ plus texture.
+- Generate filament painting support files such as palette, layer swaps, print settings, and preview.
 - Optionally generate a lower-poly GLB/mesh preview for the web app.
-- Write STL and preview artifacts back to Cloud Storage.
-- Return printability metadata.
+- Write print artifacts and preview assets back to Cloud Storage.
+- Return an artifact manifest and printability metadata.
 
-This is intentionally separate from Firebase Functions because geometry generation may need Python libraries, CPU time, memory, and longer request windows.
+This is intentionally separate from Firebase Functions because geometry generation, texture packaging, and filament painting preparation may need Python libraries, CPU time, memory, and longer request windows.
 
 ### Firebase/GCP
 
@@ -58,7 +60,7 @@ This is intentionally separate from Firebase Functions because geometry generati
 - Firestore: users, jobs, orders, fulfillment events, audit records.
 - Cloud Storage: original uploads, generated previews, STL files, thumbnails.
 - Cloudflare AI Gateway plus selected provider: AI image generation and possible depth/segmentation workflow.
-- Secret Manager/Firebase secrets: Stripe, Sculpteo, webhook, and model credentials.
+- Secret Manager/Firebase secrets: Stripe, fulfillment provider, webhook, and model credentials.
 - Cloud Tasks or Pub/Sub: async dispatch between generation, STL conversion, and fulfillment.
 
 ### Stripe
@@ -75,12 +77,12 @@ Initial objects:
 
 ### Fulfillment
 
-Target provider: Sculpteo or comparable 3D print API.
+Target provider: a business that can print on a Mimaki 3DUJ-2207 or comparable full-color UV-curable inkjet 3D printer. Sculpteo API work is on hold until we confirm whether it fits the 5x7 full-color relief product.
 
 The first implementation should isolate provider logic behind a small interface:
 
 - Quote order.
-- Upload STL/design.
+- Upload or hand off STL plus color-capable package.
 - Create paid fulfillment order.
 - Receive provider status callback.
 - Retry or flag manual review.
@@ -94,12 +96,12 @@ The first implementation should isolate provider logic behind a small interface:
 5. Backend validates upload and starts generation through the selected AI provider.
 6. Generated images are written to Storage and listed under the job.
 7. User selects one generated image.
-8. Backend dispatches `services/stl-converter`.
-9. STL service writes `model.stl`, optional preview mesh, and printability metadata.
+8. Backend dispatches `services/print-file-generator`.
+9. Print file service writes `model.stl`, color package artifacts, filament painting support files, optional preview mesh, and printability metadata.
 10. User reviews preview and starts checkout.
 11. Function creates Stripe Checkout Session and `orders/{orderId}`.
 12. Stripe webhook confirms payment.
-13. Function sends the locked STL and shipping data to fulfillment.
+13. Function sends the locked print file manifest and shipping data to fulfillment.
 14. Fulfillment events update the order record.
 
 ## Firestore Collections
@@ -121,7 +123,8 @@ The first implementation should isolate provider logic behind a small interface:
 - `sourceImagePath`
 - `generatedImages`
 - `selectedImagePath`
-- `stlPath`
+- `printFileOutputPrefix`
+- `printFileArtifacts`
 - `previewMeshPath`
 - `printability`
 - `error`
@@ -134,8 +137,8 @@ Suggested statuses:
 - `upload_validated`
 - `generating`
 - `awaiting_selection`
-- `stl_queued`
-- `stl_processing`
+- `print_files_queued`
+- `print_files_processing`
 - `ready_for_checkout`
 - `failed`
 
@@ -168,7 +171,7 @@ Suggested statuses:
 - The client can upload only to user-scoped Storage paths.
 - The client can create initial job records only for itself or call a function that creates them.
 - The client cannot mark jobs complete, set STL paths, set fulfillment data, or mark orders paid.
-- Stripe, Sculpteo, model provider, Cloudflare, and service account credentials live only in server runtimes.
+- Stripe, fulfillment provider, model provider, Cloudflare, and service account credentials live only in server runtimes.
 - Every external side effect should be idempotent and logged.
 
 ## Domain and Hosting Direction
@@ -185,6 +188,7 @@ Preferred first pass: Firebase App Hosting or Cloud Run, because the backend alr
 
 - Production/staging project split.
 - Whether Firebase App Hosting or Cloud Run hosts the Next.js app.
-- Exact Sculpteo replacement strategy if printability/order APIs do not fit the product.
+- Exact Mimaki 3DUJ-2207 print partner and whether it supports API order creation or requires manual quoting/file review.
 - Which first AI provider/model should generate final artwork, and whether AI should also help produce depth maps.
+- Whether filament painting should stay as support files first or eventually produce slicer-specific projects.
 - Whether the preview mesh should be generated in Python, in the browser, or both.

@@ -5,7 +5,7 @@ This file tracks product direction and enhancement ideas that are not yet commit
 ## Near-Term MVP
 
 - Finish the web-first PWA flow: sign-in, photo upload, style selection, job creation, preview, checkout, and order tracking.
-- Keep the first customer journey narrow: one uploaded photo, one selected style, one generated printable poster, and one checkout path.
+- Keep the first customer journey narrow: one uploaded photo, one selected style, one generated 5in x 7in printable poster, and one checkout path.
 - Make every generated artifact traceable to a user, job, and order before fulfillment.
 
 ## Cloudflare/Deployment
@@ -23,19 +23,21 @@ This file tracks product direction and enhancement ideas that are not yet commit
 - Add moderation, quota checks, and cost caps before public traffic.
 - Save enough metadata for each generation to debug quality, cost, and fulfillment issues without storing secrets.
 
-## STL/Preview
+## Print Files/Preview
 
-- Implement image validation, normalization, heightmap generation, and binary STL output.
-- Add browser-friendly preview output, likely GLB or a lightweight mesh representation, after the STL contract is stable.
-- Add printability checks for model dimensions, thickness, relief depth, and file size.
-- Preserve the exact STL and settings used for any paid order.
+- Implement image validation, normalization, 5:7 crop/padding, heightmap generation, binary STL output, and a color-capable print package.
+- Add filament painting support files: palette, layer swaps, print settings, and preview.
+- Add browser-friendly preview output, likely GLB or a lightweight mesh representation, after the print file contract is stable.
+- Add printability checks for 5in x 7in model dimensions, thickness, relief depth, texture alignment, layer swap assumptions, and file size.
+- Preserve the exact artifact manifest, color package, filament settings, and geometry settings used for any paid order.
 
 ## Payments/Fulfillment
 
 - Keep Stripe in test mode until payment, webhook, and order state transitions are proven end to end.
-- Confirm Sculpteo or alternate fulfillment API capabilities before committing to provider-specific behavior.
+- Find and qualify a business that can print on a Mimaki 3DUJ-2207 or comparable full-color UV-curable inkjet 3D printer.
+- Keep Sculpteo API access on hold until it is clear whether it fits the Mimaki-targeted workflow.
 - Require confirmed payment before sending any order to fulfillment.
-- Store quote, material, dimensions, shipping option, provider order ID, and provider responses for each order.
+- Store quote, material, 5x7 dimensions, shipping option, provider order ID, and provider responses for each order.
 
 ## Admin/Ops
 

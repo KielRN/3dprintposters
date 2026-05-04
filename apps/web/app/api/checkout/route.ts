@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
               unit_amount: 6000,
               product_data: {
                 name: "Custom 3D Print Poster",
-                description: "8.5in x 11in physical relief poster"
+                description: "5in x 7in physical relief poster"
               }
             }
           }
