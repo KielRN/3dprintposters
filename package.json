@@ -10,6 +10,12 @@
   "scripts": {
     "dev": "npm --workspace apps/web run dev",
     "build": "npm --workspace apps/web run build",
+    "firebase:deploy:firestore-rules:dry-run": "firebase deploy --only firestore:rules --project dev --dry-run",
+    "firebase:deploy:firestore-rules:dev": "firebase deploy --only firestore:rules --project dev",
+    "firebase:deploy:storage-rules:dry-run": "firebase deploy --only storage --project dev --dry-run",
+    "firebase:deploy:storage-rules:dev": "firebase deploy --only storage --project dev",
+    "firebase:deploy:rules:dev": "firebase deploy --only firestore:rules,storage --project dev",
+    "firebase:deploy:rules:dry-run": "firebase deploy --only firestore:rules,storage --project dev --dry-run",
     "stripe:create-poster-product": "node scripts/stripe/create-poster-product.mjs",
     "typecheck": "npm --workspaces --if-present run typecheck",
     "format": "prettier --write ."

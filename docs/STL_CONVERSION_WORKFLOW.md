@@ -10,7 +10,7 @@ The target product size is now a 5in x 7in physical relief. The target print pat
 
 - `jobId`
 - `uid`
-- `sourceImagePath` or `selectedImagePath`
+- `sourceImagePath` or `approvedImagePath`
 - Target dimensions: 127mm x 177.8mm for 5in x 7in.
 - Relief depth range, initially 0.4mm to 3.0mm.
 - Material profile, initially `mimaki_3duj_2207_full_color_uv_resin`.
@@ -28,7 +28,7 @@ STL remains useful as a geometry baseline and for generic printability checks, b
 
 ## Proposed Processing Steps
 
-1. Fetch selected generated image from Cloud Storage.
+1. Fetch the approved generated image from Cloud Storage. During the current test flow, this may be the source upload used as a temporary proof.
 2. Validate size, MIME type, dimensions, and safety metadata.
 3. Normalize image orientation and resolution.
 4. Crop or pad to a 5:7 composition.
@@ -37,7 +37,7 @@ STL remains useful as a geometry baseline and for generic printability checks, b
 7. Smooth the heightmap enough for printability while preserving major edges.
 8. Convert height values into a relief mesh.
 9. Add a poster base plate with minimum thickness.
-10. Attach color/texture data for the selected generated image.
+10. Attach color/texture data for the approved generated image.
 11. Export binary STL for geometry validation.
 12. Export a Mimaki-partner handoff package, initially 3MF or OBJ plus texture.
 13. Generate preview mesh for browser display.

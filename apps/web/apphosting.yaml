@@ -1,0 +1,20 @@
+# Firebase App Hosting configuration for the Next.js customer app.
+# Backend setup should use this app root: apps/web
+runConfig:
+  minInstances: 0
+  maxInstances: 5
+  concurrency: 80
+  cpu: 1
+  memoryMiB: 512
+
+env:
+  - variable: NEXT_PUBLIC_USE_FIREBASE_EMULATORS
+    value: "false"
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_USE_FIREBASE_FUNCTIONS_EMULATOR
+    value: "false"
+    availability:
+      - BUILD
+      - RUNTIME

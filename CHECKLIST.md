@@ -7,16 +7,16 @@
 - [x] Add changelog.
 - [x] Add implementation checklist.
 - [x] Add secret-safe gitignore patterns.
-- [ ] Confirm final production/staging Firebase project strategy.
+- [x] Confirm final production/staging Firebase project strategy.
 - [x] Install dependencies and create lockfile.
-- [ ] Configure Firebase project alias for local development.
+- [x] Configure Firebase project alias for local development.
 - [x] Verify Cloudflare account API token access for account AI Gateway reads and the `3dprintposters.com` zone.
 - [x] Verify Google/Gemini/Vertex API keys for initial live model-provider calls.
-- [ ] Confirm Cloudflare DNS target for the first deploy.
+- [x] Confirm Cloudflare DNS target for the first deploy.
 - [x] Choose direct GCP Vertex/Gemini as the first MVP AI route.
 - [x] Keep AI calls behind a provider adapter so Cloudflare AI Gateway can be added later without changing orchestration code.
-- [ ] Defer Cloudflare AI Gateway creation until provider comparison, centralized AI observability, rate limits, retries, or fallback are needed.
-- [ ] Defer Workers AI evaluation until after the direct Vertex/Gemini MVP path proves the product workflow.
+- [x] Defer Cloudflare AI Gateway creation until provider comparison, centralized AI observability, rate limits, retries, or fallback are needed.
+- [x] Defer Workers AI evaluation until after the direct Vertex/Gemini MVP path proves the product workflow.
 
 ## Phase 1 - Web MVP
 
@@ -25,9 +25,11 @@
 - [x] Add Firebase Auth sign-in.
 - [x] Add authenticated upload to Cloud Storage.
 - [x] Add style selection and job creation flow.
-- [ ] Add generated image approval gallery.
+- [x] Add generated image approval gallery for the test flow, using the source photo as the temporary proof until AI output is connected.
+- [x] Add single-job proof review route and gate checkout on approved proof.
+- [x] Add single-order status route for checkout/payment/fulfillment state.
 - [ ] Add real STL preview from backend output.
-- [ ] Add order history and fulfillment status screens.
+- [ ] Add account-level order history and richer fulfillment status screens.
 - [ ] Add PWA manifest, icons, and install behavior.
 
 ## Phase 2 - Backend Orchestration
@@ -36,15 +38,17 @@
 - [x] Add job creation boundary.
 - [x] Add checkout and Stripe webhook boundaries.
 - [x] Add internal AI provider adapter scaffold with direct Vertex/Gemini as the default route.
-- [ ] Add Firestore rules deployment.
-- [ ] Add Storage rules deployment.
-- [ ] Add Firebase emulator workflow.
-- [ ] Add server-side AI generation callable or queue worker through the internal provider adapter.
+- [x] Add proof approval callable and checkout precondition.
+- [x] Add Firestore rules deployment.
+- [x] Add Storage rules deployment.
+- [ ] Add full Firebase emulator workflow. Function-only emulator testing works, but the full suite currently needs JDK 21+ locally.
+- [x] Add server-side AI generation callable or queue worker through the internal provider adapter.
 - [ ] Replace the adapter stub with a real direct Vertex/Gemini request.
 - [ ] Store generated preview images in user/job-scoped Cloud Storage paths.
-- [ ] Persist AI generation metadata on the Firestore job without storing secrets.
+- [x] Persist AI generation metadata on the Firestore job without storing secrets.
 - [ ] Add queueing with Cloud Tasks or Pub/Sub.
-- [ ] Add idempotency keys for job, checkout, and fulfillment actions.
+- [x] Add idempotency guards for job creation and checkout session creation.
+- [ ] Add idempotency keys for fulfillment actions once the fulfillment provider path exists.
 - [ ] Add user quotas and abuse controls.
 
 ## Phase 3 - Print File Generation
@@ -68,7 +72,8 @@
 - [x] Create Stripe test product and $60 USD one-time price.
 - [ ] Configure Stripe webhook secrets.
 - [x] Create checkout sessions for physical poster orders.
-- [ ] Persist Stripe customer and session ids.
+- [x] Persist Stripe Checkout Session IDs on order records.
+- [ ] Persist Stripe customer ids.
 - [ ] Find a print partner with Mimaki 3DUJ-2207 or comparable full-color 3D printing.
 - [ ] Confirm partner file formats, material profile, 5x7 constraints, quote process, and order workflow.
 - [ ] Create fulfillment quote flow.
@@ -84,4 +89,6 @@
 - [ ] Cloud Storage lifecycle rules for abandoned uploads.
 - [ ] Cost caps, quotas, and alerts.
 - [ ] Resolve dependency audit advisories or document accepted transitive risk.
+- [ ] Create Firebase App Hosting staging and production backends.
+- [ ] Add Cloudflare DNS records after Firebase App Hosting backend domains exist.
 - [ ] Domain, SSL, and production deploy.

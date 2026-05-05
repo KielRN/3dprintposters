@@ -12,11 +12,12 @@ Note: use `STL` for the 3D model format. If any prompt or ticket says `SLT`, tre
 
 - Frontend app: Next.js web-first PWA in `apps/web`
 - Backend and app platform: Firebase
-- Cloud project: reuse existing GCP/Firebase project `gen-lang-client-0675309660`
+- Cloud project strategy: use existing GCP/Firebase project `gen-lang-client-0675309660` for local development and MVP testing only; create separate dedicated staging and production projects before public deploy.
 - CLI tooling already installed locally:
   - Firebase CLI
   - Node.js 22
   - npm
+- Web hosting: Firebase App Hosting for the Next.js customer app in `apps/web`, with a staging backend before production.
 - Serverless runtime target: Firebase Cloud Functions 2nd gen on Node.js 22
 - Database: Cloud Firestore
 - Auth: Firebase Authentication
@@ -28,21 +29,23 @@ Note: use `STL` for the 3D model format. If any prompt or ticket says `SLT`, tre
 ## High-Level User Flow
 
 1. User signs in.
-2. User uploads one or more photos.
+2. User uploads one photo for the first MVP path.
 3. App stores the original image in Storage and creates a Firestore job record.
 4. Backend validates image safety, size, file type, and user quota.
 5. AI pipeline creates a stylized poster image or depth/heightmap source.
-6. Print file generator converts the selected design into a 5in x 7in artifact bundle with relief geometry, color-capable print package, and filament painting support files.
-7. User previews the 3D result in-app.
-8. User checks out.
-9. Payment webhook locks the order and sends the geometry, color-capable print package, and order metadata to the selected print partner.
-10. Fulfillment status updates are written back to Firestore and shown in the web app.
+6. User approves one generated proof. In the current test build, the uploaded source photo is used as a temporary proof so the approval and checkout path can be tested before AI output is connected.
+7. Print file generator converts the approved design into a 5in x 7in artifact bundle with relief geometry, color-capable print package, and filament painting support files.
+8. User previews the 3D result in-app.
+9. User checks out.
+10. Payment webhook locks the order and sends the geometry, color-capable print package, and order metadata to the selected print partner.
+11. Fulfillment status updates are written back to Firestore and shown in the web app.
 
 ## Suggested Firebase/GCP Services
 
 - Firebase Auth: user accounts and order ownership.
 - Firestore: users, jobs, designs, orders, fulfillment events, pricing snapshots.
 - Cloud Storage: raw uploads, generated images, STL files, thumbnails, logs where appropriate.
+- Dev Firebase Storage bucket: `gen-lang-client-0675309660.firebasestorage.app` in `US-CENTRAL1`.
 - Cloud Functions:
   - Callable functions for user-triggered actions such as starting a generation job.
   - Firestore/Storage triggers for async pipeline steps.
@@ -57,6 +60,11 @@ Note: use `STL` for the 3D model format. If any prompt or ticket says `SLT`, tre
 - Do not run print file generation directly in the browser client. Keep geometry generation, texture packaging, and filament painting logic server-side so API keys, model logic, and fulfillment details remain private.
 - The current web MVP creates an authenticated Firebase session, uploads a source JPG or PNG to `uploads/{uid}/{jobId}/source.{jpg|png}`, and then calls `createGenerationJob` with the generated job id, upload path, and selected style.
 - `createGenerationJob` requires the supplied upload path to match the signed-in user's `uploads/{uid}/{jobId}` prefix before it creates `jobs/{jobId}`.
+- `createGenerationJob` now creates a durable `generating` job, calls the internal AI provider adapter server-side, stores non-secret `aiGeneration` metadata, and then marks the job `preview_ready` or `failed`.
+- Repeated `createGenerationJob` calls for the same signed-in user, upload path, and style return the existing job status instead of creating a duplicate.
+- The current adapter result is still stubbed, so the test flow stores the source upload as a temporary proof in `generatedImages`, then uses `approveGeneratedImage` to set `approvedImagePath`.
+- `createCheckoutSession` should reject jobs that do not have `status: "approved"` and an `approvedImagePath`.
+- For the current one-order-per-job MVP path, `createCheckoutSession` uses `orders/{jobId}` as the deterministic order document and sends a Stripe idempotency key based on user id, job id, and approved proof path.
 - If print file generation needs Python, native libraries, or longer CPU time, use Cloud Run for that specific service instead of Cloud Functions.
 - Keep Cloud Functions for orchestration, webhooks, auth checks, Firestore writes, and short API calls.
 - Store user uploads and generated artifacts under user/job scoped paths, for example:
@@ -76,9 +84,9 @@ Collections to consider:
 - `users/{uid}`
   - profile, email, createdAt, role, quota, Stripe customer id
 - `jobs/{jobId}`
-  - uid, status, sourceImagePath, selectedStyle, generatedImagePath, printFileOutputPrefix, printFileArtifacts, error, createdAt, updatedAt
+  - uid, status, sourceImagePath, selectedStyle, generatedImages, approvedImagePath, approvedAt, aiGeneration, printFileOutputPrefix, printFileArtifacts, error, createdAt, updatedAt
 - `orders/{orderId}`
-  - uid, jobId, status, paymentStatus, fulfillmentStatus, provider, providerOrderId, shippingSummary, priceSnapshot
+  - uid, jobId, approvedImagePath, status, paymentStatus, fulfillmentStatus, stripeCheckoutSessionId, provider, providerOrderId, shippingSummary, priceSnapshot
 - `fulfillmentEvents/{eventId}`
   - orderId, provider, eventType, payload, createdAt
 
@@ -93,6 +101,8 @@ Collections to consider:
 ## Cloudflare Notes
 
 - Product domain: `3dprintposters.com`.
+- First deploy DNS plan: `staging.3dprintposters.com` points to the staging Firebase App Hosting backend domain after it exists.
+- Launch DNS plan: `www.3dprintposters.com` points to the production Firebase App Hosting backend domain, with apex redirect or flattening handled in Cloudflare.
 - Cloudflare account ID: `778c1ab69c11e349c591073496bcb4a9`.
 - Local environment variable names:
   - `CLOUDFLARE_ACCOUNT_ID`
@@ -120,11 +130,24 @@ Collections to consider:
 Use the same Firebase/GCP project:
 
 ```powershell
-firebase use gen-lang-client-0675309660
+firebase use dev
 gcloud config set project gen-lang-client-0675309660
 ```
 
+The checked-in `.firebaserc` maps `dev` and `default` to `gen-lang-client-0675309660`. Add `staging` and `production` aliases only after dedicated Firebase/GCP projects exist.
+
 For the web app, populate `apps/web/.env.local` with the public Firebase web config values from `apps/web/.env.local.example`. Set `NEXT_PUBLIC_USE_FIREBASE_EMULATORS=true` only when the local Firebase emulator suite is running.
+
+For the current local customer-flow test, the function-only emulator path can be used while Auth, Firestore, and Storage stay pointed at the configured Firebase project:
+
+```powershell
+npm --workspace apps/functions run build
+firebase emulators:start --only functions --project gen-lang-client-0675309660
+```
+
+Then run the web app with `NEXT_PUBLIC_USE_FIREBASE_FUNCTIONS_EMULATOR=true`. The full emulator suite currently requires JDK 21+ locally.
+
+For the first public staging deploy, create a Firebase App Hosting backend with app root `apps/web`, region `us-central1`, and backend name `3dprintposters-web-staging`. Keep `apps/web/apphosting.yaml` as the checked-in non-secret runtime baseline.
 
 For Functions, use Node.js 22:
 
@@ -167,8 +190,8 @@ firebase deploy --only functions
 - Which AI model creates the printable source image, segmentation, or heightmap.
 - Whether and when Cloudflare AI Gateway should be added after direct Vertex/Gemini MVP integration.
 - Whether users can edit depth/relief settings before checkout.
+- Whether the temporary source-photo proof should remain available as a fallback once AI-generated proofs are connected.
 - Whether native iOS/Android packaging is needed after the web MVP.
-- Whether the same Firebase project should host production and staging, or whether a separate Firebase project should be created later for staging.
 
 ## Developer Cautions
 

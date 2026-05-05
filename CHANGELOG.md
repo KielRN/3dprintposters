@@ -12,19 +12,41 @@ All notable project changes will be documented in this file.
 - Wired the web flow to call `createGenerationJob` with the uploaded Storage path, selected style, and generated job id.
 - Wired checkout to call the authenticated `createCheckoutSession` Firebase Function with the real job id instead of the local preview placeholder.
 - Added responsive UI status/error states for auth, upload, job creation, and checkout readiness.
+- Added a job proof review route at `/jobs/[jobId]` with approval controls.
+- Added an `approveGeneratedImage` callable Function and gated checkout until a proof is approved.
+- Added an order status route at `/orders/[orderId]` for payment, proof, and fulfillment state.
+- Added a separate `NEXT_PUBLIC_USE_FIREBASE_FUNCTIONS_EMULATOR` switch so local callable Function testing can run without moving Auth, Firestore, and Storage to emulators.
+- Added Firebase App Hosting as the selected first public web hosting target and checked in `apps/web/apphosting.yaml`.
+- Added a checked-in `.firebaserc` with local `dev` and `default` aliases for `gen-lang-client-0675309660`.
+- Wired `createGenerationJob` through the server-side AI provider adapter and persisted non-secret generation metadata on the Firestore job.
+- Added idempotency guards for repeated job creation calls and Stripe Checkout session creation, with a new checkout attempt key after an expired session.
+- Added npm scripts for Firestore rules, Storage rules, combined rules, and rules dry-run deployment.
+- Initialized the dev Firebase Storage default bucket at `gen-lang-client-0675309660.firebasestorage.app` in `US-CENTRAL1`.
 
 ### Changed
 
 - Tightened `createGenerationJob` validation so job ids are client-provided but constrained, unique, and tied to the signed-in user's upload path.
+- Changed the first test generation path to create a durable `generating` job, call the adapter, and then publish a temporary source-photo proof so the customer approval flow can be tested before AI image output is connected.
+- Changed checkout order creation to use the job id as the deterministic order document id for the current one-order-per-job MVP path.
 - Updated the relief preview to show the MVP 5in x 7in dimensions as `127mm x 178mm` and keep the canvas framed on mobile.
 - Updated `.gitignore` so source files under `apps/web/lib` can be tracked while generated package `lib` folders remain ignored.
-- Marked the Phase 1 Firebase Auth, authenticated upload, and style/job creation checklist items as complete.
+- Updated checklist and docs to reflect proof approval, checkout gating, single-order status, current local testing, Firebase App Hosting, and the staging-first DNS plan.
 
 ### Verified
 
 - Verified web and Functions TypeScript checks.
+- Verified Firestore rules compile successfully through a Firebase deploy dry-run.
+- Verified Storage rules compile successfully through a Firebase deploy dry-run.
+- Deployed Firestore and Storage rules to the dev Firebase project.
 - Verified the Next.js production build.
+- Verified the local Next.js app route responses for `/`, `/jobs/test-job`, and `/orders/test-order`.
+- Verified the Functions emulator loads `createGenerationJob`, `approveGeneratedImage`, `createCheckoutSession`, and `stripeWebhook`.
 - Verified desktop and mobile rendering through a headless browser smoke check, including nonblank 3D canvas pixels and no mobile horizontal overflow.
+
+### Known Limitations
+
+- Public web hosting is not configured yet; testing is local at `http://localhost:3000`.
+- The full Firebase emulator suite is blocked locally until JDK 21+ is available, so the current practical test path uses the Functions emulator with configured Firebase Auth, Firestore, and Storage.
 
 ## [Unreleased] - 2026-04-26
 

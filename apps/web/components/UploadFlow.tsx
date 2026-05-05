@@ -4,15 +4,16 @@ import { getFirebaseClients } from "@/lib/firebase";
 import {
   AlertCircle,
   CheckCircle2,
-  CreditCard,
+  FileCheck2,
   ImagePlus,
   Loader2,
   LogIn,
   LogOut,
   Sparkles,
   Upload,
-  UserPlus
+  UserPlus,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import {
   createUserWithEmailAndPassword,
@@ -20,7 +21,7 @@ import {
   signInAnonymously,
   signInWithEmailAndPassword,
   signOut,
-  type User
+  type User,
 } from "firebase/auth";
 import { httpsCallable } from "firebase/functions";
 import { ref, uploadBytes } from "firebase/storage";
@@ -29,10 +30,10 @@ const styles = [
   { id: "gallery-relief", label: "Gallery Relief" },
   { id: "anime-poster", label: "Anime Poster" },
   { id: "cyberpunk", label: "Cyberpunk" },
-  { id: "storybook", label: "Storybook" }
+  { id: "storybook", label: "Storybook" },
 ];
 
-type JobState = "idle" | "ready" | "queued" | "checkout";
+type JobState = "idle" | "ready" | "queued" | "review";
 type AuthMode = "sign-in" | "create";
 
 type CreateGenerationJobRequest = {
@@ -46,21 +47,13 @@ type CreateGenerationJobResult = {
   status: string;
 };
 
-type CreateCheckoutSessionRequest = {
-  jobId: string;
-};
-
-type CreateCheckoutSessionResult = {
-  orderId: string;
-  checkoutUrl: string | null;
-};
-
 function sourceFilePath(uid: string, jobId: string, file: File) {
   const extension = file.type === "image/png" ? "png" : "jpg";
   return `uploads/${uid}/${jobId}/source.${extension}`;
 }
 
 export function UploadFlow() {
+  const router = useRouter();
   const firebaseClients = useMemo(() => getFirebaseClients(), []);
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(Boolean(firebaseClients));
@@ -75,10 +68,12 @@ export function UploadFlow() {
   const [jobState, setJobState] = useState<JobState>("idle");
   const [jobId, setJobId] = useState("");
   const [workflowError, setWorkflowError] = useState("");
-  const [statusMessage, setStatusMessage] = useState("Choose a photo to start.");
+  const [statusMessage, setStatusMessage] = useState(
+    "Choose a photo to start.",
+  );
   const selectedStyle = useMemo(
     () => styles.find((style) => style.id === styleId) ?? styles[0],
-    [styleId]
+    [styleId],
   );
 
   useEffect(() => {
@@ -107,10 +102,14 @@ export function UploadFlow() {
         await createUserWithEmailAndPassword(
           firebaseClients.auth,
           authEmail,
-          authPassword
+          authPassword,
         );
       } else {
-        await signInWithEmailAndPassword(firebaseClients.auth, authEmail, authPassword);
+        await signInWithEmailAndPassword(
+          firebaseClients.auth,
+          authEmail,
+          authPassword,
+        );
       }
     } catch (error) {
       setAuthError(error instanceof Error ? error.message : "Sign-in failed.");
@@ -131,7 +130,9 @@ export function UploadFlow() {
     try {
       await signInAnonymously(firebaseClients.auth);
     } catch (error) {
-      setAuthError(error instanceof Error ? error.message : "Guest sign-in failed.");
+      setAuthError(
+        error instanceof Error ? error.message : "Guest sign-in failed.",
+      );
     } finally {
       setAuthBusy(false);
     }
@@ -161,13 +162,17 @@ export function UploadFlow() {
     setStatusMessage("Uploading source photo...");
 
     try {
-      await uploadBytes(ref(firebaseClients.storage, sourceImagePath), selectedFile, {
-        contentType: selectedFile.type,
-        customMetadata: {
-          originalFileName: selectedFile.name,
-          selectedStyle: styleId
-        }
-      });
+      await uploadBytes(
+        ref(firebaseClients.storage, sourceImagePath),
+        selectedFile,
+        {
+          contentType: selectedFile.type,
+          customMetadata: {
+            originalFileName: selectedFile.name,
+            selectedStyle: styleId,
+          },
+        },
+      );
 
       setStatusMessage("Creating generation job...");
 
@@ -178,52 +183,21 @@ export function UploadFlow() {
       const result = await createJob({
         jobId: nextJobId,
         sourceImagePath,
-        selectedStyle: styleId
+        selectedStyle: styleId,
       });
 
       setJobId(result.data.jobId);
-      setJobState("checkout");
-      setStatusMessage("Job created. Checkout is ready for the test order.");
+      setJobState("review");
+      setStatusMessage("Proof is ready for review.");
+      router.push(`/jobs/${result.data.jobId}`);
     } catch (error) {
       setJobState(selectedFile ? "ready" : "idle");
       setWorkflowError(
-        error instanceof Error ? error.message : "Upload or job creation failed."
+        error instanceof Error
+          ? error.message
+          : "Upload or job creation failed.",
       );
       setStatusMessage("Upload did not finish.");
-    }
-  }
-
-  async function startCheckout() {
-    if (!firebaseClients) {
-      setWorkflowError("Firebase Functions are not configured for checkout yet.");
-      return;
-    }
-
-    if (!jobId) {
-      setWorkflowError("Create a generation job before checkout.");
-      return;
-    }
-
-    setWorkflowError("");
-    setStatusMessage("Opening checkout...");
-
-    try {
-      const createCheckout = httpsCallable<
-        CreateCheckoutSessionRequest,
-        CreateCheckoutSessionResult
-      >(firebaseClients.functions, "createCheckoutSession");
-      const result = await createCheckout({ jobId });
-
-      if (result.data.checkoutUrl) {
-        window.location.assign(result.data.checkoutUrl);
-        return;
-      }
-
-      setWorkflowError("Stripe did not return a checkout URL.");
-    } catch (error) {
-      setWorkflowError(error instanceof Error ? error.message : "Checkout failed.");
-    } finally {
-      setStatusMessage("Job created. Checkout is ready for the test order.");
     }
   }
 
@@ -247,7 +221,7 @@ export function UploadFlow() {
               {authLoading
                 ? "Checking session..."
                 : user
-                  ? user.email ?? "Guest session"
+                  ? (user.email ?? "Guest session")
                   : "Sign in to upload a source photo."}
             </p>
           </div>
@@ -278,7 +252,9 @@ export function UploadFlow() {
           <div className="mt-4 grid gap-3">
             <div className="grid gap-2 sm:grid-cols-2">
               <button
-                className={authMode === "sign-in" ? "primary-button" : "secondary-button"}
+                className={
+                  authMode === "sign-in" ? "primary-button" : "secondary-button"
+                }
                 type="button"
                 onClick={() => setAuthMode("sign-in")}
               >
@@ -286,7 +262,9 @@ export function UploadFlow() {
                 Sign in
               </button>
               <button
-                className={authMode === "create" ? "primary-button" : "secondary-button"}
+                className={
+                  authMode === "create" ? "primary-button" : "secondary-button"
+                }
                 type="button"
                 onClick={() => setAuthMode("create")}
               >
@@ -320,7 +298,11 @@ export function UploadFlow() {
                 onClick={submitAuth}
               >
                 {authBusy ? (
-                  <Loader2 className="animate-spin" size={16} aria-hidden="true" />
+                  <Loader2
+                    className="animate-spin"
+                    size={16}
+                    aria-hidden="true"
+                  />
                 ) : (
                   <LogIn size={16} aria-hidden="true" />
                 )}
@@ -337,7 +319,11 @@ export function UploadFlow() {
             </div>
             {authError ? (
               <p className="flex items-start gap-2 text-sm font-semibold text-[var(--coral)]">
-                <AlertCircle className="mt-0.5 shrink-0" size={16} aria-hidden="true" />
+                <AlertCircle
+                  className="mt-0.5 shrink-0"
+                  size={16}
+                  aria-hidden="true"
+                />
                 {authError}
               </p>
             ) : null}
@@ -364,7 +350,9 @@ export function UploadFlow() {
             setJobState(file ? "ready" : "idle");
             setJobId("");
             setWorkflowError("");
-            setStatusMessage(file ? "Photo ready for upload." : "Choose a photo to start.");
+            setStatusMessage(
+              file ? "Photo ready for upload." : "Choose a photo to start.",
+            );
           }}
         />
       </label>
@@ -409,7 +397,7 @@ export function UploadFlow() {
         <div className="flex items-center justify-between gap-3">
           <span className="text-[var(--muted)]">Status</span>
           <strong className="flex min-w-0 max-w-[58%] items-center justify-end gap-2 break-words text-right">
-            {jobState === "checkout" ? (
+            {jobState === "review" ? (
               <CheckCircle2 className="shrink-0" size={16} aria-hidden="true" />
             ) : null}
             <span className="min-w-0">{statusMessage}</span>
@@ -419,7 +407,11 @@ export function UploadFlow() {
 
       {workflowError ? (
         <p className="mt-4 flex items-start gap-2 rounded-lg border border-[var(--coral)]/30 bg-[var(--coral)]/10 px-3 py-2 text-sm font-semibold text-[var(--coral)]">
-          <AlertCircle className="mt-0.5 shrink-0" size={16} aria-hidden="true" />
+          <AlertCircle
+            className="mt-0.5 shrink-0"
+            size={16}
+            aria-hidden="true"
+          />
           {workflowError}
         </p>
       ) : null}
@@ -441,11 +433,11 @@ export function UploadFlow() {
         <button
           className="secondary-button"
           type="button"
-          disabled={jobState !== "checkout" || !jobId}
-          onClick={startCheckout}
+          disabled={jobState !== "review" || !jobId}
+          onClick={() => router.push(`/jobs/${jobId}`)}
         >
-          <CreditCard size={18} aria-hidden="true" />
-          Checkout
+          <FileCheck2 size={18} aria-hidden="true" />
+          Review
         </button>
       </div>
     </section>

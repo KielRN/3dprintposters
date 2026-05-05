@@ -16,7 +16,7 @@ Location: `apps/web`
 - Mobile-first responsive UI.
 - Firebase Auth for user identity, with email/password and anonymous guest sessions in the MVP UI.
 - Firebase Storage for source uploads and generated assets.
-- Firebase callable Functions for authenticated generation job creation and checkout session creation.
+- Firebase callable Functions for authenticated generation job creation, proof approval, and checkout session creation.
 - Firestore reads for job/order status.
 - Three.js/React Three Fiber for relief preview.
 - Stripe Checkout for physical poster payment.
@@ -30,6 +30,7 @@ Responsibilities:
 - Create authenticated generation jobs.
 - Validate user quota, upload ownership, and upload metadata.
 - Trigger selected AI provider generation through the internal provider adapter. Direct Vertex/Gemini is the default MVP route; Cloudflare AI Gateway can be added later behind the same adapter.
+- Record approved generated proofs and block checkout until approval exists.
 - Dispatch print file generation work.
 - Create Stripe Checkout sessions.
 - Receive Stripe webhooks.
@@ -93,14 +94,14 @@ The first implementation should isolate provider logic behind a small interface:
 1. User signs in with email/password or an anonymous guest session.
 2. Web app creates a job id and uploads a source JPG or PNG to `uploads/{uid}/{jobId}/source.{jpg|png}`.
 3. Web app calls `createGenerationJob` with `jobId`, `sourceImagePath`, and `selectedStyle`.
-4. Function verifies the signed-in user owns the upload path and creates `jobs/{jobId}` with `status: "created"`.
-5. Backend validates upload metadata and starts generation through the selected AI provider.
-6. Generated images are written to Storage and listed under the job.
-7. User selects one generated image.
-8. Backend dispatches `services/print-file-generator`.
+4. Function verifies the signed-in user owns the upload path and creates `jobs/{jobId}` with `status: "generating"`.
+5. Function calls the internal AI provider adapter, stores non-secret `aiGeneration` metadata, and marks the job `preview_ready` or `failed`.
+6. Current test path lists the source upload as a temporary proof in `generatedImages` so the approval and checkout flow can be tested before AI output is connected. Target path writes real generated images to Storage and lists those paths under the job.
+7. User approves one proof through `approveGeneratedImage`; the Function records `approvedImagePath` and sets `status: "approved"`.
+8. Backend dispatches `services/print-file-generator` with the approved image path.
 9. Print file service writes `model.stl`, color package artifacts, filament painting support files, optional preview mesh, and printability metadata.
 10. User reviews preview and starts checkout.
-11. Function creates Stripe Checkout Session and `orders/{orderId}`.
+11. Function requires an approved proof, then creates a Stripe Checkout Session and deterministic `orders/{jobId}` document for the one-order-per-job MVP path.
 12. Stripe webhook confirms payment.
 13. Function sends the locked print file manifest and shipping data to fulfillment.
 14. Fulfillment events update the order record.
@@ -123,7 +124,9 @@ The first implementation should isolate provider logic behind a small interface:
 - `selectedStyle`
 - `sourceImagePath`
 - `generatedImages`
-- `selectedImagePath`
+- `aiGeneration`
+- `approvedImagePath`
+- `approvedAt`
 - `printFileOutputPrefix`
 - `printFileArtifacts`
 - `previewMeshPath`
@@ -135,9 +138,11 @@ The first implementation should isolate provider logic behind a small interface:
 Suggested statuses:
 
 - `created`
+- `preview_ready`
 - `upload_validated`
 - `generating`
 - `awaiting_selection`
+- `approved`
 - `print_files_queued`
 - `print_files_processing`
 - `ready_for_checkout`
@@ -147,11 +152,14 @@ Suggested statuses:
 
 - `uid`
 - `jobId`
+- `approvedImagePath`
 - `status`
 - `paymentStatus`
 - `fulfillmentStatus`
 - `stripeCheckoutSessionId`
 - `stripePaymentIntentId`
+- `checkoutAttempt`
+- `checkoutIdempotencyKey`
 - `provider`
 - `providerOrderId`
 - `shippingSummary`
@@ -177,18 +185,16 @@ Suggested statuses:
 
 ## Domain and Hosting Direction
 
-Cloudflare owns DNS. Initial deployment options:
+Cloudflare owns DNS. Firebase App Hosting is the selected first public web host for the Next.js customer app in `apps/web`.
 
-1. Firebase App Hosting for the Next.js app.
-2. Cloud Run for the Next.js app behind Cloudflare.
-3. Vercel for the Next.js app, with Firebase/GCP backend services.
+Initial deployment shape:
 
-Preferred first pass: Firebase App Hosting or Cloud Run, because the backend already sits in GCP/Firebase.
+- `staging.3dprintposters.com` points to the staging Firebase App Hosting backend domain.
+- `www.3dprintposters.com` points to the production Firebase App Hosting backend domain.
+- `3dprintposters.com` redirects to `www` or uses Cloudflare flattening according to Firebase's final custom-domain guidance.
 
 ## Open Decisions
 
-- Production/staging project split.
-- Whether Firebase App Hosting or Cloud Run hosts the Next.js app.
 - Exact Mimaki 3DUJ-2207 print partner and whether it supports API order creation or requires manual quoting/file review.
 - Which first AI provider/model should generate final artwork, and whether AI should also help produce depth maps.
 - Whether filament painting should stay as support files first or eventually produce slicer-specific projects.

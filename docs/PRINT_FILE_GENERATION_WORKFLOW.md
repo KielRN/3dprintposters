@@ -18,7 +18,7 @@ Firebase Functions should orchestrate the job, authorize the user, write Firesto
 
 - `jobId`
 - `uid`
-- `selectedImagePath`
+- `approvedImagePath`, passed to the service contract as the selected image path for artifact generation.
 - `outputPrefix`, normally `print-files/{uid}/{jobId}`
 - Requested output modes:
   - `full_color_relief`
@@ -62,7 +62,7 @@ Filament painting artifacts:
 
 ## Proposed Processing Steps
 
-1. Fetch selected generated image from Cloud Storage.
+1. Fetch the approved generated image from Cloud Storage. During the current test flow, this may be the source upload used as a temporary proof.
 2. Validate size, MIME type, dimensions, and safety metadata.
 3. Normalize image orientation and resolution.
 4. Crop or pad to a 5:7 composition.
@@ -108,8 +108,9 @@ Future versions may add slicer-specific project files or generated G-code, but t
 
 ## Firestore Shape
 
-`jobs/{jobId}` should eventually store an artifact manifest rather than just one STL path:
+`jobs/{jobId}` should eventually store an approved proof path and an artifact manifest rather than just one STL path:
 
+- `approvedImagePath`
 - `printFileStatus`
 - `printFileOutputPrefix`
 - `printFileArtifacts.modelStl`

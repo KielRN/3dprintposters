@@ -1,6 +1,8 @@
 {
   "projects": {
-    "default": "gen-lang-client-0675309660"
+    "default": "gen-lang-client-0675309660",
+    "dev": "gen-lang-client-0675309660",
+    "staging": "replace-with-dedicated-staging-project-id",
+    "production": "replace-with-dedicated-production-project-id"
   }
 }
-

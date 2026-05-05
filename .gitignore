@@ -12,6 +12,7 @@ coverage/
 *.tsbuildinfo
 .firebase/
 .vercel/
+.codex-run/
 !apps/web/lib/
 !apps/web/lib/config.ts
 !apps/web/lib/firebase.ts

@@ -19,15 +19,31 @@ Browser Use dashboard automation currently needs a newer Node runtime than the o
 
 ## Firebase
 
-Use the shared project carefully:
+Local development uses the existing shared Firebase/GCP project through the
+checked-in `.firebaserc` aliases:
 
 ```powershell
-firebase use gen-lang-client-0675309660
+firebase use dev
 ```
 
-Recommended before production:
+Project strategy:
 
-- Create staging and production project aliases.
+- `dev` and `default`: `gen-lang-client-0675309660` for local development and current MVP testing.
+- `staging`: create a dedicated Firebase/GCP project before the first public staging deploy.
+- `production`: create a separate dedicated Firebase/GCP project before launch.
+
+Dev project Firebase Storage:
+
+- Default bucket: `gen-lang-client-0675309660.firebasestorage.app`
+- Location: `US-CENTRAL1`
+- Storage class: `STANDARD`
+
+Do not use the shared `gen-lang-client-0675309660` project for public staging or production traffic.
+
+Recommended before public staging:
+
+- Create the dedicated staging and production Firebase/GCP projects.
+- Add `staging` and `production` aliases to `.firebaserc`.
 - Enable Firestore.
 - Enable Firebase Auth.
 - Enable Email/Password sign-in for named test accounts.
@@ -49,7 +65,35 @@ The customer app now initializes Firebase directly in the browser. Add these pub
 
 For local emulator testing, set `NEXT_PUBLIC_USE_FIREBASE_EMULATORS=true` and run Firebase emulators for Auth, Functions, Firestore, and Storage. Leave it `false` when using the shared Firebase project.
 
-Source uploads are written by the browser to `uploads/{uid}/{jobId}/source.{jpg|png}`. The `createGenerationJob` callable Function now requires the same `jobId` and source path, then verifies that they belong to the authenticated user before creating `jobs/{jobId}`.
+For the current customer-flow test, a function-only local path is also supported:
+
+```powershell
+npm --workspace apps/functions run build
+firebase emulators:start --only functions --project gen-lang-client-0675309660
+```
+
+Set `NEXT_PUBLIC_USE_FIREBASE_FUNCTIONS_EMULATOR=true` for the web app when using that path. This keeps Auth, Firestore, and Storage pointed at the configured Firebase project while callable Functions run locally. The full emulator suite is currently blocked on this machine until JDK 21+ is installed.
+
+Source uploads are written by the browser to `uploads/{uid}/{jobId}/source.{jpg|png}`. The `createGenerationJob` callable Function now requires the same `jobId` and source path, verifies that they belong to the authenticated user, creates `jobs/{jobId}` with `status: "generating"`, calls the server-side AI provider adapter, and then publishes a temporary source-photo proof while the adapter remains stubbed. The `approveGeneratedImage` callable records `approvedImagePath`, and `createCheckoutSession` requires that approval before creating the deterministic `orders/{jobId}` checkout record.
+
+## Firebase Rules Deployment
+
+`firebase.json` deploys Firestore rules from `infra/firebase/firestore.rules`, Firestore indexes from `infra/firebase/firestore.indexes.json`, and Storage rules from `infra/firebase/storage.rules`.
+
+Use the root scripts for dev rules deployment:
+
+```powershell
+npm run firebase:deploy:firestore-rules:dry-run
+npm run firebase:deploy:firestore-rules:dev
+npm run firebase:deploy:storage-rules:dry-run
+npm run firebase:deploy:storage-rules:dev
+npm run firebase:deploy:rules:dry-run
+npm run firebase:deploy:rules:dev
+```
+
+The Firestore and Storage rules dry-run successfully for the `dev` project, and both rule sets have been deployed to `dev`.
+
+The `:dev` scripts target the `.firebaserc` `dev` alias. For staging or production, create dedicated Firebase projects and aliases first, then run the equivalent `firebase deploy --only firestore:rules,storage --project staging` or `--project production` command intentionally.
 
 ## AI Provider Keys
 
@@ -73,11 +117,35 @@ Verification status on 2026-04-26:
 
 ## Web Hosting
 
-Recommended first deployment target:
+Chosen first deployment target: Firebase App Hosting for the Next.js customer app in `apps/web`.
 
-- Firebase App Hosting or Cloud Run for `apps/web`.
+App Hosting setup plan:
 
-Cloudflare should point `3dprintposters.com` to the selected hosting target.
+- Create a dedicated staging Firebase/GCP project, then create a staging App Hosting backend.
+- Use `apps/web` as the App Hosting app root directory.
+- Use `us-central1` unless a closer customer or fulfillment reason appears.
+- Suggested staging backend name: `3dprintposters-web-staging`.
+- Suggested production backend name: `3dprintposters-web-production`.
+- Keep automatic rollouts enabled for staging and disabled or manually controlled for production until launch.
+- Keep `apps/web/apphosting.yaml` checked in for Cloud Run runtime sizing and non-secret environment defaults.
+
+Official setup references:
+
+- [Firebase App Hosting monorepo setup](https://firebase.google.com/docs/app-hosting/monorepos): choose the app root directory inside the repository, here `apps/web`.
+- [Firebase App Hosting configuration](https://firebase.google.com/docs/app-hosting/configure): `apphosting.yaml` belongs in the app root and can define runtime settings and non-secret environment defaults.
+
+App Hosting environment values to set on each backend:
+
+- Public Firebase web config values from the matching staging or production Firebase project.
+- `NEXT_PUBLIC_USE_FIREBASE_EMULATORS=false`.
+- `NEXT_PUBLIC_USE_FIREBASE_FUNCTIONS_EMULATOR=false`.
+- Server-only values and secrets through Firebase App Hosting environment settings or Secret Manager.
+
+Cloudflare DNS plan:
+
+- First public test: point `staging.3dprintposters.com` to the staging App Hosting backend domain generated by Firebase.
+- Launch: point `www.3dprintposters.com` to the production App Hosting backend domain generated by Firebase.
+- Apex `3dprintposters.com`: redirect to `www` or use Cloudflare flattening according to the final App Hosting custom-domain instructions.
 
 ## Cloud Run 3D Conversion Service
 
