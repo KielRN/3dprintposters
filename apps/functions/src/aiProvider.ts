@@ -1,3 +1,5 @@
+import { getStorage } from "firebase-admin/storage";
+
 export type PosterGenerationInput = {
   jobId: string;
   uid: string;
@@ -7,20 +9,60 @@ export type PosterGenerationInput = {
 
 export type PosterGenerationOutput = {
   provider: "vertex-gemini-direct" | "cloudflare-ai-gateway";
-  status: "stubbed";
+  status: "succeeded" | "stubbed";
   generatedImagePaths: string[];
   metadata: {
     model: string;
     route: string;
     notes: string[];
+    outputMimeType?: string;
+    promptText?: string;
+    responseText?: string;
+    modelVersion?: string;
   };
 };
 
 export type PosterAiProvider = {
-  generatePosterConcept(input: PosterGenerationInput): Promise<PosterGenerationOutput>;
+  generatePosterConcept(
+    input: PosterGenerationInput,
+  ): Promise<PosterGenerationOutput>;
 };
 
-const defaultVertexModel = "gemini-2.5-flash";
+const defaultVertexImageModel = "gemini-2.5-flash-image";
+const defaultSourceImageByteLimit = 8 * 1024 * 1024;
+const vertexExpressBaseUrl = "https://aiplatform.googleapis.com/v1";
+
+type VertexGenerateContentResponse = {
+  candidates?: Array<{
+    content?: {
+      parts?: VertexPart[];
+    };
+    finishReason?: string;
+  }>;
+  modelVersion?: string;
+  promptFeedback?: {
+    blockReason?: string;
+  };
+};
+
+type VertexPart = {
+  text?: string;
+  inlineData?: VertexInlineData;
+  inline_data?: {
+    mime_type?: string;
+    data?: string;
+  };
+};
+
+type VertexInlineData = {
+  mimeType?: string;
+  data?: string;
+};
+
+type GeneratedVertexImage = {
+  mimeType?: string;
+  data: string;
+};
 
 export function createPosterAiProvider(): PosterAiProvider {
   const aiRoute = process.env.AI_PROVIDER_ROUTE ?? "vertex-gemini-direct";
@@ -33,19 +75,84 @@ export function createPosterAiProvider(): PosterAiProvider {
 }
 
 class VertexGeminiPosterAiProvider implements PosterAiProvider {
-  async generatePosterConcept(input: PosterGenerationInput): Promise<PosterGenerationOutput> {
-    const model = process.env.VERTEX_MODEL ?? defaultVertexModel;
+  async generatePosterConcept(
+    input: PosterGenerationInput,
+  ): Promise<PosterGenerationOutput> {
+    const apiKey = process.env.VERTEX_API_KEY;
+    if (!apiKey) {
+      throw new Error(
+        "VERTEX_API_KEY is required for the direct Vertex/Gemini provider.",
+      );
+    }
+
+    const model = process.env.VERTEX_IMAGE_MODEL ?? defaultVertexImageModel;
+    const promptText = buildPosterPrompt(input);
+    const bucket = getConfiguredStorageBucket();
+    const sourceFile = bucket.file(input.sourceImagePath);
+    const [downloadResult, metadataResult] = await Promise.all([
+      sourceFile.download(),
+      sourceFile.getMetadata(),
+    ]);
+    const sourceImageBuffer = downloadResult[0];
+    const sourceMimeType = resolveImageMimeType(
+      input.sourceImagePath,
+      metadataResult[0].contentType,
+    );
+
+    const sourceImageByteLimit = resolvePositiveIntegerEnv(
+      "VERTEX_MAX_SOURCE_IMAGE_BYTES",
+      defaultSourceImageByteLimit,
+    );
+    if (sourceImageBuffer.byteLength > sourceImageByteLimit) {
+      throw new Error(
+        `Source image is ${sourceImageBuffer.byteLength} bytes, which exceeds the configured Vertex inline image limit of ${sourceImageByteLimit} bytes.`,
+      );
+    }
+
+    const vertexResponse = await generateVertexImage({
+      apiKey,
+      model,
+      promptText,
+      sourceImageBuffer,
+      sourceMimeType,
+    });
+    const generatedImage = extractGeneratedImage(vertexResponse);
+    const generatedImageBuffer = Buffer.from(generatedImage.data, "base64");
+    const outputMimeType = generatedImage.mimeType ?? "image/png";
+    const outputStoragePath = `generated/${input.uid}/${input.jobId}/preview.${extensionForMimeType(outputMimeType)}`;
+
+    await bucket.file(outputStoragePath).save(generatedImageBuffer, {
+      resumable: false,
+      metadata: {
+        contentType: outputMimeType,
+        cacheControl: "private, max-age=3600",
+        metadata: {
+          jobId: input.jobId,
+          uid: input.uid,
+          provider: "vertex-gemini-direct",
+          model,
+        },
+      },
+    });
+
+    const responseText = extractResponseText(vertexResponse);
 
     return {
       provider: "vertex-gemini-direct",
-      status: "stubbed",
-      generatedImagePaths: [`generated/${input.uid}/${input.jobId}/preview.png`],
+      status: "succeeded",
+      generatedImagePaths: [outputStoragePath],
       metadata: {
         model,
-        route: "direct-gcp-vertex-gemini",
+        route: "direct-gcp-vertex-gemini-express",
+        outputMimeType,
+        promptText,
+        ...(responseText ? { responseText } : {}),
+        ...(vertexResponse.modelVersion
+          ? { modelVersion: vertexResponse.modelVersion }
+          : {}),
         notes: [
-          "MVP route uses direct GCP Vertex/Gemini integration for speed.",
-          "Real model calls, Storage writes, and safety checks are not implemented yet.",
+          "Generated through the direct Vertex/Gemini provider route.",
+          "The generated proof image was stored in the job-scoped Firebase Storage path.",
         ],
       },
     };
@@ -53,13 +160,18 @@ class VertexGeminiPosterAiProvider implements PosterAiProvider {
 }
 
 class CloudflareGatewayPosterAiProvider implements PosterAiProvider {
-  async generatePosterConcept(input: PosterGenerationInput): Promise<PosterGenerationOutput> {
-    const model = process.env.CLOUDFLARE_AI_GATEWAY_MODEL ?? defaultVertexModel;
+  async generatePosterConcept(
+    input: PosterGenerationInput,
+  ): Promise<PosterGenerationOutput> {
+    const model =
+      process.env.CLOUDFLARE_AI_GATEWAY_MODEL ?? defaultVertexImageModel;
 
     return {
       provider: "cloudflare-ai-gateway",
       status: "stubbed",
-      generatedImagePaths: [`generated/${input.uid}/${input.jobId}/preview.png`],
+      generatedImagePaths: [
+        `generated/${input.uid}/${input.jobId}/preview.png`,
+      ],
       metadata: {
         model,
         route: "cloudflare-ai-gateway",
@@ -70,4 +182,231 @@ class CloudflareGatewayPosterAiProvider implements PosterAiProvider {
       },
     };
   }
+}
+
+function buildPosterPrompt(input: PosterGenerationInput): string {
+  const selectedStyle = input.selectedStyle.trim().slice(0, 120);
+
+  return [
+    "Create one portrait proof image for a custom 5 inch by 7 inch 3D print poster relief.",
+    "Use the uploaded image as the main composition reference. Preserve the primary subject, crop, and recognizable visual intent while translating it into a polished poster-ready design.",
+    `Selected style: ${selectedStyle}.`,
+    "Make the design clear enough to guide a later relief/heightmap workflow: strong foreground, midground, and background separation; clean silhouettes; readable depth layers; and no tiny texture noise.",
+    "Do not add captions, watermarks, logos, UI, mockup frames, or extra border text. Output only the poster proof image.",
+  ].join("\n");
+}
+
+function getConfiguredStorageBucket() {
+  const bucketName = process.env.FIREBASE_STORAGE_BUCKET;
+  return bucketName ? getStorage().bucket(bucketName) : getStorage().bucket();
+}
+
+function resolveImageMimeType(
+  sourceImagePath: string,
+  metadataContentType: unknown,
+): string {
+  if (
+    metadataContentType === "image/jpeg" ||
+    metadataContentType === "image/png"
+  ) {
+    return metadataContentType;
+  }
+
+  if (/\.png$/i.test(sourceImagePath)) {
+    return "image/png";
+  }
+
+  return "image/jpeg";
+}
+
+function resolvePositiveIntegerEnv(name: string, fallback: number): number {
+  const value = process.env[name];
+  if (!value) {
+    return fallback;
+  }
+
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function normalizeVertexModelResource(model: string): string {
+  const trimmedModel = model.trim();
+  if (trimmedModel.startsWith("publishers/")) {
+    return trimmedModel;
+  }
+
+  return `publishers/google/models/${trimmedModel}`;
+}
+
+function buildVertexGenerateContentEndpoint(
+  model: string,
+  apiKey: string,
+): string {
+  const baseUrl = (
+    process.env.VERTEX_EXPRESS_BASE_URL ?? vertexExpressBaseUrl
+  ).replace(/\/$/, "");
+  const modelResource = normalizeVertexModelResource(model)
+    .split("/")
+    .map(encodeURIComponent)
+    .join("/");
+  const params = new URLSearchParams({ key: apiKey });
+
+  return `${baseUrl}/${modelResource}:generateContent?${params.toString()}`;
+}
+
+async function generateVertexImage(input: {
+  apiKey: string;
+  model: string;
+  promptText: string;
+  sourceImageBuffer: Buffer;
+  sourceMimeType: string;
+}): Promise<VertexGenerateContentResponse> {
+  const generationConfig: Record<string, unknown> = {
+    candidateCount: 1,
+    responseModalities: ["TEXT", "IMAGE"],
+  };
+  const aspectRatio = process.env.VERTEX_IMAGE_ASPECT_RATIO;
+  if (aspectRatio) {
+    generationConfig.imageConfig = {
+      aspectRatio,
+    };
+  }
+
+  const response = await fetch(
+    buildVertexGenerateContentEndpoint(input.model, input.apiKey),
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: "USER",
+            parts: [
+              {
+                text: input.promptText,
+              },
+              {
+                inlineData: {
+                  mimeType: input.sourceMimeType,
+                  data: input.sourceImageBuffer.toString("base64"),
+                },
+              },
+            ],
+          },
+        ],
+        generationConfig,
+        safetySettings: [
+          {
+            method: "PROBABILITY",
+            category: "HARM_CATEGORY_HATE_SPEECH",
+            threshold: "BLOCK_MEDIUM_AND_ABOVE",
+          },
+          {
+            method: "PROBABILITY",
+            category: "HARM_CATEGORY_HARASSMENT",
+            threshold: "BLOCK_MEDIUM_AND_ABOVE",
+          },
+          {
+            method: "PROBABILITY",
+            category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+            threshold: "BLOCK_MEDIUM_AND_ABOVE",
+          },
+          {
+            method: "PROBABILITY",
+            category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+            threshold: "BLOCK_MEDIUM_AND_ABOVE",
+          },
+        ],
+      }),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `Vertex/Gemini request failed with HTTP ${response.status}: ${await readErrorBody(response)}`,
+    );
+  }
+
+  return (await response.json()) as VertexGenerateContentResponse;
+}
+
+async function readErrorBody(response: Response): Promise<string> {
+  try {
+    const body = await response.text();
+    return body.slice(0, 1000);
+  } catch {
+    return "Unable to read error body.";
+  }
+}
+
+function extractGeneratedImage(
+  response: VertexGenerateContentResponse,
+): GeneratedVertexImage {
+  if (response.promptFeedback?.blockReason) {
+    throw new Error(
+      `Vertex/Gemini blocked the prompt: ${response.promptFeedback.blockReason}.`,
+    );
+  }
+
+  for (const part of extractResponseParts(response)) {
+    const inlineData = normalizeInlineData(part);
+    if (inlineData?.data) {
+      return {
+        mimeType: inlineData.mimeType,
+        data: inlineData.data,
+      };
+    }
+  }
+
+  const finishReason = response.candidates?.[0]?.finishReason;
+  throw new Error(
+    `Vertex/Gemini returned no generated image.${finishReason ? ` Finish reason: ${finishReason}.` : ""}`,
+  );
+}
+
+function extractResponseText(response: VertexGenerateContentResponse): string {
+  return extractResponseParts(response)
+    .map((part) => part.text?.trim())
+    .filter((text): text is string => Boolean(text))
+    .join("\n\n")
+    .slice(0, 4000);
+}
+
+function extractResponseParts(
+  response: VertexGenerateContentResponse,
+): VertexPart[] {
+  return (
+    response.candidates?.flatMap(
+      (candidate) => candidate.content?.parts ?? [],
+    ) ?? []
+  );
+}
+
+function normalizeInlineData(part: VertexPart): VertexInlineData | undefined {
+  if (part.inlineData) {
+    return part.inlineData;
+  }
+
+  if (part.inline_data) {
+    return {
+      mimeType: part.inline_data.mime_type,
+      data: part.inline_data.data,
+    };
+  }
+
+  return undefined;
+}
+
+function extensionForMimeType(mimeType: string): string {
+  if (mimeType === "image/jpeg") {
+    return "jpg";
+  }
+
+  if (mimeType === "image/webp") {
+    return "webp";
+  }
+
+  return "png";
 }

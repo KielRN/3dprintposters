@@ -10,6 +10,7 @@ import { createPosterAiProvider } from "./aiProvider.js";
 initializeApp();
 
 const db = getFirestore();
+const vertexApiKey = defineSecret("VERTEX_API_KEY");
 const stripeSecretKey = defineSecret("STRIPE_SECRET_KEY");
 const stripeWebhookSecret = defineSecret("STRIPE_WEBHOOK_SECRET");
 const jobIdSchema = z.string().regex(/^[a-zA-Z0-9_-]{8,80}$/);
@@ -48,141 +49,148 @@ function buildGenerationError(error: unknown) {
   };
 }
 
-export const createGenerationJob = onCall(async (request) => {
-  if (!request.auth) {
-    throw new HttpsError(
-      "unauthenticated",
-      "Sign in before creating a poster.",
-    );
-  }
-
-  const parsed = createJobSchema.safeParse(request.data);
-  if (!parsed.success) {
-    throw new HttpsError(
-      "invalid-argument",
-      "jobId, sourceImagePath, and selectedStyle are required.",
-    );
-  }
-
-  const expectedUploadPrefix = `uploads/${request.auth.uid}/${parsed.data.jobId}/`;
-  const allowedImagePath = /\.(jpe?g|png)$/i.test(parsed.data.sourceImagePath);
-  if (
-    !parsed.data.sourceImagePath.startsWith(expectedUploadPrefix) ||
-    !allowedImagePath
-  ) {
-    throw new HttpsError(
-      "permission-denied",
-      "Source image must be an uploaded JPG or PNG under the signed-in user path.",
-    );
-  }
-
-  const jobRef = db.collection("jobs").doc(parsed.data.jobId);
-  const existingJob = await jobRef.get();
-  if (existingJob.exists) {
-    const existingJobData = existingJob.data();
-    const isSameUpload =
-      existingJobData?.uid === request.auth.uid &&
-      existingJobData.sourceImagePath === parsed.data.sourceImagePath &&
-      existingJobData.selectedStyle === parsed.data.selectedStyle;
-
-    if (isSameUpload) {
-      return {
-        jobId: jobRef.id,
-        status:
-          typeof existingJobData.status === "string"
-            ? existingJobData.status
-            : "unknown",
-        idempotent: true,
-      };
+export const createGenerationJob = onCall(
+  {
+    secrets: [vertexApiKey],
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError(
+        "unauthenticated",
+        "Sign in before creating a poster.",
+      );
     }
 
-    throw new HttpsError("already-exists", "A different job uses this id.");
-  }
+    const parsed = createJobSchema.safeParse(request.data);
+    if (!parsed.success) {
+      throw new HttpsError(
+        "invalid-argument",
+        "jobId, sourceImagePath, and selectedStyle are required.",
+      );
+    }
 
-  await jobRef.set({
-    uid: request.auth.uid,
-    status: "generating",
-    sourceImagePath: parsed.data.sourceImagePath,
-    selectedStyle: parsed.data.selectedStyle,
-    generatedImages: [],
-    approvedImagePath: null,
-    aiGeneration: {
-      provider: null,
-      status: "queued",
-      startedAt: FieldValue.serverTimestamp(),
-    },
-    createdAt: FieldValue.serverTimestamp(),
-    updatedAt: FieldValue.serverTimestamp(),
-  });
+    const expectedUploadPrefix = `uploads/${request.auth.uid}/${parsed.data.jobId}/`;
+    const allowedImagePath = /\.(jpe?g|png)$/i.test(
+      parsed.data.sourceImagePath,
+    );
+    if (
+      !parsed.data.sourceImagePath.startsWith(expectedUploadPrefix) ||
+      !allowedImagePath
+    ) {
+      throw new HttpsError(
+        "permission-denied",
+        "Source image must be an uploaded JPG or PNG under the signed-in user path.",
+      );
+    }
 
-  try {
-    const aiProvider = createPosterAiProvider();
-    const generation = await aiProvider.generatePosterConcept({
-      jobId: jobRef.id,
+    const jobRef = db.collection("jobs").doc(parsed.data.jobId);
+    const existingJob = await jobRef.get();
+    if (existingJob.exists) {
+      const existingJobData = existingJob.data();
+      const isSameUpload =
+        existingJobData?.uid === request.auth.uid &&
+        existingJobData.sourceImagePath === parsed.data.sourceImagePath &&
+        existingJobData.selectedStyle === parsed.data.selectedStyle;
+
+      if (isSameUpload) {
+        return {
+          jobId: jobRef.id,
+          status:
+            typeof existingJobData.status === "string"
+              ? existingJobData.status
+              : "unknown",
+          idempotent: true,
+        };
+      }
+
+      throw new HttpsError("already-exists", "A different job uses this id.");
+    }
+
+    await jobRef.set({
       uid: request.auth.uid,
+      status: "generating",
       sourceImagePath: parsed.data.sourceImagePath,
       selectedStyle: parsed.data.selectedStyle,
+      generatedImages: [],
+      approvedImagePath: null,
+      aiGeneration: {
+        provider: null,
+        status: "queued",
+        startedAt: FieldValue.serverTimestamp(),
+      },
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
     });
-    const proofStoragePath =
-      generation.status === "stubbed"
-        ? parsed.data.sourceImagePath
-        : generation.generatedImagePaths[0];
 
-    if (!proofStoragePath) {
-      throw new Error("AI provider returned no generated proof image path.");
-    }
+    try {
+      const aiProvider = createPosterAiProvider();
+      const generation = await aiProvider.generatePosterConcept({
+        jobId: jobRef.id,
+        uid: request.auth.uid,
+        sourceImagePath: parsed.data.sourceImagePath,
+        selectedStyle: parsed.data.selectedStyle,
+      });
+      const proofStoragePath =
+        generation.status === "stubbed"
+          ? parsed.data.sourceImagePath
+          : generation.generatedImagePaths[0];
 
-    await jobRef.set(
-      {
-        status: "preview_ready",
-        generatedImages: [
-          {
-            id: "preview-1",
-            label:
-              generation.status === "stubbed"
-                ? "Source photo proof"
-                : "Generated poster proof",
-            storagePath: proofStoragePath,
-            status: "ready",
-            isPlaceholder: generation.status === "stubbed",
+      if (!proofStoragePath) {
+        throw new Error("AI provider returned no generated proof image path.");
+      }
+
+      await jobRef.set(
+        {
+          status: "preview_ready",
+          generatedImages: [
+            {
+              id: "preview-1",
+              label:
+                generation.status === "stubbed"
+                  ? "Source photo proof"
+                  : "Generated poster proof",
+              storagePath: proofStoragePath,
+              status: "ready",
+              isPlaceholder: generation.status === "stubbed",
+            },
+          ],
+          aiGeneration: {
+            provider: generation.provider,
+            status: generation.status,
+            generatedImagePaths: generation.generatedImagePaths,
+            metadata: generation.metadata,
+            completedAt: FieldValue.serverTimestamp(),
           },
-        ],
-        aiGeneration: {
-          provider: generation.provider,
-          status: generation.status,
-          generatedImagePaths: generation.generatedImagePaths,
-          metadata: generation.metadata,
-          completedAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
         },
-        updatedAt: FieldValue.serverTimestamp(),
-      },
-      { merge: true },
-    );
+        { merge: true },
+      );
 
-    return {
-      jobId: jobRef.id,
-      status: "preview_ready",
-    };
-  } catch (error) {
-    await jobRef.set(
-      {
-        status: "failed",
-        error: buildGenerationError(error),
-        aiGeneration: {
+      return {
+        jobId: jobRef.id,
+        status: "preview_ready",
+      };
+    } catch (error) {
+      await jobRef.set(
+        {
           status: "failed",
-          failedAt: FieldValue.serverTimestamp(),
+          error: buildGenerationError(error),
+          aiGeneration: {
+            status: "failed",
+            failedAt: FieldValue.serverTimestamp(),
+          },
+          updatedAt: FieldValue.serverTimestamp(),
         },
-        updatedAt: FieldValue.serverTimestamp(),
-      },
-      { merge: true },
-    );
+        { merge: true },
+      );
 
-    throw new HttpsError(
-      "internal",
-      "Poster generation failed before a proof was ready.",
-    );
-  }
-});
+      throw new HttpsError(
+        "internal",
+        "Poster generation failed before a proof was ready.",
+      );
+    }
+  },
+);
 
 export const approveGeneratedImage = onCall(async (request) => {
   if (!request.auth) {

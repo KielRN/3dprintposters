@@ -23,14 +23,21 @@ npm run dev
 
 Then open `http://localhost:3000`.
 
-For the current customer-flow test, also run the local Functions emulator so the new callable Functions are available:
+For function-only local testing, run the callable Functions emulator while Auth, Firestore, and Storage continue to use the configured Firebase project:
 
 ```powershell
-npm --workspace apps/functions run build
-firebase emulators:start --only functions --project gen-lang-client-0675309660
+npm run firebase:emulators:functions
 ```
 
-Set `NEXT_PUBLIC_USE_FIREBASE_FUNCTIONS_EMULATOR=true` for the web app when using that function-only local path. Auth, Firestore, and Storage can still point at the configured Firebase project. The full Firebase emulator suite currently needs JDK 21+ locally.
+Set `NEXT_PUBLIC_USE_FIREBASE_FUNCTIONS_EMULATOR=true` for the web app when using that path.
+
+For the full local Firebase suite, install JDK 21+, set `NEXT_PUBLIC_USE_FIREBASE_EMULATORS=true` in `apps/web/.env.local`, put server-only values such as `VERTEX_API_KEY` in `apps/functions/.env`, then run:
+
+```powershell
+npm run firebase:emulators:full
+```
+
+Use `npm run firebase:emulators:full:export` when you want emulator Auth, Firestore, and Storage data persisted under `.codex-run/firebase-emulators`.
 
 Deploy Firebase security rules to the dev project with:
 
@@ -53,6 +60,6 @@ Do not commit Stripe keys, Firebase service account JSON files, fulfillment prov
 
 ## Current Status
 
-This repository is still an MVP-in-progress, not a finished product. The web app now has the first Firebase-backed path for sign-in, source-photo upload, style selection, authenticated job creation through the server-side AI adapter, source-photo proof approval, checkout handoff, and single-order status. Real AI-generated proofs, real print artifact preview, account-level order history, fulfillment automation, and production deployment are still pending.
+This repository is still an MVP-in-progress, not a finished product. The web app now has the first Firebase-backed path for sign-in, source-photo upload, style selection, authenticated job creation through the server-side Vertex/Gemini AI adapter, generated proof approval, checkout handoff, and single-order status. Real print artifact preview, account-level order history, fulfillment automation, and production deployment are still pending.
 
 Start with [CHECKLIST.md](./CHECKLIST.md), [CHANGELOG.md](./CHANGELOG.md), and [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md).

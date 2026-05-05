@@ -60,9 +60,9 @@ Note: use `STL` for the 3D model format. If any prompt or ticket says `SLT`, tre
 - Do not run print file generation directly in the browser client. Keep geometry generation, texture packaging, and filament painting logic server-side so API keys, model logic, and fulfillment details remain private.
 - The current web MVP creates an authenticated Firebase session, uploads a source JPG or PNG to `uploads/{uid}/{jobId}/source.{jpg|png}`, and then calls `createGenerationJob` with the generated job id, upload path, and selected style.
 - `createGenerationJob` requires the supplied upload path to match the signed-in user's `uploads/{uid}/{jobId}` prefix before it creates `jobs/{jobId}`.
-- `createGenerationJob` now creates a durable `generating` job, calls the internal AI provider adapter server-side, stores non-secret `aiGeneration` metadata, and then marks the job `preview_ready` or `failed`.
+- `createGenerationJob` now creates a durable `generating` job, calls the internal AI provider adapter server-side, stores non-secret `aiGeneration` metadata, stores the generated proof in Firebase Storage, and then marks the job `preview_ready` or `failed`.
 - Repeated `createGenerationJob` calls for the same signed-in user, upload path, and style return the existing job status instead of creating a duplicate.
-- The current adapter result is still stubbed, so the test flow stores the source upload as a temporary proof in `generatedImages`, then uses `approveGeneratedImage` to set `approvedImagePath`.
+- The direct Vertex/Gemini adapter now reads the uploaded source image, sends it to the Vertex AI express-mode `generateContent` endpoint with text and image response modalities, stores the returned proof under `generated/{uid}/{jobId}/preview.{png|jpg|webp}`, and then uses `approveGeneratedImage` to set `approvedImagePath`.
 - `createCheckoutSession` should reject jobs that do not have `status: "approved"` and an `approvedImagePath`.
 - For the current one-order-per-job MVP path, `createCheckoutSession` uses `orders/{jobId}` as the deterministic order document and sends a Stripe idempotency key based on user id, job id, and approved proof path.
 - If print file generation needs Python, native libraries, or longer CPU time, use Cloud Run for that specific service instead of Cloud Functions.
@@ -118,6 +118,7 @@ Collections to consider:
 - Google/Gemini/Vertex credentials were verified on 2026-04-26 with secret values redacted from output.
 - `GOOGLE_API_KEY` and `GEMINI_API_KEY` are present in the root `.env` and are currently the same key. Both completed a live Gemini Developer API `gemini-2.5-flash` request.
 - `VERTEX_API_KEY` is present in the root `.env`, is separate from the Google/Gemini key, and completed a live Vertex AI Gemini API `gemini-2.5-flash` request through `https://aiplatform.googleapis.com`.
+- `VERTEX_IMAGE_MODEL` defaults to `gemini-2.5-flash-image` for generated proof images. `VERTEX_IMAGE_ASPECT_RATIO` is optional and should be left blank unless a supported Vertex/Gemini image aspect ratio is intentionally chosen.
 - `VERTEX_PROJECT`, `VERTEX_LOCATION`, and `VERTEX_GCS_BUCKET` are present locally.
 - `gcloud` was repaired on 2026-04-26 using the existing user install at `C:\Users\Eliud\AppData\Local\Google\Cloud SDK\google-cloud-sdk\bin\gcloud.cmd`.
 - Application Default Credentials were created on 2026-04-26 for local Google client libraries, with quota project `gen-lang-client-0675309660`.
@@ -138,14 +139,23 @@ The checked-in `.firebaserc` maps `dev` and `default` to `gen-lang-client-067530
 
 For the web app, populate `apps/web/.env.local` with the public Firebase web config values from `apps/web/.env.local.example`. Set `NEXT_PUBLIC_USE_FIREBASE_EMULATORS=true` only when the local Firebase emulator suite is running.
 
-For the current local customer-flow test, the function-only emulator path can be used while Auth, Firestore, and Storage stay pointed at the configured Firebase project:
+For local Functions emulator runs, populate `apps/functions/.env` from `apps/functions/.env.example` with server-only values such as `VERTEX_API_KEY`.
+
+For the function-only customer-flow test, keep Auth, Firestore, and Storage pointed at the configured Firebase project:
 
 ```powershell
-npm --workspace apps/functions run build
-firebase emulators:start --only functions --project gen-lang-client-0675309660
+npm run firebase:emulators:functions
 ```
 
-Then run the web app with `NEXT_PUBLIC_USE_FIREBASE_FUNCTIONS_EMULATOR=true`. The full emulator suite currently requires JDK 21+ locally.
+Then run the web app with `NEXT_PUBLIC_USE_FIREBASE_FUNCTIONS_EMULATOR=true`.
+
+For the full local emulator suite, install JDK 21+, set `NEXT_PUBLIC_USE_FIREBASE_EMULATORS=true`, and run:
+
+```powershell
+npm run firebase:emulators:full
+```
+
+Use `npm run firebase:emulators:full:export` when emulator data should be imported/exported under `.codex-run/firebase-emulators`. On this machine, the full suite preflight currently reports Java 17 and blocks until JDK 21+ is installed.
 
 For the first public staging deploy, create a Firebase App Hosting backend with app root `apps/web`, region `us-central1`, and backend name `3dprintposters-web-staging`. Keep `apps/web/apphosting.yaml` as the checked-in non-secret runtime baseline.
 
@@ -190,7 +200,7 @@ firebase deploy --only functions
 - Which AI model creates the printable source image, segmentation, or heightmap.
 - Whether and when Cloudflare AI Gateway should be added after direct Vertex/Gemini MVP integration.
 - Whether users can edit depth/relief settings before checkout.
-- Whether the temporary source-photo proof should remain available as a fallback once AI-generated proofs are connected.
+- Whether a source-photo proof fallback is needed for provider outages or if generation failures should stay hard failures.
 - Whether native iOS/Android packaging is needed after the web MVP.
 
 ## Developer Cautions

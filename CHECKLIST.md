@@ -41,10 +41,10 @@
 - [x] Add proof approval callable and checkout precondition.
 - [x] Add Firestore rules deployment.
 - [x] Add Storage rules deployment.
-- [ ] Add full Firebase emulator workflow. Function-only emulator testing works, but the full suite currently needs JDK 21+ locally.
+- [x] Add full Firebase emulator workflow. Function-only emulator testing works, and the full suite has a checked-in JDK 21+ preflight.
 - [x] Add server-side AI generation callable or queue worker through the internal provider adapter.
-- [ ] Replace the adapter stub with a real direct Vertex/Gemini request.
-- [ ] Store generated preview images in user/job-scoped Cloud Storage paths.
+- [x] Replace the adapter stub with a real direct Vertex/Gemini request.
+- [x] Store generated preview images in user/job-scoped Cloud Storage paths.
 - [x] Persist AI generation metadata on the Firestore job without storing secrets.
 - [ ] Add queueing with Cloud Tasks or Pub/Sub.
 - [x] Add idempotency guards for job creation and checkout session creation.

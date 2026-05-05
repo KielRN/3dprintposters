@@ -5,7 +5,8 @@
   "main": "lib/index.js",
   "scripts": {
     "build": "tsc",
-    "serve": "npm run build && firebase emulators:start --only functions,firestore,storage",
+    "serve": "npm run build && node ../../scripts/firebase/check-emulator-java.mjs && firebase emulators:start --only auth,functions,firestore,storage --project dev",
+    "serve:functions": "npm run build && firebase emulators:start --only functions --project dev",
     "deploy": "firebase deploy --only functions",
     "typecheck": "tsc --noEmit"
   },
@@ -22,4 +23,3 @@
     "typescript": "^6.0.3"
   }
 }
-

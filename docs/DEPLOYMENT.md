@@ -63,18 +63,23 @@ The customer app now initializes Firebase directly in the browser. Add these pub
 - `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
 - `NEXT_PUBLIC_FIREBASE_APP_ID`
 
-For local emulator testing, set `NEXT_PUBLIC_USE_FIREBASE_EMULATORS=true` and run Firebase emulators for Auth, Functions, Firestore, and Storage. Leave it `false` when using the shared Firebase project.
-
-For the current customer-flow test, a function-only local path is also supported:
+For full local emulator testing, install JDK 21+, set `NEXT_PUBLIC_USE_FIREBASE_EMULATORS=true`, and run Firebase emulators for Auth, Functions, Firestore, and Storage:
 
 ```powershell
-npm --workspace apps/functions run build
-firebase emulators:start --only functions --project gen-lang-client-0675309660
+npm run firebase:emulators:full
 ```
 
-Set `NEXT_PUBLIC_USE_FIREBASE_FUNCTIONS_EMULATOR=true` for the web app when using that path. This keeps Auth, Firestore, and Storage pointed at the configured Firebase project while callable Functions run locally. The full emulator suite is currently blocked on this machine until JDK 21+ is installed.
+The script builds Functions first, runs `scripts/firebase/check-emulator-java.mjs`, and then starts the configured emulator suite. Use `npm run firebase:emulators:full:export` when you want Auth, Firestore, and Storage emulator state imported/exported under `.codex-run/firebase-emulators`. Leave `NEXT_PUBLIC_USE_FIREBASE_EMULATORS=false` when using the shared Firebase project.
 
-Source uploads are written by the browser to `uploads/{uid}/{jobId}/source.{jpg|png}`. The `createGenerationJob` callable Function now requires the same `jobId` and source path, verifies that they belong to the authenticated user, creates `jobs/{jobId}` with `status: "generating"`, calls the server-side AI provider adapter, and then publishes a temporary source-photo proof while the adapter remains stubbed. The `approveGeneratedImage` callable records `approvedImagePath`, and `createCheckoutSession` requires that approval before creating the deterministic `orders/{jobId}` checkout record.
+For customer-flow testing against the shared Firebase project, a function-only local path is also supported:
+
+```powershell
+npm run firebase:emulators:functions
+```
+
+Set `NEXT_PUBLIC_USE_FIREBASE_FUNCTIONS_EMULATOR=true` for the web app when using that path. This keeps Auth, Firestore, and Storage pointed at the configured Firebase project while callable Functions run locally. On this machine, the full emulator suite preflight currently reports Java 17 and blocks until JDK 21+ is installed.
+
+Source uploads are written by the browser to `uploads/{uid}/{jobId}/source.{jpg|png}`. The `createGenerationJob` callable Function now requires the same `jobId` and source path, verifies that they belong to the authenticated user, creates `jobs/{jobId}` with `status: "generating"`, calls the server-side Vertex/Gemini provider adapter, stores the generated proof under `generated/{uid}/{jobId}/preview.{png|jpg|webp}`, and marks the job `preview_ready` or `failed`. The `approveGeneratedImage` callable records `approvedImagePath`, and `createCheckoutSession` requires that approval before creating the deterministic `orders/{jobId}` checkout record.
 
 ## Firebase Rules Deployment
 
@@ -105,11 +110,15 @@ Required local variables for current AI-provider experiments:
 - `VERTEX_PROJECT`
 - `VERTEX_LOCATION`
 - `VERTEX_GCS_BUCKET`
+- `VERTEX_IMAGE_MODEL` for generated proofs; defaults to `gemini-2.5-flash-image`
+
+For local Functions emulator runs, place server-only values in `apps/functions/.env`; Firebase Functions uses that file for local runtime env. For deployed Functions, configure `VERTEX_API_KEY` as a Firebase Functions secret because `createGenerationJob` declares it with `defineSecret`.
 
 Verification status on 2026-04-26:
 
 - `GOOGLE_API_KEY` and `GEMINI_API_KEY` are present in the root `.env`, currently match each other, and both completed a live Gemini Developer API `gemini-2.5-flash` request.
 - `VERTEX_API_KEY` is present in the root `.env`, is separate from the Google/Gemini key, and completed a live Vertex AI Gemini API `gemini-2.5-flash` request.
+- The Functions direct provider uses the Vertex AI express-mode `generateContent` endpoint with `responseModalities: ["TEXT", "IMAGE"]` and `VERTEX_IMAGE_MODEL=gemini-2.5-flash-image` unless overridden.
 - `VERTEX_PROJECT`, `VERTEX_LOCATION`, and `VERTEX_GCS_BUCKET` are present locally.
 - `gcloud auth application-default login --project=gen-lang-client-0675309660` completed successfully.
 - Vertex AI, Gemini API, and Cloud Storage APIs are enabled for the configured project.

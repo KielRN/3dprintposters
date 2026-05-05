@@ -29,7 +29,7 @@ Responsibilities:
 
 - Create authenticated generation jobs.
 - Validate user quota, upload ownership, and upload metadata.
-- Trigger selected AI provider generation through the internal provider adapter. Direct Vertex/Gemini is the default MVP route; Cloudflare AI Gateway can be added later behind the same adapter.
+- Trigger selected AI provider generation through the internal provider adapter. Direct Vertex/Gemini image generation is the default MVP route; Cloudflare AI Gateway can be added later behind the same adapter.
 - Record approved generated proofs and block checkout until approval exists.
 - Dispatch print file generation work.
 - Create Stripe Checkout sessions.
@@ -95,8 +95,8 @@ The first implementation should isolate provider logic behind a small interface:
 2. Web app creates a job id and uploads a source JPG or PNG to `uploads/{uid}/{jobId}/source.{jpg|png}`.
 3. Web app calls `createGenerationJob` with `jobId`, `sourceImagePath`, and `selectedStyle`.
 4. Function verifies the signed-in user owns the upload path and creates `jobs/{jobId}` with `status: "generating"`.
-5. Function calls the internal AI provider adapter, stores non-secret `aiGeneration` metadata, and marks the job `preview_ready` or `failed`.
-6. Current test path lists the source upload as a temporary proof in `generatedImages` so the approval and checkout flow can be tested before AI output is connected. Target path writes real generated images to Storage and lists those paths under the job.
+5. Function calls the internal AI provider adapter, stores the generated proof under `generated/{uid}/{jobId}/preview.{png|jpg|webp}`, stores non-secret `aiGeneration` metadata, and marks the job `preview_ready` or `failed`.
+6. Job `generatedImages` lists the generated proof Storage path so the approval and checkout flow use the real AI output.
 7. User approves one proof through `approveGeneratedImage`; the Function records `approvedImagePath` and sets `status: "approved"`.
 8. Backend dispatches `services/print-file-generator` with the approved image path.
 9. Print file service writes `model.stl`, color package artifacts, filament painting support files, optional preview mesh, and printability metadata.

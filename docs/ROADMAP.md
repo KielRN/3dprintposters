@@ -4,10 +4,9 @@ This file tracks product direction and enhancement ideas that are not yet commit
 
 ## Near-Term MVP
 
-- Continue the web-first PWA flow from the now-wired sign-in, photo upload, style selection, job creation, temporary proof approval, checkout, and single-order status path into real generated image approval, real preview artifacts, account-level order history, and fulfillment tracking.
+- Continue the web-first PWA flow from the now-wired sign-in, photo upload, style selection, job creation, generated proof approval, checkout, and single-order status path into real print preview artifacts, account-level order history, and fulfillment tracking.
 - Keep the first customer journey narrow: one uploaded photo, one selected style, one generated 5in x 7in printable poster, and one checkout path.
 - Make every generated artifact traceable to a user, job, and order before fulfillment.
-- Replace the temporary source-photo proof with real generated preview images saved to user/job-scoped Storage paths.
 - Replace remaining placeholder preview and local API scaffolds with the authenticated Firebase-backed workflow where needed.
 
 ## Cloudflare/Deployment
@@ -17,14 +16,14 @@ This file tracks product direction and enhancement ideas that are not yet commit
 - Create staging first, then point `staging.3dprintposters.com` at the Firebase-generated App Hosting backend domain.
 - Point `www.3dprintposters.com` at the production App Hosting backend domain after the production backend exists.
 - Current testing is still local at `http://localhost:3000` until the App Hosting backend is created.
-- Keep the function-only emulator path available for local customer-flow testing until the full Firebase emulator workflow is unblocked with JDK 21+.
+- Keep the function-only emulator path available for local customer-flow testing; the full emulator workflow is checked in and preflights JDK 21+ before startup.
 - Keep Cloudflare AI Gateway as a later traffic-management layer, not an MVP dependency.
 - Keep Cloudflare API access least-privilege and local-only until a CI/CD path is intentionally added.
 - Add rate limits for upload, job creation, and checkout after MVP flows are stable.
 
 ## AI Pipeline
 
-- Start with direct GCP Vertex/Gemini integration for MVP speed.
+- Start with direct GCP Vertex/Gemini integration for MVP speed; the first proof-generation route uses `gemini-2.5-flash-image` through Vertex AI express mode unless overridden.
 - Keep AI calls behind an internal provider adapter so Cloudflare AI Gateway can be added later for cross-provider routing, observability, rate limiting, and fallback.
 - Start with a single generation path before adding style variations, prompt tuning, or batch generation.
 - Add moderation, quota checks, and cost caps before public traffic.
