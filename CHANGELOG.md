@@ -24,6 +24,7 @@ All notable project changes will be documented in this file.
 - Added npm scripts for function-only and full Firebase emulator startup, including a JDK 21+ preflight for the full suite.
 - Initialized the dev Firebase Storage default bucket at `gen-lang-client-0675309660.firebasestorage.app` in `US-CENTRAL1`.
 - Added a direct Vertex/Gemini proof-generation request that reads the uploaded source image and stores the generated proof in job-scoped Firebase Storage.
+- Added PWA icon assets, service worker registration, and a browser-gated install control.
 
 ### Changed
 

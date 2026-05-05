@@ -30,7 +30,7 @@
 - [x] Add single-order status route for checkout/payment/fulfillment state.
 - [ ] Add real STL preview from backend output.
 - [ ] Add account-level order history and richer fulfillment status screens.
-- [ ] Add PWA manifest, icons, and install behavior.
+- [x] Add PWA manifest, icons, and install behavior.
 
 ## Phase 2 - Backend Orchestration
 
