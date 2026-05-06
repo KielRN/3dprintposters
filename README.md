@@ -1,65 +1,442 @@
 # 3D Print Posters
 
-3D Print Posters is a mobile-first web app for turning user photos into stylized, 3D-printable poster reliefs. The first build is structured as a PWA so users can open it from a link, while the backend boundaries keep room for later iOS and Android packaging.
+3D Print Posters is a mobile-first web app for turning a user photo into a stylized 5in x 7in 3D-printable poster relief. The current MVP lets a user sign in, upload a photo, choose a style, ask the backend to generate a proof image, approve that proof, and start Stripe Checkout.
 
-## Architecture
+This project is still in local MVP development. It is not production-ready yet.
 
-- `apps/web` - Next.js customer app with upload, style selection, 3D preview, checkout, and order tracking screens.
-- `apps/functions` - Firebase Cloud Functions for authenticated orchestration, Stripe webhooks, Firestore status updates, and fulfillment callbacks.
-- `services/print-file-generator` - Python Cloud Run service boundary for heightmaps, relief geometry, full-color print packages, and filament painting support files.
-- `services/stl-converter` - Earlier STL-only service scaffold retained until the broader print file generator fully replaces it.
-- `infra/firebase` - Firestore, Storage, and emulator configuration.
-- `infra/cloudflare` - Domain and DNS deployment notes.
-- `docs` - Product architecture, deployment notes, and 3D conversion workflow.
+## Where We Are Now
 
-## Local Start
+Working now:
 
-Install dependencies before running the app:
+- Next.js customer app in `apps/web`
+- Firebase Auth sign-in, including guest sessions
+- Browser upload to Firebase Storage
+- Firebase callable Functions for job creation, proof approval, and checkout
+- Direct Vertex/Gemini proof-generation adapter in `apps/functions`
+- Firestore and Storage security rules for the dev Firebase project
+- Stripe Checkout session creation boundary
+- PWA manifest, icons, and install behavior
+- Local Next.js testing at `http://127.0.0.1:3000`
+- Function-only Firebase emulator testing at `http://127.0.0.1:5001`
+
+Not done yet:
+
+- Real STL/3D print file generation
+- Real GLB/STL preview from backend output
+- Fulfillment partner integration
+- Production Firebase projects
+- Public App Hosting deployment
+- Production monitoring, quotas, moderation, and cleanup jobs
+
+## The Big Picture
+
+Think of this app as three cooperating pieces:
+
+- The web app is what the customer sees and clicks.
+- Firebase Functions are the trusted backend. They check ownership, call AI, create jobs, and talk to Stripe.
+- The print-file generator is a planned Python service that will turn an approved image into printable artifacts like STL, heightmap, preview mesh, and color packages.
+
+```mermaid
+flowchart LR
+  User["User in browser"]
+  Web["Next.js web app<br/>apps/web"]
+  Auth["Firebase Auth"]
+  Storage["Firebase Storage<br/>uploads and generated files"]
+  Firestore["Firestore<br/>jobs and orders"]
+  Functions["Firebase Functions<br/>apps/functions"]
+  AI["Vertex/Gemini<br/>proof image generation"]
+  Stripe["Stripe Checkout"]
+  Print["Cloud Run print-file generator<br/>services/print-file-generator"]
+  Fulfillment["Future print partner"]
+
+  User --> Web
+  Web --> Auth
+  Web --> Storage
+  Web --> Functions
+  Functions --> Firestore
+  Functions --> Storage
+  Functions --> AI
+  Functions --> Stripe
+  Functions -.-> Print
+  Print -.-> Storage
+  Functions -.-> Fulfillment
+```
+
+## Customer Flow
+
+This is the intended happy path for one poster order.
+
+```mermaid
+sequenceDiagram
+  actor Customer
+  participant Web as Next.js Web App
+  participant Storage as Firebase Storage
+  participant Fn as Firebase Functions
+  participant AI as Vertex/Gemini
+  participant DB as Firestore
+  participant Stripe as Stripe Checkout
+  participant Print as Print File Service
+
+  Customer->>Web: Sign in or continue as guest
+  Customer->>Web: Choose JPG/PNG and style
+  Web->>Storage: Upload source photo
+  Web->>Fn: createGenerationJob(jobId, path, style)
+  Fn->>DB: Create jobs/{jobId} as generating
+  Fn->>AI: Generate poster proof
+  AI-->>Fn: Return generated image
+  Fn->>Storage: Save generated proof
+  Fn->>DB: Mark job preview_ready
+  Customer->>Web: Review and approve proof
+  Web->>Fn: approveGeneratedImage
+  Fn->>DB: Mark job approved
+  Fn-->>Print: Planned: generate STL/print package
+  Customer->>Web: Start checkout
+  Web->>Fn: createCheckoutSession
+  Fn->>Stripe: Create Checkout Session
+  Stripe-->>Customer: Collect payment
+```
+
+Right now, the dashed/planned print-file step is not implemented. The 3D panel in the web app is still a visual preview shell, not a real STL preview.
+
+## Why There Is A Dev Server And A Functions Emulator
+
+During local development, you often run two servers:
+
+```mermaid
+flowchart TB
+  Browser["Your browser<br/>http://127.0.0.1:3000"]
+  NextDev["Next dev server<br/>runs the UI"]
+  FunctionsEmu["Functions emulator<br/>runs local backend callables"]
+  RealFirebase["Dev Firebase project<br/>Auth, Firestore, Storage"]
+  Vertex["Vertex/Gemini"]
+  Stripe["Stripe"]
+
+  Browser --> NextDev
+  NextDev --> RealFirebase
+  NextDev --> FunctionsEmu
+  FunctionsEmu --> RealFirebase
+  FunctionsEmu --> Vertex
+  FunctionsEmu --> Stripe
+```
+
+The Next dev server runs the website. The Functions emulator runs backend functions without deploying them. In the common hybrid setup, Auth, Firestore, and Storage still use the real dev Firebase project, while callable Functions run locally.
+
+This is useful because you can edit backend code, restart the emulator, and test without waiting for a Firebase deploy.
+
+## Repository Map
+
+```text
+apps/web                    Customer-facing Next.js app
+apps/functions              Firebase Functions backend
+services/print-file-generator Planned Python print artifact service
+services/stl-converter      Older STL-only service scaffold
+infra/firebase              Firestore and Storage rules
+infra/cloudflare            Domain and DNS notes
+docs                        Architecture, deployment, and workflow docs
+scripts                     Helper scripts
+```
+
+Start with these files when you feel lost:
+
+- `README.md`: practical beginner map
+- `CHECKLIST.md`: implementation checklist
+- `CHANGELOG.md`: what changed recently
+- `docs/ARCHITECTURE.md`: deeper system design
+- `docs/DEPLOYMENT.md`: hosting, Firebase, Cloudflare, and secret notes
+- `docs/PRINT_FILE_GENERATOR_ARCHITECTURE_ROADMAP_EVALUATION.md`: accepted print-file generator integration plan
+- `AI_3D_MODEL_GENERATION_RESEARCH.md`: AI depth and image-to-3D research behind that plan
+
+## Print-File Generator Direction
+
+The next major implementation slice is the print-file generator. We accepted the extraction path:
+
+- Keep `services/print-file-generator` as the FastAPI/Cloud Run service boundary.
+- Selectively port core image, heightmap, STL, metadata, color, and test ideas from `E:\PROJECTS\print-file-generator`.
+- Do not copy the standalone Flask app, SQLite project database, browser session state, CLI control plane, or TD1 hardware code into the production service.
+- First build deterministic 5in x 7in relief generation: validated image input, 5:7 crop/pad, heightmap, closed watertight mesh with base and sidewalls, binary STL, heightmap PNG, metadata, and printability checks.
+- Add Depth Anything V2 Small, Depth Pro, MoGe, or other AI depth providers only after the deterministic relief pipeline works.
+
+See `docs/PRINT_FILE_GENERATOR_ARCHITECTURE_ROADMAP_EVALUATION.md` for the phased roadmap.
+
+## Setup
+
+Install dependencies from the repo root:
 
 ```powershell
 npm install
-npm run dev
 ```
 
-Then open `http://localhost:3000`.
+The project expects Node.js 22 or newer.
 
-For function-only local testing, run the callable Functions emulator while Auth, Firestore, and Storage continue to use the configured Firebase project:
+Create local web config at:
+
+```text
+apps/web/.env.local
+```
+
+Required public browser values:
+
+```text
+NEXT_PUBLIC_FIREBASE_API_KEY=
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
+NEXT_PUBLIC_FIREBASE_APP_ID=
+NEXT_PUBLIC_USE_FIREBASE_EMULATORS=false
+NEXT_PUBLIC_USE_FIREBASE_FUNCTIONS_EMULATOR=true
+PUBLIC_APP_URL=http://localhost:3000
+```
+
+For local Functions emulator runs, create:
+
+```text
+apps/functions/.env
+```
+
+Server-only values for local backend testing go there:
+
+```text
+VERTEX_API_KEY=
+VERTEX_IMAGE_MODEL=gemini-2.5-flash-image
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
+STRIPE_POSTER_PRICE_ID=
+PUBLIC_APP_URL=http://localhost:3000
+FIREBASE_STORAGE_BUCKET=gen-lang-client-0675309660.firebasestorage.app
+```
+
+Do not commit real `.env` files or secrets.
+
+## Local Testing: Hybrid Mode
+
+This is the easiest useful test mode right now.
+
+In terminal 1, start the Functions emulator:
 
 ```powershell
 npm run firebase:emulators:functions
 ```
 
-Set `NEXT_PUBLIC_USE_FIREBASE_FUNCTIONS_EMULATOR=true` for the web app when using that path.
+In terminal 2, start the web app:
 
-For the full local Firebase suite, install JDK 21+, set `NEXT_PUBLIC_USE_FIREBASE_EMULATORS=true` in `apps/web/.env.local`, put server-only values such as `VERTEX_API_KEY` in `apps/functions/.env`, then run:
+```powershell
+npm run dev
+```
+
+Open:
+
+```text
+http://127.0.0.1:3000
+```
+
+Make sure `apps/web/.env.local` has:
+
+```text
+NEXT_PUBLIC_USE_FIREBASE_EMULATORS=false
+NEXT_PUBLIC_USE_FIREBASE_FUNCTIONS_EMULATOR=true
+```
+
+In this mode:
+
+- Auth uses the real dev Firebase project.
+- Storage uses the real dev Firebase project.
+- Firestore uses the real dev Firebase project.
+- Callable Functions use your local emulator.
+
+If generation fails with `Poster generation failed before a proof was ready`, check `apps/functions/.env` first. The local Functions emulator needs `VERTEX_API_KEY` before it can call Vertex/Gemini.
+
+## Local Testing: Web Only
+
+Use this when you only want to inspect UI layout and pages:
+
+```powershell
+npm run dev
+```
+
+Then open:
+
+```text
+http://127.0.0.1:3000
+```
+
+This does not prove backend generation, checkout, or database flows by itself.
+
+## Local Testing: Full Firebase Emulator
+
+The full emulator suite runs Auth, Functions, Firestore, and Storage locally.
 
 ```powershell
 npm run firebase:emulators:full
 ```
 
-Use `npm run firebase:emulators:full:export` when you want emulator Auth, Firestore, and Storage data persisted under `.codex-run/firebase-emulators`.
+Set this in `apps/web/.env.local`:
 
-Deploy Firebase security rules to the dev project with:
+```text
+NEXT_PUBLIC_USE_FIREBASE_EMULATORS=true
+NEXT_PUBLIC_USE_FIREBASE_FUNCTIONS_EMULATOR=true
+```
+
+This mode currently requires JDK 21+. On this machine, the preflight has reported Java 17, so the full suite blocks until JDK 21+ is installed.
+
+## Basic Manual Test Checklist
+
+Use this checklist when testing the app as a beginner.
+
+- [ ] Run `npm install` if dependencies are missing.
+- [ ] Confirm `apps/web/.env.local` exists.
+- [ ] Confirm `apps/functions/.env` exists if using the Functions emulator.
+- [ ] Start `npm run firebase:emulators:functions`.
+- [ ] Start `npm run dev`.
+- [ ] Open `http://127.0.0.1:3000`.
+- [ ] Sign in or continue as guest.
+- [ ] Upload a JPG or PNG.
+- [ ] Pick a style.
+- [ ] Click Generate.
+- [ ] Confirm the image uploads successfully.
+- [ ] Confirm a job document appears in Firestore.
+- [ ] Confirm a generated proof image appears in Storage.
+- [ ] Confirm the app navigates to `/jobs/{jobId}`.
+- [ ] Approve the proof.
+- [ ] Start checkout.
+- [ ] Confirm a Stripe Checkout Session is created.
+- [ ] Confirm an order document appears in Firestore.
+
+## Developer Checks
+
+Run TypeScript checks:
+
+```powershell
+npm run typecheck
+```
+
+Build the Next.js app:
+
+```powershell
+npm run build
+```
+
+Dry-run Firebase rules:
 
 ```powershell
 npm run firebase:deploy:firestore-rules:dry-run
 npm run firebase:deploy:storage-rules:dry-run
 npm run firebase:deploy:rules:dry-run
+```
+
+Deploy dev Firebase rules intentionally:
+
+```powershell
 npm run firebase:deploy:rules:dev
 ```
 
-Firestore and Storage rules dry-run successfully against the current dev project. The dev Firebase Storage bucket is `gen-lang-client-0675309660.firebasestorage.app`; Firestore and Storage rules have been deployed to the dev project.
+## Common Problems
 
-## Online Access
+### The app says generation failed before a proof was ready
 
-The app is not deployed to a public URL yet. Firebase App Hosting is the selected first public web host for `apps/web`; the first public test should use `staging.3dprintposters.com` once the staging App Hosting backend exists.
+Most likely causes:
 
-## Important Secret Rule
+- `apps/functions/.env` is missing `VERTEX_API_KEY`.
+- The Functions emulator was not restarted after adding env values.
+- The uploaded file is too large for the configured Vertex inline image limit.
+- Vertex/Gemini rejected or failed the image-generation request.
+- The function cannot read from or write to the configured Firebase Storage bucket.
 
-Do not commit Stripe keys, Firebase service account JSON files, fulfillment provider credentials, Cloudflare tokens, or model provider credentials. Use the `.env.example` files and Firebase/Google Secret Manager for deployed secrets.
+### I see both localhost 3000 and 5001
 
-## Current Status
+That is expected in hybrid local testing.
 
-This repository is still an MVP-in-progress, not a finished product. The web app now has the first Firebase-backed path for sign-in, source-photo upload, style selection, authenticated job creation through the server-side Vertex/Gemini AI adapter, generated proof approval, checkout handoff, and single-order status. Real print artifact preview, account-level order history, fulfillment automation, and production deployment are still pending.
+- `3000` is the web app.
+- `5001` is the Functions emulator.
 
-Start with [CHECKLIST.md](./CHECKLIST.md), [CHANGELOG.md](./CHANGELOG.md), and [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md).
+### The preview shows a flat plate
+
+That is expected right now. The real print-file and STL preview pipeline has not been implemented yet.
+
+### Checkout should not be live yet
+
+Use Stripe test mode until payment, webhook, and fulfillment state transitions are proven end to end. Rotate any exposed live keys before production work continues.
+
+## Production Readiness Checklist
+
+### Firebase and Hosting
+
+- [ ] Create dedicated staging Firebase/GCP project.
+- [ ] Create dedicated production Firebase/GCP project.
+- [ ] Add `staging` and `production` aliases to `.firebaserc`.
+- [ ] Enable Firebase Auth in staging and production.
+- [ ] Enable Email/Password sign-in.
+- [ ] Decide whether Anonymous sign-in is allowed publicly.
+- [ ] Enable Firestore.
+- [ ] Enable Cloud Storage.
+- [ ] Deploy Firestore and Storage rules to staging.
+- [ ] Deploy Firestore and Storage rules to production.
+- [ ] Create Firebase App Hosting backend for `apps/web` staging.
+- [ ] Create Firebase App Hosting backend for `apps/web` production.
+- [ ] Configure public Firebase web env values for each App Hosting backend.
+- [ ] Point `staging.3dprintposters.com` to staging App Hosting.
+- [ ] Point `www.3dprintposters.com` to production App Hosting.
+- [ ] Configure apex `3dprintposters.com` redirect or flattening.
+
+### Backend and AI
+
+- [ ] Store `VERTEX_API_KEY` as a Firebase Functions secret.
+- [ ] Confirm production model and `VERTEX_IMAGE_MODEL`.
+- [ ] Add moderation and safety review for uploads and generated content.
+- [ ] Add user quotas and abuse controls.
+- [ ] Add cost caps and alerts for AI usage.
+- [ ] Add structured logs for job state changes.
+- [ ] Add retry behavior or queueing with Cloud Tasks/Pub/Sub.
+- [ ] Add idempotency keys for fulfillment side effects.
+
+### Print Files
+
+- [ ] Keep `services/print-file-generator` as the FastAPI/Cloud Run boundary.
+- [ ] Extract core image, heightmap, STL, metadata, color, and tests from `E:\PROJECTS\print-file-generator` without vendoring its Flask/SQLite app shell.
+- [ ] Implement image validation and normalization.
+- [ ] Add 5:7 crop/pad handling.
+- [ ] Generate deterministic luminance heightmaps.
+- [ ] Generate a closed watertight 5in x 7in relief mesh with base and sidewalls.
+- [ ] Generate binary STL files from the closed relief mesh.
+- [ ] Generate `heightmap.png` and `metadata.json`.
+- [ ] Generate browser preview mesh, likely GLB.
+- [ ] Generate full-color package artifacts such as 3MF or OBJ plus texture.
+- [ ] Generate filament painting files: palette, layer swaps, settings, preview.
+- [ ] Add printability checks for thickness, relief depth, dimensions, and file size.
+- [ ] Add depth-model adapters after the deterministic relief pipeline passes fixture tests.
+- [ ] Store the exact artifact manifest used for checkout.
+- [ ] Add known-image test fixtures.
+
+### Stripe and Fulfillment
+
+- [ ] Rotate exposed live Stripe keys before launch work continues.
+- [ ] Use Stripe test mode until the whole flow is proven.
+- [ ] Configure Stripe webhook secret in staging.
+- [ ] Configure Stripe webhook secret in production.
+- [ ] Handle `checkout.session.completed`.
+- [ ] Handle `checkout.session.expired`.
+- [ ] Handle payment failure states.
+- [ ] Persist Stripe customer ids.
+- [ ] Choose a print partner.
+- [ ] Confirm accepted file formats, dimensions, material profile, and quote process.
+- [ ] Build fulfillment quote flow.
+- [ ] Send paid orders to fulfillment only after confirmed payment.
+- [ ] Add admin retry/manual-review states.
+
+### Launch Basics
+
+- [ ] Add privacy policy.
+- [ ] Add terms of service.
+- [ ] Add analytics events for upload, generation, approval, checkout, and purchase.
+- [ ] Add error monitoring.
+- [ ] Add Cloud Storage lifecycle cleanup for abandoned uploads.
+- [ ] Add admin visibility for failed jobs and payment mismatches.
+- [ ] Resolve or document dependency audit advisories.
+- [ ] Run a full staging test with test cards.
+- [ ] Run a production smoke test with tightly controlled access.
+
+## Current MVP Boundary
+
+The current project proves the customer-facing order shape and backend orchestration boundary. The next major unlock is print-file generation: turning an approved proof into real, inspectable, printable artifacts.
+
+Until that exists, the app can test sign-in, upload, AI proof generation, approval, and checkout setup, but it cannot yet fulfill a real 3D printed poster.

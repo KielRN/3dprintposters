@@ -1,6 +1,6 @@
 # 3DPrintPosters - AI Developer Notes
 
-Last updated: 2026-05-04
+Last updated: 2026-05-06
 
 ## Project Intent
 
@@ -67,6 +67,10 @@ Note: use `STL` for the 3D model format. If any prompt or ticket says `SLT`, tre
 - For the current one-order-per-job MVP path, `createCheckoutSession` uses `orders/{jobId}` as the deterministic order document and sends a Stripe idempotency key based on user id, job id, and approved proof path.
 - If print file generation needs Python, native libraries, or longer CPU time, use Cloud Run for that specific service instead of Cloud Functions.
 - Keep Cloud Functions for orchestration, webhooks, auth checks, Firestore writes, and short API calls.
+- Accepted print-file generator decision: keep `services/print-file-generator` as the production FastAPI/Cloud Run boundary and selectively extract core image, heightmap, STL, metadata, color, and test concepts from `E:\PROJECTS\print-file-generator`.
+- Do not vendor the standalone generator's Flask routes, SQLite local project database, browser session state, local CLI control flow, TD1 hardware code, or current open-surface mesh topology into production.
+- The next print-file implementation slice is deterministic closed relief generation: validated image input, 5:7 crop/pad, luminance heightmap fallback, closed 127mm x 177.8mm mesh with top surface/base/sidewalls, binary STL, heightmap PNG, metadata JSON, and printability checks.
+- Add AI depth providers only after the deterministic relief path works. Start with Depth Anything V2 Small as the first experimental provider, then compare Depth Pro and MoGe if needed.
 - Store user uploads and generated artifacts under user/job scoped paths, for example:
   - `uploads/{uid}/{jobId}/source.jpg`
   - `generated/{uid}/{jobId}/preview.png`
@@ -196,7 +200,6 @@ firebase deploy --only functions
 
 ## Open Decisions
 
-- Whether any legacy STL-only service code should be folded into `services/print-file-generator` or kept as a temporary compatibility boundary.
 - Which AI model creates the printable source image, segmentation, or heightmap.
 - Whether and when Cloudflare AI Gateway should be added after direct Vertex/Gemini MVP integration.
 - Whether users can edit depth/relief settings before checkout.

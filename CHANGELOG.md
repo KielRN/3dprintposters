@@ -2,6 +2,23 @@
 
 All notable project changes will be documented in this file.
 
+## [Unreleased] - 2026-05-06
+
+### Added
+
+- Added AI 3D model generation research for the poster-relief pipeline.
+- Added a print-file generator architecture roadmap evaluation recommending selective core-module extraction from `E:\PROJECTS\print-file-generator`.
+- Added the first deterministic print-file generator pipeline with image normalization, luminance heightmaps, closed relief STL export, local/GCS storage adapters, artifact metadata, and regression tests.
+
+### Changed
+
+- Updated roadmap, checklist, README, architecture, workflow, service, and developer notes to make deterministic closed-relief generation the next print-file implementation slice.
+- Wired the print-file generator `/v1/generate` route to produce real baseline artifacts when the selected image is readable from local filesystem or GCS storage.
+
+### Verified
+
+- Verified `services/print-file-generator` tests pass.
+
 ## [Unreleased] - 2026-05-05
 
 ### Added

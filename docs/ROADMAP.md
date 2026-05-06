@@ -8,6 +8,7 @@ This file tracks product direction and enhancement ideas that are not yet commit
 - Keep the first customer journey narrow: one uploaded photo, one selected style, one generated 5in x 7in printable poster, and one checkout path.
 - Make every generated artifact traceable to a user, job, and order before fulfillment.
 - Replace remaining placeholder preview and local API scaffolds with the authenticated Firebase-backed workflow where needed.
+- Treat [Print File Generator Architecture Roadmap Evaluation](./PRINT_FILE_GENERATOR_ARCHITECTURE_ROADMAP_EVALUATION.md) as the source of truth for the next print-file implementation slice.
 
 ## Cloudflare/Deployment
 
@@ -31,10 +32,14 @@ This file tracks product direction and enhancement ideas that are not yet commit
 
 ## Print Files/Preview
 
-- Implement image validation, normalization, 5:7 crop/padding, heightmap generation, binary STL output, and a color-capable print package.
+- Keep `services/print-file-generator` as the FastAPI/Cloud Run production boundary and selectively extract core image, heightmap, STL, color, and test concepts from `E:\PROJECTS\print-file-generator`.
+- Do not vendor the standalone Flask, SQLite, browser-session, CLI, or TD1 hardware app architecture into the production service.
+- First replace the service stub with deterministic image validation, normalization, 5:7 crop/padding, heightmap generation, and a closed watertight 5in x 7in relief mesh with base and sidewalls.
+- Export binary `model.stl`, `heightmap.png`, `metadata.json`, and then add a browser-friendly preview output, likely GLB or a lightweight mesh representation.
 - Add filament painting support files: palette, layer swaps, print settings, and preview.
-- Add browser-friendly preview output, likely GLB or a lightweight mesh representation, after the print file contract is stable.
+- Add full-color package artifacts such as 3MF or OBJ plus texture after the deterministic geometry path is validated.
 - Add printability checks for 5in x 7in model dimensions, thickness, relief depth, texture alignment, layer swap assumptions, and file size.
+- Add AI depth providers only after the deterministic relief pipeline works; first candidate remains Depth Anything V2 Small, with Depth Pro and MoGe as follow-up evaluations.
 - Preserve the exact artifact manifest, color package, filament settings, and geometry settings used for any paid order.
 
 ## Payments/Fulfillment

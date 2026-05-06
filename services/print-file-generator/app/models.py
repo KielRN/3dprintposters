@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class OutputMode(str, Enum):
@@ -18,6 +18,14 @@ class ReliefSettings(BaseModel):
     base_thickness_mm: float = Field(default=1.2, gt=0)
     min_relief_mm: float = Field(default=0.4, ge=0)
     max_relief_mm: float = Field(default=3.0, gt=0)
+    max_source_pixels: int = Field(default=250_000, ge=4)
+    target_width_px: int = Field(default=160, ge=2)
+
+    @model_validator(mode="after")
+    def validate_relief_range(self) -> "ReliefSettings":
+        if self.min_relief_mm > self.max_relief_mm:
+            raise ValueError("Minimum relief cannot exceed maximum relief")
+        return self
 
 
 class FilamentPaintingSettings(BaseModel):

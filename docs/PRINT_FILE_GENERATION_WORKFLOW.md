@@ -14,6 +14,8 @@ The service should stay separate from Firebase Functions because image processin
 
 Firebase Functions should orchestrate the job, authorize the user, write Firestore status updates, enqueue work, and handle Stripe or fulfillment side effects. The print file generator should only produce deterministic artifacts and metadata from approved inputs.
 
+Implementation direction: keep this service's FastAPI contract and selectively extract useful core modules from `E:\PROJECTS\print-file-generator`. Use that project as a reference for image processing, heightmap settings, STL export, filament/color utilities, and tests. Do not import its Flask web app, SQLite state model, browser sessions, TD1 hardware communication, or local CLI as production architecture.
+
 ## Inputs
 
 - `jobId`
@@ -69,7 +71,7 @@ Filament painting artifacts:
 5. Posterize or segment the image to reduce noisy micro-detail.
 6. Generate a grayscale heightmap.
 7. Smooth the heightmap enough for printability while preserving major edges.
-8. Convert height values into relief geometry.
+8. Convert height values into closed relief geometry with top surface, bottom base plane, sidewalls, consistent winding, and controlled relief depth.
 9. Add a poster base plate with minimum thickness.
 10. Export baseline STL for geometry validation and fallback workflows.
 11. Generate a browser preview mesh.
@@ -128,18 +130,20 @@ Paid orders should preserve the exact manifest and settings used at checkout so 
 
 ## First MVP Strategy
 
-Start contract-first:
+Start with the accepted extraction plan:
 
-- Reserve stable output paths.
-- Return an artifact manifest.
-- Keep both output modes in the request contract.
-- Generate only simple deterministic files when implementation begins.
-- Add real printability checks before fulfillment automation.
+- Preserve the existing FastAPI `/v1/generate` contract and stable output paths.
+- Add service modules for image processing, heightmap generation, closed relief mesh generation, STL export, storage, metadata, and validation.
+- Port/adapt only core concepts from `E:\PROJECTS\print-file-generator`.
+- Generate simple deterministic artifacts first: `model.stl`, `heightmap.png`, and `metadata.json`.
+- Make the STL a closed, watertight 5in x 7in relief object before adding AI depth, color packages, or fulfillment automation.
+- Add real printability checks before checkout can depend on generated print files.
 
 Then improve:
 
 - Add edge-preserving smoothing.
 - Add subject-aware depth.
+- Add Depth Anything V2 Small as the first experimental depth provider, with Depth Pro and MoGe as follow-up candidates.
 - Add palette quantization.
 - Add filament swap calculation.
 - Add partner-specific full-color packaging.

@@ -43,10 +43,13 @@ Location: `services/print-file-generator`
 
 Runtime target: Python on Cloud Run.
 
+Architecture decision: keep this as the production FastAPI/Cloud Run boundary and selectively extract core image, heightmap, STL, metadata, color, and test concepts from `E:\PROJECTS\print-file-generator`. Do not vendor that standalone project's Flask web app, SQLite local project database, browser session state, CLI control plane, or TD1 hardware code into this service.
+
 Responsibilities:
 
 - Read selected generated image from Cloud Storage.
 - Convert image into a relief heightmap and geometry.
+- Generate a closed, watertight 5in x 7in relief mesh with top surface, base plane, sidewalls, controlled relief range, and exact physical bounds.
 - Generate binary STL as a baseline geometry artifact.
 - Generate a color-capable print package for Mimaki 3DUJ-2207 partners, such as 3MF or OBJ plus texture.
 - Generate filament painting support files such as palette, layer swaps, print settings, and preview.
@@ -55,6 +58,8 @@ Responsibilities:
 - Return an artifact manifest and printability metadata.
 
 This is intentionally separate from Firebase Functions because geometry generation, texture packaging, and filament painting preparation may need Python libraries, CPU time, memory, and longer request windows.
+
+The first implementation should be deterministic: validated image input, 5:7 crop/pad, luminance heightmap fallback, closed mesh generation, STL/heightmap/metadata output, and printability checks. AI depth providers such as Depth Anything V2 Small, Depth Pro, or MoGe should plug into the heightmap step only after the deterministic relief path is working.
 
 ### Firebase/GCP
 

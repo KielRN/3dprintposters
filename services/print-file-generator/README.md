@@ -4,11 +4,35 @@ Python Cloud Run service boundary for generating print-ready artifact bundles fo
 
 This service replaces the narrower STL-only mental model. STL is still produced as a baseline geometry file, but the product needs a broader artifact package that can support both full-color relief printing and filament painting workflows.
 
+## Implementation Direction
+
+Keep this service as the production FastAPI/Cloud Run boundary. The standalone `E:\PROJECTS\print-file-generator` project is a reference implementation for core ideas, not something to vendor wholesale.
+
+Extract and adapt:
+
+- image validation and pixel-array handling
+- heightmap/settings concepts
+- binary STL export patterns
+- mesh metadata estimates
+- color and filament utilities for later support files
+- useful unit tests
+
+Do not bring over:
+
+- Flask routes
+- SQLite project state
+- browser session project handling
+- local CLI control flow
+- TD1 hardware communication
+- the current open-surface mesh topology as-is
+
+The first real implementation should generate a deterministic closed 5in x 7in relief object with top surface, base plane, sidewalls, binary `model.stl`, `heightmap.png`, `metadata.json`, and printability checks. AI depth providers come after that deterministic path is working.
+
 ## Responsibilities
 
 - Read a selected generated image from Cloud Storage.
 - Normalize the image into the 5in x 7in product composition.
-- Generate deterministic heightmap and relief geometry artifacts.
+- Generate deterministic heightmap and closed relief geometry artifacts.
 - Produce baseline geometry files for validation and fallback workflows.
 - Produce full-color handoff packages for Mimaki 3DUJ-2207 or comparable partners.
 - Produce filament painting support files for FDM-style workflows.

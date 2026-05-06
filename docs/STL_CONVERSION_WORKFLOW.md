@@ -2,6 +2,8 @@
 
 Note: this STL-focused workflow is now a subset of the broader [Print File Generation Workflow](./PRINT_FILE_GENERATION_WORKFLOW.md). Future implementation should happen under `services/print-file-generator`, with STL treated as one artifact in the print bundle.
 
+The accepted implementation direction is selective extraction from `E:\PROJECTS\print-file-generator`: reuse core image, heightmap, STL, metadata, color, and test concepts, but keep the `3DPrintPosters` FastAPI/Cloud Run service boundary. Do not copy the standalone Flask, SQLite, browser-session, CLI, or TD1 hardware architecture into production.
+
 The 3D conversion pipeline is the riskiest technical area, so it is separated into a Python Cloud Run service with a stable API contract. This lets us iterate with Python imaging and mesh libraries, and it gives us a clean place to run another AI workflow if needed.
 
 The target product size is now a 5in x 7in physical relief. The target print path is a fulfillment business that can print on a Mimaki 3DUJ-2207 or comparable full-color UV-curable inkjet 3D printer. Keep Sculpteo API work on hold until we confirm whether it fits this printer and file-handoff strategy.
@@ -35,7 +37,7 @@ STL remains useful as a geometry baseline and for generic printability checks, b
 5. Posterize or segment the image to reduce noisy micro-detail.
 6. Generate a grayscale heightmap.
 7. Smooth the heightmap enough for printability while preserving major edges.
-8. Convert height values into a relief mesh.
+8. Convert height values into a closed watertight relief mesh with top surface, base plane, sidewalls, consistent normals, and exact 127mm x 177.8mm bounds.
 9. Add a poster base plate with minimum thickness.
 10. Attach color/texture data for the approved generated image.
 11. Export binary STL for geometry validation.
@@ -85,7 +87,7 @@ Still deterministic:
 Start simple:
 
 - Convert luminosity to Z height.
-- Add base plate.
+- Add a closed base plate and sidewalls.
 - Export STL.
 - Export a color-aware preview and record the intended 5x7 dimensions.
 - Show a browser preview.

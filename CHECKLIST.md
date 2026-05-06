@@ -55,17 +55,26 @@
 
 - [x] Create Python Cloud Run service contract for STL generation.
 - [x] Create broader print file generator service contract.
-- [ ] Implement image validation and normalization.
-- [ ] Add 5:7 crop/pad handling for the 5in x 7in product.
-- [ ] Implement heightmap generation.
-- [ ] Implement binary STL mesh generation.
+- [x] Decide to keep `services/print-file-generator` as the production FastAPI/Cloud Run boundary and selectively extract core modules from `E:\PROJECTS\print-file-generator`.
+- [x] Document the extraction roadmap in `docs/PRINT_FILE_GENERATOR_ARCHITECTURE_ROADMAP_EVALUATION.md`.
+- [x] Add service module skeleton for `image_pipeline`, `depth`, `relief`, `packages`, `storage`, and `metadata`.
+- [x] Port/adapt image validation, RGB conversion, pixel-array handling, and generation-limit tests from the standalone generator.
+- [x] Implement image validation and normalization.
+- [x] Add 5:7 crop/pad handling for the 5in x 7in product.
+- [x] Implement deterministic luminance-to-heightmap generation as the fallback provider.
+- [x] Implement closed watertight relief mesh generation with top surface, base plane, sidewalls, consistent normals, and exact 127mm x 177.8mm bounds.
+- [x] Implement binary STL export for the closed relief mesh.
+- [x] Export `heightmap.png`, `model.stl`, and `metadata.json` for a local test fixture.
+- [ ] Add printability checks for bounds, base thickness, relief depth, triangle count, file size, and watertightness.
+- [ ] Add known-image fixture tests for deterministic metadata and safe error handling.
+- [x] Wire the FastAPI `/v1/generate` implementation to produce real artifacts behind a storage adapter while preserving the existing response contract.
+- [ ] Add optional GLB/preview mesh generation for browser preview.
+- [x] Add depth provider interface and keep luminance as the default provider.
+- [ ] Prototype Depth Anything V2 Small as the first experimental depth provider after deterministic relief generation passes tests.
 - [ ] Add color-capable export package for Mimaki 3DUJ-2207 partners.
 - [ ] Add filament painting palette, layer swap, print settings, and preview outputs.
-- [ ] Add optional GLB/preview mesh generation for browser preview.
-- [ ] Add printability preflight checks.
 - [ ] Add color/material recipe generation.
-- [ ] Add tests with known image fixtures.
-- [ ] Decide where AI workflow assists: depth estimation, segmentation, style constraints, or QA.
+- [ ] Decide where later AI workflow assists beyond depth estimation: segmentation, style constraints, preview QA, or texture cleanup.
 
 ## Phase 4 - Payments and Fulfillment
 
