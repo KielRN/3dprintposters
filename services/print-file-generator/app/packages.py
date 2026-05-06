@@ -9,6 +9,8 @@ from .models import (
     PrintFileGenerationRequest,
     PrintFileGenerationResponse,
 )
+from .printability import evaluate_printability, require_printable
+from .preview import neutral_preview_glb_bytes
 from .relief import binary_stl_bytes, build_closed_relief_mesh
 from .storage import StorageAdapter, artifact_path
 
@@ -65,6 +67,15 @@ def generate_print_file_bundle(
         height_mm=request.dimensions.target_height_mm,
     )
     stl_bytes = binary_stl_bytes(mesh)
+    preview_glb_bytes = neutral_preview_glb_bytes(mesh)
+    printability = evaluate_printability(
+        request=request,
+        mesh=mesh,
+        heightmap=heightmap,
+        binary_stl_size=len(stl_bytes),
+    )
+    require_printable(printability)
+
     metadata = build_artifact_metadata(
         job_id=request.job_id,
         uid=request.uid,
@@ -79,6 +90,11 @@ def generate_print_file_bundle(
         artifact_paths.model_stl,
         stl_bytes,
         content_type="model/stl",
+    )
+    storage.write_bytes(
+        artifact_paths.preview_glb,
+        preview_glb_bytes,
+        content_type="model/gltf-binary",
     )
     storage.write_bytes(
         artifact_paths.heightmap_png,
@@ -107,10 +123,12 @@ def generate_print_file_bundle(
                 "image_normalized_to_5x7",
                 "luminance_heightmap_generated",
                 "closed_binary_stl_generated",
+                "neutral_preview_glb_generated",
+                *printability.checks,
                 "metadata_written",
             ],
             warnings=[
-                "GLB preview generation is not implemented yet.",
+                *printability.warnings,
                 "Full-color 3MF/OBJ/VRML/PLY packages are not implemented yet.",
                 "Filament painting palette and layer swap logic are not implemented yet.",
             ],

@@ -82,13 +82,16 @@ def test_local_generation_writes_deterministic_relief_bundle(tmp_path) -> None:
     assert response.status == "generated"
     assert response.printability.status == "passed_with_warnings"
     assert (output_prefix / "model.stl").exists()
+    assert (output_prefix / "preview.glb").exists()
     assert (output_prefix / "heightmap.png").exists()
     assert (output_prefix / "metadata.json").exists()
     assert (output_prefix / "filament-painting" / "preview.png").exists()
+    assert "neutral_preview_glb_generated" in response.printability.checks
 
     stl_bytes = (output_prefix / "model.stl").read_bytes()
     triangle_count = struct.unpack("<I", stl_bytes[80:84])[0]
     assert len(stl_bytes) == 84 + triangle_count * 50
+    assert (output_prefix / "preview.glb").read_bytes().startswith(b"glTF")
 
     metadata = json.loads((output_prefix / "metadata.json").read_text())
     assert metadata["job_id"] == "job_123"
@@ -97,6 +100,34 @@ def test_local_generation_writes_deterministic_relief_bundle(tmp_path) -> None:
     assert metadata["height_provider"] == "luminance"
     assert metadata["watertight"] is True
     assert metadata["triangle_count"] == triangle_count
+
+
+def test_known_image_metadata_is_deterministic(tmp_path) -> None:
+    source_path = tmp_path / "known-source.png"
+    image = Image.new("RGB", (10, 14), color=(255, 255, 255))
+    image.save(source_path)
+
+    metadatas = []
+    for index in range(2):
+        output_prefix = tmp_path / f"print-files-{index}"
+        request = PrintFileGenerationRequest(
+            job_id="job_known",
+            uid="user_known",
+            selected_image_path=str(source_path),
+            output_prefix=str(output_prefix),
+            relief=ReliefSettings(target_width_px=4),
+        )
+
+        generate_print_file_bundle(request, storage=LocalFilesystemStorage())
+        metadatas.append(json.loads((output_prefix / "metadata.json").read_text()))
+
+    assert metadatas[0] == metadatas[1]
+    assert metadatas[0]["normalized_width_px"] == 4
+    assert metadatas[0]["normalized_height_px"] == 6
+    assert metadatas[0]["vertex_count"] == 48
+    assert metadatas[0]["triangle_count"] == 92
+    assert metadatas[0]["binary_stl_bytes"] == 4684
+    assert metadatas[0]["height_provider"] == "luminance"
 
 
 def test_local_generation_rejects_images_over_generation_limit(tmp_path) -> None:
@@ -116,6 +147,23 @@ def test_local_generation_rejects_images_over_generation_limit(tmp_path) -> None
         generate_print_file_bundle(request, storage=LocalFilesystemStorage())
 
 
+def test_local_generation_rejects_artifacts_over_triangle_limit(tmp_path) -> None:
+    source_path = tmp_path / "source.png"
+    output_prefix = tmp_path / "print-files"
+    Image.new("RGB", (4, 4), color=(255, 255, 255)).save(source_path)
+
+    request = PrintFileGenerationRequest(
+        job_id="job_123",
+        uid="user_123",
+        selected_image_path=str(source_path),
+        output_prefix=str(output_prefix),
+        relief=ReliefSettings(max_triangle_count=1),
+    )
+
+    with pytest.raises(ValueError, match="triangle count"):
+        generate_print_file_bundle(request, storage=LocalFilesystemStorage())
+
+
 def test_generate_endpoint_returns_client_error_for_missing_local_image(tmp_path) -> None:
     client = TestClient(app)
 
@@ -131,3 +179,22 @@ def test_generate_endpoint_returns_client_error_for_missing_local_image(tmp_path
 
     assert response.status_code == 400
     assert "missing.png" in response.json()["detail"]
+
+
+def test_generate_endpoint_returns_client_error_for_invalid_local_image(tmp_path) -> None:
+    source_path = tmp_path / "invalid.png"
+    source_path.write_bytes(b"not an image")
+    client = TestClient(app)
+
+    response = client.post(
+        "/v1/generate",
+        json={
+            "job_id": "job_123",
+            "uid": "user_123",
+            "selected_image_path": str(source_path),
+            "output_prefix": str(tmp_path / "print-files"),
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Unsupported or invalid image"

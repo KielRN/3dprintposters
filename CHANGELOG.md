@@ -9,6 +9,9 @@ All notable project changes will be documented in this file.
 - Added AI 3D model generation research for the poster-relief pipeline.
 - Added a print-file generator architecture roadmap evaluation recommending selective core-module extraction from `E:\PROJECTS\print-file-generator`.
 - Added the first deterministic print-file generator pipeline with image normalization, luminance heightmaps, closed relief STL export, local/GCS storage adapters, artifact metadata, and regression tests.
+- Added printability checks for relief bounds, base thickness, relief depth, triangle count, binary STL size, and watertight mesh edges.
+- Added known-image metadata regression coverage and invalid-image endpoint error coverage for the print-file generator.
+- Added neutral-material GLB preview mesh generation for browser previews.
 
 ### Changed
 

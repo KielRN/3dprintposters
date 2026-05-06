@@ -94,4 +94,10 @@ Filament painting artifacts:
 
 ## Current State
 
-This is an architecture scaffold only. The API contract returns reserved artifact paths and printability placeholders. Image processing, mesh generation, color packaging, slicer integration, and layer swap logic are intentionally not implemented yet.
+The `/v1/generate` API can now read a local or GCS image, normalize it to the 5in x 7in product shape, build a deterministic luminance heightmap, export a closed binary STL, write a neutral-material `preview.glb`, write `heightmap.png`, write `metadata.json`, and run baseline printability checks.
+
+Still intentionally deferred:
+
+- Full-color 3MF/OBJ/VRML/PLY packages
+- Filament painting palette and layer swap logic
+- Partner-specific slicer, material, and fulfillment handoff logic

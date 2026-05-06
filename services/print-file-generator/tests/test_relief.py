@@ -1,7 +1,12 @@
+import json
 import struct
 
 import numpy as np
 
+from app.depth import Heightmap
+from app.models import PrintFileGenerationRequest
+from app.printability import evaluate_printability
+from app.preview import BIN_CHUNK_TYPE, JSON_CHUNK_TYPE, neutral_preview_glb_bytes
 from app.relief import binary_stl_bytes, build_closed_relief_mesh
 
 
@@ -26,3 +31,110 @@ def test_closed_relief_mesh_has_top_bottom_and_sidewall_faces() -> None:
     stl_bytes = binary_stl_bytes(mesh)
     assert struct.unpack("<I", stl_bytes[80:84])[0] == len(mesh.faces)
     assert len(stl_bytes) == 84 + len(mesh.faces) * 50
+
+
+def test_printability_checks_pass_for_closed_target_relief() -> None:
+    heightmap = np.array(
+        [
+            [1.6, 2.0],
+            [3.0, 4.2],
+        ],
+        dtype=np.float32,
+    )
+    mesh = build_closed_relief_mesh(heightmap, width_mm=127.0, height_mm=177.8)
+    stl_bytes = binary_stl_bytes(mesh)
+    request = PrintFileGenerationRequest(
+        job_id="job_123",
+        uid="user_123",
+        selected_image_path="source.png",
+        output_prefix="print-files/user_123/job_123",
+    )
+
+    report = evaluate_printability(
+        request=request,
+        mesh=mesh,
+        heightmap=Heightmap(
+            values=heightmap,
+            min_height_mm=1.6,
+            max_height_mm=4.2,
+            provider="test",
+        ),
+        binary_stl_size=len(stl_bytes),
+    )
+
+    assert report.status == "passed"
+    assert "physical_bounds_match_target" in report.checks
+    assert "mesh_is_watertight" in report.checks
+    assert report.failures == []
+
+
+def test_printability_checks_reject_open_mesh_edges() -> None:
+    heightmap = np.array(
+        [
+            [1.6, 2.0],
+            [3.0, 4.2],
+        ],
+        dtype=np.float32,
+    )
+    mesh = build_closed_relief_mesh(heightmap, width_mm=127.0, height_mm=177.8)
+    open_mesh = type(mesh)(
+        vertices=mesh.vertices,
+        faces=mesh.faces[:-1],
+        width_mm=mesh.width_mm,
+        height_mm=mesh.height_mm,
+        min_z_mm=mesh.min_z_mm,
+        max_z_mm=mesh.max_z_mm,
+    )
+    request = PrintFileGenerationRequest(
+        job_id="job_123",
+        uid="user_123",
+        selected_image_path="source.png",
+        output_prefix="print-files/user_123/job_123",
+    )
+
+    report = evaluate_printability(
+        request=request,
+        mesh=open_mesh,
+        heightmap=Heightmap(
+            values=heightmap,
+            min_height_mm=1.6,
+            max_height_mm=4.2,
+            provider="test",
+        ),
+        binary_stl_size=len(binary_stl_bytes(mesh)),
+    )
+
+    assert report.status == "failed"
+    assert any("open edges" in failure for failure in report.failures)
+
+
+def test_neutral_preview_glb_contains_mesh_and_material() -> None:
+    heightmap = np.array(
+        [
+            [1.0, 2.0],
+            [3.0, 4.0],
+        ],
+        dtype=np.float32,
+    )
+    mesh = build_closed_relief_mesh(heightmap, width_mm=127.0, height_mm=177.8)
+
+    glb_bytes = neutral_preview_glb_bytes(mesh)
+
+    magic, version, total_length = struct.unpack("<4sII", glb_bytes[:12])
+    assert magic == b"glTF"
+    assert version == 2
+    assert total_length == len(glb_bytes)
+
+    json_length, json_type = struct.unpack("<II", glb_bytes[12:20])
+    assert json_type == JSON_CHUNK_TYPE
+    json_start = 20
+    json_end = json_start + json_length
+    gltf = json.loads(glb_bytes[json_start:json_end].decode("utf-8"))
+
+    bin_length, bin_type = struct.unpack("<II", glb_bytes[json_end : json_end + 8])
+    assert bin_type == BIN_CHUNK_TYPE
+    assert gltf["asset"]["version"] == "2.0"
+    assert gltf["accessors"][0]["count"] == len(mesh.vertices)
+    assert gltf["accessors"][1]["count"] == len(mesh.faces) * 3
+    assert gltf["buffers"][0]["byteLength"] == bin_length
+    assert gltf["materials"][0]["name"] == "warm-neutral-preview"

@@ -65,10 +65,10 @@
 - [x] Implement closed watertight relief mesh generation with top surface, base plane, sidewalls, consistent normals, and exact 127mm x 177.8mm bounds.
 - [x] Implement binary STL export for the closed relief mesh.
 - [x] Export `heightmap.png`, `model.stl`, and `metadata.json` for a local test fixture.
-- [ ] Add printability checks for bounds, base thickness, relief depth, triangle count, file size, and watertightness.
-- [ ] Add known-image fixture tests for deterministic metadata and safe error handling.
+- [x] Add printability checks for bounds, base thickness, relief depth, triangle count, file size, and watertightness.
+- [x] Add known-image fixture tests for deterministic metadata and safe error handling.
 - [x] Wire the FastAPI `/v1/generate` implementation to produce real artifacts behind a storage adapter while preserving the existing response contract.
-- [ ] Add optional GLB/preview mesh generation for browser preview.
+- [x] Add optional GLB/preview mesh generation for browser preview.
 - [x] Add depth provider interface and keep luminance as the default provider.
 - [ ] Prototype Depth Anything V2 Small as the first experimental depth provider after deterministic relief generation passes tests.
 - [ ] Add color-capable export package for Mimaki 3DUJ-2207 partners.
