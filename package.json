@@ -17,6 +17,7 @@
     "firebase:deploy:firestore-rules:dev": "firebase deploy --only firestore:rules --project dev",
     "firebase:deploy:storage-rules:dry-run": "firebase deploy --only storage --project dev --dry-run",
     "firebase:deploy:storage-rules:dev": "firebase deploy --only storage --project dev",
+    "firebase:deploy:storage-cors:dev": "gcloud storage buckets update gs://gen-lang-client-0675309660.firebasestorage.app --cors-file=infra/firebase/storage.cors.json",
     "firebase:deploy:rules:dev": "firebase deploy --only firestore:rules,storage --project dev",
     "firebase:deploy:rules:dry-run": "firebase deploy --only firestore:rules,storage --project dev --dry-run",
     "stripe:create-poster-product": "node scripts/stripe/create-poster-product.mjs",

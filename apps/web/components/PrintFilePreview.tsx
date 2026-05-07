@@ -22,15 +22,15 @@ function ReliefGlbModel({ previewUrl }: { previewUrl: string }) {
   const gltf = useLoader(GLTFLoader, previewUrl);
   const groupRef = useRef<Group>(null);
 
-  useFrame((_, delta) => {
+  useFrame(() => {
     if (groupRef.current) {
-      groupRef.current.rotation.y = Math.sin(Date.now() * 0.0004) * 0.18;
-      groupRef.current.rotation.z += delta * 0.03;
+      groupRef.current.rotation.y = -0.18 + Math.sin(Date.now() * 0.0005) * 0.04;
+      groupRef.current.rotation.x = 0.16 + Math.sin(Date.now() * 0.0004) * 0.02;
     }
   });
 
   return (
-    <group ref={groupRef} rotation={[0.12, 0, 0.02]} scale={0.024}>
+    <group ref={groupRef} rotation={[0.16, -0.18, 0]} scale={0.026}>
       <primitive object={gltf.scene} position={[-63.5, -88.9, -2.1]} />
     </group>
   );
@@ -85,8 +85,8 @@ export function PrintFilePreview({
       </div>
 
       <div className="grid lg:grid-cols-[minmax(0,1fr)_280px]">
-        <div className="relative min-h-[420px] bg-[linear-gradient(145deg,#181c21,#303139)]">
-          <Canvas camera={{ position: [0, 0.15, 6.6], fov: 42 }}>
+        <div className="relative min-h-[460px] bg-[linear-gradient(145deg,#181c21,#303139)]">
+          <Canvas camera={{ position: [0, 0.08, 6.4], fov: 42 }}>
             <ambientLight intensity={0.88} />
             <directionalLight position={[4, 5, 6]} intensity={1.45} />
             <pointLight position={[-3, -3, 4]} intensity={0.38} color="#df5c45" />

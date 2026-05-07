@@ -456,7 +456,26 @@ export function JobDetail({ jobId }: { jobId: string }) {
           {generatedImages.map((image) => {
             const imageUrl = imageUrls[image.storagePath];
             const isApproved = approvedImagePath === image.storagePath;
+            const canRegeneratePrintFiles =
+              isApproved &&
+              job.status === "approved" &&
+              job.printFileStatus === "generated";
+            const canRetryPrintFiles =
+              isApproved &&
+              job.status === "approved" &&
+              job.printFileStatus === "failed";
+            const canRunPrintFiles = canRegeneratePrintFiles || canRetryPrintFiles;
             const isBusy = approvalBusyPath === image.storagePath;
+            let approvalLabel = "Approve proof";
+            if (isApproved) {
+              approvalLabel = "Approved";
+            }
+            if (canRegeneratePrintFiles) {
+              approvalLabel = "Regenerate 3D preview";
+            }
+            if (canRetryPrintFiles) {
+              approvalLabel = "Retry 3D generation";
+            }
 
             return (
               <article
@@ -495,10 +514,12 @@ export function JobDetail({ jobId }: { jobId: string }) {
                   </div>
                   <button
                     className={
-                      isApproved ? "secondary-button" : "primary-button"
+                      isApproved && !canRunPrintFiles
+                        ? "secondary-button"
+                        : "primary-button"
                     }
                     type="button"
-                    disabled={isApproved || isBusy}
+                    disabled={(isApproved && !canRunPrintFiles) || isBusy}
                     onClick={() => approveImage(image.storagePath)}
                   >
                     {isBusy ? (
@@ -507,10 +528,12 @@ export function JobDetail({ jobId }: { jobId: string }) {
                         size={18}
                         aria-hidden="true"
                       />
+                    ) : canRunPrintFiles ? (
+                      <RefreshCw size={18} aria-hidden="true" />
                     ) : (
                       <FileCheck2 size={18} aria-hidden="true" />
                     )}
-                    {isApproved ? "Approved" : "Approve proof"}
+                    {approvalLabel}
                   </button>
                 </div>
               </article>

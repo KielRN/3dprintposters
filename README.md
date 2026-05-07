@@ -261,7 +261,7 @@ In this mode:
 
 If generation fails with `Poster generation failed before a proof was ready`, check `apps/functions/.env` first. The local Functions emulator needs `VERTEX_API_KEY` before it can call Vertex/Gemini.
 
-If approval fails with `3D preview generation failed`, make sure the print-file generator is running on `http://127.0.0.1:8089` and that `apps/functions/.env` has `PRINT_FILE_GENERATOR_URL=http://127.0.0.1:8089`.
+If approval fails with `3D preview generation failed`, make sure the print-file generator is running on `http://127.0.0.1:8089` and that `apps/functions/.env` has `PRINT_FILE_GENERATOR_URL=http://127.0.0.1:8089`. The print-file generator accepts generated proof images up to 4,000,000 decoded pixels by default before resizing them to the working relief resolution.
 
 ## Local Testing: Web Only
 
@@ -347,6 +347,12 @@ Deploy dev Firebase rules intentionally:
 npm run firebase:deploy:rules:dev
 ```
 
+Apply dev Storage CORS intentionally:
+
+```powershell
+npm run firebase:deploy:storage-cors:dev
+```
+
 ## Common Problems
 
 ### The app says generation failed before a proof was ready
@@ -370,7 +376,9 @@ That is expected in hybrid local testing.
 
 That is expected on the upload screen. The real generated 3D preview appears on `/jobs/{jobId}` after proof approval and print-file generation.
 
-If the job page does not show a 3D preview after approval, check that the print-file generator is running, `PRINT_FILE_GENERATOR_URL` is configured, and Storage rules allow reads under `print-files/{uid}/{jobId}`.
+If the job page does not show a 3D preview after approval, check that the print-file generator is running, `PRINT_FILE_GENERATOR_URL` is configured, Storage rules allow reads under `print-files/{uid}/{jobId}`, Storage CORS allows `http://localhost:3000`, and the approved proof image is not above the generator's decoded pixel limit.
+
+If the 3D preview was generated before a relief-algorithm change, use **Regenerate 3D preview** on the approved proof to rebuild `preview.glb`, `model.stl`, `heightmap.png`, and `metadata.json` for that job.
 
 ### Checkout should not be live yet
 

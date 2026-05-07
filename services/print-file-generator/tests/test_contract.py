@@ -53,6 +53,7 @@ def test_request_defaults_include_both_output_modes() -> None:
     ]
     assert request.dimensions.target_width_mm == 127.0
     assert request.dimensions.target_height_mm == 177.8
+    assert request.relief.max_source_pixels == 4_000_000
 
 
 def test_local_generation_writes_deterministic_relief_bundle(tmp_path) -> None:
@@ -97,9 +98,30 @@ def test_local_generation_writes_deterministic_relief_bundle(tmp_path) -> None:
     assert metadata["job_id"] == "job_123"
     assert metadata["width_mm"] == 127.0
     assert metadata["height_mm"] == 177.8
-    assert metadata["height_provider"] == "luminance"
+    assert metadata["height_provider"] == "posterized_luminance"
     assert metadata["watertight"] is True
     assert metadata["triangle_count"] == triangle_count
+
+
+def test_local_generation_accepts_default_ai_proof_size(tmp_path) -> None:
+    source_path = tmp_path / "ai-proof.png"
+    output_prefix = tmp_path / "print-files"
+    Image.new("RGB", (1024, 1024), color=(255, 255, 255)).save(source_path)
+
+    request = PrintFileGenerationRequest(
+        job_id="job_ai_proof",
+        uid="user_123",
+        selected_image_path=str(source_path),
+        output_prefix=str(output_prefix),
+    )
+
+    response = generate_print_file_bundle(request, storage=LocalFilesystemStorage())
+
+    assert response.status == "generated"
+    metadata = json.loads((output_prefix / "metadata.json").read_text())
+    assert metadata["source_width_px"] == 1024
+    assert metadata["source_height_px"] == 1024
+    assert metadata["normalized_width_px"] == request.relief.target_width_px
 
 
 def test_known_image_metadata_is_deterministic(tmp_path) -> None:
@@ -127,7 +149,7 @@ def test_known_image_metadata_is_deterministic(tmp_path) -> None:
     assert metadatas[0]["vertex_count"] == 48
     assert metadatas[0]["triangle_count"] == 92
     assert metadatas[0]["binary_stl_bytes"] == 4684
-    assert metadatas[0]["height_provider"] == "luminance"
+    assert metadatas[0]["height_provider"] == "posterized_luminance"
 
 
 def test_local_generation_rejects_images_over_generation_limit(tmp_path) -> None:

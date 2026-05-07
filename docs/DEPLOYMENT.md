@@ -96,6 +96,12 @@ npm run firebase:deploy:rules:dry-run
 npm run firebase:deploy:rules:dev
 ```
 
+Storage rules control who can read and write objects. Browser-based GLB previews also need bucket CORS so Three.js can fetch `preview.glb` from the web app origin:
+
+```powershell
+npm run firebase:deploy:storage-cors:dev
+```
+
 The Firestore and Storage rules dry-run successfully for the `dev` project, and both rule sets have been deployed to `dev`.
 
 The `:dev` scripts target the `.firebaserc` `dev` alias. For staging or production, create dedicated Firebase projects and aliases first, then run the equivalent `firebase deploy --only firestore:rules,storage --project staging` or `--project production` command intentionally.

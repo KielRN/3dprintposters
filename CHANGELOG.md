@@ -19,6 +19,10 @@ All notable project changes will be documented in this file.
 
 - Updated roadmap, checklist, README, architecture, workflow, service, and developer notes to make deterministic closed-relief generation the next print-file implementation slice.
 - Wired the print-file generator `/v1/generate` route to produce real baseline artifacts when the selected image is readable from local filesystem or GCS storage.
+- Raised the print-file generator's default decoded source-image limit to 4,000,000 pixels so normal AI proof images can be resized into relief artifacts.
+- Added dev Firebase Storage CORS configuration so browser-based Three.js previews can fetch generated `preview.glb` artifacts.
+- Tuned deterministic relief heightmaps to smooth noisy proof texture into broader poster-like depth bands while retaining softened edge detail.
+- Stabilized the job-page GLB preview framing and added a regenerate action for approved 3D previews.
 - Renamed the server-side Storage bucket env var to `APP_STORAGE_BUCKET` because Firebase Functions reserves the `FIREBASE_` prefix.
 - Updated local PWA behavior so the service worker does not cache stale localhost development bundles.
 

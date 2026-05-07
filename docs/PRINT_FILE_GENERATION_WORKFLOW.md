@@ -27,6 +27,7 @@ Implementation direction: keep this service's FastAPI contract and selectively e
   - `filament_painting`
 - Target dimensions: 127mm x 177.8mm for 5in x 7in.
 - Relief depth range, initially 0.4mm to 3.0mm.
+- Source image decoded pixel limit, initially 4,000,000 pixels before normalization to the working relief resolution.
 - Base thickness, initially 1.2mm.
 - Full-color material profile, initially `mimaki_3duj_2207_full_color_uv_resin`.
 - Filament material profile, initially `generic_multicolor_fdm_filament_painting`.
@@ -69,8 +70,8 @@ Filament painting artifacts:
 3. Normalize image orientation and resolution.
 4. Crop or pad to a 5:7 composition.
 5. Posterize or segment the image to reduce noisy micro-detail.
-6. Generate a grayscale heightmap.
-7. Smooth the heightmap enough for printability while preserving major edges.
+6. Generate a posterized grayscale heightmap from luminance.
+7. Smooth noisy micro-texture, quantize to broad printable depth bands, and reintroduce softened edge detail for major silhouettes.
 8. Convert height values into closed relief geometry with top surface, bottom base plane, sidewalls, consistent winding, and controlled relief depth.
 9. Add a poster base plate with minimum thickness.
 10. Export baseline STL for geometry validation and fallback workflows.
