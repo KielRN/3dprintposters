@@ -126,21 +126,27 @@ Future versions may add slicer-specific project files or generated G-code, but t
 - `printability`
 - `packageReadiness`
 
-Paid orders should preserve the exact manifest and settings used at checkout so future regeneration cannot silently change a customer order.
+Paid orders preserve the exact manifest and settings used at checkout so future regeneration cannot silently change a customer order. The current checkout precondition requires `printFileStatus: "generated"` and generated `modelStl`/`previewGlb` artifact paths.
 
-## First MVP Strategy
+## Current MVP Strategy
 
-Start with the accepted extraction plan:
+The accepted extraction plan is now partially implemented:
 
 - Preserve the existing FastAPI `/v1/generate` contract and stable output paths.
 - Add service modules for image processing, heightmap generation, closed relief mesh generation, STL export, storage, metadata, and validation.
 - Port/adapt only core concepts from `E:\PROJECTS\print-file-generator`.
-- Generate simple deterministic artifacts first: `model.stl`, `heightmap.png`, and `metadata.json`.
+- Generate deterministic artifacts: `model.stl`, `preview.glb`, `heightmap.png`, and `metadata.json`.
 - Make the STL a closed, watertight 5in x 7in relief object before adding AI depth, color packages, or fulfillment automation.
-- Add real printability checks before checkout can depend on generated print files.
+- Add printability checks before checkout can depend on generated print files.
+- Call the print-file generator from `approveGeneratedImage` after proof approval.
+- Store artifact paths and printability output on `jobs/{jobId}`.
+- Render `preview.glb` on `/jobs/{jobId}` and keep checkout locked until print-file artifacts are ready.
+- For local hybrid testing, run the print-file generator on `http://127.0.0.1:8089` and set `PRINT_FILE_GENERATOR_URL` in `apps/functions/.env`.
 
 Then improve:
 
+- Deploy the print-file generator as a Cloud Run service and point `PRINT_FILE_GENERATOR_URL` at that endpoint.
+- Move long-running print generation behind Cloud Tasks or Pub/Sub.
 - Add edge-preserving smoothing.
 - Add subject-aware depth.
 - Add Depth Anything V2 Small as the first experimental depth provider, with Depth Pro and MoGe as follow-up candidates.

@@ -1,5 +1,9 @@
 import { initializeApp } from "firebase-admin/app";
-import { FieldValue, getFirestore } from "firebase-admin/firestore";
+import {
+  FieldValue,
+  getFirestore,
+  type DocumentReference,
+} from "firebase-admin/firestore";
 import { defineSecret } from "firebase-functions/params";
 import { HttpsError, onCall, onRequest } from "firebase-functions/v2/https";
 import Stripe from "stripe";
@@ -39,6 +43,49 @@ type GeneratedImage = {
   storagePath?: string;
 };
 
+const printFileArtifactPathsSchema = z.object({
+  model_stl: z.string().min(1),
+  heightmap_png: z.string().min(1),
+  preview_glb: z.string().min(1),
+  metadata_json: z.string().min(1),
+  full_color_3mf: z.string().min(1),
+  full_color_obj: z.string().min(1),
+  full_color_texture_png: z.string().min(1),
+  full_color_vrml: z.string().min(1),
+  full_color_ply: z.string().min(1),
+  filament_palette_json: z.string().min(1),
+  filament_layer_swaps_txt: z.string().min(1),
+  filament_print_settings_json: z.string().min(1),
+  filament_preview_png: z.string().min(1),
+});
+
+const printFileGenerationResponseSchema = z.object({
+  job_id: z.string().min(1),
+  status: z.string().min(1),
+  artifact_paths: printFileArtifactPathsSchema,
+  printability: z.object({
+    status: z.string().min(1),
+    checks: z.array(z.string()),
+    warnings: z.array(z.string()).default([]),
+  }),
+});
+
+type PrintFileArtifacts = {
+  modelStl: string;
+  heightmapPng: string;
+  previewGlb: string;
+  metadataJson: string;
+  fullColor3mf: string;
+  fullColorObj: string;
+  fullColorTexturePng: string;
+  fullColorVrml: string;
+  fullColorPly: string;
+  filamentPaletteJson: string;
+  filamentLayerSwapsTxt: string;
+  filamentPrintSettingsJson: string;
+  filamentPreviewPng: string;
+};
+
 function buildGenerationError(error: unknown) {
   return {
     message:
@@ -47,6 +94,145 @@ function buildGenerationError(error: unknown) {
         : "Poster generation did not complete.",
     stage: "ai_generation",
   };
+}
+
+function buildPrintFileError(error: unknown) {
+  return {
+    message:
+      error instanceof Error
+        ? error.message
+        : "3D print file generation did not complete.",
+    stage: "print_file_generation",
+  };
+}
+
+function resolveRequiredEnv(name: string): string {
+  const value = process.env[name]?.trim();
+  if (!value) {
+    throw new Error(`${name} is required.`);
+  }
+
+  return value;
+}
+
+function storagePathToGcsUri(bucketName: string, storagePath: string): string {
+  if (storagePath.startsWith("gs://")) {
+    return storagePath;
+  }
+
+  return `gs://${bucketName}/${storagePath.replace(/^\/+/, "")}`;
+}
+
+function gcsUriToStoragePath(bucketName: string, gcsUri: string): string {
+  const prefix = `gs://${bucketName}/`;
+  return gcsUri.startsWith(prefix) ? gcsUri.slice(prefix.length) : gcsUri;
+}
+
+function normalizePrintFileArtifacts(
+  bucketName: string,
+  artifactPaths: z.infer<typeof printFileArtifactPathsSchema>,
+): PrintFileArtifacts {
+  return {
+    modelStl: gcsUriToStoragePath(bucketName, artifactPaths.model_stl),
+    heightmapPng: gcsUriToStoragePath(bucketName, artifactPaths.heightmap_png),
+    previewGlb: gcsUriToStoragePath(bucketName, artifactPaths.preview_glb),
+    metadataJson: gcsUriToStoragePath(bucketName, artifactPaths.metadata_json),
+    fullColor3mf: gcsUriToStoragePath(bucketName, artifactPaths.full_color_3mf),
+    fullColorObj: gcsUriToStoragePath(bucketName, artifactPaths.full_color_obj),
+    fullColorTexturePng: gcsUriToStoragePath(
+      bucketName,
+      artifactPaths.full_color_texture_png,
+    ),
+    fullColorVrml: gcsUriToStoragePath(bucketName, artifactPaths.full_color_vrml),
+    fullColorPly: gcsUriToStoragePath(bucketName, artifactPaths.full_color_ply),
+    filamentPaletteJson: gcsUriToStoragePath(
+      bucketName,
+      artifactPaths.filament_palette_json,
+    ),
+    filamentLayerSwapsTxt: gcsUriToStoragePath(
+      bucketName,
+      artifactPaths.filament_layer_swaps_txt,
+    ),
+    filamentPrintSettingsJson: gcsUriToStoragePath(
+      bucketName,
+      artifactPaths.filament_print_settings_json,
+    ),
+    filamentPreviewPng: gcsUriToStoragePath(
+      bucketName,
+      artifactPaths.filament_preview_png,
+    ),
+  };
+}
+
+async function generatePrintFilesForApprovedJob(input: {
+  jobRef: DocumentReference;
+  jobId: string;
+  uid: string;
+  selectedImagePath: string;
+  selectedStyle: string;
+}): Promise<PrintFileArtifacts> {
+  const serviceUrl = resolveRequiredEnv("PRINT_FILE_GENERATOR_URL").replace(
+    /\/$/,
+    "",
+  );
+  const bucketName = resolveRequiredEnv("APP_STORAGE_BUCKET");
+  const outputPrefix = `print-files/${input.uid}/${input.jobId}`;
+
+  const response = await fetch(`${serviceUrl}/v1/generate`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      job_id: input.jobId,
+      uid: input.uid,
+      selected_image_path: storagePathToGcsUri(
+        bucketName,
+        input.selectedImagePath,
+      ),
+      output_prefix: storagePathToGcsUri(bucketName, outputPrefix),
+      style_metadata: {
+        selectedStyle: input.selectedStyle,
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `Print file generator failed with HTTP ${response.status}: ${(await response.text()).slice(0, 1000)}`,
+    );
+  }
+
+  const parsed = printFileGenerationResponseSchema.safeParse(
+    await response.json(),
+  );
+  if (!parsed.success) {
+    throw new Error("Print file generator returned an invalid response.");
+  }
+
+  const artifacts = normalizePrintFileArtifacts(
+    bucketName,
+    parsed.data.artifact_paths,
+  );
+
+  await input.jobRef.set(
+    {
+      printFileStatus: "generated",
+      printFileOutputPrefix: outputPrefix,
+      printFileArtifacts: artifacts,
+      printability: parsed.data.printability,
+      printFileGeneration: {
+        provider: "print-file-generator",
+        status: parsed.data.status,
+        completedAt: FieldValue.serverTimestamp(),
+      },
+      printFileError: null,
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
+
+  return artifacts;
 }
 
 export const createGenerationJob = onCall(
@@ -113,6 +299,9 @@ export const createGenerationJob = onCall(
       selectedStyle: parsed.data.selectedStyle,
       generatedImages: [],
       approvedImagePath: null,
+      printFileStatus: "not_started",
+      printFileArtifacts: null,
+      printFileOutputPrefix: null,
       aiGeneration: {
         provider: null,
         status: "queued",
@@ -235,15 +424,46 @@ export const approveGeneratedImage = onCall(async (request) => {
       status: "approved",
       approvedImagePath: parsed.data.imagePath,
       approvedAt: FieldValue.serverTimestamp(),
+      printFileStatus: "generating",
+      printFileOutputPrefix: `print-files/${request.auth.uid}/${parsed.data.jobId}`,
+      printFileError: null,
       updatedAt: FieldValue.serverTimestamp(),
     },
     { merge: true },
   );
 
+  let printFileArtifacts: PrintFileArtifacts;
+  try {
+    printFileArtifacts = await generatePrintFilesForApprovedJob({
+      jobRef,
+      jobId: jobRef.id,
+      uid: request.auth.uid,
+      selectedImagePath: parsed.data.imagePath,
+      selectedStyle:
+        typeof jobData.selectedStyle === "string" ? jobData.selectedStyle : "",
+    });
+  } catch (error) {
+    await jobRef.set(
+      {
+        printFileStatus: "failed",
+        printFileError: buildPrintFileError(error),
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+
+    throw new HttpsError(
+      "failed-precondition",
+      "Proof approved, but 3D preview generation failed. Check the Functions emulator and print-file generator logs.",
+    );
+  }
+
   return {
     jobId: jobRef.id,
     status: "approved",
     approvedImagePath: parsed.data.imagePath,
+    printFileStatus: "generated",
+    printFileArtifacts,
   };
 });
 
@@ -271,6 +491,20 @@ export const createCheckoutSession = onCall(
       throw new HttpsError(
         "failed-precondition",
         "Approve a generated proof before checkout.",
+      );
+    }
+
+    const printFileArtifacts = jobData.printFileArtifacts as
+      | Partial<PrintFileArtifacts>
+      | undefined;
+    if (
+      jobData.printFileStatus !== "generated" ||
+      typeof printFileArtifacts?.modelStl !== "string" ||
+      typeof printFileArtifacts.previewGlb !== "string"
+    ) {
+      throw new HttpsError(
+        "failed-precondition",
+        "3D print file generation must finish before checkout.",
       );
     }
 
@@ -361,6 +595,9 @@ export const createCheckoutSession = onCall(
         uid: request.auth.uid,
         jobId: parsed.data.jobId,
         approvedImagePath: jobData.approvedImagePath,
+        printFileOutputPrefix: jobData.printFileOutputPrefix ?? null,
+        printFileArtifacts,
+        printability: jobData.printability ?? null,
         status: "checkout_created",
         paymentStatus: "pending",
         fulfillmentStatus: "not_started",

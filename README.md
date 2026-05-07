@@ -11,8 +11,10 @@ Working now:
 - Next.js customer app in `apps/web`
 - Firebase Auth sign-in, including guest sessions
 - Browser upload to Firebase Storage
-- Firebase callable Functions for job creation, proof approval, and checkout
+- Firebase callable Functions for job creation, proof approval, print-file generation orchestration, and checkout
 - Direct Vertex/Gemini proof-generation adapter in `apps/functions`
+- Python print-file generator service for baseline STL, GLB preview, heightmap, metadata, and printability output
+- Job-page 3D GLB relief preview after proof approval
 - Firestore and Storage security rules for the dev Firebase project
 - Stripe Checkout session creation boundary
 - PWA manifest, icons, and install behavior
@@ -21,8 +23,7 @@ Working now:
 
 Not done yet:
 
-- Real STL/3D print file generation
-- Real GLB/STL preview from backend output
+- Deployed Cloud Run print-file generator endpoint
 - Fulfillment partner integration
 - Production Firebase projects
 - Public App Hosting deployment
@@ -33,8 +34,8 @@ Not done yet:
 Think of this app as three cooperating pieces:
 
 - The web app is what the customer sees and clicks.
-- Firebase Functions are the trusted backend. They check ownership, call AI, create jobs, and talk to Stripe.
-- The print-file generator is a planned Python service that will turn an approved image into printable artifacts like STL, heightmap, preview mesh, and color packages.
+- Firebase Functions are the trusted backend. They check ownership, call AI, create jobs, orchestrate print-file generation, and talk to Stripe.
+- The print-file generator is a Python service that turns an approved image into printable artifacts like STL, heightmap, preview GLB, metadata, and later color packages.
 
 ```mermaid
 flowchart LR
@@ -57,8 +58,8 @@ flowchart LR
   Functions --> Storage
   Functions --> AI
   Functions --> Stripe
-  Functions -.-> Print
-  Print -.-> Storage
+  Functions --> Print
+  Print --> Storage
   Functions -.-> Fulfillment
 ```
 
@@ -89,14 +90,17 @@ sequenceDiagram
   Customer->>Web: Review and approve proof
   Web->>Fn: approveGeneratedImage
   Fn->>DB: Mark job approved
-  Fn-->>Print: Planned: generate STL/print package
+  Fn->>Print: Generate STL and GLB preview
+  Print->>Storage: Store print-files/{uid}/{jobId}
+  Fn->>DB: Save print file artifacts and printability
+  Web->>Storage: Load preview.glb
   Customer->>Web: Start checkout
   Web->>Fn: createCheckoutSession
   Fn->>Stripe: Create Checkout Session
   Stripe-->>Customer: Collect payment
 ```
 
-Right now, the dashed/planned print-file step is not implemented. The 3D panel in the web app is still a visual preview shell, not a real STL preview.
+The home-page 3D panel is still a visual preview shell. The real generated `preview.glb` appears on the job page after the user approves the proof and the print-file generator finishes.
 
 ## Why There Is A Dev Server And A Functions Emulator
 
@@ -198,27 +202,36 @@ Server-only values for local backend testing go there:
 
 ```text
 VERTEX_API_KEY=
+AI_PROVIDER_ROUTE=vertex-gemini-direct
 VERTEX_IMAGE_MODEL=gemini-2.5-flash-image
 STRIPE_SECRET_KEY=
 STRIPE_WEBHOOK_SECRET=
 STRIPE_POSTER_PRICE_ID=
 PUBLIC_APP_URL=http://localhost:3000
-FIREBASE_STORAGE_BUCKET=gen-lang-client-0675309660.firebasestorage.app
+APP_STORAGE_BUCKET=gen-lang-client-0675309660.firebasestorage.app
+PRINT_FILE_GENERATOR_URL=http://127.0.0.1:8089
 ```
 
 Do not commit real `.env` files or secrets.
 
 ## Local Testing: Hybrid Mode
 
-This is the easiest useful test mode right now.
+This is the easiest useful end-to-end test mode right now.
 
-In terminal 1, start the Functions emulator:
+In terminal 1, start the print-file generator:
+
+```powershell
+cd services/print-file-generator
+uvicorn app.main:app --reload --port 8089
+```
+
+In terminal 2, start the Functions emulator:
 
 ```powershell
 npm run firebase:emulators:functions
 ```
 
-In terminal 2, start the web app:
+In terminal 3, start the web app:
 
 ```powershell
 npm run dev
@@ -243,8 +256,12 @@ In this mode:
 - Storage uses the real dev Firebase project.
 - Firestore uses the real dev Firebase project.
 - Callable Functions use your local emulator.
+- Vertex/Gemini generation is live when `AI_PROVIDER_ROUTE=vertex-gemini-direct`.
+- Print-file generation calls `PRINT_FILE_GENERATOR_URL` and writes artifacts under `print-files/{uid}/{jobId}`.
 
 If generation fails with `Poster generation failed before a proof was ready`, check `apps/functions/.env` first. The local Functions emulator needs `VERTEX_API_KEY` before it can call Vertex/Gemini.
+
+If approval fails with `3D preview generation failed`, make sure the print-file generator is running on `http://127.0.0.1:8089` and that `apps/functions/.env` has `PRINT_FILE_GENERATOR_URL=http://127.0.0.1:8089`.
 
 ## Local Testing: Web Only
 
@@ -349,9 +366,11 @@ That is expected in hybrid local testing.
 - `3000` is the web app.
 - `5001` is the Functions emulator.
 
-### The preview shows a flat plate
+### The home-page preview shows a flat plate
 
-That is expected right now. The real print-file and STL preview pipeline has not been implemented yet.
+That is expected on the upload screen. The real generated 3D preview appears on `/jobs/{jobId}` after proof approval and print-file generation.
+
+If the job page does not show a 3D preview after approval, check that the print-file generator is running, `PRINT_FILE_GENERATOR_URL` is configured, and Storage rules allow reads under `print-files/{uid}/{jobId}`.
 
 ### Checkout should not be live yet
 
@@ -391,21 +410,22 @@ Use Stripe test mode until payment, webhook, and fulfillment state transitions a
 
 ### Print Files
 
-- [ ] Keep `services/print-file-generator` as the FastAPI/Cloud Run boundary.
-- [ ] Extract core image, heightmap, STL, metadata, color, and tests from `E:\PROJECTS\print-file-generator` without vendoring its Flask/SQLite app shell.
-- [ ] Implement image validation and normalization.
-- [ ] Add 5:7 crop/pad handling.
-- [ ] Generate deterministic luminance heightmaps.
-- [ ] Generate a closed watertight 5in x 7in relief mesh with base and sidewalls.
-- [ ] Generate binary STL files from the closed relief mesh.
-- [ ] Generate `heightmap.png` and `metadata.json`.
-- [ ] Generate browser preview mesh, likely GLB.
+- [x] Keep `services/print-file-generator` as the FastAPI/Cloud Run boundary.
+- [x] Extract core image, heightmap, STL, metadata, color, and tests from `E:\PROJECTS\print-file-generator` without vendoring its Flask/SQLite app shell.
+- [x] Implement image validation and normalization.
+- [x] Add 5:7 crop/pad handling.
+- [x] Generate deterministic luminance heightmaps.
+- [x] Generate a closed watertight 5in x 7in relief mesh with base and sidewalls.
+- [x] Generate binary STL files from the closed relief mesh.
+- [x] Generate `heightmap.png` and `metadata.json`.
+- [x] Generate browser preview mesh as GLB.
+- [x] Store the exact artifact manifest used for checkout.
+- [x] Add known-image test fixtures.
+- [ ] Deploy the print-file generator as a Cloud Run service and set production `PRINT_FILE_GENERATOR_URL`.
 - [ ] Generate full-color package artifacts such as 3MF or OBJ plus texture.
 - [ ] Generate filament painting files: palette, layer swaps, settings, preview.
-- [ ] Add printability checks for thickness, relief depth, dimensions, and file size.
+- [x] Add printability checks for thickness, relief depth, dimensions, and file size.
 - [ ] Add depth-model adapters after the deterministic relief pipeline passes fixture tests.
-- [ ] Store the exact artifact manifest used for checkout.
-- [ ] Add known-image test fixtures.
 
 ### Stripe and Fulfillment
 
@@ -437,6 +457,6 @@ Use Stripe test mode until payment, webhook, and fulfillment state transitions a
 
 ## Current MVP Boundary
 
-The current project proves the customer-facing order shape and backend orchestration boundary. The next major unlock is print-file generation: turning an approved proof into real, inspectable, printable artifacts.
+The current project proves the customer-facing order shape, live Vertex/Gemini proof generation, server-side print-file generation, GLB preview, and checkout gating on generated artifacts.
 
-Until that exists, the app can test sign-in, upload, AI proof generation, approval, and checkout setup, but it cannot yet fulfill a real 3D printed poster.
+The next major unlock is productionizing that path: deploy the print-file generator to Cloud Run, add queueing/retries, create full-color partner packages, and connect a fulfillment workflow.

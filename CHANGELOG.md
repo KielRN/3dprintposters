@@ -12,11 +12,15 @@ All notable project changes will be documented in this file.
 - Added printability checks for relief bounds, base thickness, relief depth, triangle count, binary STL size, and watertight mesh edges.
 - Added known-image metadata regression coverage and invalid-image endpoint error coverage for the print-file generator.
 - Added neutral-material GLB preview mesh generation for browser previews.
+- Added proof-approval orchestration that calls the print-file generator, stores STL/GLB artifact paths on the job, and gates checkout on generated print files.
+- Added a job-page GLB relief viewer backed by generated `preview.glb` artifacts.
 
 ### Changed
 
 - Updated roadmap, checklist, README, architecture, workflow, service, and developer notes to make deterministic closed-relief generation the next print-file implementation slice.
 - Wired the print-file generator `/v1/generate` route to produce real baseline artifacts when the selected image is readable from local filesystem or GCS storage.
+- Renamed the server-side Storage bucket env var to `APP_STORAGE_BUCKET` because Firebase Functions reserves the `FIREBASE_` prefix.
+- Updated local PWA behavior so the service worker does not cache stale localhost development bundles.
 
 ### Verified
 

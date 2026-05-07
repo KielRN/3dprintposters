@@ -1,6 +1,6 @@
 # 3DPrintPosters - AI Developer Notes
 
-Last updated: 2026-05-06
+Last updated: 2026-05-07
 
 ## Project Intent
 
@@ -33,10 +33,10 @@ Note: use `STL` for the 3D model format. If any prompt or ticket says `SLT`, tre
 3. App stores the original image in Storage and creates a Firestore job record.
 4. Backend validates image safety, size, file type, and user quota.
 5. AI pipeline creates a stylized poster image or depth/heightmap source.
-6. User approves one generated proof. In the current test build, the uploaded source photo is used as a temporary proof so the approval and checkout path can be tested before AI output is connected.
-7. Print file generator converts the approved design into a 5in x 7in artifact bundle with relief geometry, color-capable print package, and filament painting support files.
-8. User previews the 3D result in-app.
-9. User checks out.
+6. User approves one generated proof.
+7. Print file generator converts the approved design into a 5in x 7in baseline artifact bundle with `model.stl`, `preview.glb`, `heightmap.png`, `metadata.json`, and printability output.
+8. User previews the generated GLB relief on the job page.
+9. User checks out only after print-file artifacts are generated.
 10. Payment webhook locks the order and sends the geometry, color-capable print package, and order metadata to the selected print partner.
 11. Fulfillment status updates are written back to Firestore and shown in the web app.
 
@@ -62,14 +62,15 @@ Note: use `STL` for the 3D model format. If any prompt or ticket says `SLT`, tre
 - `createGenerationJob` requires the supplied upload path to match the signed-in user's `uploads/{uid}/{jobId}` prefix before it creates `jobs/{jobId}`.
 - `createGenerationJob` now creates a durable `generating` job, calls the internal AI provider adapter server-side, stores non-secret `aiGeneration` metadata, stores the generated proof in Firebase Storage, and then marks the job `preview_ready` or `failed`.
 - Repeated `createGenerationJob` calls for the same signed-in user, upload path, and style return the existing job status instead of creating a duplicate.
-- The direct Vertex/Gemini adapter now reads the uploaded source image, sends it to the Vertex AI express-mode `generateContent` endpoint with text and image response modalities, stores the returned proof under `generated/{uid}/{jobId}/preview.{png|jpg|webp}`, and then uses `approveGeneratedImage` to set `approvedImagePath`.
-- `createCheckoutSession` should reject jobs that do not have `status: "approved"` and an `approvedImagePath`.
-- For the current one-order-per-job MVP path, `createCheckoutSession` uses `orders/{jobId}` as the deterministic order document and sends a Stripe idempotency key based on user id, job id, and approved proof path.
+- The direct Vertex/Gemini adapter now reads the uploaded source image, sends it to the Vertex AI express-mode `generateContent` endpoint with text and image response modalities, and stores the returned proof under `generated/{uid}/{jobId}/preview.{png|jpg|webp}`.
+- `approveGeneratedImage` sets `approvedImagePath`, calls `PRINT_FILE_GENERATOR_URL`, generates baseline print-file artifacts under `print-files/{uid}/{jobId}`, and persists `printFileStatus`, `printFileOutputPrefix`, `printFileArtifacts`, and `printability` on the job.
+- `createCheckoutSession` should reject jobs that do not have `status: "approved"`, an `approvedImagePath`, `printFileStatus: "generated"`, and generated `modelStl`/`previewGlb` paths.
+- For the current one-order-per-job MVP path, `createCheckoutSession` uses `orders/{jobId}` as the deterministic order document and sends a Stripe idempotency key based on user id, job id, approved proof path, and checkout attempt.
 - If print file generation needs Python, native libraries, or longer CPU time, use Cloud Run for that specific service instead of Cloud Functions.
 - Keep Cloud Functions for orchestration, webhooks, auth checks, Firestore writes, and short API calls.
 - Accepted print-file generator decision: keep `services/print-file-generator` as the production FastAPI/Cloud Run boundary and selectively extract core image, heightmap, STL, metadata, color, and test concepts from `E:\PROJECTS\print-file-generator`.
 - Do not vendor the standalone generator's Flask routes, SQLite local project database, browser session state, local CLI control flow, TD1 hardware code, or current open-surface mesh topology into production.
-- The next print-file implementation slice is deterministic closed relief generation: validated image input, 5:7 crop/pad, luminance heightmap fallback, closed 127mm x 177.8mm mesh with top surface/base/sidewalls, binary STL, heightmap PNG, metadata JSON, and printability checks.
+- The current print-file implementation slice is deterministic closed relief generation: validated image input, 5:7 crop/pad, luminance heightmap fallback, closed 127mm x 177.8mm mesh with top surface/base/sidewalls, binary STL, neutral-material GLB preview, heightmap PNG, metadata JSON, and printability checks.
 - Add AI depth providers only after the deterministic relief path works. Start with Depth Anything V2 Small as the first experimental provider, then compare Depth Pro and MoGe if needed.
 - Store user uploads and generated artifacts under user/job scoped paths, for example:
   - `uploads/{uid}/{jobId}/source.jpg`
@@ -144,6 +145,15 @@ The checked-in `.firebaserc` maps `dev` and `default` to `gen-lang-client-067530
 For the web app, populate `apps/web/.env.local` with the public Firebase web config values from `apps/web/.env.local.example`. Set `NEXT_PUBLIC_USE_FIREBASE_EMULATORS=true` only when the local Firebase emulator suite is running.
 
 For local Functions emulator runs, populate `apps/functions/.env` from `apps/functions/.env.example` with server-only values such as `VERTEX_API_KEY`.
+
+For local end-to-end testing with live Vertex/Gemini and real GLB/STL artifacts, run the print-file generator too:
+
+```powershell
+cd services/print-file-generator
+uvicorn app.main:app --reload --port 8089
+```
+
+Then set `PRINT_FILE_GENERATOR_URL=http://127.0.0.1:8089` in `apps/functions/.env`, restart the Functions emulator, and keep `AI_PROVIDER_ROUTE=vertex-gemini-direct`.
 
 For the function-only customer-flow test, keep Auth, Firestore, and Storage pointed at the configured Firebase project:
 

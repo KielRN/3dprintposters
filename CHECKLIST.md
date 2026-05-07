@@ -28,7 +28,7 @@
 - [x] Add generated image approval gallery for the test flow, using the source photo as the temporary proof until AI output is connected.
 - [x] Add single-job proof review route and gate checkout on approved proof.
 - [x] Add single-order status route for checkout/payment/fulfillment state.
-- [ ] Add real STL preview from backend output.
+- [x] Add real GLB preview from backend output on the job review route.
 - [ ] Add account-level order history and richer fulfillment status screens.
 - [x] Add PWA manifest, icons, and install behavior.
 
@@ -46,6 +46,8 @@
 - [x] Replace the adapter stub with a real direct Vertex/Gemini request.
 - [x] Store generated preview images in user/job-scoped Cloud Storage paths.
 - [x] Persist AI generation metadata on the Firestore job without storing secrets.
+- [x] Call the print-file generator after proof approval and persist STL/GLB artifact paths on the job.
+- [x] Gate checkout on generated print-file artifacts instead of only proof approval.
 - [ ] Add queueing with Cloud Tasks or Pub/Sub.
 - [x] Add idempotency guards for job creation and checkout session creation.
 - [ ] Add idempotency keys for fulfillment actions once the fulfillment provider path exists.

@@ -22,6 +22,11 @@ service firebase.storage {
       allow write: if false;
     }
 
+    match /print-files/{uid}/{jobId}/{allPaths=**} {
+      allow read: if underUserPath(uid);
+      allow write: if false;
+    }
+
     match /stl/{uid}/{jobId}/{fileName} {
       allow read: if underUserPath(uid);
       allow write: if false;

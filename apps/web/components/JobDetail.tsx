@@ -16,6 +16,7 @@ import { onAuthStateChanged, type User } from "firebase/auth";
 import { doc, onSnapshot } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { getDownloadURL, ref } from "firebase/storage";
+import { PrintFilePreview, PrintFileStatusPanel } from "./PrintFilePreview";
 
 type GeneratedImage = {
   id: string;
@@ -32,6 +33,12 @@ type JobDocument = {
   selectedStyle: string;
   generatedImages?: GeneratedImage[];
   approvedImagePath?: string | null;
+  printFileStatus?: string;
+  printFileArtifacts?: PrintFileArtifacts | null;
+  printability?: PrintabilitySummary | null;
+  printFileError?: {
+    message?: string;
+  } | null;
 };
 
 type ApproveGeneratedImageRequest = {
@@ -43,6 +50,8 @@ type ApproveGeneratedImageResult = {
   jobId: string;
   status: string;
   approvedImagePath: string;
+  printFileStatus?: string;
+  printFileArtifacts?: PrintFileArtifacts;
 };
 
 type CreateCheckoutSessionRequest = {
@@ -52,6 +61,17 @@ type CreateCheckoutSessionRequest = {
 type CreateCheckoutSessionResult = {
   orderId: string;
   checkoutUrl: string | null;
+};
+
+type PrintFileArtifacts = {
+  modelStl?: string;
+  previewGlb?: string;
+};
+
+type PrintabilitySummary = {
+  status: string;
+  checks: string[];
+  warnings?: string[];
 };
 
 const styleLabels: Record<string, string> = {
@@ -88,20 +108,32 @@ function normalizeGeneratedImages(rawImages: unknown): GeneratedImage[] {
   });
 }
 
-function statusCopy(status: string) {
-  if (status === "approved") {
+function statusCopy(job: JobDocument) {
+  if (job.status === "approved" && job.printFileStatus === "generated") {
+    return "3D preview ready";
+  }
+
+  if (job.status === "approved" && job.printFileStatus === "generating") {
+    return "Generating 3D preview";
+  }
+
+  if (job.status === "approved" && job.printFileStatus === "failed") {
+    return "3D generation failed";
+  }
+
+  if (job.status === "approved") {
     return "Proof approved";
   }
 
-  if (status === "preview_ready") {
+  if (job.status === "preview_ready") {
     return "Ready for approval";
   }
 
-  if (status === "checkout_created") {
+  if (job.status === "checkout_created") {
     return "Checkout started";
   }
 
-  return status.replaceAll("_", " ");
+  return job.status.replaceAll("_", " ");
 }
 
 export function JobDetail({ jobId }: { jobId: string }) {
@@ -111,6 +143,7 @@ export function JobDetail({ jobId }: { jobId: string }) {
   const [job, setJob] = useState<JobDocument | null>(null);
   const [jobLoading, setJobLoading] = useState(Boolean(firebaseClients));
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
+  const [previewGlbUrl, setPreviewGlbUrl] = useState("");
   const [approvalBusyPath, setApprovalBusyPath] = useState("");
   const [checkoutBusy, setCheckoutBusy] = useState(false);
   const [notice, setNotice] = useState("");
@@ -121,7 +154,12 @@ export function JobDetail({ jobId }: { jobId: string }) {
     [job?.generatedImages],
   );
   const approvedImagePath = job?.approvedImagePath ?? null;
-  const canCheckout = job?.status === "approved" && Boolean(approvedImagePath);
+  const canCheckout =
+    job?.status === "approved" &&
+    Boolean(approvedImagePath) &&
+    job.printFileStatus === "generated" &&
+    Boolean(job.printFileArtifacts?.modelStl) &&
+    Boolean(job.printFileArtifacts?.previewGlb);
 
   useEffect(() => {
     if (!firebaseClients) {
@@ -212,6 +250,35 @@ export function JobDetail({ jobId }: { jobId: string }) {
     };
   }, [firebaseClients, generatedImages, job]);
 
+  useEffect(() => {
+    const previewPath = job?.printFileArtifacts?.previewGlb;
+    if (!firebaseClients || !previewPath) {
+      setPreviewGlbUrl("");
+      return;
+    }
+
+    let cancelled = false;
+    void getDownloadURL(ref(firebaseClients.storage, previewPath))
+      .then((url) => {
+        if (!cancelled) {
+          setPreviewGlbUrl(url);
+        }
+      })
+      .catch((downloadError) => {
+        if (!cancelled) {
+          setError(
+            downloadError instanceof Error
+              ? downloadError.message
+              : "Could not load 3D preview.",
+          );
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [firebaseClients, job?.printFileArtifacts?.previewGlb]);
+
   async function approveImage(imagePath: string) {
     if (!firebaseClients) {
       setError("Firebase is not configured for approval yet.");
@@ -227,7 +294,7 @@ export function JobDetail({ jobId }: { jobId: string }) {
         ApproveGeneratedImageResult
       >(firebaseClients.functions, "approveGeneratedImage");
       await approveGeneratedImage({ jobId, imagePath });
-      setNotice("Proof approved. Checkout is unlocked.");
+      setNotice("3D relief preview is ready. Checkout is unlocked.");
     } catch (approvalError) {
       setError(
         approvalError instanceof Error
@@ -287,9 +354,8 @@ export function JobDetail({ jobId }: { jobId: string }) {
             Review your proof
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-[var(--muted)]">
-            Approve the current proof before payment. For this test build, the
-            proof uses your uploaded source photo until AI generation is
-            connected.
+            Approve the generated proof before payment. Checkout unlocks only
+            after you approve the image for this poster.
           </p>
         </div>
         <button
@@ -336,7 +402,7 @@ export function JobDetail({ jobId }: { jobId: string }) {
         </p>
       ) : null}
 
-      <div className="mt-6 grid gap-4 rounded-lg border border-black/10 bg-black/[0.025] p-4 text-sm sm:grid-cols-3">
+      <div className="mt-6 grid gap-4 rounded-lg border border-black/10 bg-black/[0.025] p-4 text-sm sm:grid-cols-4">
         <div>
           <p className="text-[var(--muted)]">Job</p>
           <strong className="break-all">{jobId}</strong>
@@ -347,9 +413,27 @@ export function JobDetail({ jobId }: { jobId: string }) {
         </div>
         <div>
           <p className="text-[var(--muted)]">Status</p>
-          <strong>{job ? statusCopy(job.status) : "Loading"}</strong>
+          <strong>{job ? statusCopy(job) : "Loading"}</strong>
+        </div>
+        <div>
+          <p className="text-[var(--muted)]">3D files</p>
+          <strong>{job?.printFileStatus?.replaceAll("_", " ") ?? "Pending"}</strong>
         </div>
       </div>
+
+      {job?.printFileStatus === "generated" && previewGlbUrl ? (
+        <PrintFilePreview
+          previewUrl={previewGlbUrl}
+          modelStlPath={job.printFileArtifacts?.modelStl}
+          printabilityStatus={job.printability?.status}
+          warningCount={job.printability?.warnings?.length ?? 0}
+        />
+      ) : (
+        <PrintFileStatusPanel
+          status={job?.printFileStatus}
+          errorMessage={job?.printFileError?.message}
+        />
+      )}
 
       {authLoading || jobLoading ? (
         <div className="mt-8 flex min-h-60 items-center justify-center gap-3 rounded-lg border border-black/10 bg-white text-sm font-bold text-[var(--muted)]">

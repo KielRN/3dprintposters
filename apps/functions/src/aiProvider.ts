@@ -197,7 +197,7 @@ function buildPosterPrompt(input: PosterGenerationInput): string {
 }
 
 function getConfiguredStorageBucket() {
-  const bucketName = process.env.FIREBASE_STORAGE_BUCKET;
+  const bucketName = process.env.APP_STORAGE_BUCKET;
   return bucketName ? getStorage().bucket(bucketName) : getStorage().bucket();
 }
 
