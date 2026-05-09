@@ -259,7 +259,7 @@ Next step: <one concrete next action>
 - Experiment 1: deterministic comparison providers: `posterized_luminance`, `continuous_luminance`, `lithophane_baseline`.
 - Experiment 2: semantic depth provider: `depth_anything_v2_small`.
 - Experiment 3: bas-relief transform provider: `depth_anything_v2_small_bas_relief`.
-- Experiment 4: subject mask layering: `sam_masked_depth`.
+- Experiment 4: subject mask layering: `segformer_masked_depth` (originally registered as `sam_masked_depth`; renamed 2026-05-09 to reflect the actual SegFormer/ADE20K implementation).
 - Experiment 5: full 3D sidecar benchmark: `triposr_sidecar` — **evaluated, rejected** (full 3D reconstructs objects, not image-plane depth; not viable for poster relief).
 
 Keep future experiments isolated by provider/config first. Only introduce a separate branch or larger dependency stack when the experiment cannot stay cleanly contained.

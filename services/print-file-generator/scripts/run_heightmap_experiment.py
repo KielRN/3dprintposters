@@ -24,7 +24,7 @@ EXPERIMENT_3_PROVIDERS = [
     "depth_anything_v2_small_bas_relief",
 ]
 EXPERIMENT_4_PROVIDERS = [
-    "sam_masked_depth",
+    "segformer_masked_depth",
 ]
 EXPERIMENT_5_PROVIDERS = [
     "triposr_sidecar",

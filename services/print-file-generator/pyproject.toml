@@ -21,6 +21,10 @@ experiments = [
   "torch>=2.4",
   "transformers>=4.46"
 ]
+quality_gates = [
+  "opencv-python>=4.10",
+  "scikit-image>=0.24"
+]
 
 [tool.ruff]
 line-length = 100

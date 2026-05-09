@@ -17,7 +17,7 @@ HeightmapProviderName = Literal[
     "lithophane_baseline",
     "depth_anything_v2_small",
     "depth_anything_v2_small_bas_relief",
-    "sam_masked_depth",
+    "segformer_masked_depth",
     "triposr_sidecar",
 ]
 
@@ -237,19 +237,25 @@ class DepthAnythingV2SmallBasReliefProvider:
         )
 
 
-class SamMaskedDepthProvider:
-    """Experiment 4: combine Depth Anything V2 Small with SAM subject masks.
+class SegformerMaskedDepthProvider:
+    """Experiment 4: combine Depth Anything V2 Small with SegFormer subject masks.
 
     Pipeline:
     1. Run Depth Anything V2 Small for semantic depth.
-    2. Run SAM automatic mask generation for subject segmentation.
-    3. Select the largest non-full-image mask as the subject.
+    2. Run SegFormer (nvidia/segformer-b0-finetuned-ade-512-512) via the HF
+       Inference API for ADE20K-class segmentation.
+    3. Merge all non-background labels into a single foreground mask.
     4. Soft-blur the mask edges to avoid harsh cutout ridges.
     5. Boost subject depth, suppress background depth.
     6. Apply bas-relief gradient compression.
+
+    Originally registered as ``sam_masked_depth``. Renamed to reflect the
+    actual SegFormer-based implementation. Historical experiment artifacts
+    under ``.tmp/experiments/experiment_4/sam_masked_depth/`` retain the old
+    name and metadata.
     """
 
-    name = "sam_masked_depth"
+    name = "segformer_masked_depth"
 
     def generate(
         self,
@@ -634,171 +640,143 @@ def _generate_subject_mask(
     blur_radius_px: float = 5.0,
     full_image_threshold: float = 0.90,
 ) -> np.ndarray:
-    """Generate a soft subject mask using the HF Inference API for segmentation.
+    """Soft subject mask via the configured segmentation provider chain.
 
-    Calls nvidia/segformer-b0-finetuned-ade-512-512 via the Hugging Face
-    Inference API.  The model returns labelled segments (e.g. "person",
-    "wall", "floor").  All foreground-labelled masks are merged into a
-    single subject mask, then Gaussian-blurred for soft edges.
+    Thin shim over ``app.providers.SubjectSegmentationChain``. Adds the
+    heightmap-specific post-processing (full-image fallback, Gaussian
+    edge blur) on top of the provider's raw mask.
 
     Returns a float32 array in [0, 1] matching the image dimensions,
     where 1.0 = subject and 0.0 = background.
     """
-    segments = _infer_segmentation_api(image)
+    chain = _get_segmentation_chain()
+    result = chain.segment(image)
+    raw_mask = result.mask
 
     w, h = image.size
-
-    if not segments:
-        return np.ones((h, w), dtype=np.float32)
-
-    # Background label set — everything NOT in this set is treated as subject
-    background_labels = {
-        "wall", "ceiling", "floor", "sky", "earth", "grass", "road",
-        "sidewalk", "pavement", "building", "fence", "sea", "water",
-        "mountain", "tree", "plant", "field", "sand",
-    }
-
-    combined_mask = np.zeros((h, w), dtype=np.float32)
-    for seg in segments:
-        label = seg.get("label", "").lower()
-        mask_b64 = seg.get("mask")
-        if mask_b64 is None:
-            continue
-        if label in background_labels:
-            continue  # Skip background segments
-
-        mask_img = _decode_base64_mask(mask_b64)
-        if mask_img.size != (w, h):
-            mask_img = mask_img.resize((w, h), Image.BILINEAR)
-        mask_arr = np.asarray(mask_img.convert("L"), dtype=np.float32) / 255.0
-        combined_mask = np.maximum(combined_mask, mask_arr)
-
     total_pixels = w * h
-    mask_area = float(np.sum(combined_mask > 0.5))
+    mask_area = float(np.sum(raw_mask > 0.5))
 
     if mask_area / total_pixels > full_image_threshold or mask_area == 0:
-        # Mask covers almost everything or nothing — fallback to all-subject
         return np.ones((h, w), dtype=np.float32)
 
-    # Soft-blur edges
     if blur_radius_px > 0:
         mask_img = Image.fromarray(
-            (combined_mask * 255).clip(0, 255).astype(np.uint8), mode="L"
+            (raw_mask * 255).clip(0, 255).astype(np.uint8), mode="L"
         )
         mask_img = mask_img.filter(ImageFilter.GaussianBlur(radius=blur_radius_px))
-        combined_mask = np.asarray(mask_img, dtype=np.float32) / 255.0
+        return np.asarray(mask_img, dtype=np.float32) / 255.0
 
-    return combined_mask.clip(0.0, 1.0).astype(np.float32)
+    return raw_mask.clip(0.0, 1.0).astype(np.float32)
 
 
-def _infer_segmentation_api(image: Image.Image) -> list[dict[str, Any]]:
-    """Call the HF Inference API for image segmentation.
+@lru_cache(maxsize=1)
+def _get_segmentation_chain() -> Any:
+    from .providers import create_default_segmentation_chain
 
-    Returns a list of dicts, each with 'label', 'score', and 'mask'
-    (base64-encoded PNG string).
+    return create_default_segmentation_chain()
+
+
+def _box_filter(arr: np.ndarray, radius: int) -> np.ndarray:
+    """Mean of a (2*radius+1)x(2*radius+1) box, edge-padded.
+
+    Implemented via a summed-area table for O(N) cost regardless of radius.
     """
-    import io as _io
-    import os
+    if radius < 1:
+        return arr.astype(np.float32)
 
-    try:
-        import requests
-    except ImportError as exc:
-        raise RuntimeError(
-            "sam_masked_depth requires the 'requests' package for HF Inference API calls."
-        ) from exc
+    h, w = arr.shape
+    padded = np.pad(arr.astype(np.float64), radius, mode="edge")
+    sat = np.zeros((padded.shape[0] + 1, padded.shape[1] + 1), dtype=np.float64)
+    sat[1:, 1:] = np.cumsum(np.cumsum(padded, axis=0), axis=1)
 
-    token = os.environ.get("HUGGINGFACE_API_KEY") or os.environ.get("HF_TOKEN")
-    if not token:
-        # Try loading from the project root .env
-        try:
-            from dotenv import load_dotenv
-
-            _root_env = os.path.join(
-                os.path.dirname(__file__), os.pardir, os.pardir, os.pardir, os.pardir, ".env"
-            )
-            load_dotenv(os.path.normpath(_root_env))
-            token = os.environ.get("HUGGINGFACE_API_KEY") or os.environ.get("HF_TOKEN")
-        except ImportError:
-            pass
-
-    if not token:
-        raise RuntimeError(
-            "sam_masked_depth requires a Hugging Face API key. "
-            "Set HUGGINGFACE_API_KEY or HF_TOKEN in the environment or root .env file."
-        )
-
-    buf = _io.BytesIO()
-    image.save(buf, format="PNG")
-    image_bytes = buf.getvalue()
-
-    url = (
-        "https://router.huggingface.co/hf-inference/models/"
-        "nvidia/segformer-b0-finetuned-ade-512-512"
+    size = 2 * radius + 1
+    box_sum = (
+        sat[size : size + h, size : size + w]
+        - sat[0:h, size : size + w]
+        - sat[size : size + h, 0:w]
+        + sat[0:h, 0:w]
     )
-    headers = {"Authorization": f"Bearer {token}", "Content-Type": "image/png"}
-
-    resp = requests.post(url, headers=headers, data=image_bytes, timeout=120)
-
-    if resp.status_code != 200:
-        raise RuntimeError(
-            f"HF Inference API returned {resp.status_code}: {resp.text[:300]}"
-        )
-
-    return resp.json()
+    return (box_sum / (size * size)).astype(np.float32)
 
 
-def _decode_base64_mask(mask_b64: str) -> Image.Image:
-    """Decode a base64-encoded PNG mask string to a PIL Image."""
-    import base64
-    import io as _io
+def _guided_filter_self(
+    depth: np.ndarray, *, radius: int = 15, eps: float = 0.01
+) -> np.ndarray:
+    """Self-guided edge-preserving smoothing (He, Sun, Tang 2010).
 
-    mask_bytes = base64.b64decode(mask_b64)
-    return Image.open(_io.BytesIO(mask_bytes)).convert("L")
+    Returns the base layer for detail/base separation: a smoothed version
+    of ``depth`` that preserves strong edges while flattening locally.
+    """
+    d = depth.astype(np.float32)
+
+    mean = _box_filter(d, radius)
+    mean_sq = _box_filter(d * d, radius)
+    var = mean_sq - mean * mean
+
+    a = var / (var + eps)
+    b = mean - a * mean
+
+    mean_a = _box_filter(a, radius)
+    mean_b = _box_filter(b, radius)
+
+    return (mean_a * d + mean_b).astype(np.float32)
 
 
 def _apply_bas_relief_transform(
-    depth: np.ndarray, compression_strength: float = 0.75
+    depth: np.ndarray,
+    compression_strength: float = 0.75,
+    *,
+    radius: int = 15,
+    eps: float = 0.01,
+    detail_boost: float = 1.5,
 ) -> np.ndarray:
-    """
-    Apply gradient compression to convert a depth map into a bas-relief map.
+    """Bas-relief compression via guided-filter detail/base separation.
 
-    Bas-relief compression reduces steep gradients while preserving local detail,
-    allowing readable features to fit in shallow relief (0.4-3.0 mm).
-    Based on "Digital Bas-Relief from 3D Scenes" techniques.
+    The depth is decomposed into a low-frequency *base* (global shape)
+    and a high-frequency *detail* layer. The base is compressed into a
+    target range; detail is preserved or amplified. Together they form
+    a relief that fits a shallow printable Z range while keeping local
+    feature definition. Maps Durand & Dorsey 2002 HDR tone mapping onto
+    depth in place of log luminance.
+
+    Replaces the previous gradient-attenuation transform, which was
+    structurally a no-op for almost every pixel (compression_factor was
+    dominated by silhouette-edge gradients and stayed near 1.0
+    everywhere else).
 
     Args:
-        depth: Unit-normalized depth array (0.0-1.0)
-        compression_strength: How aggressively to compress gradients (0.0-1.0)
-                             Higher = more compression, flatter overall depth
+        depth: Unit-normalized [0, 1] depth array.
+        compression_strength: How aggressively to compress global range.
+            Higher = flatter base. Mapped to ``base_target_range =
+            clip(1.0 - compression_strength, 0.1, 1.0)``. Default 0.75
+            yields a base spanning 0.25 of the [0, 1] range.
+        radius: Guided filter window radius in pixels. Roughly the
+            scale at which features count as "detail" vs. "base".
+        eps: Guided filter regularization. Larger = smoother base, more
+            edge bleed. 0.01 is a reasonable default for depth in [0, 1].
+        detail_boost: Multiplier on the detail layer. 1.0 preserves;
+            >1.0 amplifies local features.
 
     Returns:
-        Compressed depth array suitable for relief mapping
+        Relief depth in [0, 1].
     """
     if depth.size == 0:
         return depth
 
-    # Compute gradients (approximates slope)
-    grad_y, grad_x = np.gradient(depth)
-    gradient_magnitude = np.sqrt(grad_x**2 + grad_y**2).astype(np.float32)
+    target_range = float(np.clip(1.0 - compression_strength, 0.1, 1.0))
 
-    # Normalize gradients for compression ratio
-    grad_max = float(np.max(gradient_magnitude))
-    if grad_max > 1e-6:
-        normalized_gradient = gradient_magnitude / grad_max
-    else:
-        normalized_gradient = np.zeros_like(gradient_magnitude)
+    base = _guided_filter_self(depth.astype(np.float32), radius=radius, eps=eps)
+    detail = depth.astype(np.float32) - base
 
-    # Compute compression factor based on gradient magnitude
-    # Steep regions (high gradient) get compressed more
-    compression_factor = 1.0 - (normalized_gradient * compression_strength).clip(0.0, 1.0)
+    base_min = float(np.min(base))
+    base_max = float(np.max(base))
+    base_span = max(base_max - base_min, 1e-6)
+    base_unit = (base - base_min) / base_span
+    base_compressed = base_unit * target_range + (1.0 - target_range) / 2.0
 
-    # Apply compression: reduce the depth variation in high-gradient regions
-    # while preserving mid-tone local detail
-    relief = depth.copy().astype(np.float32)
-    relief = (relief - 0.5) * compression_factor + 0.5
-    relief = relief.clip(0.0, 1.0).astype(np.float32)
-
-    return relief
+    relief = base_compressed + detail_boost * detail
+    return relief.clip(0.0, 1.0).astype(np.float32)
 
 
 def get_depth_provider(name: HeightmapProviderName) -> Any:
@@ -808,7 +786,7 @@ def get_depth_provider(name: HeightmapProviderName) -> Any:
         "lithophane_baseline": LithophaneBaselineDepthProvider,
         "depth_anything_v2_small": DepthAnythingV2SmallDepthProvider,
         "depth_anything_v2_small_bas_relief": DepthAnythingV2SmallBasReliefProvider,
-        "sam_masked_depth": SamMaskedDepthProvider,
+        "segformer_masked_depth": SegformerMaskedDepthProvider,
         "triposr_sidecar": TripoSRSidecarProvider,
     }
     return providers[name]()
@@ -895,40 +873,19 @@ def _normalize_depth(values: np.ndarray) -> np.ndarray:
 
 
 def _infer_depth_anything_v2_small(image: Image.Image) -> np.ndarray:
-    pipe = _depth_anything_v2_small_pipeline()
-    output = pipe(image)
+    """Depth array via the configured monocular-depth provider chain.
 
-    predicted_depth = output.get("predicted_depth")
-    if predicted_depth is not None:
-        if hasattr(predicted_depth, "detach"):
-            predicted_depth = predicted_depth.detach().cpu().numpy()
-        depth = np.asarray(predicted_depth, dtype=np.float32)
-        return np.squeeze(depth)
-
-    depth_image = output.get("depth")
-    if depth_image is not None:
-        return _image_to_unit_array(depth_image.convert("L"))
-
-    raise RuntimeError("Depth Anything output did not include a depth map")
+    Thin shim over ``app.providers.MonocularDepthChain``.
+    """
+    chain = _get_depth_chain()
+    return chain.infer_depth(image).depth
 
 
 @lru_cache(maxsize=1)
-def _depth_anything_v2_small_pipeline() -> Any:
-    try:
-        import torch
-        from transformers import pipeline
-    except ImportError as exc:
-        raise RuntimeError(
-            "depth_anything_v2_small requires the experiment ML dependencies: "
-            "install torch and transformers, or run another height provider."
-        ) from exc
+def _get_depth_chain() -> Any:
+    from .providers import create_default_depth_chain
 
-    device = 0 if torch.cuda.is_available() else -1
-    return pipeline(
-        task="depth-estimation",
-        model="depth-anything/Depth-Anything-V2-Small-hf",
-        device=device,
-    )
+    return create_default_depth_chain()
 
 
 def _gaussian_kernel(radius_px: float) -> np.ndarray:

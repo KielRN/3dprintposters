@@ -8,6 +8,7 @@ from app.depth import (
     DepthAnythingV2SmallDepthProvider,
     LithophaneBaselineDepthProvider,
     LuminanceDepthProvider,
+    _apply_bas_relief_transform,
     heightmap_to_image_bytes,
 )
 
@@ -123,7 +124,7 @@ def test_heightmap_png_can_export_16_bit() -> None:
     assert exported.size == (2, 1)
 
 
-def test_sam_masked_depth_raises_subject_above_background(monkeypatch) -> None:
+def test_segformer_masked_depth_raises_subject_above_background(monkeypatch) -> None:
     """Subject region (center) should have higher relief than background (edges)."""
     image = Image.new("RGB", (6, 6), "white")
 
@@ -142,9 +143,9 @@ def test_sam_masked_depth_raises_subject_above_background(monkeypatch) -> None:
     monkeypatch.setattr("app.depth._infer_depth_anything_v2_small", fake_infer_depth)
     monkeypatch.setattr("app.depth._generate_subject_mask", fake_generate_mask)
 
-    from app.depth import SamMaskedDepthProvider
+    from app.depth import SegformerMaskedDepthProvider
 
-    heightmap = SamMaskedDepthProvider().generate(
+    heightmap = SegformerMaskedDepthProvider().generate(
         image,
         base_thickness_mm=1.2,
         min_relief_mm=0.4,
@@ -159,7 +160,7 @@ def test_sam_masked_depth_raises_subject_above_background(monkeypatch) -> None:
     assert subject_mean > background_mean, (
         f"Subject ({subject_mean:.3f}) should be higher than background ({background_mean:.3f})"
     )
-    assert heightmap.provider == "sam_masked_depth"
+    assert heightmap.provider == "segformer_masked_depth"
     assert heightmap.min_height_mm >= 1.6
     assert heightmap.max_height_mm <= 4.2
 
@@ -204,3 +205,68 @@ def test_triposr_sidecar_projects_mesh_depth_to_relief(monkeypatch) -> None:
     assert heightmap.provider == "triposr_sidecar"
     assert heightmap.min_height_mm >= 1.6
     assert heightmap.max_height_mm <= 4.2
+
+
+def test_bas_relief_transform_is_not_a_noop() -> None:
+    """Regression canary against the previous gradient-attenuation no-op.
+
+    The old transform produced a mean abs diff of ~146/65535 on real
+    depth maps. The guided-filter replacement should be visibly active.
+    """
+    rng = np.random.default_rng(0)
+    base = np.linspace(0.0, 1.0, 200, dtype=np.float32)[None, :].repeat(280, axis=0)
+    detail = rng.normal(0.0, 0.02, size=base.shape).astype(np.float32)
+    depth = np.clip(base + detail, 0.0, 1.0)
+
+    relief = _apply_bas_relief_transform(depth, compression_strength=0.75)
+
+    diff_16bit = float(np.mean(np.abs(depth - relief)) * 65535.0)
+    assert diff_16bit >= 1500.0, (
+        f"Bas-relief transform mean abs diff {diff_16bit:.0f} (16-bit) is below the "
+        f"1500 regression canary; likely back to no-op."
+    )
+
+
+def test_bas_relief_transform_compresses_global_range() -> None:
+    """A wide-range gradient should come out compressed."""
+    depth = np.linspace(0.0, 1.0, 200, dtype=np.float32)[None, :].repeat(200, axis=0)
+    relief = _apply_bas_relief_transform(depth, compression_strength=0.75)
+
+    relief_range = float(np.max(relief) - np.min(relief))
+    assert relief_range < 0.6, (
+        f"Relief range {relief_range:.3f} should be < 0.6 (compression_strength=0.75 "
+        f"targets ~0.25 range)"
+    )
+
+
+def test_bas_relief_transform_preserves_local_detail() -> None:
+    """A local bump should remain visible after compression."""
+    base = np.linspace(0.0, 1.0, 200, dtype=np.float32)[None, :].repeat(200, axis=0)
+    bump = np.zeros_like(base)
+    bump[80:120, 80:120] = 0.08  # a tight raised square, well below the global gradient
+    depth = np.clip(base + bump, 0.0, 1.0)
+
+    relief = _apply_bas_relief_transform(depth, compression_strength=0.75)
+
+    bump_mean = float(relief[80:120, 80:120].mean())
+    surround_mean = float(relief[60:80, 80:120].mean())
+    assert bump_mean > surround_mean, (
+        f"Local bump should still be raised ({bump_mean:.3f}) above surround "
+        f"({surround_mean:.3f}) after relief compression"
+    )
+
+
+def test_bas_relief_transform_handles_empty_input() -> None:
+    """Empty array round-trips without raising."""
+    empty = np.zeros((0, 0), dtype=np.float32)
+    result = _apply_bas_relief_transform(empty)
+    assert result.shape == empty.shape
+
+
+def test_bas_relief_transform_handles_constant_input() -> None:
+    """A flat depth map should not produce NaNs or blow up."""
+    flat = np.full((50, 50), 0.5, dtype=np.float32)
+    relief = _apply_bas_relief_transform(flat)
+    assert relief.shape == flat.shape
+    assert np.all(np.isfinite(relief))
+    assert float(relief.min()) >= 0.0 and float(relief.max()) <= 1.0
