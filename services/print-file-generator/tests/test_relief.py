@@ -33,6 +33,23 @@ def test_closed_relief_mesh_has_top_bottom_and_sidewall_faces() -> None:
     assert len(stl_bytes) == 84 + len(mesh.faces) * 50
 
 
+def test_relief_mesh_maps_image_top_to_positive_y() -> None:
+    heightmap = np.array(
+        [
+            [1.0, 2.0],
+            [3.0, 4.0],
+        ],
+        dtype=np.float32,
+    )
+
+    mesh = build_closed_relief_mesh(heightmap, width_mm=10.0, height_mm=20.0)
+
+    assert mesh.vertices[0] == (0.0, 0.0, 3.0)
+    assert mesh.vertices[1] == (10.0, 0.0, 4.0)
+    assert mesh.vertices[2] == (0.0, 20.0, 1.0)
+    assert mesh.vertices[3] == (10.0, 20.0, 2.0)
+
+
 def test_printability_checks_pass_for_closed_target_relief() -> None:
     heightmap = np.array(
         [

@@ -26,10 +26,12 @@ All notable project changes will be documented in this file.
 - Stabilized the job-page GLB preview framing and added a regenerate action for approved 3D previews.
 - Renamed the server-side Storage bucket env var to `APP_STORAGE_BUCKET` because Firebase Functions reserves the `FIREBASE_` prefix.
 - Updated local PWA behavior so the service worker does not cache stale localhost development bundles.
+- Corrected closed-relief mesh orientation so STL/GLB outputs preserve the source image's upright top-to-bottom direction.
 
 ### Verified
 
 - Verified `services/print-file-generator` tests pass.
+- Verified mesh orientation with a regression test that maps the image top row to positive model `Y`.
 
 ## [Unreleased] - 2026-05-05
 
