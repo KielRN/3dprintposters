@@ -78,9 +78,27 @@ The full Firebase emulator suite remains blocked on this machine until JDK 21+ i
 - Firestore stores metadata and Storage paths, not binary payloads or signed URLs.
 - Use idempotency for job creation, checkout, file handoff, and fulfillment actions.
 
+## Current Heightmap Experiment Plan
+
+- Current experiment branch: `codex/heightmap-experiments`.
+- Current research note: `research/HEIGHTMAP_AND_3D_WORKFLOW_RESEARCH.md`.
+- The old `AI_3D_MODEL_GENERATION_RESEARCH.md` was intentionally removed; use the new heightmap research document instead.
+- The immediate issue is that `posterized_luminance` treats image brightness as depth, which creates blocky height bands and muddy portrait reliefs. Keep it as a deterministic fallback, not the target production quality path.
+- Run experiments as opt-in providers or sidecar scripts inside `services/print-file-generator`; do not replace the default checkout path until output quality, printability, cost, and licensing are understood.
+- Prefer one shared experiment branch with provider/config isolation over one Git branch per idea. Create separate branches only if a dependency stack becomes large or disruptive.
+- Keep experiment outputs under ignored local paths such as `.tmp/experiments/{provider}/{jobId}`.
+- First experiments to compare:
+  - `lithophane_baseline`: use the PyPI lithophane approach only as a reference baseline for brightness-to-thickness behavior, not as the main poster-relief solution.
+  - `depth_anything_v2_small`: first semantic depth provider candidate.
+  - `bas_relief_transform`: depth compression/gradient compression between semantic depth and printable heightmap.
+  - `sam_masked_depth`: subject or portrait-aware masking layered over depth.
+  - `triposr_sidecar`, `stable_fast_3d_sidecar`, and `trellis_sidecar`: full image-to-3D experiments scored against usefulness for flattening/projecting into a 5x7 relief.
+- Nano Banana / Gemini 2.5 Flash Image belongs in proof cleanup and depth-friendly preprocessing, not final STL/GLB geometry generation.
+
 ## Security And Secrets
 
 - Keep API keys, Stripe keys, webhook secrets, Cloudflare tokens, and provider credentials out of source and chat.
+- A Hugging Face API key may exist in the local root `.env`; do not print it, commit it, copy it into docs, or move it into tracked files.
 - Use Firebase Functions secrets or Secret Manager for deployed runtimes.
 - Storage rules should restrict reads/writes by authenticated user path ownership.
 - Users cannot directly mark jobs complete, set print artifact paths, create fulfillment orders, or mutate order state.
