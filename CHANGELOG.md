@@ -18,6 +18,7 @@ All notable project changes will be documented in this file.
 - Added opt-in experiment 1 heightmap providers: `continuous_luminance` and `lithophane_baseline`.
 - Added request-level relief tuning for height provider, contrast, gamma, post-heightmap smoothing, and 8-bit/16-bit heightmap PNG export.
 - Added a local heightmap experiment runner that writes provider comparison bundles under `.tmp/experiments/experiment_1`.
+- Added the opt-in experiment 2 `depth_anything_v2_small` semantic depth provider and wired it into local heightmap experiment runs.
 
 ### Changed
 
@@ -34,6 +35,7 @@ All notable project changes will be documented in this file.
 ### Verified
 
 - Verified `services/print-file-generator` tests pass.
+- Verified Depth Anything V2 Small experiment outputs for both canonical local input images under `.tmp/experiments/experiment_2`.
 
 ## [Unreleased] - 2026-05-05
 

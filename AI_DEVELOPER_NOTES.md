@@ -72,8 +72,9 @@ Note: use `STL` for the 3D model format. If any prompt or ticket says `SLT`, tre
 - Do not vendor the standalone generator's Flask routes, SQLite local project database, browser session state, local CLI control flow, TD1 hardware code, or current open-surface mesh topology into production.
 - The current print-file implementation slice is deterministic closed relief generation: validated image input up to 4,000,000 decoded pixels by default, 5:7 crop/pad, posterized luminance heightmap fallback with smoothing and softened edge detail, closed 127mm x 177.8mm mesh with top surface/base/sidewalls, binary STL, neutral-material GLB preview, heightmap PNG, metadata JSON, and printability checks.
 - Experiment 1 is opt-in and deterministic: `posterized_luminance` remains the default checkout path, while `continuous_luminance` and `lithophane_baseline` can be selected through relief settings or compared locally with `services/print-file-generator/scripts/run_heightmap_experiment.py`.
+- Experiment 2 is wired as the opt-in `depth_anything_v2_small` semantic depth provider. It uses Hugging Face Transformers Depth Anything V2 Small, keeps mesh/STL/GLB generation deterministic after inference, and writes local comparison bundles under `.tmp/experiments/experiment_2` when selected with `--provider depth_anything_v2_small`.
 - The job page now acts as the first quality-control surface for relief output: it shows the approved proof, generated `heightmap.png`, `preview.glb`, printability warnings, and download links for `model.stl`, `preview.glb`, `heightmap.png`, and `metadata.json`.
-- Add AI depth providers only after the deterministic relief path works. Start with Depth Anything V2 Small as the first experimental provider, then compare Depth Pro and MoGe if needed.
+- Keep Depth Anything V2 Small experimental until output quality, licensing, and runtime costs are understood; compare Depth Pro and MoGe only after this baseline is reviewed.
 - Store user uploads and generated artifacts under user/job scoped paths, for example:
   - `uploads/{uid}/{jobId}/source.jpg`
   - `generated/{uid}/{jobId}/preview.png`

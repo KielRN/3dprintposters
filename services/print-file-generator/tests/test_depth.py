@@ -5,6 +5,7 @@ from PIL import Image
 
 from app.depth import (
     ContinuousLuminanceDepthProvider,
+    DepthAnythingV2SmallDepthProvider,
     LithophaneBaselineDepthProvider,
     LuminanceDepthProvider,
     heightmap_to_image_bytes,
@@ -73,6 +74,37 @@ def test_lithophane_baseline_maps_dark_pixels_to_more_thickness() -> None:
 
     assert heightmap.values[0, 0] > heightmap.values[0, 1]
     assert heightmap.provider == "lithophane_baseline"
+
+
+def test_depth_anything_v2_small_maps_relative_depth_to_relief(monkeypatch) -> None:
+    image = Image.new("RGB", (3, 2), "white")
+
+    def fake_infer_depth_anything_v2_small(_image: Image.Image) -> np.ndarray:
+        return np.array(
+            [
+                [0.0, 0.5, 1.0],
+                [0.0, 0.5, 1.0],
+            ],
+            dtype=np.float32,
+        )
+
+    monkeypatch.setattr(
+        "app.depth._infer_depth_anything_v2_small",
+        fake_infer_depth_anything_v2_small,
+    )
+
+    heightmap = DepthAnythingV2SmallDepthProvider().generate(
+        image,
+        base_thickness_mm=1.2,
+        min_relief_mm=0.4,
+        max_relief_mm=3.0,
+        post_smooth_radius_px=0,
+    )
+
+    assert heightmap.values[0, 2] > heightmap.values[0, 0]
+    assert heightmap.provider == "depth_anything_v2_small"
+    assert heightmap.min_height_mm >= 1.6
+    assert heightmap.max_height_mm <= 4.2
 
 
 def test_heightmap_png_can_export_16_bit() -> None:

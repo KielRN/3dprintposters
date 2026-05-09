@@ -12,16 +12,20 @@ from app.packages import generate_print_file_bundle  # noqa: E402
 from app.storage import LocalFilesystemStorage  # noqa: E402
 
 
-PROVIDERS = [
+EXPERIMENT_1_PROVIDERS = [
     "posterized_luminance",
     "continuous_luminance",
     "lithophane_baseline",
+]
+PROVIDERS = [
+    *EXPERIMENT_1_PROVIDERS,
+    "depth_anything_v2_small",
 ]
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Run experiment 1 heightmap providers against one local source image.",
+        description="Run heightmap experiment providers against one local source image.",
     )
     parser.add_argument("source_image", type=Path)
     parser.add_argument("--job-id", default=None)
@@ -41,7 +45,7 @@ def main() -> None:
         "--provider",
         action="append",
         choices=PROVIDERS,
-        help="Provider to run. Repeat to compare several. Defaults to all experiment 1 providers.",
+        help="Provider to run. Repeat to compare several. Defaults to experiment 1 providers.",
     )
     parser.add_argument(
         "--output-root",
@@ -54,7 +58,7 @@ def main() -> None:
     if not source_image.exists():
         raise SystemExit(f"Source image does not exist: {source_image}")
 
-    providers = args.provider or PROVIDERS
+    providers = args.provider or EXPERIMENT_1_PROVIDERS
     job_id = args.job_id or source_image.stem
 
     for provider in providers:

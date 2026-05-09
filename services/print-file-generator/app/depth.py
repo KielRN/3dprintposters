@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Any, Literal
 
 import numpy as np
@@ -14,6 +15,7 @@ HeightmapProviderName = Literal[
     "posterized_luminance",
     "continuous_luminance",
     "lithophane_baseline",
+    "depth_anything_v2_small",
 ]
 
 
@@ -162,11 +164,45 @@ class LithophaneBaselineDepthProvider:
         )
 
 
+class DepthAnythingV2SmallDepthProvider:
+    name = "depth_anything_v2_small"
+
+    def generate(
+        self,
+        image: Image.Image,
+        *,
+        base_thickness_mm: float,
+        min_relief_mm: float,
+        max_relief_mm: float,
+        contrast: float = 1.0,
+        gamma: float = 1.0,
+        post_smooth_radius_px: float = 0.8,
+    ) -> Heightmap:
+        relative_depth = _infer_depth_anything_v2_small(image)
+        depth = _normalize_depth(relative_depth)
+        depth = _apply_tone_curve(depth, contrast=contrast, gamma=gamma)
+        depth = _smooth_unit_array(depth, post_smooth_radius_px)
+        heights = _depth_to_heights(
+            depth,
+            base_thickness_mm=base_thickness_mm,
+            min_relief_mm=min_relief_mm,
+            max_relief_mm=max_relief_mm,
+        )
+
+        return Heightmap(
+            values=heights.astype(np.float32),
+            min_height_mm=float(np.min(heights)),
+            max_height_mm=float(np.max(heights)),
+            provider=self.name,
+        )
+
+
 def get_depth_provider(name: HeightmapProviderName) -> Any:
     providers = {
         "posterized_luminance": LuminanceDepthProvider,
         "continuous_luminance": ContinuousLuminanceDepthProvider,
         "lithophane_baseline": LithophaneBaselineDepthProvider,
+        "depth_anything_v2_small": DepthAnythingV2SmallDepthProvider,
     }
     return providers[name]()
 
@@ -237,6 +273,55 @@ def _smooth_unit_array(values: np.ndarray, radius_px: float) -> np.ndarray:
         arr=padded_y,
     )
     return smoothed.astype(np.float32).clip(0.0, 1.0)
+
+
+def _normalize_depth(values: np.ndarray) -> np.ndarray:
+    finite_values = values[np.isfinite(values)]
+    if finite_values.size == 0:
+        raise ValueError("Depth Anything returned no finite depth values")
+
+    low, high = np.percentile(finite_values, [2.0, 98.0])
+    if high - low <= 1e-6:
+        return np.zeros(values.shape, dtype=np.float32)
+
+    return ((values.astype(np.float32) - low) / (high - low)).clip(0.0, 1.0)
+
+
+def _infer_depth_anything_v2_small(image: Image.Image) -> np.ndarray:
+    pipe = _depth_anything_v2_small_pipeline()
+    output = pipe(image)
+
+    predicted_depth = output.get("predicted_depth")
+    if predicted_depth is not None:
+        if hasattr(predicted_depth, "detach"):
+            predicted_depth = predicted_depth.detach().cpu().numpy()
+        depth = np.asarray(predicted_depth, dtype=np.float32)
+        return np.squeeze(depth)
+
+    depth_image = output.get("depth")
+    if depth_image is not None:
+        return _image_to_unit_array(depth_image.convert("L"))
+
+    raise RuntimeError("Depth Anything output did not include a depth map")
+
+
+@lru_cache(maxsize=1)
+def _depth_anything_v2_small_pipeline() -> Any:
+    try:
+        import torch
+        from transformers import pipeline
+    except ImportError as exc:
+        raise RuntimeError(
+            "depth_anything_v2_small requires the experiment ML dependencies: "
+            "install torch and transformers, or run another height provider."
+        ) from exc
+
+    device = 0 if torch.cuda.is_available() else -1
+    return pipeline(
+        task="depth-estimation",
+        model="depth-anything/Depth-Anything-V2-Small-hf",
+        device=device,
+    )
 
 
 def _gaussian_kernel(radius_px: float) -> np.ndarray:

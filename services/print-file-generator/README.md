@@ -102,6 +102,10 @@ The `/v1/generate` API can now read a local or GCS image, normalize it to the 5i
 - `lithophane_baseline`: brightness-to-thickness reference baseline.
 - Relief tuning fields: `contrast`, `gamma`, `post_smooth_radius_px`, and `heightmap_png_bit_depth`.
 
+Experiment 2 adds an opt-in semantic depth baseline:
+
+- `depth_anything_v2_small`: Hugging Face Transformers Depth Anything V2 Small provider. It keeps STL/GLB generation deterministic after depth inference and requires the `experiments` Python dependencies.
+
 Local provider comparison:
 
 ```powershell
@@ -110,6 +114,13 @@ python scripts/run_heightmap_experiment.py ..\..\.tmp\input_image\Profile-Pic-HI
 ```
 
 Outputs are written under `.tmp/experiments/experiment_1/{provider}/{jobId}`.
+
+Depth Anything V2 Small comparison:
+
+```powershell
+python scripts/run_heightmap_experiment.py ..\..\.tmp\input_image\Gemini_Generated_Image_lzneejlzneejlzne.png --provider depth_anything_v2_small --output-root ..\..\.tmp\experiments\experiment_2
+python scripts/run_heightmap_experiment.py ..\..\.tmp\input_image\Profile-Pic-HIMSS.jpg --provider depth_anything_v2_small --output-root ..\..\.tmp\experiments\experiment_2
+```
 
 Still intentionally deferred:
 
