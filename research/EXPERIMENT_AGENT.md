@@ -27,7 +27,7 @@ The EXPERIMENT agent does not:
 
 ## Credentials And Secrets
 
-The EXPERIMENT agent may need model-provider credentials for some experiments, but it must never print, copy, commit, or document secret values.
+The EXPERIMENT agent may need model-provider credentials for some experiments. Local ignored `.env` files are the normal place to load those values for local experiment runs.
 
 Use only secret names and approved local lookup locations:
 
@@ -47,12 +47,47 @@ Common environment variable names to check by name only:
 
 Credential rules:
 
-- Do not paste secret values into chat, docs, metadata, logs, or generated experiment reports.
-- Do not move secrets between `.env` files unless the user explicitly asks and the destination is appropriate.
-- Do not add new tracked files that contain secrets or secret-like placeholders with real values.
-- If a provider can run from a public model without a token, prefer that path for local experiments.
-- If a required credential is missing, report the missing variable name and the expected local file or secret store, but not any nearby values.
-- If a command might echo environment values, avoid it or redact the output before reporting.
+- Read credentials from ignored local `.env` files or deployed secret stores as needed.
+- Passing local environment variables into server-side experiment adapters is allowed.
+- Use variable names, not real values, in tracked docs and durable experiment notes.
+- Do not add real credential values to tracked files or commits.
+- Do not move server-only credentials into browser-visible config such as `apps/web/.env.local`.
+- If a required credential is missing, report the missing variable name and the expected local file or secret store.
+
+## Model Provider Layering
+
+Experiments that use SAM, SAM 3D, TripoSR, Stable Fast 3D, TRELLIS, Depth Anything variants, Gemini, Vertex, Hugging Face models, or similar model backends should be layered behind a server-side provider or adapter boundary.
+
+Preferred shape:
+
+```text
+experiment runner
+  -> print-file-generator experiment provider
+    -> model adapter
+      -> Hugging Face API, Vertex, Cloud Run sidecar, or local optional backend
+    -> normalized output: mask, depth map, mesh, or relief-ready heightmap
+  -> existing STL/GLB/metadata pipeline
+```
+
+Layering rules:
+
+- Do not call model APIs directly from `apps/web`.
+- Do not put model-provider secrets in browser-visible config.
+- Keep provider-specific SDK code out of the core mesh/STL/GLB generation path when a small adapter can isolate it.
+- Prefer Hugging Face for open-source model experiments, quick hosted inference, or GPU job trials.
+- Prefer Vertex or GCP-native services for Gemini workflows, managed endpoints, and production-oriented GCP deployment paths.
+- Prefer a Cloud Run sidecar or separate service when a model needs a large dependency stack, GPU-specific runtime, long startup time, or incompatible Python packages.
+- Keep `services/print-file-generator` as the final production print-file boundary.
+- Normalize provider outputs before handing them to the relief pipeline.
+
+Expected normalized outputs:
+
+- Segmentation providers return masks with documented dimensions and value ranges.
+- Depth providers return unit-normalized depth or enough metadata to normalize deterministically.
+- Image-to-3D providers return a mesh, depth projection, or relief-ready intermediate with clear scale/orientation assumptions.
+- Preprocessing providers return an image plus metadata describing what changed.
+
+Even when an upstream model returns a mesh, the experiment should still explain how that output becomes useful for a 5x7 printable relief. Full 3D generation is not automatically better than a depth or mask intermediate for this product.
 
 ## Experiment Contract
 
@@ -222,5 +257,6 @@ Next step: <one concrete next action>
 - Experiment 1: deterministic comparison providers: `posterized_luminance`, `continuous_luminance`, `lithophane_baseline`.
 - Experiment 2: semantic depth provider: `depth_anything_v2_small`.
 - Experiment 3: bas-relief transform provider: `depth_anything_v2_small_bas_relief`.
+- Experiment 4: subject mask layering: `sam_masked_depth`.
 
 Keep future experiments isolated by provider/config first. Only introduce a separate branch or larger dependency stack when the experiment cannot stay cleanly contained.

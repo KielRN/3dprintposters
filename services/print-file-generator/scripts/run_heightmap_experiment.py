@@ -23,10 +23,14 @@ EXPERIMENT_2_PROVIDERS = [
 EXPERIMENT_3_PROVIDERS = [
     "depth_anything_v2_small_bas_relief",
 ]
+EXPERIMENT_4_PROVIDERS = [
+    "sam_masked_depth",
+]
 PROVIDERS = [
     *EXPERIMENT_1_PROVIDERS,
     *EXPERIMENT_2_PROVIDERS,
     *EXPERIMENT_3_PROVIDERS,
+    *EXPERIMENT_4_PROVIDERS,
 ]
 
 
@@ -70,7 +74,9 @@ def main() -> None:
 
     # Auto-select output folder based on which experiment is being run
     if args.output_root is None:
-        if any(p in EXPERIMENT_3_PROVIDERS for p in providers):
+        if any(p in EXPERIMENT_4_PROVIDERS for p in providers):
+            output_root = REPO_ROOT / ".tmp" / "experiments" / "experiment_4"
+        elif any(p in EXPERIMENT_3_PROVIDERS for p in providers):
             output_root = REPO_ROOT / ".tmp" / "experiments" / "experiment_3"
         elif any(p in EXPERIMENT_2_PROVIDERS for p in providers):
             output_root = REPO_ROOT / ".tmp" / "experiments" / "experiment_2"

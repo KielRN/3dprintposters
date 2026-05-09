@@ -17,6 +17,7 @@ HeightmapProviderName = Literal[
     "lithophane_baseline",
     "depth_anything_v2_small",
     "depth_anything_v2_small_bas_relief",
+    "sam_masked_depth",
 ]
 
 
@@ -235,6 +236,200 @@ class DepthAnythingV2SmallBasReliefProvider:
         )
 
 
+class SamMaskedDepthProvider:
+    """Experiment 4: combine Depth Anything V2 Small with SAM subject masks.
+
+    Pipeline:
+    1. Run Depth Anything V2 Small for semantic depth.
+    2. Run SAM automatic mask generation for subject segmentation.
+    3. Select the largest non-full-image mask as the subject.
+    4. Soft-blur the mask edges to avoid harsh cutout ridges.
+    5. Boost subject depth, suppress background depth.
+    6. Apply bas-relief gradient compression.
+    """
+
+    name = "sam_masked_depth"
+
+    def generate(
+        self,
+        image: Image.Image,
+        *,
+        base_thickness_mm: float,
+        min_relief_mm: float,
+        max_relief_mm: float,
+        contrast: float = 1.0,
+        gamma: float = 1.0,
+        post_smooth_radius_px: float = 0.8,
+        subject_boost: float = 1.0,
+        background_scale: float = 0.3,
+        mask_blur_radius_px: float = 5.0,
+        compression_strength: float = 0.75,
+    ) -> Heightmap:
+        # Semantic depth
+        relative_depth = _infer_depth_anything_v2_small(image)
+        depth = _normalize_depth(relative_depth)
+        depth = _apply_tone_curve(depth, contrast=contrast, gamma=gamma)
+
+        # Subject mask
+        subject_mask = _generate_subject_mask(image, blur_radius_px=mask_blur_radius_px)
+
+        # Layer: boost subject, suppress background
+        layered = depth * (subject_boost * subject_mask + background_scale * (1.0 - subject_mask))
+        # Re-normalize to [0, 1]
+        l_min, l_max = float(np.min(layered)), float(np.max(layered))
+        if l_max - l_min > 1e-6:
+            layered = (layered - l_min) / (l_max - l_min)
+        else:
+            layered = np.zeros_like(layered)
+        layered = layered.clip(0.0, 1.0).astype(np.float32)
+
+        # Bas-relief compression
+        relief_depth = _apply_bas_relief_transform(layered, compression_strength=compression_strength)
+        relief_depth = _smooth_unit_array(relief_depth, post_smooth_radius_px)
+
+        heights = _depth_to_heights(
+            relief_depth,
+            base_thickness_mm=base_thickness_mm,
+            min_relief_mm=min_relief_mm,
+            max_relief_mm=max_relief_mm,
+        )
+
+        return Heightmap(
+            values=heights.astype(np.float32),
+            min_height_mm=float(np.min(heights)),
+            max_height_mm=float(np.max(heights)),
+            provider=self.name,
+        )
+
+
+def _generate_subject_mask(
+    image: Image.Image,
+    *,
+    blur_radius_px: float = 5.0,
+    full_image_threshold: float = 0.90,
+) -> np.ndarray:
+    """Generate a soft subject mask using the HF Inference API for segmentation.
+
+    Calls nvidia/segformer-b0-finetuned-ade-512-512 via the Hugging Face
+    Inference API.  The model returns labelled segments (e.g. "person",
+    "wall", "floor").  All foreground-labelled masks are merged into a
+    single subject mask, then Gaussian-blurred for soft edges.
+
+    Returns a float32 array in [0, 1] matching the image dimensions,
+    where 1.0 = subject and 0.0 = background.
+    """
+    segments = _infer_segmentation_api(image)
+
+    w, h = image.size
+
+    if not segments:
+        return np.ones((h, w), dtype=np.float32)
+
+    # Background label set — everything NOT in this set is treated as subject
+    background_labels = {
+        "wall", "ceiling", "floor", "sky", "earth", "grass", "road",
+        "sidewalk", "pavement", "building", "fence", "sea", "water",
+        "mountain", "tree", "plant", "field", "sand",
+    }
+
+    combined_mask = np.zeros((h, w), dtype=np.float32)
+    for seg in segments:
+        label = seg.get("label", "").lower()
+        mask_b64 = seg.get("mask")
+        if mask_b64 is None:
+            continue
+        if label in background_labels:
+            continue  # Skip background segments
+
+        mask_img = _decode_base64_mask(mask_b64)
+        if mask_img.size != (w, h):
+            mask_img = mask_img.resize((w, h), Image.BILINEAR)
+        mask_arr = np.asarray(mask_img.convert("L"), dtype=np.float32) / 255.0
+        combined_mask = np.maximum(combined_mask, mask_arr)
+
+    total_pixels = w * h
+    mask_area = float(np.sum(combined_mask > 0.5))
+
+    if mask_area / total_pixels > full_image_threshold or mask_area == 0:
+        # Mask covers almost everything or nothing — fallback to all-subject
+        return np.ones((h, w), dtype=np.float32)
+
+    # Soft-blur edges
+    if blur_radius_px > 0:
+        mask_img = Image.fromarray(
+            (combined_mask * 255).clip(0, 255).astype(np.uint8), mode="L"
+        )
+        mask_img = mask_img.filter(ImageFilter.GaussianBlur(radius=blur_radius_px))
+        combined_mask = np.asarray(mask_img, dtype=np.float32) / 255.0
+
+    return combined_mask.clip(0.0, 1.0).astype(np.float32)
+
+
+def _infer_segmentation_api(image: Image.Image) -> list[dict[str, Any]]:
+    """Call the HF Inference API for image segmentation.
+
+    Returns a list of dicts, each with 'label', 'score', and 'mask'
+    (base64-encoded PNG string).
+    """
+    import io as _io
+    import os
+
+    try:
+        import requests
+    except ImportError as exc:
+        raise RuntimeError(
+            "sam_masked_depth requires the 'requests' package for HF Inference API calls."
+        ) from exc
+
+    token = os.environ.get("HUGGINGFACE_API_KEY") or os.environ.get("HF_TOKEN")
+    if not token:
+        # Try loading from the project root .env
+        try:
+            from dotenv import load_dotenv
+
+            _root_env = os.path.join(
+                os.path.dirname(__file__), os.pardir, os.pardir, os.pardir, os.pardir, ".env"
+            )
+            load_dotenv(os.path.normpath(_root_env))
+            token = os.environ.get("HUGGINGFACE_API_KEY") or os.environ.get("HF_TOKEN")
+        except ImportError:
+            pass
+
+    if not token:
+        raise RuntimeError(
+            "sam_masked_depth requires a Hugging Face API key. "
+            "Set HUGGINGFACE_API_KEY or HF_TOKEN in the environment or root .env file."
+        )
+
+    buf = _io.BytesIO()
+    image.save(buf, format="PNG")
+    image_bytes = buf.getvalue()
+
+    url = (
+        "https://router.huggingface.co/hf-inference/models/"
+        "nvidia/segformer-b0-finetuned-ade-512-512"
+    )
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "image/png"}
+
+    resp = requests.post(url, headers=headers, data=image_bytes, timeout=120)
+
+    if resp.status_code != 200:
+        raise RuntimeError(
+            f"HF Inference API returned {resp.status_code}: {resp.text[:300]}"
+        )
+
+    return resp.json()
+
+
+def _decode_base64_mask(mask_b64: str) -> Image.Image:
+    """Decode a base64-encoded PNG mask string to a PIL Image."""
+    import base64
+    import io as _io
+
+    mask_bytes = base64.b64decode(mask_b64)
+    return Image.open(_io.BytesIO(mask_bytes)).convert("L")
+
+
 def _apply_bas_relief_transform(
     depth: np.ndarray, compression_strength: float = 0.75
 ) -> np.ndarray:
@@ -287,6 +482,7 @@ def get_depth_provider(name: HeightmapProviderName) -> Any:
         "lithophane_baseline": LithophaneBaselineDepthProvider,
         "depth_anything_v2_small": DepthAnythingV2SmallDepthProvider,
         "depth_anything_v2_small_bas_relief": DepthAnythingV2SmallBasReliefProvider,
+        "sam_masked_depth": SamMaskedDepthProvider,
     }
     return providers[name]()
 

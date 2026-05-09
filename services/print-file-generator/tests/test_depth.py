@@ -123,6 +123,47 @@ def test_heightmap_png_can_export_16_bit() -> None:
     assert exported.size == (2, 1)
 
 
+def test_sam_masked_depth_raises_subject_above_background(monkeypatch) -> None:
+    """Subject region (center) should have higher relief than background (edges)."""
+    image = Image.new("RGB", (6, 6), "white")
+
+    def fake_infer_depth(img: Image.Image) -> np.ndarray:
+        # Gradient depth: values increase toward bottom-right
+        # This gives _normalize_depth a real range to work with
+        row = np.linspace(0.1, 0.9, 6, dtype=np.float32)
+        return np.tile(row, (6, 1))
+
+    def fake_generate_mask(img: Image.Image, *, blur_radius_px: float = 5.0) -> np.ndarray:
+        # Center 4x4 is subject (1.0), edges are background (0.0)
+        mask = np.zeros((6, 6), dtype=np.float32)
+        mask[1:5, 1:5] = 1.0
+        return mask
+
+    monkeypatch.setattr("app.depth._infer_depth_anything_v2_small", fake_infer_depth)
+    monkeypatch.setattr("app.depth._generate_subject_mask", fake_generate_mask)
+
+    from app.depth import SamMaskedDepthProvider
+
+    heightmap = SamMaskedDepthProvider().generate(
+        image,
+        base_thickness_mm=1.2,
+        min_relief_mm=0.4,
+        max_relief_mm=3.0,
+        post_smooth_radius_px=0,
+    )
+
+    # Compare same-column subject vs background to isolate mask effect
+    # Column 3 has the same raw depth for row 0 (background) and row 2 (subject)
+    subject_mean = float(np.mean(heightmap.values[1:5, 1:5]))
+    background_mean = float(np.mean(heightmap.values[0, :]))
+    assert subject_mean > background_mean, (
+        f"Subject ({subject_mean:.3f}) should be higher than background ({background_mean:.3f})"
+    )
+    assert heightmap.provider == "sam_masked_depth"
+    assert heightmap.min_height_mm >= 1.6
+    assert heightmap.max_height_mm <= 4.2
+
+
 def _mean_adjacent_delta(values: np.ndarray) -> float:
     vertical = np.mean(np.abs(np.diff(values, axis=0)))
     horizontal = np.mean(np.abs(np.diff(values, axis=1)))
