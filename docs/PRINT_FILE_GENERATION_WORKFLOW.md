@@ -142,6 +142,7 @@ The accepted extraction plan is now partially implemented:
 - Add printability checks before checkout can depend on generated print files.
 - Keep `posterized_luminance` as the default checkout provider while testing `continuous_luminance` and `lithophane_baseline` as opt-in experiment 1 providers.
 - Run local experiment comparisons with `python scripts/run_heightmap_experiment.py <source-image>` from `services/print-file-generator`; outputs stay under ignored `.tmp/experiments/experiment_1`.
+- For future heightmap experiments, run both canonical local inputs from `.tmp/input_image`: `Gemini_Generated_Image_lzneejlzneejlzne.png` and `Profile-Pic-HIMSS.jpg`.
 - Call the print-file generator from `approveGeneratedImage` after proof approval.
 - Store artifact paths and printability output on `jobs/{jobId}`.
 - Render the approved proof, generated `heightmap.png`, and `preview.glb` side by side on `/jobs/{jobId}`, with baseline artifact downloads for local quality checks.

@@ -105,7 +105,8 @@ The `/v1/generate` API can now read a local or GCS image, normalize it to the 5i
 Local provider comparison:
 
 ```powershell
-python scripts/run_heightmap_experiment.py ..\..\Gemini_Generated_Image_lzneejlzneejlzne.png
+python scripts/run_heightmap_experiment.py ..\..\.tmp\input_image\Gemini_Generated_Image_lzneejlzneejlzne.png
+python scripts/run_heightmap_experiment.py ..\..\.tmp\input_image\Profile-Pic-HIMSS.jpg
 ```
 
 Outputs are written under `.tmp/experiments/experiment_1/{provider}/{jobId}`.
