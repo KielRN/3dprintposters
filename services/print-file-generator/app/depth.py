@@ -16,6 +16,7 @@ HeightmapProviderName = Literal[
     "continuous_luminance",
     "lithophane_baseline",
     "depth_anything_v2_small",
+    "depth_anything_v2_small_bas_relief",
 ]
 
 
@@ -197,12 +198,95 @@ class DepthAnythingV2SmallDepthProvider:
         )
 
 
+class DepthAnythingV2SmallBasReliefProvider:
+    name = "depth_anything_v2_small_bas_relief"
+
+    def generate(
+        self,
+        image: Image.Image,
+        *,
+        base_thickness_mm: float,
+        min_relief_mm: float,
+        max_relief_mm: float,
+        contrast: float = 1.0,
+        gamma: float = 1.0,
+        post_smooth_radius_px: float = 0.8,
+    ) -> Heightmap:
+        relative_depth = _infer_depth_anything_v2_small(image)
+        depth = _normalize_depth(relative_depth)
+        depth = _apply_tone_curve(depth, contrast=contrast, gamma=gamma)
+
+        # Apply bas-relief gradient compression
+        relief_depth = _apply_bas_relief_transform(depth, compression_strength=0.75)
+
+        relief_depth = _smooth_unit_array(relief_depth, post_smooth_radius_px)
+        heights = _depth_to_heights(
+            relief_depth,
+            base_thickness_mm=base_thickness_mm,
+            min_relief_mm=min_relief_mm,
+            max_relief_mm=max_relief_mm,
+        )
+
+        return Heightmap(
+            values=heights.astype(np.float32),
+            min_height_mm=float(np.min(heights)),
+            max_height_mm=float(np.max(heights)),
+            provider=self.name,
+        )
+
+
+def _apply_bas_relief_transform(
+    depth: np.ndarray, compression_strength: float = 0.75
+) -> np.ndarray:
+    """
+    Apply gradient compression to convert a depth map into a bas-relief map.
+
+    Bas-relief compression reduces steep gradients while preserving local detail,
+    allowing readable features to fit in shallow relief (0.4-3.0 mm).
+    Based on "Digital Bas-Relief from 3D Scenes" techniques.
+
+    Args:
+        depth: Unit-normalized depth array (0.0-1.0)
+        compression_strength: How aggressively to compress gradients (0.0-1.0)
+                             Higher = more compression, flatter overall depth
+
+    Returns:
+        Compressed depth array suitable for relief mapping
+    """
+    if depth.size == 0:
+        return depth
+
+    # Compute gradients (approximates slope)
+    grad_y, grad_x = np.gradient(depth)
+    gradient_magnitude = np.sqrt(grad_x**2 + grad_y**2).astype(np.float32)
+
+    # Normalize gradients for compression ratio
+    grad_max = float(np.max(gradient_magnitude))
+    if grad_max > 1e-6:
+        normalized_gradient = gradient_magnitude / grad_max
+    else:
+        normalized_gradient = np.zeros_like(gradient_magnitude)
+
+    # Compute compression factor based on gradient magnitude
+    # Steep regions (high gradient) get compressed more
+    compression_factor = 1.0 - (normalized_gradient * compression_strength).clip(0.0, 1.0)
+
+    # Apply compression: reduce the depth variation in high-gradient regions
+    # while preserving mid-tone local detail
+    relief = depth.copy().astype(np.float32)
+    relief = (relief - 0.5) * compression_factor + 0.5
+    relief = relief.clip(0.0, 1.0).astype(np.float32)
+
+    return relief
+
+
 def get_depth_provider(name: HeightmapProviderName) -> Any:
     providers = {
         "posterized_luminance": LuminanceDepthProvider,
         "continuous_luminance": ContinuousLuminanceDepthProvider,
         "lithophane_baseline": LithophaneBaselineDepthProvider,
         "depth_anything_v2_small": DepthAnythingV2SmallDepthProvider,
+        "depth_anything_v2_small_bas_relief": DepthAnythingV2SmallBasReliefProvider,
     }
     return providers[name]()
 

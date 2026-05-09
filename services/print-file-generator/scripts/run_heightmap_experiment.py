@@ -17,9 +17,16 @@ EXPERIMENT_1_PROVIDERS = [
     "continuous_luminance",
     "lithophane_baseline",
 ]
+EXPERIMENT_2_PROVIDERS = [
+    "depth_anything_v2_small",
+]
+EXPERIMENT_3_PROVIDERS = [
+    "depth_anything_v2_small_bas_relief",
+]
 PROVIDERS = [
     *EXPERIMENT_1_PROVIDERS,
-    "depth_anything_v2_small",
+    *EXPERIMENT_2_PROVIDERS,
+    *EXPERIMENT_3_PROVIDERS,
 ]
 
 
@@ -50,7 +57,7 @@ def main() -> None:
     parser.add_argument(
         "--output-root",
         type=Path,
-        default=REPO_ROOT / ".tmp" / "experiments" / "experiment_1",
+        default=None,
     )
     args = parser.parse_args()
 
@@ -61,8 +68,19 @@ def main() -> None:
     providers = args.provider or EXPERIMENT_1_PROVIDERS
     job_id = args.job_id or source_image.stem
 
+    # Auto-select output folder based on which experiment is being run
+    if args.output_root is None:
+        if any(p in EXPERIMENT_3_PROVIDERS for p in providers):
+            output_root = REPO_ROOT / ".tmp" / "experiments" / "experiment_3"
+        elif any(p in EXPERIMENT_2_PROVIDERS for p in providers):
+            output_root = REPO_ROOT / ".tmp" / "experiments" / "experiment_2"
+        else:
+            output_root = REPO_ROOT / ".tmp" / "experiments" / "experiment_1"
+    else:
+        output_root = args.output_root
+
     for provider in providers:
-        output_prefix = args.output_root / provider / job_id
+        output_prefix = output_root / provider / job_id
         request = PrintFileGenerationRequest(
             job_id=job_id,
             uid=args.uid,

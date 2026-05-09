@@ -404,3 +404,68 @@ For our actual product workflow:
 - [ModelRelief](https://modelrelief.org/home/about)
 - [muldjord/lithomaker](https://github.com/muldjord/lithomaker)
 - [lithophane on PyPI](https://pypi.org/project/lithophane/)
+
+## Experiment Organization Pattern
+
+### Directory Structure (MANDATORY)
+
+All experiment outputs must follow this structure:
+
+```
+.tmp/experiments/
+├── experiment_1/
+│   ├── posterized_luminance/
+│   │   ├── Profile-Pic-HIMSS/
+│   │   │   ├── heightmap.png
+│   │   │   ├── model.stl
+│   │   │   ├── preview.glb
+│   │   │   ├── metadata.json
+│   │   │   └── filament-painting/
+│   │   └── Gemini_Generated_Image_lzneejlzneejlzne/
+│   ├── continuous_luminance/
+│   │   ├── Profile-Pic-HIMSS/
+│   │   └── Gemini_Generated_Image_lzneejlzneejlzne/
+│   └── lithophane_baseline/
+│       ├── Profile-Pic-HIMSS/
+│       └── Gemini_Generated_Image_lzneejlzneejlzne/
+├── experiment_2/
+│   └── depth_anything_v2_small/
+│       ├── Profile-Pic-HIMSS/
+│       └── Gemini_Generated_Image_lzneejlzneejlzne/
+└── experiment_3/
+    ├── README.md                           (Summary of results)
+    └── depth_anything_v2_small_bas_relief/
+        ├── Profile-Pic-HIMSS/
+        └── Gemini_Generated_Image_lzneejlzneejlzne/
+```
+
+### Key Rules
+
+1. **No loose artifacts in `.tmp/` root** - All STL, PNG, GLB files must be organized under `experiments/experiment_N/`.
+2. **Both test images required** - Each provider must be tested on both:
+   - `Profile-Pic-HIMSS.jpg` (portrait headshot)
+   - `Gemini_Generated_Image_lzneejlzneejlzne.png` (AI-generated graphics)
+3. **Summary files inside experiment folder** - Use `experiments/experiment_N/README.md` or `RESULTS.md` for comparison notes.
+4. **Auto-routing in scripts** - The `run_heightmap_experiment.py` script auto-selects the correct output folder based on which provider is specified.
+
+### Running Experiments
+
+```powershell
+# Experiment 3 example (outputs to experiments/experiment_3/)
+python scripts\run_heightmap_experiment.py ..\..\.tmp\input_image\Profile-Pic-HIMSS.jpg --provider depth_anything_v2_small_bas_relief
+python scripts\run_heightmap_experiment.py ..\..\.tmp\input_image\Gemini_Generated_Image_lzneejlzneejlzne.png --provider depth_anything_v2_small_bas_relief
+```
+
+### For Future Experiments
+
+When adding a new experiment provider:
+
+1. **Add to `HeightmapProviderName` type** in `app/depth.py`
+2. **Add to `ReliefSettings`** in `app/models.py`
+3. **Add to experiment groups** in `scripts/run_heightmap_experiment.py`:
+   - Define `EXPERIMENT_N_PROVIDERS = ["provider_name"]`
+   - Add to main `PROVIDERS` list
+   - Auto-routing in `main()` will handle folder selection
+4. **Run against both test images** before considering experiment complete
+5. **Organize outputs** - the script will automatically place them under `.tmp/experiments/experiment_N/`
+6. **Create summary** - save as `experiments/experiment_N/README.md` with comparison notes
