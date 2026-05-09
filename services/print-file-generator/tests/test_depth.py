@@ -1,7 +1,14 @@
+import io
+
 import numpy as np
 from PIL import Image
 
-from app.depth import LuminanceDepthProvider
+from app.depth import (
+    ContinuousLuminanceDepthProvider,
+    LithophaneBaselineDepthProvider,
+    LuminanceDepthProvider,
+    heightmap_to_image_bytes,
+)
 
 
 def test_posterized_luminance_suppresses_high_frequency_texture() -> None:
@@ -25,6 +32,63 @@ def test_posterized_luminance_suppresses_high_frequency_texture() -> None:
     assert heightmap.provider == "posterized_luminance"
     assert heightmap.min_height_mm >= 1.6
     assert heightmap.max_height_mm <= 4.2
+
+
+def test_continuous_luminance_keeps_more_than_posterized_bands() -> None:
+    source = np.tile(np.linspace(0, 255, 64, dtype=np.uint8), (64, 1))
+    image = Image.fromarray(source).convert("RGB")
+
+    heightmap = ContinuousLuminanceDepthProvider().generate(
+        image,
+        base_thickness_mm=1.2,
+        min_relief_mm=0.4,
+        max_relief_mm=3.0,
+    )
+
+    unique_rounded_heights = np.unique(np.round(heightmap.values, 3))
+    assert len(unique_rounded_heights) > 16
+    assert heightmap.provider == "continuous_luminance"
+    assert heightmap.min_height_mm >= 1.6
+    assert heightmap.max_height_mm <= 4.2
+
+
+def test_lithophane_baseline_maps_dark_pixels_to_more_thickness() -> None:
+    image = Image.new("RGB", (2, 2))
+    image.putdata(
+        [
+            (0, 0, 0),
+            (255, 255, 255),
+            (0, 0, 0),
+            (255, 255, 255),
+        ]
+    )
+
+    heightmap = LithophaneBaselineDepthProvider().generate(
+        image,
+        base_thickness_mm=1.2,
+        min_relief_mm=0.4,
+        max_relief_mm=3.0,
+        post_smooth_radius_px=0,
+    )
+
+    assert heightmap.values[0, 0] > heightmap.values[0, 1]
+    assert heightmap.provider == "lithophane_baseline"
+
+
+def test_heightmap_png_can_export_16_bit() -> None:
+    image = Image.fromarray(np.array([[0, 255]], dtype=np.uint8)).convert("RGB")
+    heightmap = ContinuousLuminanceDepthProvider().generate(
+        image,
+        base_thickness_mm=1.2,
+        min_relief_mm=0.4,
+        max_relief_mm=3.0,
+        post_smooth_radius_px=0,
+    )
+
+    exported = Image.open(io.BytesIO(heightmap_to_image_bytes(heightmap, bit_depth=16)))
+
+    assert exported.mode in {"I;16", "I"}
+    assert exported.size == (2, 1)
 
 
 def _mean_adjacent_delta(values: np.ndarray) -> float:

@@ -1,6 +1,6 @@
 import json
 
-from .depth import LuminanceDepthProvider, heightmap_to_image_bytes
+from .depth import get_depth_provider, heightmap_to_image_bytes
 from .image_pipeline import fit_image_to_aspect, image_to_png_bytes, load_validated_rgb_image
 from .metadata import build_artifact_metadata
 from .models import (
@@ -54,12 +54,15 @@ def generate_print_file_bundle(
         target_width_px=request.relief.target_width_px,
     )
 
-    height_provider = LuminanceDepthProvider()
+    height_provider = get_depth_provider(request.relief.height_provider)
     heightmap = height_provider.generate(
         normalized_image.image,
         base_thickness_mm=request.relief.base_thickness_mm,
         min_relief_mm=request.relief.min_relief_mm,
         max_relief_mm=request.relief.max_relief_mm,
+        contrast=request.relief.contrast,
+        gamma=request.relief.gamma,
+        post_smooth_radius_px=request.relief.post_smooth_radius_px,
     )
     mesh = build_closed_relief_mesh(
         heightmap.values,
@@ -98,7 +101,10 @@ def generate_print_file_bundle(
     )
     storage.write_bytes(
         artifact_paths.heightmap_png,
-        heightmap_to_image_bytes(heightmap),
+        heightmap_to_image_bytes(
+            heightmap,
+            bit_depth=request.relief.heightmap_png_bit_depth,
+        ),
         content_type="image/png",
     )
     storage.write_bytes(
@@ -121,7 +127,7 @@ def generate_print_file_bundle(
             checks=[
                 "source_image_validated",
                 "image_normalized_to_5x7",
-                "luminance_heightmap_generated",
+                f"{heightmap.provider}_heightmap_generated",
                 "closed_binary_stl_generated",
                 "neutral_preview_glb_generated",
                 *printability.checks,

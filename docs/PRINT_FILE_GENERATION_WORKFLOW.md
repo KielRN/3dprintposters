@@ -29,6 +29,7 @@ Implementation direction: keep this service's FastAPI contract and selectively e
 - Relief depth range, initially 0.4mm to 3.0mm.
 - Source image decoded pixel limit, initially 4,000,000 pixels before normalization to the working relief resolution.
 - Base thickness, initially 1.2mm.
+- Optional experimental relief settings: height provider, contrast, gamma, post-heightmap smoothing radius, and heightmap PNG bit depth.
 - Full-color material profile, initially `mimaki_3duj_2207_full_color_uv_resin`.
 - Filament material profile, initially `generic_multicolor_fdm_filament_painting`.
 - Optional style metadata from the image generation step.
@@ -69,9 +70,9 @@ Filament painting artifacts:
 2. Validate size, MIME type, dimensions, and safety metadata.
 3. Normalize image orientation and resolution.
 4. Crop or pad to a 5:7 composition.
-5. Posterize or segment the image to reduce noisy micro-detail.
-6. Generate a posterized grayscale heightmap from luminance.
-7. Smooth noisy micro-texture, quantize to broad printable depth bands, and reintroduce softened edge detail for major silhouettes.
+5. Choose the requested server-side height provider. The default remains `posterized_luminance`.
+6. Generate a normalized float heightmap from the selected deterministic or experimental provider.
+7. Apply optional tone controls, post-heightmap smoothing, quantization, and softened edge detail according to the provider.
 8. Convert height values into closed relief geometry with top surface, bottom base plane, sidewalls, consistent winding, and controlled relief depth.
 9. Add a poster base plate with minimum thickness.
 10. Export baseline STL for geometry validation and fallback workflows.
@@ -139,6 +140,8 @@ The accepted extraction plan is now partially implemented:
 - Generate deterministic artifacts: `model.stl`, `preview.glb`, `heightmap.png`, and `metadata.json`.
 - Make the STL a closed, watertight 5in x 7in relief object before adding AI depth, color packages, or fulfillment automation.
 - Add printability checks before checkout can depend on generated print files.
+- Keep `posterized_luminance` as the default checkout provider while testing `continuous_luminance` and `lithophane_baseline` as opt-in experiment 1 providers.
+- Run local experiment comparisons with `python scripts/run_heightmap_experiment.py <source-image>` from `services/print-file-generator`; outputs stay under ignored `.tmp/experiments/experiment_1`.
 - Call the print-file generator from `approveGeneratedImage` after proof approval.
 - Store artifact paths and printability output on `jobs/{jobId}`.
 - Render the approved proof, generated `heightmap.png`, and `preview.glb` side by side on `/jobs/{jobId}`, with baseline artifact downloads for local quality checks.

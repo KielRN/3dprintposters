@@ -84,6 +84,8 @@ The full Firebase emulator suite remains blocked on this machine until JDK 21+ i
 - Current research note: `research/HEIGHTMAP_AND_3D_WORKFLOW_RESEARCH.md`.
 - The old `AI_3D_MODEL_GENERATION_RESEARCH.md` was intentionally removed; use the new heightmap research document instead.
 - The immediate issue is that `posterized_luminance` treats image brightness as depth, which creates blocky height bands and muddy portrait reliefs. Keep it as a deterministic fallback, not the target production quality path.
+- Experiment 1 deterministic provider scaffolding exists in `services/print-file-generator`: `posterized_luminance` remains the default, while `continuous_luminance` and `lithophane_baseline` are opt-in relief providers.
+- Use `python scripts/run_heightmap_experiment.py <source-image>` from `services/print-file-generator` to write local comparison outputs under `.tmp/experiments/experiment_1`.
 - Run experiments as opt-in providers or sidecar scripts inside `services/print-file-generator`; do not replace the default checkout path until output quality, printability, cost, and licensing are understood.
 - Prefer one shared experiment branch with provider/config isolation over one Git branch per idea. Create separate branches only if a dependency stack becomes large or disruptive.
 - Keep experiment outputs under ignored local paths such as `.tmp/experiments/{provider}/{jobId}`.

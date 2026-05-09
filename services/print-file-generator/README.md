@@ -96,6 +96,20 @@ Filament painting artifacts:
 
 The `/v1/generate` API can now read a local or GCS image, normalize it to the 5in x 7in product shape, build a deterministic luminance heightmap, export a closed binary STL, write a neutral-material `preview.glb`, write `heightmap.png`, write `metadata.json`, and run baseline printability checks.
 
+`posterized_luminance` remains the default production-safe fallback provider. Experiment 1 can be run with opt-in deterministic providers and tuning settings:
+
+- `continuous_luminance`: non-terraced luminance relief for portrait comparison.
+- `lithophane_baseline`: brightness-to-thickness reference baseline.
+- Relief tuning fields: `contrast`, `gamma`, `post_smooth_radius_px`, and `heightmap_png_bit_depth`.
+
+Local provider comparison:
+
+```powershell
+python scripts/run_heightmap_experiment.py ..\..\Gemini_Generated_Image_lzneejlzneejlzne.png
+```
+
+Outputs are written under `.tmp/experiments/experiment_1/{provider}/{jobId}`.
+
 Still intentionally deferred:
 
 - Full-color 3MF/OBJ/VRML/PLY packages

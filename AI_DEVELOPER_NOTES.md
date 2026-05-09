@@ -1,6 +1,6 @@
 # 3DPrintPosters - AI Developer Notes
 
-Last updated: 2026-05-07
+Last updated: 2026-05-09
 
 ## Project Intent
 
@@ -71,6 +71,7 @@ Note: use `STL` for the 3D model format. If any prompt or ticket says `SLT`, tre
 - Accepted print-file generator decision: keep `services/print-file-generator` as the production FastAPI/Cloud Run boundary and selectively extract core image, heightmap, STL, metadata, color, and test concepts from `E:\PROJECTS\print-file-generator`.
 - Do not vendor the standalone generator's Flask routes, SQLite local project database, browser session state, local CLI control flow, TD1 hardware code, or current open-surface mesh topology into production.
 - The current print-file implementation slice is deterministic closed relief generation: validated image input up to 4,000,000 decoded pixels by default, 5:7 crop/pad, posterized luminance heightmap fallback with smoothing and softened edge detail, closed 127mm x 177.8mm mesh with top surface/base/sidewalls, binary STL, neutral-material GLB preview, heightmap PNG, metadata JSON, and printability checks.
+- Experiment 1 is opt-in and deterministic: `posterized_luminance` remains the default checkout path, while `continuous_luminance` and `lithophane_baseline` can be selected through relief settings or compared locally with `services/print-file-generator/scripts/run_heightmap_experiment.py`.
 - The job page now acts as the first quality-control surface for relief output: it shows the approved proof, generated `heightmap.png`, `preview.glb`, printability warnings, and download links for `model.stl`, `preview.glb`, `heightmap.png`, and `metadata.json`.
 - Add AI depth providers only after the deterministic relief path works. Start with Depth Anything V2 Small as the first experimental provider, then compare Depth Pro and MoGe if needed.
 - Store user uploads and generated artifacts under user/job scoped paths, for example:

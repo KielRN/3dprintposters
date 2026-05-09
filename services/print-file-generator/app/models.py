@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -15,6 +15,11 @@ class PhysicalDimensions(BaseModel):
 
 
 class ReliefSettings(BaseModel):
+    height_provider: Literal[
+        "posterized_luminance",
+        "continuous_luminance",
+        "lithophane_baseline",
+    ] = "posterized_luminance"
     base_thickness_mm: float = Field(default=1.2, gt=0)
     min_relief_mm: float = Field(default=0.4, ge=0)
     max_relief_mm: float = Field(default=3.0, gt=0)
@@ -22,6 +27,10 @@ class ReliefSettings(BaseModel):
     target_width_px: int = Field(default=160, ge=2)
     max_triangle_count: int = Field(default=250_000, ge=1)
     max_binary_stl_bytes: int = Field(default=15_000_000, ge=84)
+    contrast: float = Field(default=1.0, gt=0)
+    gamma: float = Field(default=1.0, gt=0)
+    post_smooth_radius_px: float = Field(default=0.0, ge=0)
+    heightmap_png_bit_depth: Literal[8, 16] = 8
 
     @model_validator(mode="after")
     def validate_relief_range(self) -> "ReliefSettings":

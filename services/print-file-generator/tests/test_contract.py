@@ -53,6 +53,7 @@ def test_request_defaults_include_both_output_modes() -> None:
     ]
     assert request.dimensions.target_width_mm == 127.0
     assert request.dimensions.target_height_mm == 177.8
+    assert request.relief.height_provider == "posterized_luminance"
     assert request.relief.max_source_pixels == 4_000_000
 
 
@@ -150,6 +151,31 @@ def test_known_image_metadata_is_deterministic(tmp_path) -> None:
     assert metadatas[0]["triangle_count"] == 92
     assert metadatas[0]["binary_stl_bytes"] == 4684
     assert metadatas[0]["height_provider"] == "posterized_luminance"
+
+
+def test_local_generation_can_run_experiment_1_lithophane_baseline(tmp_path) -> None:
+    source_path = tmp_path / "known-source.png"
+    output_prefix = tmp_path / "print-files"
+    image = Image.new("RGB", (10, 14), color=(255, 255, 255))
+    image.save(source_path)
+
+    request = PrintFileGenerationRequest(
+        job_id="job_known",
+        uid="user_known",
+        selected_image_path=str(source_path),
+        output_prefix=str(output_prefix),
+        relief=ReliefSettings(
+            height_provider="lithophane_baseline",
+            target_width_px=4,
+            heightmap_png_bit_depth=16,
+        ),
+    )
+
+    generate_print_file_bundle(request, storage=LocalFilesystemStorage())
+
+    metadata = json.loads((output_prefix / "metadata.json").read_text())
+    assert metadata["height_provider"] == "lithophane_baseline"
+    assert (output_prefix / "heightmap.png").exists()
 
 
 def test_local_generation_rejects_images_over_generation_limit(tmp_path) -> None:

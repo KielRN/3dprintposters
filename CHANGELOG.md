@@ -15,6 +15,9 @@ All notable project changes will be documented in this file.
 - Added proof-approval orchestration that calls the print-file generator, stores STL/GLB artifact paths on the job, and gates checkout on generated print files.
 - Added a job-page GLB relief viewer backed by generated `preview.glb` artifacts.
 - Added a job-page artifact inspection view with side-by-side approved proof, generated `heightmap.png`, `preview.glb`, warning details, and download buttons for baseline print artifacts.
+- Added opt-in experiment 1 heightmap providers: `continuous_luminance` and `lithophane_baseline`.
+- Added request-level relief tuning for height provider, contrast, gamma, post-heightmap smoothing, and 8-bit/16-bit heightmap PNG export.
+- Added a local heightmap experiment runner that writes provider comparison bundles under `.tmp/experiments/experiment_1`.
 
 ### Changed
 
@@ -26,6 +29,7 @@ All notable project changes will be documented in this file.
 - Stabilized the job-page GLB preview framing and added a regenerate action for approved 3D previews.
 - Renamed the server-side Storage bucket env var to `APP_STORAGE_BUCKET` because Firebase Functions reserves the `FIREBASE_` prefix.
 - Updated local PWA behavior so the service worker does not cache stale localhost development bundles.
+- Kept `posterized_luminance` as the default print-file generator provider while making deterministic experiment providers opt-in.
 
 ### Verified
 

@@ -73,6 +73,8 @@
 - [x] Wire the FastAPI `/v1/generate` implementation to produce real artifacts behind a storage adapter while preserving the existing response contract.
 - [x] Add optional GLB/preview mesh generation for browser preview.
 - [x] Add depth provider interface and keep luminance as the default provider.
+- [x] Add experiment 1 deterministic heightmap comparison providers and local sidecar runner.
+- [x] Add opt-in 16-bit heightmap PNG export for experiment runs.
 - [ ] Prototype Depth Anything V2 Small as the first experimental depth provider after deterministic relief generation passes tests.
 - [ ] Add color-capable export package for Mimaki 3DUJ-2207 partners.
 - [ ] Add filament painting palette, layer swap, print settings, and preview outputs.
