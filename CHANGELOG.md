@@ -31,11 +31,13 @@ All notable project changes will be documented in this file.
 - Renamed the server-side Storage bucket env var to `APP_STORAGE_BUCKET` because Firebase Functions reserves the `FIREBASE_` prefix.
 - Updated local PWA behavior so the service worker does not cache stale localhost development bundles.
 - Kept `posterized_luminance` as the default print-file generator provider while making deterministic experiment providers opt-in.
+- Corrected closed-relief mesh orientation so STL/GLB outputs preserve the source image's upright top-to-bottom direction.
 
 ### Verified
 
 - Verified `services/print-file-generator` tests pass.
 - Verified Depth Anything V2 Small experiment outputs for both canonical local input images under `.tmp/experiments/experiment_2`.
+- Verified mesh orientation with a regression test that maps the image top row to positive model `Y`.
 
 ## [Unreleased] - 2026-05-05
 
