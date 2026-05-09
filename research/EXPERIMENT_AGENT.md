@@ -74,8 +74,10 @@ Layering rules:
 - Do not call model APIs directly from `apps/web`.
 - Do not put model-provider secrets in browser-visible config.
 - Keep provider-specific SDK code out of the core mesh/STL/GLB generation path when a small adapter can isolate it.
+- **Do not default to downloading or running AI models locally.** Always prefer hosted API inference (Hugging Face Inference API, Tripo AI API, Vertex AI, Fal.ai, etc.) over local model weights. Only fall back to local inference after confirming no suitable hosted API exists and getting explicit user approval.
 - Prefer Hugging Face for open-source model experiments, quick hosted inference, or GPU job trials.
 - Prefer Vertex or GCP-native services for Gemini workflows, managed endpoints, and production-oriented GCP deployment paths.
+- Prefer Tripo AI API or similar hosted 3D generation services for image-to-3D experiments.
 - Prefer a Cloud Run sidecar or separate service when a model needs a large dependency stack, GPU-specific runtime, long startup time, or incompatible Python packages.
 - Keep `services/print-file-generator` as the final production print-file boundary.
 - Normalize provider outputs before handing them to the relief pipeline.
@@ -258,5 +260,6 @@ Next step: <one concrete next action>
 - Experiment 2: semantic depth provider: `depth_anything_v2_small`.
 - Experiment 3: bas-relief transform provider: `depth_anything_v2_small_bas_relief`.
 - Experiment 4: subject mask layering: `sam_masked_depth`.
+- Experiment 5: full 3D sidecar benchmark: `triposr_sidecar` — **evaluated, rejected** (full 3D reconstructs objects, not image-plane depth; not viable for poster relief).
 
 Keep future experiments isolated by provider/config first. Only introduce a separate branch or larger dependency stack when the experiment cannot stay cleanly contained.

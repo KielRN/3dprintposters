@@ -168,3 +168,39 @@ def _mean_adjacent_delta(values: np.ndarray) -> float:
     vertical = np.mean(np.abs(np.diff(values, axis=0)))
     horizontal = np.mean(np.abs(np.diff(values, axis=1)))
     return float(vertical + horizontal)
+
+
+def test_triposr_sidecar_projects_mesh_depth_to_relief(monkeypatch) -> None:
+    """TripoSR provider should project a 3D mesh into a depth map and produce valid relief."""
+    image = Image.new("RGB", (4, 4), "white")
+
+    # Fake Tripo API inference — returns a dummy object (the test monkeypatches
+    # _project_mesh_to_depth too, so the mesh object is never actually used)
+    def fake_infer_triposr_api(_image: Image.Image) -> object:
+        return object()  # placeholder mesh
+
+    # Fake depth projection — returns a gradient depth map
+    def fake_project_mesh_to_depth(
+        _mesh: object, width_px: int, height_px: int
+    ) -> np.ndarray:
+        row = np.linspace(0.1, 0.9, width_px, dtype=np.float32)
+        return np.tile(row, (height_px, 1))
+
+    monkeypatch.setattr("app.depth._infer_triposr_api", fake_infer_triposr_api)
+    monkeypatch.setattr("app.depth._project_mesh_to_depth", fake_project_mesh_to_depth)
+
+    from app.depth import TripoSRSidecarProvider
+
+    heightmap = TripoSRSidecarProvider().generate(
+        image,
+        base_thickness_mm=1.2,
+        min_relief_mm=0.4,
+        max_relief_mm=3.0,
+        post_smooth_radius_px=0,
+    )
+
+    # Right side (higher depth) should produce more relief than left side
+    assert heightmap.values[0, -1] > heightmap.values[0, 0]
+    assert heightmap.provider == "triposr_sidecar"
+    assert heightmap.min_height_mm >= 1.6
+    assert heightmap.max_height_mm <= 4.2

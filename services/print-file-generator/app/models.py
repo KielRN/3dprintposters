@@ -22,6 +22,7 @@ class ReliefSettings(BaseModel):
         "depth_anything_v2_small",
         "depth_anything_v2_small_bas_relief",
         "sam_masked_depth",
+        "triposr_sidecar",
     ] = "posterized_luminance"
     base_thickness_mm: float = Field(default=1.2, gt=0)
     min_relief_mm: float = Field(default=0.4, ge=0)

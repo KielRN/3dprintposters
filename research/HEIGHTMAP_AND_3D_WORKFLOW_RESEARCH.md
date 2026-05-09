@@ -201,7 +201,9 @@ Risks:
 - It reconstructs objects, not controlled bas-relief.
 - It may struggle with full portrait posters and AI-generated graphic layouts.
 
-Recommendation: Excellent "can we run image-to-3D in our service at all?" baseline. Less likely to be the final quality answer.
+**Experiment 5 result (2026-05-09): NOT VIABLE for poster relief.** Tested via Tripo AI API (v2.5-20250123) against both canonical inputs. Full image-to-3D reconstruction is fundamentally the wrong tool — it builds a standalone 3D object (e.g. a figurine) rather than estimating depth within the image frame. The heightmaps show unrecognizable silhouettes with no correspondence to the input photos. Monocular depth estimators (Experiments 2–4) solve the correct problem. This finding likely applies to all Experiment 5 candidates (Stable Fast 3D, TRELLIS, SAM 3D, TriplaneGaussian) since they share the same image-to-3D paradigm.
+
+Recommendation: ~~Excellent "can we run image-to-3D in our service at all?" baseline.~~ **Evaluated and rejected.** Full 3D reconstruction does not produce useful poster relief inputs. Focus on monocular depth + subject masking (Experiments 2–4).
 
 ### Stable Fast 3D
 
@@ -318,14 +320,16 @@ Success criteria:
 
 Goal: decide whether full image-to-3D models can produce useful relief inputs or optional future product packages.
 
-Benchmark order:
+**Result: NOT VIABLE.** TripoSR (via Tripo AI API) tested 2026-05-09. Full image-to-3D reconstructs standalone objects, not image-plane depth — fundamentally wrong for poster relief. Heightmaps show unrecognizable silhouettes. This finding likely disqualifies all remaining candidates in this category. See `.tmp/experiments/experiment_5/README.md` for full analysis.
 
-1. TripoSR
-2. Stable Fast 3D
-3. TRELLIS-image-large
-4. SAM 3D Objects
-5. TriplaneGaussian
-6. TRELLIS.2
+Benchmark order (original — remaining items deprioritized):
+
+1. ~~TripoSR~~ — **Evaluated, rejected** (2026-05-09)
+2. ~~Stable Fast 3D~~ — Likely same problem (same image-to-3D paradigm)
+3. ~~TRELLIS-image-large~~ — Likely same problem
+4. ~~SAM 3D Objects~~ — Likely same problem
+5. ~~TriplaneGaussian~~ — Likely same problem
+6. ~~TRELLIS.2~~ — Likely same problem
 
 Scoring:
 
@@ -370,7 +374,7 @@ For our actual product workflow:
 | 1 | Depth Anything V2 Small | First semantic depth provider | Directly fixes luminance-as-depth problem |
 | 2 | digital-bas-relief / ModelRelief ideas | Bas-relief transform | Fixes linear depth scaling and shallow-depth detail loss |
 | 3 | SAM 2D / SAM 3D Body | Subject masks | Especially helpful for portraits |
-| 4 | TripoSR | Lightweight full-3D baseline | MIT, practical, quick to test |
+| 4 | TripoSR | ~~Lightweight full-3D baseline~~ | **Rejected** — full 3D reconstructs objects, not image-plane depth |
 | 5 | Stable Fast 3D | Better asset sidecar | Fast textured mesh, but gated/license review needed |
 | 6 | TRELLIS-image-large | Higher-quality open full-3D test | MIT and strong ecosystem |
 | 7 | SAM 3D Objects | Object-aware reconstruction | Promising but gated/custom license |

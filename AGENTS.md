@@ -95,7 +95,7 @@ The full Firebase emulator suite remains blocked on this machine until JDK 21+ i
   - `depth_anything_v2_small`: first semantic depth provider candidate.
   - `bas_relief_transform`: depth compression/gradient compression between semantic depth and printable heightmap.
   - `sam_masked_depth`: subject or portrait-aware masking layered over depth.
-  - `triposr_sidecar`, `stable_fast_3d_sidecar`, and `trellis_sidecar`: full image-to-3D experiments scored against usefulness for flattening/projecting into a 5x7 relief.
+  - `triposr_sidecar`: full image-to-3D benchmark — **evaluated 2026-05-09, rejected** (reconstructs standalone 3D objects, not image-plane depth; not viable for poster relief). Remaining candidates (`stable_fast_3d_sidecar`, `trellis_sidecar`) likely share the same problem and are deprioritized.
 - Nano Banana / Gemini 2.5 Flash Image belongs in proof cleanup and depth-friendly preprocessing, not final STL/GLB geometry generation.
 
 ## Security And Secrets
