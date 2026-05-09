@@ -35,7 +35,7 @@ Note: use `STL` for the 3D model format. If any prompt or ticket says `SLT`, tre
 5. AI pipeline creates a stylized poster image or depth/heightmap source.
 6. User approves one generated proof.
 7. Print file generator converts the approved design into a 5in x 7in baseline artifact bundle with `model.stl`, `preview.glb`, `heightmap.png`, `metadata.json`, and printability output.
-8. User previews the generated GLB relief on the job page.
+8. User inspects the approved proof, generated heightmap, and generated GLB relief side by side on the job page.
 9. User checks out only after print-file artifacts are generated.
 10. Payment webhook locks the order and sends the geometry, color-capable print package, and order metadata to the selected print partner.
 11. Fulfillment status updates are written back to Firestore and shown in the web app.
@@ -71,6 +71,7 @@ Note: use `STL` for the 3D model format. If any prompt or ticket says `SLT`, tre
 - Accepted print-file generator decision: keep `services/print-file-generator` as the production FastAPI/Cloud Run boundary and selectively extract core image, heightmap, STL, metadata, color, and test concepts from `E:\PROJECTS\print-file-generator`.
 - Do not vendor the standalone generator's Flask routes, SQLite local project database, browser session state, local CLI control flow, TD1 hardware code, or current open-surface mesh topology into production.
 - The current print-file implementation slice is deterministic closed relief generation: validated image input up to 4,000,000 decoded pixels by default, 5:7 crop/pad, posterized luminance heightmap fallback with smoothing and softened edge detail, closed 127mm x 177.8mm mesh with top surface/base/sidewalls, binary STL, neutral-material GLB preview, heightmap PNG, metadata JSON, and printability checks.
+- The job page now acts as the first quality-control surface for relief output: it shows the approved proof, generated `heightmap.png`, `preview.glb`, printability warnings, and download links for `model.stl`, `preview.glb`, `heightmap.png`, and `metadata.json`.
 - Add AI depth providers only after the deterministic relief path works. Start with Depth Anything V2 Small as the first experimental provider, then compare Depth Pro and MoGe if needed.
 - Store user uploads and generated artifacts under user/job scoped paths, for example:
   - `uploads/{uid}/{jobId}/source.jpg`

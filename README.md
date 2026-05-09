@@ -14,7 +14,7 @@ Working now:
 - Firebase callable Functions for job creation, proof approval, print-file generation orchestration, and checkout
 - Direct Vertex/Gemini proof-generation adapter in `apps/functions`
 - Python print-file generator service for baseline STL, GLB preview, heightmap, metadata, and printability output
-- Job-page 3D GLB relief preview after proof approval
+- Job-page proof, heightmap, and 3D GLB inspection view after proof approval
 - Firestore and Storage security rules for the dev Firebase project
 - Stripe Checkout session creation boundary
 - PWA manifest, icons, and install behavior
@@ -93,14 +93,14 @@ sequenceDiagram
   Fn->>Print: Generate STL and GLB preview
   Print->>Storage: Store print-files/{uid}/{jobId}
   Fn->>DB: Save print file artifacts and printability
-  Web->>Storage: Load preview.glb
+  Web->>Storage: Load proof, heightmap.png, and preview.glb
   Customer->>Web: Start checkout
   Web->>Fn: createCheckoutSession
   Fn->>Stripe: Create Checkout Session
   Stripe-->>Customer: Collect payment
 ```
 
-The home-page 3D panel is still a visual preview shell. The real generated `preview.glb` appears on the job page after the user approves the proof and the print-file generator finishes.
+The home-page 3D panel is still a visual preview shell. The job page shows the approved proof, generated `heightmap.png`, and real `preview.glb` side by side after the user approves the proof and the print-file generator finishes.
 
 ## Why There Is A Dev Server And A Functions Emulator
 
@@ -315,6 +315,7 @@ Use this checklist when testing the app as a beginner.
 - [ ] Confirm a generated proof image appears in Storage.
 - [ ] Confirm the app navigates to `/jobs/{jobId}`.
 - [ ] Approve the proof.
+- [ ] Confirm the job page shows the approved proof, generated heightmap, 3D preview, warning details, and artifact downloads.
 - [ ] Start checkout.
 - [ ] Confirm a Stripe Checkout Session is created.
 - [ ] Confirm an order document appears in Firestore.
@@ -374,7 +375,7 @@ That is expected in hybrid local testing.
 
 ### The home-page preview shows a flat plate
 
-That is expected on the upload screen. The real generated 3D preview appears on `/jobs/{jobId}` after proof approval and print-file generation.
+That is expected on the upload screen. The real generated 3D preview appears with the approved proof and heightmap on `/jobs/{jobId}` after proof approval and print-file generation.
 
 If the job page does not show a 3D preview after approval, check that the print-file generator is running, `PRINT_FILE_GENERATOR_URL` is configured, Storage rules allow reads under `print-files/{uid}/{jobId}`, Storage CORS allows `http://localhost:3000`, and the approved proof image is not above the generator's decoded pixel limit.
 

@@ -141,7 +141,8 @@ The accepted extraction plan is now partially implemented:
 - Add printability checks before checkout can depend on generated print files.
 - Call the print-file generator from `approveGeneratedImage` after proof approval.
 - Store artifact paths and printability output on `jobs/{jobId}`.
-- Render `preview.glb` on `/jobs/{jobId}` and keep checkout locked until print-file artifacts are ready.
+- Render the approved proof, generated `heightmap.png`, and `preview.glb` side by side on `/jobs/{jobId}`, with baseline artifact downloads for local quality checks.
+- Keep checkout locked until print-file artifacts are ready.
 - For local hybrid testing, run the print-file generator on `http://127.0.0.1:8089` and set `PRINT_FILE_GENERATOR_URL` in `apps/functions/.env`.
 
 Then improve:

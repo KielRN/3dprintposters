@@ -16,7 +16,11 @@ import { onAuthStateChanged, type User } from "firebase/auth";
 import { doc, onSnapshot } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { getDownloadURL, ref } from "firebase/storage";
-import { PrintFilePreview, PrintFileStatusPanel } from "./PrintFilePreview";
+import {
+  PrintFilePreview,
+  PrintFileStatusPanel,
+  type ArtifactDownload,
+} from "./PrintFilePreview";
 
 type GeneratedImage = {
   id: string;
@@ -65,7 +69,9 @@ type CreateCheckoutSessionResult = {
 
 type PrintFileArtifacts = {
   modelStl?: string;
+  heightmapPng?: string;
   previewGlb?: string;
+  metadataJson?: string;
 };
 
 type PrintabilitySummary = {
@@ -143,7 +149,7 @@ export function JobDetail({ jobId }: { jobId: string }) {
   const [job, setJob] = useState<JobDocument | null>(null);
   const [jobLoading, setJobLoading] = useState(Boolean(firebaseClients));
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
-  const [previewGlbUrl, setPreviewGlbUrl] = useState("");
+  const [artifactUrls, setArtifactUrls] = useState<Record<string, string>>({});
   const [approvalBusyPath, setApprovalBusyPath] = useState("");
   const [checkoutBusy, setCheckoutBusy] = useState(false);
   const [notice, setNotice] = useState("");
@@ -160,6 +166,54 @@ export function JobDetail({ jobId }: { jobId: string }) {
     job.printFileStatus === "generated" &&
     Boolean(job.printFileArtifacts?.modelStl) &&
     Boolean(job.printFileArtifacts?.previewGlb);
+  const approvedProofUrl = approvedImagePath
+    ? imageUrls[approvedImagePath] ?? ""
+    : "";
+  const printFileArtifacts = job?.printFileArtifacts;
+  const previewGlbUrl = printFileArtifacts?.previewGlb
+    ? artifactUrls[printFileArtifacts.previewGlb] ?? ""
+    : "";
+  const heightmapUrl = printFileArtifacts?.heightmapPng
+    ? artifactUrls[printFileArtifacts.heightmapPng] ?? ""
+    : "";
+  const artifactDownloadSpecs = [
+    {
+      label: "Download model.stl",
+      filename: "model.stl",
+      path: printFileArtifacts?.modelStl,
+      icon: "model" as const,
+    },
+    {
+      label: "Download preview.glb",
+      filename: "preview.glb",
+      path: printFileArtifacts?.previewGlb,
+      icon: "preview" as const,
+    },
+    {
+      label: "Download heightmap.png",
+      filename: "heightmap.png",
+      path: printFileArtifacts?.heightmapPng,
+      icon: "heightmap" as const,
+    },
+    {
+      label: "Download metadata.json",
+      filename: "metadata.json",
+      path: printFileArtifacts?.metadataJson,
+      icon: "metadata" as const,
+    },
+  ];
+  const artifactDownloads: ArtifactDownload[] = artifactDownloadSpecs.flatMap((artifact) =>
+    artifact.path && artifactUrls[artifact.path]
+      ? [
+          {
+            label: artifact.label,
+            filename: artifact.filename,
+            url: artifactUrls[artifact.path],
+            icon: artifact.icon,
+          },
+        ]
+      : [],
+  );
 
   useEffect(() => {
     if (!firebaseClients) {
@@ -251,17 +305,38 @@ export function JobDetail({ jobId }: { jobId: string }) {
   }, [firebaseClients, generatedImages, job]);
 
   useEffect(() => {
-    const previewPath = job?.printFileArtifacts?.previewGlb;
-    if (!firebaseClients || !previewPath) {
-      setPreviewGlbUrl("");
+    const artifacts = job?.printFileArtifacts;
+    if (!firebaseClients || !artifacts) {
+      setArtifactUrls({});
+      return;
+    }
+
+    const paths = Array.from(
+      new Set(
+        [
+          artifacts.modelStl,
+          artifacts.previewGlb,
+          artifacts.heightmapPng,
+          artifacts.metadataJson,
+        ].filter((path): path is string => Boolean(path)),
+      ),
+    );
+
+    if (paths.length === 0) {
+      setArtifactUrls({});
       return;
     }
 
     let cancelled = false;
-    void getDownloadURL(ref(firebaseClients.storage, previewPath))
-      .then((url) => {
+    void Promise.all(
+      paths.map(async (path) => {
+        const url = await getDownloadURL(ref(firebaseClients.storage, path));
+        return [path, url] as const;
+      }),
+    )
+      .then((entries) => {
         if (!cancelled) {
-          setPreviewGlbUrl(url);
+          setArtifactUrls(Object.fromEntries(entries));
         }
       })
       .catch((downloadError) => {
@@ -277,7 +352,7 @@ export function JobDetail({ jobId }: { jobId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [firebaseClients, job?.printFileArtifacts?.previewGlb]);
+  }, [firebaseClients, job?.printFileArtifacts]);
 
   async function approveImage(imagePath: string) {
     if (!firebaseClients) {
@@ -423,10 +498,13 @@ export function JobDetail({ jobId }: { jobId: string }) {
 
       {job?.printFileStatus === "generated" && previewGlbUrl ? (
         <PrintFilePreview
+          proofUrl={approvedProofUrl}
+          heightmapUrl={heightmapUrl}
           previewUrl={previewGlbUrl}
           modelStlPath={job.printFileArtifacts?.modelStl}
+          artifactDownloads={artifactDownloads}
           printabilityStatus={job.printability?.status}
-          warningCount={job.printability?.warnings?.length ?? 0}
+          warnings={job.printability?.warnings}
         />
       ) : (
         <PrintFileStatusPanel

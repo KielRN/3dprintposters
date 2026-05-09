@@ -14,6 +14,7 @@ All notable project changes will be documented in this file.
 - Added neutral-material GLB preview mesh generation for browser previews.
 - Added proof-approval orchestration that calls the print-file generator, stores STL/GLB artifact paths on the job, and gates checkout on generated print files.
 - Added a job-page GLB relief viewer backed by generated `preview.glb` artifacts.
+- Added a job-page artifact inspection view with side-by-side approved proof, generated `heightmap.png`, `preview.glb`, warning details, and download buttons for baseline print artifacts.
 
 ### Changed
 

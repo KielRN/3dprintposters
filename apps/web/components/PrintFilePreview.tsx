@@ -1,21 +1,39 @@
 "use client";
 
 import { Canvas, useFrame, useLoader } from "@react-three/fiber";
-import { Box, CheckCircle2, Loader2, TriangleAlert } from "lucide-react";
+import {
+  Box,
+  CheckCircle2,
+  Download,
+  FileJson,
+  Image as ImageIcon,
+  Loader2,
+  TriangleAlert,
+} from "lucide-react";
 import { Suspense, useRef } from "react";
 import type { Group } from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 type PrintFilePreviewProps = {
+  proofUrl?: string;
+  heightmapUrl?: string;
   previewUrl: string;
   modelStlPath?: string;
+  artifactDownloads?: ArtifactDownload[];
   printabilityStatus?: string;
-  warningCount?: number;
+  warnings?: string[];
 };
 
 type PrintFileStatusPanelProps = {
   status?: string;
   errorMessage?: string;
+};
+
+export type ArtifactDownload = {
+  label: string;
+  filename: string;
+  url: string;
+  icon: "model" | "preview" | "heightmap" | "metadata";
 };
 
 function ReliefGlbModel({ previewUrl }: { previewUrl: string }) {
@@ -34,6 +52,22 @@ function ReliefGlbModel({ previewUrl }: { previewUrl: string }) {
       <primitive object={gltf.scene} position={[-63.5, -88.9, -2.1]} />
     </group>
   );
+}
+
+function ArtifactIcon({ icon }: { icon: ArtifactDownload["icon"] }) {
+  if (icon === "heightmap") {
+    return <ImageIcon size={17} aria-hidden="true" />;
+  }
+
+  if (icon === "metadata") {
+    return <FileJson size={17} aria-hidden="true" />;
+  }
+
+  if (icon === "model") {
+    return <Box size={17} aria-hidden="true" />;
+  }
+
+  return <Download size={17} aria-hidden="true" />;
 }
 
 export function PrintFileStatusPanel({
@@ -66,10 +100,13 @@ export function PrintFileStatusPanel({
 }
 
 export function PrintFilePreview({
+  proofUrl,
+  heightmapUrl,
   previewUrl,
   modelStlPath,
+  artifactDownloads = [],
   printabilityStatus,
-  warningCount = 0,
+  warnings = [],
 }: PrintFilePreviewProps) {
   return (
     <section className="mt-8 overflow-hidden rounded-lg border border-black/10 bg-white">
@@ -84,19 +121,71 @@ export function PrintFilePreview({
         </span>
       </div>
 
-      <div className="grid lg:grid-cols-[minmax(0,1fr)_280px]">
-        <div className="relative min-h-[460px] bg-[linear-gradient(145deg,#181c21,#303139)]">
-          <Canvas camera={{ position: [0, 0.08, 6.4], fov: 42 }}>
-            <ambientLight intensity={0.88} />
-            <directionalLight position={[4, 5, 6]} intensity={1.45} />
-            <pointLight position={[-3, -3, 4]} intensity={0.38} color="#df5c45" />
-            <Suspense fallback={null}>
-              <ReliefGlbModel previewUrl={previewUrl} />
-            </Suspense>
-          </Canvas>
+      <div className="grid gap-px bg-black/10 lg:grid-cols-3">
+        <div className="bg-white">
+          <div className="flex min-h-12 items-center justify-between gap-3 border-b border-black/10 px-4 text-sm">
+            <strong>Approved proof</strong>
+            <span className="text-[var(--muted)]">source</span>
+          </div>
+          <div className="aspect-[5/7] bg-black/[0.035]">
+            {proofUrl ? (
+              <img
+                alt="Approved generated poster proof"
+                className="h-full w-full object-cover"
+                src={proofUrl}
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center px-4 text-center text-sm font-bold text-[var(--muted)]">
+                Proof image unavailable
+              </div>
+            )}
+          </div>
         </div>
 
-        <div className="grid content-start gap-4 border-t border-black/10 p-4 text-sm lg:border-l lg:border-t-0">
+        <div className="bg-white">
+          <div className="flex min-h-12 items-center justify-between gap-3 border-b border-black/10 px-4 text-sm">
+            <strong>Heightmap</strong>
+            <span className="text-[var(--muted)]">high/low</span>
+          </div>
+          <div className="aspect-[5/7] bg-black/[0.035]">
+            {heightmapUrl ? (
+              <img
+                alt="Generated relief heightmap"
+                className="h-full w-full object-cover"
+                src={heightmapUrl}
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center px-4 text-center text-sm font-bold text-[var(--muted)]">
+                Heightmap pending
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="bg-white">
+          <div className="flex min-h-12 items-center justify-between gap-3 border-b border-black/10 px-4 text-sm">
+            <strong>3D preview</strong>
+            <span className="text-[var(--muted)]">GLB</span>
+          </div>
+          <div className="relative aspect-[5/7] bg-[linear-gradient(145deg,#181c21,#303139)]">
+            <Canvas camera={{ position: [0, 0.08, 6.4], fov: 42 }}>
+              <ambientLight intensity={0.88} />
+              <directionalLight position={[4, 5, 6]} intensity={1.45} />
+              <pointLight
+                position={[-3, -3, 4]}
+                intensity={0.38}
+                color="#df5c45"
+              />
+              <Suspense fallback={null}>
+                <ReliefGlbModel previewUrl={previewUrl} />
+              </Suspense>
+            </Canvas>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-5 border-t border-black/10 p-4 text-sm lg:grid-cols-[minmax(0,1fr)_minmax(280px,380px)]">
+        <div className="grid gap-3 sm:grid-cols-3">
           <div>
             <p className="text-[var(--muted)]">Artifact</p>
             <strong>preview.glb</strong>
@@ -109,15 +198,41 @@ export function PrintFilePreview({
             <p className="text-[var(--muted)]">Printability</p>
             <strong>{printabilityStatus?.replaceAll("_", " ") ?? "Checked"}</strong>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 sm:col-span-3">
             <Box size={18} aria-hidden="true" />
             <strong>127mm x 178mm</strong>
           </div>
-          {warningCount > 0 ? (
-            <p className="rounded-lg border border-[var(--gold)]/30 bg-[var(--gold)]/10 px-3 py-2 font-semibold text-[var(--ink)]">
-              {warningCount} package warning{warningCount === 1 ? "" : "s"}
-            </p>
+          {warnings.length > 0 ? (
+            <div className="grid gap-2 sm:col-span-3">
+              {warnings.map((warning) => (
+                <p
+                  className="rounded-lg border border-[var(--gold)]/30 bg-[var(--gold)]/10 px-3 py-2 font-semibold text-[var(--ink)]"
+                  key={warning}
+                >
+                  {warning}
+                </p>
+              ))}
+            </div>
           ) : null}
+        </div>
+
+        <div className="grid content-start gap-2">
+          <p className="font-bold text-[var(--muted)]">Downloads</p>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
+            {artifactDownloads.map((artifact) => (
+              <a
+                className="secondary-button min-h-10 justify-start px-3 text-sm"
+                download={artifact.filename}
+                href={artifact.url}
+                key={artifact.filename}
+                rel="noreferrer"
+                target="_blank"
+              >
+                <ArtifactIcon icon={artifact.icon} />
+                {artifact.label}
+              </a>
+            ))}
+          </div>
         </div>
       </div>
     </section>

@@ -29,6 +29,7 @@
 - [x] Add single-job proof review route and gate checkout on approved proof.
 - [x] Add single-order status route for checkout/payment/fulfillment state.
 - [x] Add real GLB preview from backend output on the job review route.
+- [x] Add side-by-side proof, heightmap, and 3D preview inspection with artifact downloads on the job review route.
 - [ ] Add account-level order history and richer fulfillment status screens.
 - [x] Add PWA manifest, icons, and install behavior.
 
