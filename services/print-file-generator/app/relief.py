@@ -38,7 +38,8 @@ def build_closed_relief_mesh(
 
     for y in range(rows):
         for x in range(cols):
-            vertices.append((x * x_scale, y * y_scale, float(heightmap[y, x])))
+            source_y = rows - 1 - y
+            vertices.append((x * x_scale, y * y_scale, float(heightmap[source_y, x])))
 
     bottom_offset = len(vertices)
     for y in range(rows):
