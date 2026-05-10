@@ -71,10 +71,14 @@ Note: use `STL` for the 3D model format. If any prompt or ticket says `SLT`, tre
 - Accepted print-file generator decision: keep `services/print-file-generator` as the production FastAPI/Cloud Run boundary and selectively extract core image, heightmap, STL, metadata, color, and test concepts from `E:\PROJECTS\print-file-generator`.
 - Do not vendor the standalone generator's Flask routes, SQLite local project database, browser session state, local CLI control flow, TD1 hardware code, or current open-surface mesh topology into production.
 - The current print-file implementation slice is deterministic closed relief generation: validated image input up to 4,000,000 decoded pixels by default, 5:7 crop/pad, posterized luminance heightmap fallback with smoothing and softened edge detail, closed 127mm x 177.8mm mesh with top surface/base/sidewalls, binary STL, neutral-material GLB preview, heightmap PNG, metadata JSON, and printability checks.
-- Experiment 1 is opt-in and deterministic: `posterized_luminance` remains the default checkout path, while `continuous_luminance` and `lithophane_baseline` can be selected through relief settings or compared locally with `services/print-file-generator/scripts/run_heightmap_experiment.py`.
-- Experiment 2 is wired as the opt-in `depth_anything_v2_small` semantic depth provider. It uses Hugging Face Transformers Depth Anything V2 Small, keeps mesh/STL/GLB generation deterministic after inference, and writes local comparison bundles under `.tmp/experiments/experiment_2` when selected with `--provider depth_anything_v2_small`.
+- The five-experiment heightmap research cycle is complete as of 2026-05-09. See [research/HEIGHTMAP_EXPERIMENTS_FINAL_EVALUATION.md](research/HEIGHTMAP_EXPERIMENTS_FINAL_EVALUATION.md) for the cycle summary and [research/HEIGHTMAP_FINAL_EVALUATION_REVIEW.md](research/HEIGHTMAP_FINAL_EVALUATION_REVIEW.md) for the active production-build plan, calibrated quality gates, and decisions made along the way.
+- Experiment 1 (deterministic) outcome: `posterized_luminance`, `continuous_luminance`, and `lithophane_baseline` are kept as the last-resort safety net for when every API-backed provider in the chain fails. They are no longer treated as the production target. `posterized_luminance` remains the default checkout fallback today; the deterministic-fallback choice between posterized and lithophane will be settled while building the hybrid (lithophane preserved more facial identity in the contact sheet but its background-noise behavior is not yet quantified against the gates).
+- Experiments 2 and 3 outcome: monocular depth (`depth_anything_v2_small`) and the bas-relief transform are wired. The bas-relief transform was replaced 2026-05-09 with guided-filter detail/base separation; the previous gradient-attenuation transform was structurally a no-op. New transform compresses global range while preserving local detail, runs in ~5 ms on a 200×280 heightmap, and uses pure numpy (no opencv-contrib or kornia dependency).
+- Experiment 4 outcome: `segformer_masked_depth` (renamed from `sam_masked_depth` on 2026-05-09 to match the actual SegFormer/ADE20K-via-HF-Inference implementation) passes all calibrated quality gates after the bas-relief swap and is the foundation for the next hybrid provider. Historical `sam_masked_depth/` artifacts under `.tmp/experiments/experiment_4/` are retained for audit.
+- Experiment 5 outcome: full image-to-3D reconstruction (TripoSR class) is rejected for poster relief — the model builds standalone 360° figurines, not image-plane depth. The rejection extends to Stable Fast 3D, TRELLIS, SAM 3D Objects, and TriplaneGaussian. Revisit only if the product expands to standalone figurines.
+- Production provider registry: each AI role lives behind a typed `*Provider` Protocol with a `*Chain` that does `ProviderError` failover and writes a `ProviderAudit` (succeeded provider, attempted chain, fallback reason). Scaffolding under [services/print-file-generator/app/providers/](services/print-file-generator/app/providers/). Roles wired today: `SubjectSegmentationProvider` (concrete: HF Inference SegFormer; stubs: Vertex Vision, Cloudflare gateway) and `MonocularDepthProvider` (concrete: local Depth Anything V2 — dev-only; stubs: HF Inference Depth Anything, Vertex). Refactor existing free helpers in `app/depth.py` are thin shims over the chains.
+- Quality gates: per-metric pure functions in [services/print-file-generator/app/quality_gates.py](services/print-file-generator/app/quality_gates.py); pytest harness at [tests/test_quality_gates.py](services/print-file-generator/tests/test_quality_gates.py); calibration view at `scripts/run_quality_gates.py`. Calibrated thresholds (in `research/HEIGHTMAP_FINAL_EVALUATION_REVIEW.md` item 3) require background flatness ≤ 0.25 mm as the primary discriminator and portrait face detection to reject TripoSR-class output. Composition SSIM is dropped pending replacement with a relief-appropriate metric.
 - The job page now acts as the first quality-control surface for relief output: it shows the approved proof, generated `heightmap.png`, `preview.glb`, printability warnings, and download links for `model.stl`, `preview.glb`, `heightmap.png`, and `metadata.json`.
-- Keep Depth Anything V2 Small experimental until output quality, licensing, and runtime costs are understood; compare Depth Pro and MoGe only after this baseline is reviewed.
 - Store user uploads and generated artifacts under user/job scoped paths, for example:
   - `uploads/{uid}/{jobId}/source.jpg`
   - `generated/{uid}/{jobId}/preview.png`
@@ -213,11 +217,23 @@ firebase deploy --only functions
 
 ## Open Decisions
 
-- Which AI model creates the printable source image, segmentation, or heightmap.
-- Whether and when Cloudflare AI Gateway should be added after direct Vertex/Gemini MVP integration.
+- ~~Which AI model creates the printable source image, segmentation, or heightmap.~~ Settled 2026-05-09: poster proof = Vertex/Gemini (`gemini-2.5-flash-image`); subject segmentation = SegFormer/ADE20K via HF Inference (Vertex Vision and Cloudflare-gatewayed paths stubbed for follow-up); monocular depth = Depth Anything V2 Small (Vertex/HF-Inference-hosted/Cloudflare-gatewayed paths stubbed). Each role lives behind the `app/providers/` chain with audit + failover. Image-to-3D (TripoSR class) rejected.
+- ~~Whether and when Cloudflare AI Gateway should be added after direct Vertex/Gemini MVP integration.~~ Settled 2026-05-09: Cloudflare AI Gateway is the unified observability/rate-limit/fallback pane for the provider registry, not an MVP-only afterthought. Wire roles through it as gateway-served implementations land.
 - Whether users can edit depth/relief settings before checkout.
 - Whether a source-photo proof fallback is needed for provider outages or if generation failures should stay hard failures.
 - Whether native iOS/Android packaging is needed after the web MVP.
+
+## Production Build Tasks (deferred to hybrid build cycle)
+
+Tracked in [research/HEIGHTMAP_FINAL_EVALUATION_REVIEW.md](research/HEIGHTMAP_FINAL_EVALUATION_REVIEW.md) Net Position section:
+
+- Build the hybrid `masked_depth_detail_blend` provider that combines semantic depth, subject masking, in-mask detail blend (lithophane- or posterized-sourced — settles the deterministic fallback default), and the new guided-filter compression.
+- Implement `VertexSegmentationProvider`, `HfInferenceDepthAnythingProvider`, `VertexDepthProvider`, `CloudflareGatewaySegmentationProvider`. Stubs exist and raise `ProviderError` cleanly so chains fall through.
+- Wire `ProviderAudit` into per-job `metadata.json` and the Firestore audit document.
+- Cache provider responses by content hash in Firebase Storage (`cache/{role}/{provider_id}/{model_version}/{sha256}.{ext}`); TTL infinite, invalidated only by registry `model_version` change.
+- Replace the dropped composition-preservation gate with a relief-appropriate metric (gradient-magnitude correlation or edge-map IoU).
+- Surface segmentation status (`ok` / `empty_mask` / `full_image_mask` / `api_failure`) into job metadata.
+- Declare implicit deps (`requests`, `python-dotenv`) in `services/print-file-generator/pyproject.toml`.
 
 ## Developer Cautions
 

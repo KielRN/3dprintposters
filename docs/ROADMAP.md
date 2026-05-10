@@ -8,7 +8,7 @@ This file tracks product direction and enhancement ideas that are not yet commit
 - Keep the first customer journey narrow: one uploaded photo, one selected style, one generated 5in x 7in printable poster, and one checkout path.
 - Make every generated artifact traceable to a user, job, and order before fulfillment.
 - Replace remaining placeholder preview and local API scaffolds with the authenticated Firebase-backed workflow where needed.
-- Treat [Print File Generator Architecture Roadmap Evaluation](./PRINT_FILE_GENERATOR_ARCHITECTURE_ROADMAP_EVALUATION.md) as the source of truth for the next print-file implementation slice.
+- Treat [Print File Generator Architecture Roadmap Evaluation](./PRINT_FILE_GENERATOR_ARCHITECTURE_ROADMAP_EVALUATION.md) for the print-file service boundary, and [Heightmap Final Evaluation Review](../research/HEIGHTMAP_FINAL_EVALUATION_REVIEW.md) for the next relief implementation slice.
 
 ## Cloudflare/Deployment
 
@@ -25,10 +25,12 @@ This file tracks product direction and enhancement ideas that are not yet commit
 ## AI Pipeline
 
 - Start with direct GCP Vertex/Gemini integration for MVP speed; the first proof-generation route uses `gemini-2.5-flash-image` through Vertex AI express mode unless overridden.
-- Keep AI calls behind an internal provider adapter so Cloudflare AI Gateway can be added later for cross-provider routing, observability, rate limiting, and fallback.
-- Start with a single generation path before adding style variations, prompt tuning, or batch generation.
+- Production assumes API-based AI inference. Local model inference is dev/experiment territory only; offline operation is not a goal.
+- Each AI role (poster proof generation, monocular depth, subject segmentation, future image-to-3D) sits behind a typed provider interface modeled on `apps/functions/src/aiProvider.ts`, with a chain of API-backed implementations (Vertex AI, HF Inference, Cloudflare-gatewayed) selected by registry config.
+- Cloudflare AI Gateway is the unified observability/rate-limit/fallback pane for cross-provider routing, not an MVP-only afterthought. Wire roles through it as their gateway-served implementations land.
+- Start with a single generation path per role before adding style variations, prompt tuning, or batch generation.
 - Add moderation, quota checks, and cost caps before public traffic.
-- Save enough metadata for each generation to debug quality, cost, and fulfillment issues without storing secrets.
+- Save enough metadata for each generation — including which provider in the chain served the request, attempted fallbacks, and model version — to debug quality, cost, and fulfillment issues without storing secrets.
 
 ## Print Files/Preview
 
@@ -39,8 +41,25 @@ This file tracks product direction and enhancement ideas that are not yet commit
 - Add filament painting support files: palette, layer swaps, print settings, and preview.
 - Add full-color package artifacts such as 3MF or OBJ plus texture after the deterministic geometry path is validated.
 - Add printability checks for 5in x 7in model dimensions, thickness, relief depth, texture alignment, layer swap assumptions, and file size.
-- Add AI depth providers only after the deterministic relief pipeline works; first candidate remains Depth Anything V2 Small, with Depth Pro and MoGe as follow-up evaluations.
-- Preserve the exact artifact manifest, color package, filament settings, and geometry settings used for any paid order.
+- The five-experiment heightmap research cycle is complete (see [research/HEIGHTMAP_EXPERIMENTS_FINAL_EVALUATION.md](../research/HEIGHTMAP_EXPERIMENTS_FINAL_EVALUATION.md) and [research/HEIGHTMAP_FINAL_EVALUATION_REVIEW.md](../research/HEIGHTMAP_FINAL_EVALUATION_REVIEW.md)). Full image-to-3D reconstruction (TripoSR class) is rejected for poster relief — it builds standalone figurines, not image-plane depth.
+- Build the hybrid `masked_depth_detail_blend` provider as the next production-eligible relief path: semantic depth (Depth Anything V2 via API), subject mask (SegFormer/ADE20K via API), in-mask detail blend from the deterministic luminance/lithophane source, guided-filter bas-relief compression, and the existing closed-mesh STL/GLB generator.
+- Treat the deterministic providers (`posterized_luminance`, `continuous_luminance`, `lithophane_baseline`) as last-resort safety net only — used when every API-backed provider in the chain fails. They are not the production target.
+- Preserve the exact artifact manifest, color package, filament settings, geometry settings, and provider audit (which provider served each AI role, attempted fallbacks, model versions) used for any paid order.
+
+## Quality Gates for Relief Output
+
+- Treat the per-metric gates in [research/HEIGHTMAP_FINAL_EVALUATION_REVIEW.md](../research/HEIGHTMAP_FINAL_EVALUATION_REVIEW.md) item 3 as the acceptance bar for default-eligible relief providers: subject/background separation, background flatness (the primary discriminator after the bas-relief transform swap), hard mask ridge, high-frequency printable noise, and portrait face detection.
+- Compute gates per provider so providers serving the same role can be compared and swapped. Implementation lives at [services/print-file-generator/app/quality_gates.py](../services/print-file-generator/app/quality_gates.py); calibration view at `scripts/run_quality_gates.py`.
+- Replace the dropped composition-preservation metric (SSIM-on-brightness is structurally broken for relief) with a relief-appropriate one (gradient-magnitude correlation or edge-map IoU) before any non-portrait gate runs in strict mode.
+- Wire latency/cost metrics from Cloud Logging into the same gate framework so production traffic, not just CI, drives provider eligibility.
+
+## Production Provider Registry
+
+- Each AI role has a typed `*Provider` Protocol, a `*Chain` that tries providers in order with `ProviderError` failover and `ProviderAudit` capture, and a default factory built from registry config. Scaffolding lives at [services/print-file-generator/app/providers/](../services/print-file-generator/app/providers/).
+- Registry config (priority order, retry policy, cost ceilings, license/ToS approval) lives in Firestore (or typed config under `infra/firebase/`); per-job execution writes the resolved chain to the job document for audit.
+- Implement Vertex AI and Cloudflare-gateway concrete providers for both segmentation and monocular depth. Stubs already raise `ProviderError` cleanly so chains fall through.
+- Cache provider responses by content hash in Firebase Storage (`cache/{role}/{provider_id}/{model_version}/{sha256}.{ext}`); TTL infinite, invalidated only by registry `model_version` change.
+- Auth via service-account ADC for Vertex; via Secret Manager for external API keys. Treat env-var/`.env` as dev fallback.
 
 ## Payments/Fulfillment
 
