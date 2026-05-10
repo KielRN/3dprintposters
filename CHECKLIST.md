@@ -54,7 +54,7 @@
 - [ ] Add idempotency keys for fulfillment actions once the fulfillment provider path exists.
 - [ ] Add user quotas and abuse controls.
 
-## Phase 3 - Print File Generation
+## Phase 3 - Print File Generation And Relief Quality
 
 - [x] Create Python Cloud Run service contract for STL generation.
 - [x] Create broader print file generator service contract.
@@ -76,10 +76,27 @@
 - [x] Add experiment 1 deterministic heightmap comparison providers and local sidecar runner.
 - [x] Add opt-in 16-bit heightmap PNG export for experiment runs.
 - [x] Prototype Depth Anything V2 Small as the first experimental depth provider after deterministic relief generation passes tests.
+- [x] Complete the five-experiment heightmap review against the two canonical local inputs.
+- [x] Document the experiment cycle outcome in `research/HEIGHTMAP_EXPERIMENTS_FINAL_EVALUATION.md` and `research/HEIGHTMAP_FINAL_EVALUATION_REVIEW.md`.
+- [x] Rename the Experiment 4 provider from `sam_masked_depth` to `segformer_masked_depth` while retaining historical `.tmp` artifacts for audit.
+- [x] Reject TripoSR/full image-to-3D sidecars for poster relief and defer the same object-reconstruction class until product scope expands.
+- [x] Replace the near-no-op Experiment 3 transform with guided-filter detail/base bas-relief compression and regression tests.
+- [x] Add calibrated relief quality gates and reports for background flatness, subject separation, mask ridge, high-frequency noise, and portrait face detection.
+- [x] Add typed provider-chain scaffolding for monocular depth and subject segmentation with `ProviderError` failover and `ProviderAudit` capture.
+- [x] Settle AI workflow roles: Vertex/Gemini for proof generation, API-backed semantic depth, subject segmentation, optional proof cleanup/depth-friendly preprocessing, and no final STL/GLB geometry generation by image-to-3D models.
+- [ ] Build the opt-in `masked_depth_detail_blend` provider using semantic depth, subject masking, subject-only detail blending, guided-filter compression, and the existing STL/GLB generator.
+- [ ] During the hybrid build, compare `posterized_luminance` and `lithophane_baseline` as in-mask detail sources and use that result to set deterministic fallback priority.
+- [ ] Keep deterministic providers as the last-resort safety net; do not promote brightness-to-height providers as the target production-quality path.
+- [ ] Wire `ProviderAudit` and segmentation status into `metadata.json` and the Firestore job audit document.
+- [ ] Add a content-hash cache for provider responses in Firebase Storage using role, provider id, model version, and image hash.
+- [ ] Implement production API-backed depth and segmentation providers: HF Inference Depth Anything, Vertex depth/segmentation if available, and Cloudflare-gatewayed variants.
+- [ ] Add provider registry config for priority order, retries, cost ceilings, model versions, license approval, and default eligibility.
+- [ ] Replace the dropped composition-preservation quality gate with a relief-appropriate metric before strict non-portrait gating.
+- [ ] Feed provider latency and cost metrics from Cloud Logging/Monitoring into provider eligibility.
+- [ ] Declare implicit provider dependencies intentionally, including `requests`, optional `python-dotenv`, and experiment-only extras.
 - [ ] Add color-capable export package for Mimaki 3DUJ-2207 partners.
 - [ ] Add filament painting palette, layer swap, print settings, and preview outputs.
 - [ ] Add color/material recipe generation.
-- [ ] Decide where later AI workflow assists beyond depth estimation: segmentation, style constraints, preview QA, or texture cleanup.
 
 ## Phase 4 - Payments and Fulfillment
 
@@ -93,15 +110,16 @@
 - [ ] Create fulfillment quote flow.
 - [ ] Send paid orders to fulfillment only after confirmed payment.
 - [ ] Add admin retry and manual review states.
+- [ ] Add admin view for failed jobs, payment mismatches, fulfillment retries, and manual review.
 
 ## Phase 5 - Launch Readiness
 
 - [ ] Privacy policy and terms.
 - [ ] App content moderation and safety review.
 - [ ] Analytics and conversion funnel events.
-- [ ] Error monitoring and structured logs.
-- [ ] Cloud Storage lifecycle rules for abandoned uploads.
-- [ ] Cost caps, quotas, and alerts.
+- [ ] Error monitoring and structured logs for job, payment, fulfillment, and provider state changes.
+- [ ] Cloud Storage lifecycle rules for abandoned uploads and expired generated artifacts.
+- [ ] Cost caps, quotas, upload/job/checkout rate limits, and alerts.
 - [ ] Resolve dependency audit advisories or document accepted transitive risk.
 - [ ] Create Firebase App Hosting staging and production backends.
 - [ ] Add Cloudflare DNS records after Firebase App Hosting backend domains exist.
