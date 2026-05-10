@@ -55,15 +55,25 @@ def generate_print_file_bundle(
     )
 
     height_provider = get_depth_provider(request.relief.height_provider)
-    heightmap = height_provider.generate(
-        normalized_image.image,
-        base_thickness_mm=request.relief.base_thickness_mm,
-        min_relief_mm=request.relief.min_relief_mm,
-        max_relief_mm=request.relief.max_relief_mm,
-        contrast=request.relief.contrast,
-        gamma=request.relief.gamma,
-        post_smooth_radius_px=request.relief.post_smooth_radius_px,
-    )
+    heightmap_kwargs = {
+        "base_thickness_mm": request.relief.base_thickness_mm,
+        "min_relief_mm": request.relief.min_relief_mm,
+        "max_relief_mm": request.relief.max_relief_mm,
+        "contrast": request.relief.contrast,
+        "gamma": request.relief.gamma,
+        "post_smooth_radius_px": request.relief.post_smooth_radius_px,
+    }
+    if request.relief.height_provider == "masked_depth_detail_blend":
+        heightmap_kwargs["detail_source"] = request.relief.detail_source
+        heightmap_kwargs["detail_weight"] = request.relief.detail_weight
+
+    heightmap = height_provider.generate(normalized_image.image, **heightmap_kwargs)
+    provider_settings = None
+    if request.relief.height_provider == "masked_depth_detail_blend":
+        provider_settings = {
+            "detail_source": request.relief.detail_source,
+            "detail_weight": request.relief.detail_weight,
+        }
     mesh = build_closed_relief_mesh(
         heightmap.values,
         width_mm=request.dimensions.target_width_mm,
@@ -87,6 +97,7 @@ def generate_print_file_bundle(
         mesh=mesh,
         binary_stl_size=len(stl_bytes),
         base_thickness_mm=request.relief.base_thickness_mm,
+        provider_settings=provider_settings,
     )
 
     storage.write_bytes(

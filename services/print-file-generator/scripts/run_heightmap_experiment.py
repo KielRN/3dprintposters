@@ -26,6 +26,9 @@ EXPERIMENT_3_PROVIDERS = [
 EXPERIMENT_4_PROVIDERS = [
     "segformer_masked_depth",
 ]
+HYBRID_PROVIDERS = [
+    "masked_depth_detail_blend",
+]
 EXPERIMENT_5_PROVIDERS = [
     "triposr_sidecar",
 ]
@@ -34,6 +37,7 @@ PROVIDERS = [
     *EXPERIMENT_2_PROVIDERS,
     *EXPERIMENT_3_PROVIDERS,
     *EXPERIMENT_4_PROVIDERS,
+    *HYBRID_PROVIDERS,
     *EXPERIMENT_5_PROVIDERS,
 ]
 
@@ -50,6 +54,18 @@ def main() -> None:
     parser.add_argument("--contrast", type=float, default=1.0)
     parser.add_argument("--gamma", type=float, default=1.0)
     parser.add_argument("--post-smooth-radius-px", type=float, default=0.6)
+    parser.add_argument(
+        "--detail-source",
+        choices=["lithophane_baseline", "posterized_luminance"],
+        default="lithophane_baseline",
+        help="Detail source used by masked_depth_detail_blend.",
+    )
+    parser.add_argument(
+        "--detail-weight",
+        type=float,
+        default=0.22,
+        help="Detail blend weight used by masked_depth_detail_blend.",
+    )
     parser.add_argument(
         "--heightmap-png-bit-depth",
         type=int,
@@ -80,6 +96,8 @@ def main() -> None:
     if args.output_root is None:
         if any(p in EXPERIMENT_5_PROVIDERS for p in providers):
             output_root = REPO_ROOT / ".tmp" / "experiments" / "experiment_5"
+        elif any(p in HYBRID_PROVIDERS for p in providers):
+            output_root = REPO_ROOT / ".tmp" / "experiments" / "hybrid"
         elif any(p in EXPERIMENT_4_PROVIDERS for p in providers):
             output_root = REPO_ROOT / ".tmp" / "experiments" / "experiment_4"
         elif any(p in EXPERIMENT_3_PROVIDERS for p in providers):
@@ -92,7 +110,10 @@ def main() -> None:
         output_root = args.output_root
 
     for provider in providers:
-        output_prefix = output_root / provider / job_id
+        output_provider = provider
+        if provider in HYBRID_PROVIDERS:
+            output_provider = f"{provider}__{args.detail_source}"
+        output_prefix = output_root / output_provider / job_id
         request = PrintFileGenerationRequest(
             job_id=job_id,
             uid=args.uid,
@@ -105,6 +126,8 @@ def main() -> None:
                 contrast=args.contrast,
                 gamma=args.gamma,
                 post_smooth_radius_px=args.post_smooth_radius_px,
+                detail_source=args.detail_source,
+                detail_weight=args.detail_weight,
                 heightmap_png_bit_depth=args.heightmap_png_bit_depth,
             ),
         )

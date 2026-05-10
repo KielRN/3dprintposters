@@ -22,6 +22,7 @@ class ReliefSettings(BaseModel):
         "depth_anything_v2_small",
         "depth_anything_v2_small_bas_relief",
         "segformer_masked_depth",
+        "masked_depth_detail_blend",
         "triposr_sidecar",
     ] = "posterized_luminance"
     base_thickness_mm: float = Field(default=1.2, gt=0)
@@ -35,6 +36,10 @@ class ReliefSettings(BaseModel):
     gamma: float = Field(default=1.0, gt=0)
     post_smooth_radius_px: float = Field(default=0.0, ge=0)
     heightmap_png_bit_depth: Literal[8, 16] = 8
+    detail_source: Literal["lithophane_baseline", "posterized_luminance"] = (
+        "lithophane_baseline"
+    )
+    detail_weight: float = Field(default=0.22, ge=0, le=1)
 
     @model_validator(mode="after")
     def validate_relief_range(self) -> "ReliefSettings":

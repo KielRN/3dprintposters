@@ -38,7 +38,7 @@ def _discover_bundles() -> list[tuple[str, str, Path, Path]]:
         return []
 
     bundles: list[tuple[str, str, Path, Path]] = []
-    for metadata_path in sorted(EXPERIMENTS_DIR.glob("experiment_*/*/*/metadata.json")):
+    for metadata_path in sorted(EXPERIMENTS_DIR.glob("*/*/*/metadata.json")):
         heightmap_path = metadata_path.parent / "heightmap.png"
         if not heightmap_path.exists():
             continue
@@ -47,6 +47,9 @@ def _discover_bundles() -> list[tuple[str, str, Path, Path]]:
         except json.JSONDecodeError:
             continue
         provider = metadata.get("height_provider") or metadata_path.parent.parent.name
+        provider_settings = metadata.get("provider_settings") or {}
+        if provider == "masked_depth_detail_blend" and provider_settings.get("detail_source"):
+            provider = f"{provider}__{provider_settings['detail_source']}"
         job_id = metadata.get("job_id") or metadata_path.parent.name
         if str(job_id).startswith("experiment_"):
             continue  # skip smoke fixtures
@@ -90,6 +93,7 @@ def test_quality_gates_computable(
         subject_mask_path=_canonical_mask_path(job_id),
         source_image_path=_source_image_path(job_id),
     )
+    result["provider"] = provider
 
     out_path = REPORT_DIR / f"{provider}__{job_id}.json"
     out_path.write_text(json.dumps(result, indent=2, default=str))

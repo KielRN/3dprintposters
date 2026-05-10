@@ -23,9 +23,14 @@ class ArtifactMetadata:
     binary_stl_bytes: int
     height_provider: str
     watertight: bool
+    provider_settings: dict[str, object] | None = None
 
     def to_dict(self) -> dict[str, object]:
-        return asdict(self)
+        return {
+            key: value
+            for key, value in asdict(self).items()
+            if value is not None
+        }
 
 
 def build_artifact_metadata(
@@ -37,6 +42,7 @@ def build_artifact_metadata(
     mesh: ReliefMesh,
     binary_stl_size: int,
     base_thickness_mm: float,
+    provider_settings: dict[str, object] | None = None,
 ) -> ArtifactMetadata:
     return ArtifactMetadata(
         job_id=job_id,
@@ -55,4 +61,5 @@ def build_artifact_metadata(
         binary_stl_bytes=binary_stl_size,
         height_provider=heightmap.provider,
         watertight=True,
+        provider_settings=provider_settings,
     )

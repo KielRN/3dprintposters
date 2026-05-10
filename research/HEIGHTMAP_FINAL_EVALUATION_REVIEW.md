@@ -364,9 +364,13 @@ Done (2026-05-09):
 - ~~Lift monocular depth and subject segmentation behind typed provider interfaces.~~ Scaffolding in [app/providers/](services/print-file-generator/app/providers/). Vertex / HF Inference / Cloudflare-gateway implementations are stubs; concrete HF SegFormer + local Depth Anything are wired through chains with audit trail.
 - ~~Define the masked-provider failure mode as a multi-provider chain.~~ `SubjectSegmentationChain.segment` falls through on `ProviderError` and records the attempted chain in `ProviderAudit`. Tests cover the behavior.
 
-Outstanding (deferred to hybrid build):
+Done after this review (2026-05-10):
 
-- Build the hybrid prototype `masked_depth_detail_blend`. Let the fallback question (lithophane vs posterized as the in-mask detail source) and the executive language tightening fall out of that build.
+- Built the opt-in `masked_depth_detail_blend` provider. It combines semantic depth, subject masking, subject-only deterministic detail, guided-filter compression, and the existing deterministic STL/GLB generator.
+- Ran both canonical inputs through `masked_depth_detail_blend` with `lithophane_baseline` and `posterized_luminance` as detail sources. Both variants passed the calibrated gates. Keep `lithophane_baseline` as the first hybrid in-mask detail source for identity readability; keep `posterized_luminance` available as the lower-noise comparison/default-checkout path.
+
+Outstanding after the hybrid build:
+
 - Wire `ProviderAudit` into per-job `metadata.json` and the eventual Firestore audit document. The audit objects are produced today but not surfaced.
 - Cache provider responses by content hash in Firebase Storage. Cache key = `sha256(image_bytes) + role + provider_id + model_version`.
 - Implement `VertexSegmentationProvider`, `HfInferenceDepthAnythingProvider`, `VertexDepthProvider`, `CloudflareGatewaySegmentationProvider`. Stubs raise `ProviderError` so the chain falls through cleanly.

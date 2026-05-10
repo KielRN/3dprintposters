@@ -10,11 +10,14 @@ This file is the first place Codex or another coding agent should read before wo
 - Use `STL`, not `SLT`; treat `SLT` as a typo.
 - Preserve the web-first PWA architecture with backend services that can support native apps later.
 - Keep print-file generation server-side. Do not move geometry generation, texture packaging, or fulfillment logic into the browser.
+- Use `human-tasks/` for human follow-ups. When AI work leaves a human validation, local testing, external account, partner outreach, or product decision step, create or update a Markdown task under `human-tasks/open/` using `human-tasks/TASK_TEMPLATE.md`.
+- `elliot_quick_dev_Startup.md` is a local, ignored runbook for Elliot's startup and experiment commands. Reference it from human tasks when useful, and keep personal or local-only details there instead of copying them into tracked docs.
 
 ## Project Manager Skill
 
 - Use the repo-scoped `$project-manager-3dprintposters` skill for project status, roadmap, backlog, sprint/iteration planning, blocker/risk review, release readiness, docs drift, and handoff summaries.
 - The skill lives at `.agents/skills/project-manager-3dprintposters/SKILL.md` and should synthesize project management outputs from the current repo artifacts instead of relying on generic PM templates.
+- PM handoffs should summarize open human tasks and create or update them when the next action belongs to the human.
 
 ## Project Shape
 

@@ -18,6 +18,7 @@ HeightmapProviderName = Literal[
     "depth_anything_v2_small",
     "depth_anything_v2_small_bas_relief",
     "segformer_masked_depth",
+    "masked_depth_detail_blend",
     "triposr_sidecar",
 ]
 
@@ -292,6 +293,85 @@ class SegformerMaskedDepthProvider:
 
         # Bas-relief compression
         relief_depth = _apply_bas_relief_transform(layered, compression_strength=compression_strength)
+        relief_depth = _smooth_unit_array(relief_depth, post_smooth_radius_px)
+
+        heights = _depth_to_heights(
+            relief_depth,
+            base_thickness_mm=base_thickness_mm,
+            min_relief_mm=min_relief_mm,
+            max_relief_mm=max_relief_mm,
+        )
+
+        return Heightmap(
+            values=heights.astype(np.float32),
+            min_height_mm=float(np.min(heights)),
+            max_height_mm=float(np.max(heights)),
+            provider=self.name,
+        )
+
+
+class MaskedDepthDetailBlendProvider:
+    """Hybrid candidate: semantic depth, subject mask, and in-mask detail.
+
+    This is the next prototype path after the five-experiment review:
+    Depth Anything supplies the low-frequency image-plane shape, SegFormer
+    supplies subject/background control, and a deterministic detail source
+    restores subject-only facial/local texture before bas-relief compression.
+    """
+
+    name = "masked_depth_detail_blend"
+
+    def generate(
+        self,
+        image: Image.Image,
+        *,
+        base_thickness_mm: float,
+        min_relief_mm: float,
+        max_relief_mm: float,
+        contrast: float = 1.0,
+        gamma: float = 1.0,
+        post_smooth_radius_px: float = 0.8,
+        detail_source: Literal[
+            "lithophane_baseline",
+            "posterized_luminance",
+        ] = "lithophane_baseline",
+        detail_weight: float = 0.22,
+        detail_radius_px: int = 9,
+        detail_clip: float = 0.18,
+        subject_boost: float = 1.0,
+        background_scale: float = 0.22,
+        mask_blur_radius_px: float = 5.0,
+        compression_strength: float = 0.75,
+    ) -> Heightmap:
+        relative_depth = _infer_depth_anything_v2_small(image)
+        depth = _normalize_depth(relative_depth)
+        depth = _apply_tone_curve(depth, contrast=contrast, gamma=gamma)
+
+        subject_mask = _generate_subject_mask(image, blur_radius_px=mask_blur_radius_px)
+        semantic_base = depth * (
+            subject_boost * subject_mask + background_scale * (1.0 - subject_mask)
+        )
+        semantic_base = _normalize_unit_array(semantic_base)
+
+        detail_unit = _deterministic_detail_unit(
+            image,
+            source=detail_source,
+            contrast=contrast,
+            gamma=gamma,
+        )
+        detail_layer = _extract_subject_detail_layer(
+            detail_unit,
+            radius=detail_radius_px,
+            clip=detail_clip,
+        )
+
+        blended = semantic_base + detail_weight * subject_mask * detail_layer
+        blended = blended.clip(0.0, 1.0).astype(np.float32)
+
+        relief_depth = _apply_bas_relief_transform(
+            blended,
+            compression_strength=compression_strength,
+        )
         relief_depth = _smooth_unit_array(relief_depth, post_smooth_radius_px)
 
         heights = _depth_to_heights(
@@ -670,6 +750,56 @@ def _generate_subject_mask(
     return raw_mask.clip(0.0, 1.0).astype(np.float32)
 
 
+def _deterministic_detail_unit(
+    image: Image.Image,
+    *,
+    source: Literal["lithophane_baseline", "posterized_luminance"],
+    contrast: float,
+    gamma: float,
+) -> np.ndarray:
+    """Generate a unit detail reference from deterministic providers."""
+    provider: Any
+    if source == "lithophane_baseline":
+        provider = LithophaneBaselineDepthProvider()
+    elif source == "posterized_luminance":
+        provider = LuminanceDepthProvider()
+    else:
+        raise ValueError(f"Unsupported detail source: {source}")
+
+    detail_heightmap = provider.generate(
+        image,
+        base_thickness_mm=0.0,
+        min_relief_mm=0.0,
+        max_relief_mm=1.0,
+        contrast=contrast,
+        gamma=gamma,
+        post_smooth_radius_px=0.0,
+    )
+    return _normalize_unit_array(detail_heightmap.values)
+
+
+def _extract_subject_detail_layer(
+    detail_unit: np.ndarray,
+    *,
+    radius: int,
+    clip: float,
+) -> np.ndarray:
+    """High-frequency deterministic detail in [-1, 1] for masked blending."""
+    if detail_unit.size == 0:
+        return detail_unit.astype(np.float32)
+
+    base = _guided_filter_self(
+        detail_unit.astype(np.float32),
+        radius=max(1, int(radius)),
+        eps=0.02,
+    )
+    high_frequency = detail_unit.astype(np.float32) - base
+    if clip <= 0:
+        return high_frequency.astype(np.float32)
+
+    return (np.clip(high_frequency, -clip, clip) / clip).astype(np.float32)
+
+
 @lru_cache(maxsize=1)
 def _get_segmentation_chain() -> Any:
     from .providers import create_default_segmentation_chain
@@ -787,6 +917,7 @@ def get_depth_provider(name: HeightmapProviderName) -> Any:
         "depth_anything_v2_small": DepthAnythingV2SmallDepthProvider,
         "depth_anything_v2_small_bas_relief": DepthAnythingV2SmallBasReliefProvider,
         "segformer_masked_depth": SegformerMaskedDepthProvider,
+        "masked_depth_detail_blend": MaskedDepthDetailBlendProvider,
         "triposr_sidecar": TripoSRSidecarProvider,
     }
     return providers[name]()
@@ -866,6 +997,22 @@ def _normalize_depth(values: np.ndarray) -> np.ndarray:
         raise ValueError("Depth Anything returned no finite depth values")
 
     low, high = np.percentile(finite_values, [2.0, 98.0])
+    if high - low <= 1e-6:
+        return np.zeros(values.shape, dtype=np.float32)
+
+    return ((values.astype(np.float32) - low) / (high - low)).clip(0.0, 1.0)
+
+
+def _normalize_unit_array(values: np.ndarray) -> np.ndarray:
+    if values.size == 0:
+        return values.astype(np.float32)
+
+    finite_values = values[np.isfinite(values)]
+    if finite_values.size == 0:
+        return np.zeros(values.shape, dtype=np.float32)
+
+    low = float(np.min(finite_values))
+    high = float(np.max(finite_values))
     if high - low <= 1e-6:
         return np.zeros(values.shape, dtype=np.float32)
 

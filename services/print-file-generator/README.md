@@ -106,6 +106,10 @@ Experiment 2 adds an opt-in semantic depth baseline:
 
 - `depth_anything_v2_small`: Hugging Face Transformers Depth Anything V2 Small provider. It keeps STL/GLB generation deterministic after depth inference and requires the `experiments` Python dependencies.
 
+The current hybrid prototype is also opt-in:
+
+- `masked_depth_detail_blend`: semantic depth for low-frequency shape, subject masking for background suppression, subject-only deterministic detail blending, guided-filter bas-relief compression, and the existing closed STL/GLB generator. It defaults to `lithophane_baseline` as the in-mask detail source while leaving `posterized_luminance` as the checkout default provider.
+
 Local provider comparison:
 
 ```powershell
@@ -121,6 +125,16 @@ Depth Anything V2 Small comparison:
 python scripts/run_heightmap_experiment.py ..\..\.tmp\input_image\Gemini_Generated_Image_lzneejlzneejlzne.png --provider depth_anything_v2_small --output-root ..\..\.tmp\experiments\experiment_2
 python scripts/run_heightmap_experiment.py ..\..\.tmp\input_image\Profile-Pic-HIMSS.jpg --provider depth_anything_v2_small --output-root ..\..\.tmp\experiments\experiment_2
 ```
+
+Hybrid comparison:
+
+```powershell
+python scripts/run_heightmap_experiment.py ..\..\.tmp\input_image\Gemini_Generated_Image_lzneejlzneejlzne.png --provider masked_depth_detail_blend
+python scripts/run_heightmap_experiment.py ..\..\.tmp\input_image\Profile-Pic-HIMSS.jpg --provider masked_depth_detail_blend
+python scripts/run_heightmap_experiment.py ..\..\.tmp\input_image\Profile-Pic-HIMSS.jpg --provider masked_depth_detail_blend --detail-source posterized_luminance
+```
+
+Hybrid outputs are written under `.tmp/experiments/hybrid/masked_depth_detail_blend__{detailSource}/{jobId}` by default.
 
 Still intentionally deferred:
 

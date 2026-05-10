@@ -1,6 +1,7 @@
 import json
 import struct
 
+import numpy as np
 import pytest
 from PIL import Image
 from fastapi.testclient import TestClient
@@ -176,6 +177,50 @@ def test_local_generation_can_run_experiment_1_lithophane_baseline(tmp_path) -> 
     metadata = json.loads((output_prefix / "metadata.json").read_text())
     assert metadata["height_provider"] == "lithophane_baseline"
     assert (output_prefix / "heightmap.png").exists()
+
+
+def test_local_generation_can_run_masked_depth_detail_blend(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    source_path = tmp_path / "known-source.png"
+    output_prefix = tmp_path / "print-files"
+    image = Image.new("RGB", (10, 14), color=(180, 180, 180))
+    image.save(source_path)
+
+    def fake_infer_depth(img: Image.Image) -> np.ndarray:
+        row = np.linspace(0.2, 0.8, img.width, dtype=np.float32)
+        return np.tile(row, (img.height, 1))
+
+    def fake_generate_mask(img: Image.Image, *, blur_radius_px: float = 5.0) -> np.ndarray:
+        mask = np.zeros((img.height, img.width), dtype=np.float32)
+        mask[1:-1, 1:-1] = 1.0
+        return mask
+
+    monkeypatch.setattr("app.depth._infer_depth_anything_v2_small", fake_infer_depth)
+    monkeypatch.setattr("app.depth._generate_subject_mask", fake_generate_mask)
+
+    request = PrintFileGenerationRequest(
+        job_id="job_known",
+        uid="user_known",
+        selected_image_path=str(source_path),
+        output_prefix=str(output_prefix),
+        relief=ReliefSettings(
+            height_provider="masked_depth_detail_blend",
+            target_width_px=8,
+            detail_source="posterized_luminance",
+            detail_weight=0.3,
+        ),
+    )
+
+    generate_print_file_bundle(request, storage=LocalFilesystemStorage())
+
+    metadata = json.loads((output_prefix / "metadata.json").read_text())
+    assert metadata["height_provider"] == "masked_depth_detail_blend"
+    assert metadata["provider_settings"] == {
+        "detail_source": "posterized_luminance",
+        "detail_weight": 0.3,
+    }
 
 
 def test_local_generation_rejects_images_over_generation_limit(tmp_path) -> None:

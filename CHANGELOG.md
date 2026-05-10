@@ -19,6 +19,11 @@ All notable project changes will be documented in this file.
 - Added request-level relief tuning for height provider, contrast, gamma, post-heightmap smoothing, and 8-bit/16-bit heightmap PNG export.
 - Added a local heightmap experiment runner that writes provider comparison bundles under `.tmp/experiments/experiment_1`.
 - Added the opt-in experiment 2 `depth_anything_v2_small` semantic depth provider and wired it into local heightmap experiment runs.
+- Added the opt-in `masked_depth_detail_blend` provider, combining semantic depth, subject masking, subject-only deterministic detail, guided-filter bas-relief compression, and the existing STL/GLB generator.
+- Added request/experiment-runner controls for the hybrid provider's deterministic detail source and detail blend weight.
+- Added hybrid output discovery to the quality-gate harness so `masked_depth_detail_blend` variants are reported alongside prior experiment providers.
+- Declared provider dependencies explicitly in the print-file generator package, including `requests`, `python-dotenv`, and experiment-only `trimesh`.
+- Added `human-tasks/` for human-owned validation, testing, decision, and external-action follow-ups after AI developer work.
 
 ### Changed
 
@@ -32,12 +37,16 @@ All notable project changes will be documented in this file.
 - Updated local PWA behavior so the service worker does not cache stale localhost development bundles.
 - Kept `posterized_luminance` as the default print-file generator provider while making deterministic experiment providers opt-in.
 - Corrected closed-relief mesh orientation so STL/GLB outputs preserve the source image's upright top-to-bottom direction.
+- Kept `posterized_luminance` as the checkout default while making `lithophane_baseline` the default in-mask detail source for the hybrid provider.
+- Updated the repo PM skill and agent guide to create or summarize human follow-up tasks during handoffs.
 
 ### Verified
 
 - Verified `services/print-file-generator` tests pass.
 - Verified Depth Anything V2 Small experiment outputs for both canonical local input images under `.tmp/experiments/experiment_2`.
 - Verified mesh orientation with a regression test that maps the image top row to positive model `Y`.
+- Verified `masked_depth_detail_blend` with unit coverage for subject-only detail blending and deterministic detail-source switching.
+- Verified both canonical inputs with hybrid lithophane and posterized detail-source runs under `.tmp/experiments/hybrid`.
 
 ## [Unreleased] - 2026-05-05
 

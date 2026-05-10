@@ -29,7 +29,7 @@ Implementation direction: keep this service's FastAPI contract and selectively e
 - Relief depth range, initially 0.4mm to 3.0mm.
 - Source image decoded pixel limit, initially 4,000,000 pixels before normalization to the working relief resolution.
 - Base thickness, initially 1.2mm.
-- Optional experimental relief settings: height provider, contrast, gamma, post-heightmap smoothing radius, and heightmap PNG bit depth.
+- Optional experimental relief settings: height provider, contrast, gamma, post-heightmap smoothing radius, heightmap PNG bit depth, and hybrid detail source/weight.
 - Full-color material profile, initially `mimaki_3duj_2207_full_color_uv_resin`.
 - Filament material profile, initially `generic_multicolor_fdm_filament_painting`.
 - Optional style metadata from the image generation step.
@@ -140,8 +140,9 @@ The accepted extraction plan is now partially implemented:
 - Generate deterministic artifacts: `model.stl`, `preview.glb`, `heightmap.png`, and `metadata.json`.
 - Make the STL a closed, watertight 5in x 7in relief object before adding AI depth, color packages, or fulfillment automation.
 - Add printability checks before checkout can depend on generated print files.
-- Keep `posterized_luminance` as the default checkout provider while testing `continuous_luminance` and `lithophane_baseline` as opt-in experiment 1 providers.
+- Keep `posterized_luminance` as the default checkout provider while testing `continuous_luminance`, `lithophane_baseline`, depth providers, masked providers, and `masked_depth_detail_blend` as opt-in providers.
 - Run local experiment comparisons with `python scripts/run_heightmap_experiment.py <source-image>` from `services/print-file-generator`; outputs stay under ignored `.tmp/experiments/experiment_1`.
+- Run hybrid comparisons with `--provider masked_depth_detail_blend`; outputs stay under ignored `.tmp/experiments/hybrid` unless an explicit `--output-root` is provided.
 - For future heightmap experiments, run both canonical local inputs from `.tmp/input_image`: `Gemini_Generated_Image_lzneejlzneejlzne.png` and `Profile-Pic-HIMSS.jpg`.
 - Call the print-file generator from `approveGeneratedImage` after proof approval.
 - Store artifact paths and printability output on `jobs/{jobId}`.
