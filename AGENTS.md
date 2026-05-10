@@ -11,6 +11,11 @@ This file is the first place Codex or another coding agent should read before wo
 - Preserve the web-first PWA architecture with backend services that can support native apps later.
 - Keep print-file generation server-side. Do not move geometry generation, texture packaging, or fulfillment logic into the browser.
 
+## Project Manager Skill
+
+- Use the repo-scoped `$project-manager-3dprintposters` skill for project status, roadmap, backlog, sprint/iteration planning, blocker/risk review, release readiness, docs drift, and handoff summaries.
+- The skill lives at `.agents/skills/project-manager-3dprintposters/SKILL.md` and should synthesize project management outputs from the current repo artifacts instead of relying on generic PM templates.
+
 ## Project Shape
 
 - Web app: `apps/web`, Next.js PWA.
@@ -101,6 +106,7 @@ The full Firebase emulator suite remains blocked on this machine until JDK 21+ i
 ## Security And Secrets
 
 - Keep API keys, Stripe keys, webhook secrets, Cloudflare tokens, and provider credentials out of source and chat.
+- Secret-bearing configuration and API surfaces are in scope for analysis: agents may inspect variable names, example env files, config readers, provider adapters, Firebase callable functions, API routes, and service contracts, but must never print, copy, summarize, or move secret values.
 - A Hugging Face API key may exist in the local root `.env`; do not print it, commit it, copy it into docs, or move it into tracked files.
 - Use Firebase Functions secrets or Secret Manager for deployed runtimes.
 - Storage rules should restrict reads/writes by authenticated user path ownership.

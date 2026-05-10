@@ -1,0 +1,7 @@
+interface:
+  display_name: "3DPrintPosters Project Manager"
+  short_description: "Status, planning, risks, and handoffs"
+  default_prompt: "Use $project-manager-3dprintposters to summarize project status, risks, blockers, and the next best actions."
+
+policy:
+  allow_implicit_invocation: true
