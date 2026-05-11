@@ -14,7 +14,7 @@ Use this skill to act as a project manager for the 3DPrintPosters repository. Pr
 Start with the most relevant of these files, depending on the request:
 
 - `AGENTS.md`: operating rules, architecture constraints, verification commands, current flow.
-- `AI_DEVELOPER_NOTES.md`: longer project memory and recent implementation notes.
+- `AI_DEVELOPER_NOTES.md`: compact project memory, durable decisions, active direction, and risks.
 - `CHECKLIST.md`: active launch/project checklist.
 - `CHANGELOG.md`: completed changes and chronology.
 - `README.md`: user-facing setup and project overview.
@@ -40,7 +40,7 @@ Secret-bearing configuration is in scope; secret values are not. Agents may insp
    - Backend orchestration in Firebase Functions.
    - Server-side print-file generation in `services/print-file-generator`.
    - Direct Vertex/Gemini route remains MVP default.
-   - Heightmap experiments stay opt-in until quality, printability, cost, and licensing are understood.
+   - Reviewed product decisions should be promoted into the real workflow instead of left as opt-in experiments.
    - No branch creation, commits, pushes, PRs, or exposure/movement of secret values unless explicitly requested and safe.
 5. Review human follow-ups:
    - Create or update a task under `human-tasks/open/` when the next action requires Elliot's browser session, local credentials, visual judgment, product decision, partner outreach, external account, or physical-world validation.
@@ -147,8 +147,8 @@ Source: `[repo file, local runbook, or handoff context]`
 - Use `STL`, not `SLT`.
 - The full Firebase emulator suite is blocked on this machine until JDK 21+ is installed; function-only emulator testing is the normal local path.
 - Local `.env` files are ignored and may contain provider keys. It is okay to reason about required variable names and API surfaces; never quote secret values.
-- `posterized_luminance` is a deterministic fallback, not the target production-quality relief path.
+- `masked_depth_detail_blend` with `lithophane_baseline` detail source is the current product relief path; `posterized_luminance` is only a reference provider.
 - `triposr_sidecar` was evaluated on 2026-05-09 and rejected for poster relief because it reconstructs standalone 3D objects instead of image-plane depth.
 - Do not let PM outputs imply checkout is ready unless proof approval and print-file artifacts are generated.
 - Prefer exact dates for schedule/status claims. If a date is unknown, say `TBD`.
-- Human tasks are for human-only follow-ups, not a substitute for automated checks the agent can run locally.
+- Human tasks are for human-only follow-ups, especially full product-flow browser tests after AI implementation and local verification. They are not a substitute for automated checks the agent can run locally.

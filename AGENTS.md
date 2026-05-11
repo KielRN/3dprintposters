@@ -1,6 +1,6 @@
 # 3DPrintPosters Agent Guide
 
-This file is the first place Codex or another coding agent should read before working in this repository. `AI_DEVELOPER_NOTES.md` keeps the longer project memory; this file keeps the operating rules and current implementation shape.
+This file is the first place Codex or another coding agent should read before working in this repository. `AI_DEVELOPER_NOTES.md` keeps compact project memory; this file keeps the operating rules and current implementation shape.
 
 ## Working Rules
 
@@ -95,24 +95,14 @@ The full Firebase emulator suite remains blocked on this machine until JDK 21+ i
 - Firestore stores metadata and Storage paths, not binary payloads or signed URLs.
 - Use idempotency for job creation, checkout, file handoff, and fulfillment actions.
 
-## Current Heightmap Experiment Plan
+## Relief Quality Direction
 
-- Current experiment branch: `codex/heightmap-experiments`.
-- Current research note: `research/HEIGHTMAP_AND_3D_WORKFLOW_RESEARCH.md`.
-- The old `AI_3D_MODEL_GENERATION_RESEARCH.md` was intentionally removed; use the new heightmap research document instead.
-- The immediate issue was that `posterized_luminance` treated image brightness as depth, which created blocky height bands and muddy portrait reliefs. It is no longer the checkout default.
 - The chosen production relief provider is `masked_depth_detail_blend` with `lithophane_baseline` detail source.
-- Future heightmap experiments should run both canonical local inputs from `.tmp/input_image`: `Gemini_Generated_Image_lzneejlzneejlzne.png` and `Profile-Pic-HIMSS.jpg`.
-- Use `python scripts/run_heightmap_experiment.py <source-image>` from `services/print-file-generator` for each input to write local comparison outputs under `.tmp/experiments/experiment_1`.
+- Current Phase 3 focus is product geometry and quality tuning: 5in x 7in image relief window, 1/4in border on all sides, intentional frame geometry, edge fade, portrait-detail tuning, higher mesh resolution, and better GLB preview lighting/material.
 - Run future experiments as sidecar scripts until reviewed, then promote the chosen path into the real checkout workflow instead of leaving it opt-in.
-- Prefer one shared experiment branch with provider/config isolation over one Git branch per idea. Create separate branches only if a dependency stack becomes large or disruptive.
+- Use canonical local inputs from `.tmp/input_image` for future relief comparisons when relevant: `Gemini_Generated_Image_lzneejlzneejlzne.png` and `Profile-Pic-HIMSS.jpg`.
 - Keep experiment outputs under ignored local paths such as `.tmp/experiments/{provider}/{jobId}`.
-- First experiments to compare:
-  - `lithophane_baseline`: use the PyPI lithophane approach only as a reference baseline for brightness-to-thickness behavior, not as the main poster-relief solution.
-  - `depth_anything_v2_small`: first semantic depth provider candidate.
-  - `bas_relief_transform`: depth compression/gradient compression between semantic depth and printable heightmap.
-  - `segformer_masked_depth`: subject or portrait-aware masking layered over depth (SegFormer/ADE20K via HF Inference API). Originally registered as `sam_masked_depth` and renamed to reflect the actual implementation.
-  - `triposr_sidecar`: full image-to-3D benchmark — **evaluated 2026-05-09, rejected** (reconstructs standalone 3D objects, not image-plane depth; not viable for poster relief). Remaining candidates (`stable_fast_3d_sidecar`, `trellis_sidecar`) likely share the same problem and are deprioritized.
+- Full image-to-3D reconstruction providers such as TripoSR, Stable Fast 3D, TRELLIS, SAM 3D Objects, and TriplaneGaussian are rejected for poster relief because they reconstruct standalone objects rather than image-plane depth.
 - Nano Banana / Gemini 2.5 Flash Image belongs in proof cleanup and depth-friendly preprocessing, not final STL/GLB geometry generation.
 
 ## Security And Secrets

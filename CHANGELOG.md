@@ -45,6 +45,7 @@ All notable project changes will be documented in this file.
 - Updated the repo PM skill and agent guide to create or summarize human follow-up tasks during handoffs.
 - Promoted `masked_depth_detail_blend` with `lithophane_baseline` detail source into the default web approval flow and print-file generator defaults.
 - Changed hybrid relief generation to fail loudly when required depth or segmentation providers are unavailable instead of quietly substituting a lower-quality result.
+- Condensed `AI_DEVELOPER_NOTES.md` into compact durable memory and aligned `AGENTS.md` plus the repo PM skill around source-of-truth boundaries.
 
 ### Verified
 
