@@ -1,14 +1,13 @@
 """Monocular depth provider role.
 
 A `MonocularDepthProvider` produces an image-plane depth array for an
-RGB image. Production candidates: Vertex AI (if it serves depth), HF
-Inference (Depth Anything V2 hosted), Cloudflare-gatewayed equivalents.
-v1 wires only a local-inference implementation for dev parity with the
-existing experiments. The HF Inference and Vertex implementations are
-stubs to be filled when the registry config layer lands.
+RGB image. The current product path uses local Depth Anything V2 Small
+through Transformers. Vertex AI, HF Inference hosted depth, and
+Cloudflare-gatewayed equivalents remain provider candidates once their
+implementations are verified against the product workflow.
 
-Local inference (`LocalDepthAnythingV2Provider`) is dev-only — production
-should not run torch/transformers in the print-file-generator service.
+Local inference (`LocalDepthAnythingV2Provider`) is the current product path and
+uses the service's normal torch/transformers dependencies.
 """
 
 from __future__ import annotations
@@ -44,12 +43,7 @@ class MonocularDepthProvider(Protocol):
 
 
 class LocalDepthAnythingV2Provider:
-    """Runs Depth Anything V2 Small locally via transformers.pipeline().
-
-    Dev/experiment use only. Production routes should not run torch in
-    process; use HfInferenceDepthAnythingProvider or a Vertex-backed
-    provider instead.
-    """
+    """Runs Depth Anything V2 Small locally via transformers.pipeline()."""
 
     DEFAULT_MODEL = "depth-anything/Depth-Anything-V2-Small-hf"
 
@@ -94,9 +88,7 @@ def _depth_anything_v2_small_pipeline(model: str) -> Any:
         from transformers import pipeline
     except ImportError as exc:
         raise ProviderError(
-            "local-depth-anything-v2-small requires torch and transformers. "
-            "Install the 'experiments' optional dependency or use an API-backed "
-            "MonocularDepthProvider."
+            "local-depth-anything-v2-small requires torch and transformers."
         ) from exc
 
     device = 0 if torch.cuda.is_available() else -1
@@ -191,11 +183,5 @@ class MonocularDepthChain:
 
 
 def create_default_depth_chain() -> MonocularDepthChain:
-    """Default chain: local Depth Anything V2 Small.
-
-    Dev/experiment-shape only. Production chains will be:
-        [VertexDepthProvider, HfInferenceDepthAnythingProvider]
-    once those implementations land. The local provider stays available
-    as a development fallback under the experiments extra.
-    """
+    """Default chain: local Depth Anything V2 Small."""
     return MonocularDepthChain([LocalDepthAnythingV2Provider()])

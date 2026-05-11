@@ -26,6 +26,7 @@ All notable project changes will be documented in this file.
 - Added `human-tasks/` for human-owned validation, testing, decision, and external-action follow-ups after AI developer work.
 - Added per-job print-file audit capture: provider-chain audit and segmentation status now flow into `metadata.json`, `jobs/{jobId}.printFileAudit`, and `jobs/{jobId}/audit/printFileGeneration`.
 - Added a documented print-file generator test layout with `contract/`, `unit/`, `integration/`, and shared test support helpers for future color-package coverage.
+- Added the PM/human-test handoff rule: after AI implementation and verification, create or update a human task when the next validation is the full product workflow in the browser.
 
 ### Changed
 
@@ -37,11 +38,13 @@ All notable project changes will be documented in this file.
 - Stabilized the job-page GLB preview framing and added a regenerate action for approved 3D previews.
 - Renamed the server-side Storage bucket env var to `APP_STORAGE_BUCKET` because Firebase Functions reserves the `FIREBASE_` prefix.
 - Updated local PWA behavior so the service worker does not cache stale localhost development bundles.
-- Kept `posterized_luminance` as the default print-file generator provider while making deterministic experiment providers opt-in.
+- Replaced the earlier `posterized_luminance` print-file generator default with the chosen hybrid provider path.
 - Corrected closed-relief mesh orientation so STL/GLB outputs preserve the source image's upright top-to-bottom direction.
-- Kept `posterized_luminance` as the checkout default while making `lithophane_baseline` the default in-mask detail source for the hybrid provider.
+- Made `lithophane_baseline` the production in-mask detail source for the hybrid provider.
 - Added height-provider policy metadata and warnings so deterministic brightness-to-height providers are explicitly marked as fallback-only, not the target production-quality path.
 - Updated the repo PM skill and agent guide to create or summarize human follow-up tasks during handoffs.
+- Promoted `masked_depth_detail_blend` with `lithophane_baseline` detail source into the default web approval flow and print-file generator defaults.
+- Changed hybrid relief generation to fail loudly when required depth or segmentation providers are unavailable instead of quietly substituting a lower-quality result.
 
 ### Verified
 

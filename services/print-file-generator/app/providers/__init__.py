@@ -5,9 +5,10 @@ Mirrors the pattern in apps/functions/src/aiProvider.ts: each role
 multiple implementations, and a chain that tries providers in order
 and records the fallback path.
 
-Production architecture assumes API-based providers (Vertex AI,
-HF Inference, Cloudflare-gatewayed) selected by registry config.
-Local inference implementations exist for dev/experiments only.
+The current product path uses local Depth Anything V2 inference for
+monocular depth and HF Inference SegFormer for subject segmentation.
+API-backed depth providers can replace local inference when they are
+implemented and verified against the product workflow.
 
 Public exports:
     AllProvidersFailedError, ProviderError, ProviderAudit

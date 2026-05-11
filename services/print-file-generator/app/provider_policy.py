@@ -27,10 +27,10 @@ HEIGHT_PROVIDER_POLICIES: dict[str, HeightProviderPolicy] = {
         role="deterministic_fallback",
         fallback_only=True,
         target_quality_path=False,
-        checkout_default_allowed=True,
+        checkout_default_allowed=False,
         note=(
-            "Stable lower-noise deterministic fallback; not a production-quality "
-            "relief target."
+            "Legacy deterministic brightness-to-height reference; not the "
+            "production relief path."
         ),
     ),
     "continuous_luminance": HeightProviderPolicy(
@@ -87,10 +87,10 @@ HEIGHT_PROVIDER_POLICIES: dict[str, HeightProviderPolicy] = {
         role="hybrid_quality_candidate",
         fallback_only=False,
         target_quality_path=True,
-        checkout_default_allowed=False,
+        checkout_default_allowed=True,
         note=(
-            "Current opt-in quality candidate: semantic depth, subject mask, "
-            "subject-only deterministic detail, and bas-relief compression."
+            "Production relief path: semantic depth, subject mask, subject-only "
+            "deterministic detail, and bas-relief compression."
         ),
     ),
     "triposr_sidecar": HeightProviderPolicy(

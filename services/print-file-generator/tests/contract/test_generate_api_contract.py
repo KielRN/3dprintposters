@@ -13,6 +13,35 @@ from app.storage import LocalFilesystemStorage
 from tests.support import fake_depth_result, fake_subject_mask_result
 
 
+def _stub_hybrid_providers(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_infer_depth_result(img: Image.Image):
+        return fake_depth_result(img.width, img.height)
+
+    def fake_generate_mask_result(
+        img: Image.Image,
+        *,
+        blur_radius_px: float = 5.0,
+        full_image_threshold: float = 0.90,
+    ):
+        return fake_subject_mask_result(
+            img.width,
+            img.height,
+            y_start=1,
+            y_end=img.height - 1,
+            x_start=1,
+            x_end=img.width - 1,
+        )
+
+    monkeypatch.setattr(
+        "app.depth._infer_depth_anything_v2_small_result",
+        fake_infer_depth_result,
+    )
+    monkeypatch.setattr(
+        "app.depth._generate_subject_mask_result",
+        fake_generate_mask_result,
+    )
+
+
 def test_stub_generation_contract_returns_planned_bundle_paths() -> None:
     request = PrintFileGenerationRequest(
         job_id="job_123",
@@ -54,11 +83,17 @@ def test_request_defaults_include_both_output_modes() -> None:
     ]
     assert request.dimensions.target_width_mm == 127.0
     assert request.dimensions.target_height_mm == 177.8
-    assert request.relief.height_provider == "posterized_luminance"
+    assert request.relief.height_provider == "masked_depth_detail_blend"
+    assert request.relief.detail_source == "lithophane_baseline"
+    assert request.relief.target_width_px == 200
     assert request.relief.max_source_pixels == 4_000_000
 
 
-def test_local_generation_writes_deterministic_relief_bundle(tmp_path) -> None:
+def test_local_generation_writes_default_hybrid_relief_bundle(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    _stub_hybrid_providers(monkeypatch)
     source_path = tmp_path / "source.png"
     output_prefix = tmp_path / "print-files"
     image = Image.new("RGB", (4, 4))
@@ -100,20 +135,25 @@ def test_local_generation_writes_deterministic_relief_bundle(tmp_path) -> None:
     assert metadata["job_id"] == "job_123"
     assert metadata["width_mm"] == 127.0
     assert metadata["height_mm"] == 177.8
-    assert metadata["height_provider"] == "posterized_luminance"
-    assert metadata["height_provider_policy"] == "deterministic_fallback"
-    assert metadata["height_provider_fallback_only"] is True
-    assert metadata["height_provider_target_quality_path"] is False
+    assert metadata["height_provider"] == "masked_depth_detail_blend"
+    assert metadata["height_provider_policy"] == "hybrid_quality_candidate"
+    assert metadata["height_provider_fallback_only"] is False
+    assert metadata["height_provider_target_quality_path"] is True
     assert metadata["height_provider_checkout_default_allowed"] is True
+    assert metadata["provider_settings"] == {
+        "detail_source": "lithophane_baseline",
+        "detail_weight": 0.22,
+    }
     assert metadata["watertight"] is True
     assert metadata["triangle_count"] == triangle_count
-    assert any(
+    assert not any(
         "not the target production-quality relief path" in warning
         for warning in response.printability.warnings
     )
 
 
-def test_local_generation_accepts_default_ai_proof_size(tmp_path) -> None:
+def test_local_generation_accepts_default_ai_proof_size(tmp_path, monkeypatch) -> None:
+    _stub_hybrid_providers(monkeypatch)
     source_path = tmp_path / "ai-proof.png"
     output_prefix = tmp_path / "print-files"
     Image.new("RGB", (1024, 1024), color=(255, 255, 255)).save(source_path)
@@ -134,7 +174,8 @@ def test_local_generation_accepts_default_ai_proof_size(tmp_path) -> None:
     assert metadata["normalized_width_px"] == request.relief.target_width_px
 
 
-def test_known_image_metadata_is_deterministic(tmp_path) -> None:
+def test_known_image_metadata_is_deterministic(tmp_path, monkeypatch) -> None:
+    _stub_hybrid_providers(monkeypatch)
     source_path = tmp_path / "known-source.png"
     image = Image.new("RGB", (10, 14), color=(255, 255, 255))
     image.save(source_path)
@@ -159,7 +200,7 @@ def test_known_image_metadata_is_deterministic(tmp_path) -> None:
     assert metadatas[0]["vertex_count"] == 48
     assert metadatas[0]["triangle_count"] == 92
     assert metadatas[0]["binary_stl_bytes"] == 4684
-    assert metadatas[0]["height_provider"] == "posterized_luminance"
+    assert metadatas[0]["height_provider"] == "masked_depth_detail_blend"
 
 
 def test_local_generation_can_run_experiment_1_lithophane_baseline(tmp_path) -> None:
@@ -290,7 +331,11 @@ def test_local_generation_rejects_images_over_generation_limit(tmp_path) -> None
         generate_print_file_bundle(request, storage=LocalFilesystemStorage())
 
 
-def test_local_generation_rejects_artifacts_over_triangle_limit(tmp_path) -> None:
+def test_local_generation_rejects_artifacts_over_triangle_limit(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    _stub_hybrid_providers(monkeypatch)
     source_path = tmp_path / "source.png"
     output_prefix = tmp_path / "print-files"
     Image.new("RGB", (4, 4), color=(255, 255, 255)).save(source_path)

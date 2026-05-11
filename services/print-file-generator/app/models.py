@@ -24,12 +24,12 @@ class ReliefSettings(BaseModel):
         "segformer_masked_depth",
         "masked_depth_detail_blend",
         "triposr_sidecar",
-    ] = "posterized_luminance"
+    ] = "masked_depth_detail_blend"
     base_thickness_mm: float = Field(default=1.2, gt=0)
     min_relief_mm: float = Field(default=0.4, ge=0)
     max_relief_mm: float = Field(default=3.0, gt=0)
     max_source_pixels: int = Field(default=4_000_000, ge=4)
-    target_width_px: int = Field(default=160, ge=2)
+    target_width_px: int = Field(default=200, ge=2)
     max_triangle_count: int = Field(default=250_000, ge=1)
     max_binary_stl_bytes: int = Field(default=15_000_000, ge=84)
     contrast: float = Field(default=1.0, gt=0)

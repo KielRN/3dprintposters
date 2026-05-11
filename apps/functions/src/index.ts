@@ -35,6 +35,12 @@ const approveGeneratedImageSchema = z.object({
   imagePath: z.string().min(1),
 });
 
+const defaultReliefSettings = {
+  height_provider: "masked_depth_detail_blend",
+  detail_source: "lithophane_baseline",
+  target_width_px: 200,
+} as const;
+
 type CheckoutSessionWebhookObject = {
   metadata?: Record<string, string> | null;
   payment_intent?: string | null | object;
@@ -292,6 +298,7 @@ async function generatePrintFilesForApprovedJob(input: {
         input.selectedImagePath,
       ),
       output_prefix: storagePathToGcsUri(bucketName, outputPrefix),
+      relief: defaultReliefSettings,
       style_metadata: {
         selectedStyle: input.selectedStyle,
       },

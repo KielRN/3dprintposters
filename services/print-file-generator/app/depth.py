@@ -787,26 +787,7 @@ def _generate_subject_mask_result(
     full_image_threshold: float = 0.90,
 ) -> SubjectMaskResult:
     chain = _get_segmentation_chain()
-    try:
-        result = chain.segment(image)
-    except Exception as exc:
-        from .providers import AllProvidersFailedError
-
-        if not isinstance(exc, AllProvidersFailedError):
-            raise
-
-        w, h = image.size
-        audit = ProviderAudit(
-            succeeded="full-image-mask-fallback",
-            attempted=tuple(exc.attempted),
-            fallback_reason=str(exc.last_error) if exc.last_error else str(exc),
-        )
-        return SubjectMaskResult(
-            mask=np.ones((h, w), dtype=np.float32),
-            status="api_failure",
-            audit=audit,
-            mask_coverage=1.0,
-        )
+    result = chain.segment(image)
 
     raw_mask = result.mask
 
@@ -818,14 +799,9 @@ def _generate_subject_mask_result(
     no_segments = not result.foreground_labels and not result.raw_segments
     status: Literal["ok", "empty_mask", "full_image_mask", "api_failure"] = "ok"
     if no_segments or mask_area == 0:
-        status = "empty_mask"
-        return SubjectMaskResult(
-            mask=np.ones((h, w), dtype=np.float32),
-            status=status,
-            audit=result.audit,
-            mask_coverage=mask_coverage,
-            foreground_labels=result.foreground_labels,
-            raw_segment_count=len(result.raw_segments),
+        raise ValueError(
+            "Subject segmentation returned no usable foreground mask for "
+            "masked_depth_detail_blend."
         )
 
     if mask_coverage > full_image_threshold:

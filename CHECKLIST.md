@@ -15,7 +15,7 @@
 - [x] Confirm Cloudflare DNS target for the first deploy.
 - [x] Choose direct GCP Vertex/Gemini as the first MVP AI route.
 - [x] Keep AI calls behind a provider adapter so Cloudflare AI Gateway can be added later without changing orchestration code.
-- [x] Defer Cloudflare AI Gateway creation until provider comparison, centralized AI observability, rate limits, retries, or fallback are needed.
+- [x] Defer Cloudflare AI Gateway creation until provider comparison, centralized AI observability, rate limits, or retries are needed.
 - [x] Defer Workers AI evaluation until after the direct Vertex/Gemini MVP path proves the product workflow.
 
 ## Phase 1 - Web MVP
@@ -64,7 +64,7 @@
 - [x] Port/adapt image validation, RGB conversion, pixel-array handling, and generation-limit tests from the standalone generator.
 - [x] Implement image validation and normalization.
 - [x] Add 5:7 crop/pad handling for the 5in x 7in product.
-- [x] Implement deterministic luminance-to-heightmap generation as the fallback provider.
+- [x] Implement deterministic luminance-to-heightmap generation as a reference provider.
 - [x] Implement closed watertight relief mesh generation with top surface, base plane, sidewalls, consistent normals, and exact 127mm x 177.8mm bounds.
 - [x] Implement binary STL export for the closed relief mesh.
 - [x] Export `heightmap.png`, `model.stl`, and `metadata.json` for a local test fixture.
@@ -72,9 +72,9 @@
 - [x] Add known-image fixture tests for deterministic metadata and safe error handling.
 - [x] Wire the FastAPI `/v1/generate` implementation to produce real artifacts behind a storage adapter while preserving the existing response contract.
 - [x] Add optional GLB/preview mesh generation for browser preview.
-- [x] Add depth provider interface and keep luminance as the default provider.
+- [x] Add depth provider interface and promote the chosen hybrid provider into the default product path.
 - [x] Add experiment 1 deterministic heightmap comparison providers and local sidecar runner.
-- [x] Add opt-in 16-bit heightmap PNG export for experiment runs.
+- [x] Add 16-bit heightmap PNG export for experiment runs.
 - [x] Prototype Depth Anything V2 Small as the first experimental depth provider after deterministic relief generation passes tests.
 - [x] Complete the five-experiment heightmap review against the two canonical local inputs.
 - [x] Document the experiment cycle outcome in `research/HEIGHTMAP_EXPERIMENTS_FINAL_EVALUATION.md` and `research/HEIGHTMAP_FINAL_EVALUATION_REVIEW.md`.
@@ -84,10 +84,17 @@
 - [x] Add calibrated relief quality gates and reports for background flatness, subject separation, mask ridge, high-frequency noise, and portrait face detection.
 - [x] Add typed provider-chain scaffolding for monocular depth and subject segmentation with `ProviderError` failover and `ProviderAudit` capture.
 - [x] Settle AI workflow roles: Vertex/Gemini for proof generation, API-backed semantic depth, subject segmentation, optional proof cleanup/depth-friendly preprocessing, and no final STL/GLB geometry generation by image-to-3D models.
-- [x] Build the opt-in `masked_depth_detail_blend` provider using semantic depth, subject masking, subject-only detail blending, guided-filter compression, and the existing STL/GLB generator.
-- [x] During the hybrid build, compare `posterized_luminance` and `lithophane_baseline` as in-mask detail sources and use that result to set deterministic fallback priority.
-- [x] Keep deterministic providers as the last-resort safety net; do not promote brightness-to-height providers as the target production-quality path.
+- [x] Build the `masked_depth_detail_blend` provider using semantic depth, subject masking, subject-only detail blending, guided-filter compression, and the existing STL/GLB generator.
+- [x] During the hybrid build, compare `posterized_luminance` and `lithophane_baseline` as in-mask detail sources and promote `lithophane_baseline` for facial/detail quality.
+- [x] Promote `masked_depth_detail_blend` with `lithophane_baseline` detail source into the web approval flow.
+- [x] Keep deterministic brightness-to-height providers out of the default checkout path.
 - [x] Wire `ProviderAudit` and segmentation status into `metadata.json` and the Firestore job audit document.
+- [ ] Change the physical relief object from a full-bleed 5in x 7in plate to a 5in x 7in image relief window with an additional 1/4in border on all sides, for a total object size of 5.5in x 7.5in.
+- [ ] Add border/frame geometry so the 1/4in border reads as an intentional product edge, not unused flat margin.
+- [ ] Add an image-window mask and edge-fade so the relief settles cleanly before the border and avoids hard crop/depth artifacts at the physical edge.
+- [ ] Tune hybrid portrait relief quality after human product-flow review: reduce bottom-band artifacts, preserve larger facial forms, and reduce harsh photo-embossed detail around eyes, teeth, and skin texture.
+- [ ] Increase and test production heightmap/mesh resolution beyond the current 200px width, starting with 280px or 320px, while keeping triangle count and preview performance acceptable.
+- [ ] Improve neutral GLB preview lighting/material so the job page shows relief depth clearly enough for human quality review.
 - [ ] Add a content-hash cache for provider responses in Firebase Storage using role, provider id, model version, and image hash.
 - [ ] Implement production API-backed depth and segmentation providers: HF Inference Depth Anything, Vertex depth/segmentation if available, and Cloudflare-gatewayed variants.
 - [ ] Add provider registry config for priority order, retries, cost ceilings, model versions, license approval, and default eligibility.

@@ -26,14 +26,14 @@ Do not bring over:
 - TD1 hardware communication
 - the current open-surface mesh topology as-is
 
-The first real implementation should generate a deterministic closed 5in x 7in relief object with top surface, base plane, sidewalls, binary `model.stl`, `heightmap.png`, `metadata.json`, and printability checks. AI depth providers come after that deterministic path is working.
+The current product path generates a hybrid closed 5in x 7in relief object with top surface, base plane, sidewalls, binary `model.stl`, `preview.glb`, `heightmap.png`, `metadata.json`, and printability checks.
 
 ## Responsibilities
 
 - Read a selected generated image from Cloud Storage.
 - Normalize the image into the 5in x 7in product composition.
-- Generate deterministic heightmap and closed relief geometry artifacts.
-- Produce baseline geometry files for validation and fallback workflows.
+- Generate hybrid heightmap and closed relief geometry artifacts.
+- Produce baseline geometry files for validation workflows.
 - Produce full-color handoff packages for Mimaki 3DUJ-2207 or comparable partners.
 - Produce filament painting support files for FDM-style workflows.
 - Generate browser preview assets and metadata.
@@ -94,23 +94,23 @@ Filament painting artifacts:
 
 ## Current State
 
-The `/v1/generate` API can now read a local or GCS image, normalize it to the 5in x 7in product shape, build a deterministic luminance heightmap, export a closed binary STL, write a neutral-material `preview.glb`, write `heightmap.png`, write `metadata.json`, and run baseline printability checks.
+The `/v1/generate` API can now read a local or GCS image, normalize it to the 5in x 7in product shape, build a hybrid `masked_depth_detail_blend` heightmap, export a closed binary STL, write a neutral-material `preview.glb`, write `heightmap.png`, write `metadata.json`, and run baseline printability checks.
 
-`posterized_luminance` remains the default checkout-safe fallback provider. It is explicitly fallback-only, not the target production-quality path. `metadata.json` records each provider's policy with `height_provider_policy`, `height_provider_fallback_only`, `height_provider_target_quality_path`, and `height_provider_checkout_default_allowed`. Providers that use monocular depth or subject segmentation also write `provider_audit` and `segmentation_status` so Functions can persist the exact per-job audit to Firestore.
+`masked_depth_detail_blend` is the default product relief provider. It uses Depth Anything semantic depth, SegFormer subject masking, `lithophane_baseline` in-mask detail, guided-filter bas-relief compression, and the existing closed STL/GLB generator. `metadata.json` records each provider's policy with `height_provider_policy`, `height_provider_fallback_only`, `height_provider_target_quality_path`, and `height_provider_checkout_default_allowed`. Providers that use monocular depth or subject segmentation also write `provider_audit` and `segmentation_status` so Functions can persist the exact per-job audit to Firestore.
 
-Experiment 1 can be run with opt-in deterministic providers and tuning settings:
+Deterministic reference providers remain available for sidecar comparison:
 
 - `continuous_luminance`: non-terraced luminance relief for portrait comparison.
 - `lithophane_baseline`: brightness-to-thickness reference baseline.
 - Relief tuning fields: `contrast`, `gamma`, `post_smooth_radius_px`, and `heightmap_png_bit_depth`.
 
-Experiment 2 adds an opt-in semantic depth baseline:
+Semantic depth reference provider:
 
-- `depth_anything_v2_small`: Hugging Face Transformers Depth Anything V2 Small provider. It keeps STL/GLB generation deterministic after depth inference and requires the `experiments` Python dependencies.
+- `depth_anything_v2_small`: Hugging Face Transformers Depth Anything V2 Small provider. It keeps STL/GLB generation deterministic after depth inference and is installed as part of the normal service runtime.
 
-The current hybrid prototype is also opt-in:
+The product hybrid provider:
 
-- `masked_depth_detail_blend`: semantic depth for low-frequency shape, subject masking for background suppression, subject-only deterministic detail blending, guided-filter bas-relief compression, and the existing closed STL/GLB generator. It defaults to `lithophane_baseline` as the in-mask detail source while leaving `posterized_luminance` as the checkout default provider.
+- `masked_depth_detail_blend`: semantic depth for low-frequency shape, subject masking for background suppression, subject-only deterministic detail blending, guided-filter bas-relief compression, and the existing closed STL/GLB generator. It defaults to `lithophane_baseline` as the in-mask detail source.
 
 Local provider comparison:
 

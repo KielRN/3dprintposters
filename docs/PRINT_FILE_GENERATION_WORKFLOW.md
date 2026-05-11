@@ -29,7 +29,7 @@ Implementation direction: keep this service's FastAPI contract and selectively e
 - Relief depth range, initially 0.4mm to 3.0mm.
 - Source image decoded pixel limit, initially 4,000,000 pixels before normalization to the working relief resolution.
 - Base thickness, initially 1.2mm.
-- Optional experimental relief settings: height provider, contrast, gamma, post-heightmap smoothing radius, heightmap PNG bit depth, and hybrid detail source/weight.
+- Relief settings: height provider, contrast, gamma, post-heightmap smoothing radius, heightmap PNG bit depth, and hybrid detail source/weight.
 - Full-color material profile, initially `mimaki_3duj_2207_full_color_uv_resin`.
 - Filament material profile, initially `generic_multicolor_fdm_filament_painting`.
 - Optional style metadata from the image generation step.
@@ -70,12 +70,12 @@ Filament painting artifacts:
 2. Validate size, MIME type, dimensions, and safety metadata.
 3. Normalize image orientation and resolution.
 4. Crop or pad to a 5:7 composition.
-5. Choose the requested server-side height provider. The default remains `posterized_luminance` as a checkout-safe deterministic fallback, not as the target production-quality path.
-6. Generate a normalized float heightmap from the selected deterministic or experimental provider.
+5. Choose the requested server-side height provider. The product default is `masked_depth_detail_blend` with `lithophane_baseline` detail source.
+6. Generate a normalized float heightmap from the selected provider.
 7. Apply optional tone controls, post-heightmap smoothing, quantization, and softened edge detail according to the provider.
 8. Convert height values into closed relief geometry with top surface, bottom base plane, sidewalls, consistent winding, and controlled relief depth.
 9. Add a poster base plate with minimum thickness.
-10. Export baseline STL for geometry validation and fallback workflows.
+10. Export baseline STL for geometry validation workflows.
 11. Generate a browser preview mesh.
 12. Generate a full-color package for the selected print partner.
 13. Generate filament painting palette and layer swap support files.
@@ -138,16 +138,17 @@ The accepted extraction plan is now partially implemented:
 - Preserve the existing FastAPI `/v1/generate` contract and stable output paths.
 - Add service modules for image processing, heightmap generation, closed relief mesh generation, STL export, storage, metadata, and validation.
 - Port/adapt only core concepts from `E:\PROJECTS\print-file-generator`.
-- Generate deterministic artifacts: `model.stl`, `preview.glb`, `heightmap.png`, and `metadata.json`.
-- Make the STL a closed, watertight 5in x 7in relief object before adding AI depth, color packages, or fulfillment automation.
+- Generate hybrid relief artifacts: `model.stl`, `preview.glb`, `heightmap.png`, and `metadata.json`.
+- Make the STL a closed, watertight 5in x 7in relief object before adding color packages or fulfillment automation.
 - Add printability checks before checkout can depend on generated print files.
-- Keep `posterized_luminance` as the default checkout provider while testing `continuous_luminance`, `lithophane_baseline`, depth providers, masked providers, and `masked_depth_detail_blend` as opt-in providers.
+- Use `masked_depth_detail_blend` as the default checkout provider with `lithophane_baseline` detail source.
 - Write height-provider policy fields into `metadata.json` so deterministic brightness-to-height providers are marked fallback-only and current quality candidates are distinguishable from the safety net.
 - Write `provider_audit` and `segmentation_status` into `metadata.json`; Functions copies the same audit into the job document and `jobs/{jobId}/audit/printFileGeneration`.
 - Run local experiment comparisons with `python scripts/run_heightmap_experiment.py <source-image>` from `services/print-file-generator`; outputs stay under ignored `.tmp/experiments/experiment_1`.
 - Run hybrid comparisons with `--provider masked_depth_detail_blend`; outputs stay under ignored `.tmp/experiments/hybrid` unless an explicit `--output-root` is provided.
 - For future heightmap experiments, run both canonical local inputs from `.tmp/input_image`: `Gemini_Generated_Image_lzneejlzneejlzne.png` and `Profile-Pic-HIMSS.jpg`.
 - Call the print-file generator from `approveGeneratedImage` after proof approval.
+- Pass the production relief settings from `approveGeneratedImage`: `height_provider: masked_depth_detail_blend`, `detail_source: lithophane_baseline`, and `target_width_px: 200`.
 - Store artifact paths and printability output on `jobs/{jobId}`.
 - Render the approved proof, generated `heightmap.png`, and `preview.glb` side by side on `/jobs/{jobId}`, with baseline artifact downloads for local quality checks.
 - Keep checkout locked until print-file artifacts are ready.
@@ -157,9 +158,7 @@ Then improve:
 
 - Deploy the print-file generator as a Cloud Run service and point `PRINT_FILE_GENERATOR_URL` at that endpoint.
 - Move long-running print generation behind Cloud Tasks or Pub/Sub.
-- Add edge-preserving smoothing.
-- Add subject-aware depth.
-- Add Depth Anything V2 Small as the first experimental depth provider, with Depth Pro and MoGe as follow-up candidates.
+- Improve edge-preserving smoothing and subject-aware depth based on human product-flow test results.
 - Add palette quantization.
 - Add filament swap calculation.
 - Add partner-specific full-color packaging.

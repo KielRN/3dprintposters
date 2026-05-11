@@ -11,6 +11,8 @@ dependencies = [
   "python-dotenv>=1.0",
   "pydantic>=2.10",
   "requests>=2.32",
+  "torch>=2.4",
+  "transformers>=4.46",
   "uvicorn[standard]>=0.34"
 ]
 
@@ -20,9 +22,7 @@ dev = [
   "ruff>=0.8"
 ]
 experiments = [
-  "torch>=2.4",
-  "trimesh>=4.5",
-  "transformers>=4.46"
+  "trimesh>=4.5"
 ]
 quality_gates = [
   "opencv-python>=4.10",
