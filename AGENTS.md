@@ -83,7 +83,7 @@ The hybrid relief path uses the print-file generator's normal Python dependencie
 
 Required web values belong in `apps/web/.env.local`. Keep `NEXT_PUBLIC_USE_FIREBASE_FUNCTIONS_EMULATOR=true` for the hybrid local flow.
 
-The full Firebase emulator suite remains blocked on this machine until JDK 21+ is installed; function-only emulator testing is the normal local path.
+JDK 21+ is installed on this machine, so the full Firebase emulator suite can run locally. Function-only emulator testing remains available for the hybrid shared-Firebase flow.
 
 ## Implementation Notes
 

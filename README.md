@@ -20,6 +20,7 @@ Working now:
 - PWA manifest, icons, and install behavior
 - Local Next.js testing at `http://127.0.0.1:3000`
 - Function-only Firebase emulator testing at `http://127.0.0.1:5001`
+- Full Firebase emulator testing for Auth, Functions, Firestore, and Storage
 
 Not done yet:
 
@@ -294,7 +295,7 @@ NEXT_PUBLIC_USE_FIREBASE_EMULATORS=true
 NEXT_PUBLIC_USE_FIREBASE_FUNCTIONS_EMULATOR=true
 ```
 
-This mode currently requires JDK 21+. On this machine, the preflight has reported Java 17, so the full suite blocks until JDK 21+ is installed.
+This mode requires JDK 21+. On this machine, Microsoft OpenJDK 21 is installed, new terminals resolve `java -version` to Java 21, and the checked-in preflight passes.
 
 ## Basic Manual Test Checklist
 

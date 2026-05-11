@@ -77,7 +77,7 @@ For customer-flow testing against the shared Firebase project, a function-only l
 npm run firebase:emulators:functions
 ```
 
-Set `NEXT_PUBLIC_USE_FIREBASE_FUNCTIONS_EMULATOR=true` for the web app when using that path. This keeps Auth, Firestore, and Storage pointed at the configured Firebase project while callable Functions run locally. On this machine, the full emulator suite preflight currently reports Java 17 and blocks until JDK 21+ is installed.
+Set `NEXT_PUBLIC_USE_FIREBASE_FUNCTIONS_EMULATOR=true` for the web app when using that path. This keeps Auth, Firestore, and Storage pointed at the configured Firebase project while callable Functions run locally. On this machine, JDK 21+ is installed, new terminals resolve `java -version` to Java 21, and the full emulator suite preflight passes.
 
 Source uploads are written by the browser to `uploads/{uid}/{jobId}/source.{jpg|png}`. The `createGenerationJob` callable Function now requires the same `jobId` and source path, verifies that they belong to the authenticated user, creates `jobs/{jobId}` with `status: "generating"`, calls the server-side Vertex/Gemini provider adapter, stores the generated proof under `generated/{uid}/{jobId}/preview.{png|jpg|webp}`, and marks the job `preview_ready` or `failed`. The `approveGeneratedImage` callable records `approvedImagePath`, and `createCheckoutSession` requires that approval before creating the deterministic `orders/{jobId}` checkout record.
 
