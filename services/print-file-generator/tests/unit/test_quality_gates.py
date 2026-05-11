@@ -5,7 +5,7 @@ the metrics from app.quality_gates, and writes one JSON report per bundle
 to .tmp/quality_gates/. Asserts only that metrics are computable (not
 NaN/inf) where inputs were available. v2 adds hard threshold assertions.
 
-Run with: pytest tests/test_quality_gates.py -q
+Run with: pytest tests/unit/test_quality_gates.py -q
 View results: scripts/run_quality_gates.py
 """
 
@@ -20,7 +20,7 @@ import pytest
 from app.quality_gates import compute_all_gates
 
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+REPO_ROOT = Path(__file__).resolve().parents[4]
 EXPERIMENTS_DIR = REPO_ROOT / ".tmp" / "experiments"
 INPUT_DIR = REPO_ROOT / ".tmp" / "input_image"
 CANONICAL_MASK_DIR = REPO_ROOT / ".tmp" / "canonical_masks"

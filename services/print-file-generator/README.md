@@ -96,7 +96,9 @@ Filament painting artifacts:
 
 The `/v1/generate` API can now read a local or GCS image, normalize it to the 5in x 7in product shape, build a deterministic luminance heightmap, export a closed binary STL, write a neutral-material `preview.glb`, write `heightmap.png`, write `metadata.json`, and run baseline printability checks.
 
-`posterized_luminance` remains the default production-safe fallback provider. Experiment 1 can be run with opt-in deterministic providers and tuning settings:
+`posterized_luminance` remains the default checkout-safe fallback provider. It is explicitly fallback-only, not the target production-quality path. `metadata.json` records each provider's policy with `height_provider_policy`, `height_provider_fallback_only`, `height_provider_target_quality_path`, and `height_provider_checkout_default_allowed`. Providers that use monocular depth or subject segmentation also write `provider_audit` and `segmentation_status` so Functions can persist the exact per-job audit to Firestore.
+
+Experiment 1 can be run with opt-in deterministic providers and tuning settings:
 
 - `continuous_luminance`: non-terraced luminance relief for portrait comparison.
 - `lithophane_baseline`: brightness-to-thickness reference baseline.
@@ -135,6 +137,21 @@ python scripts/run_heightmap_experiment.py ..\..\.tmp\input_image\Profile-Pic-HI
 ```
 
 Hybrid outputs are written under `.tmp/experiments/hybrid/masked_depth_detail_blend__{detailSource}/{jobId}` by default.
+
+## Tests
+
+Run the service suite from this directory:
+
+```powershell
+python -m pytest tests
+```
+
+The suite is organized by concern:
+
+- `tests/contract/`: `/v1/generate`, response contracts, metadata schema, and storage-path behavior.
+- `tests/unit/`: focused provider, relief mesh, quality gate, transform, and package-helper tests.
+- `tests/integration/`: cross-module bundle tests. Add full-color package tests here when color artifacts are implemented.
+- `tests/support.py`: shared fake depth and segmentation helpers for provider-backed flows.
 
 Still intentionally deferred:
 

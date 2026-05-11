@@ -5,6 +5,8 @@ from typing import Any, Literal
 import numpy as np
 from PIL import Image, ImageFilter, ImageOps
 
+from .providers.base import ProviderAudit
+
 
 POSTER_RELIEF_BANDS = 9
 BASE_SMOOTH_RADIUS_PX = 2.0
@@ -29,6 +31,24 @@ class Heightmap:
     min_height_mm: float
     max_height_mm: float
     provider: str
+    provider_audit: dict[str, dict[str, object]] | None = None
+    segmentation_status: dict[str, object] | None = None
+
+
+@dataclass(frozen=True)
+class DepthInferenceResult:
+    depth: np.ndarray
+    audit: ProviderAudit | None = None
+
+
+@dataclass(frozen=True)
+class SubjectMaskResult:
+    mask: np.ndarray
+    status: Literal["ok", "empty_mask", "full_image_mask", "api_failure"]
+    audit: ProviderAudit | None = None
+    mask_coverage: float = 0.0
+    foreground_labels: tuple[str, ...] = ()
+    raw_segment_count: int = 0
 
 
 class LuminanceDepthProvider:
@@ -182,7 +202,8 @@ class DepthAnythingV2SmallDepthProvider:
         gamma: float = 1.0,
         post_smooth_radius_px: float = 0.8,
     ) -> Heightmap:
-        relative_depth = _infer_depth_anything_v2_small(image)
+        depth_result = _infer_depth_anything_v2_small_result(image)
+        relative_depth = depth_result.depth
         depth = _normalize_depth(relative_depth)
         depth = _apply_tone_curve(depth, contrast=contrast, gamma=gamma)
         depth = _smooth_unit_array(depth, post_smooth_radius_px)
@@ -198,6 +219,7 @@ class DepthAnythingV2SmallDepthProvider:
             min_height_mm=float(np.min(heights)),
             max_height_mm=float(np.max(heights)),
             provider=self.name,
+            provider_audit=_provider_audit_map(monocular_depth=depth_result.audit),
         )
 
 
@@ -215,7 +237,8 @@ class DepthAnythingV2SmallBasReliefProvider:
         gamma: float = 1.0,
         post_smooth_radius_px: float = 0.8,
     ) -> Heightmap:
-        relative_depth = _infer_depth_anything_v2_small(image)
+        depth_result = _infer_depth_anything_v2_small_result(image)
+        relative_depth = depth_result.depth
         depth = _normalize_depth(relative_depth)
         depth = _apply_tone_curve(depth, contrast=contrast, gamma=gamma)
 
@@ -235,6 +258,7 @@ class DepthAnythingV2SmallBasReliefProvider:
             min_height_mm=float(np.min(heights)),
             max_height_mm=float(np.max(heights)),
             provider=self.name,
+            provider_audit=_provider_audit_map(monocular_depth=depth_result.audit),
         )
 
 
@@ -274,12 +298,17 @@ class SegformerMaskedDepthProvider:
         compression_strength: float = 0.75,
     ) -> Heightmap:
         # Semantic depth
-        relative_depth = _infer_depth_anything_v2_small(image)
+        depth_result = _infer_depth_anything_v2_small_result(image)
+        relative_depth = depth_result.depth
         depth = _normalize_depth(relative_depth)
         depth = _apply_tone_curve(depth, contrast=contrast, gamma=gamma)
 
         # Subject mask
-        subject_mask = _generate_subject_mask(image, blur_radius_px=mask_blur_radius_px)
+        subject_mask_result = _generate_subject_mask_result(
+            image,
+            blur_radius_px=mask_blur_radius_px,
+        )
+        subject_mask = subject_mask_result.mask
 
         # Layer: boost subject, suppress background
         layered = depth * (subject_boost * subject_mask + background_scale * (1.0 - subject_mask))
@@ -307,6 +336,11 @@ class SegformerMaskedDepthProvider:
             min_height_mm=float(np.min(heights)),
             max_height_mm=float(np.max(heights)),
             provider=self.name,
+            provider_audit=_provider_audit_map(
+                monocular_depth=depth_result.audit,
+                subject_segmentation=subject_mask_result.audit,
+            ),
+            segmentation_status=_segmentation_status_to_dict(subject_mask_result),
         )
 
 
@@ -343,11 +377,16 @@ class MaskedDepthDetailBlendProvider:
         mask_blur_radius_px: float = 5.0,
         compression_strength: float = 0.75,
     ) -> Heightmap:
-        relative_depth = _infer_depth_anything_v2_small(image)
+        depth_result = _infer_depth_anything_v2_small_result(image)
+        relative_depth = depth_result.depth
         depth = _normalize_depth(relative_depth)
         depth = _apply_tone_curve(depth, contrast=contrast, gamma=gamma)
 
-        subject_mask = _generate_subject_mask(image, blur_radius_px=mask_blur_radius_px)
+        subject_mask_result = _generate_subject_mask_result(
+            image,
+            blur_radius_px=mask_blur_radius_px,
+        )
+        subject_mask = subject_mask_result.mask
         semantic_base = depth * (
             subject_boost * subject_mask + background_scale * (1.0 - subject_mask)
         )
@@ -386,6 +425,11 @@ class MaskedDepthDetailBlendProvider:
             min_height_mm=float(np.min(heights)),
             max_height_mm=float(np.max(heights)),
             provider=self.name,
+            provider_audit=_provider_audit_map(
+                monocular_depth=depth_result.audit,
+                subject_segmentation=subject_mask_result.audit,
+            ),
+            segmentation_status=_segmentation_status_to_dict(subject_mask_result),
         )
 
 
@@ -729,25 +773,94 @@ def _generate_subject_mask(
     Returns a float32 array in [0, 1] matching the image dimensions,
     where 1.0 = subject and 0.0 = background.
     """
+    return _generate_subject_mask_result(
+        image,
+        blur_radius_px=blur_radius_px,
+        full_image_threshold=full_image_threshold,
+    ).mask
+
+
+def _generate_subject_mask_result(
+    image: Image.Image,
+    *,
+    blur_radius_px: float = 5.0,
+    full_image_threshold: float = 0.90,
+) -> SubjectMaskResult:
     chain = _get_segmentation_chain()
-    result = chain.segment(image)
+    try:
+        result = chain.segment(image)
+    except Exception as exc:
+        from .providers import AllProvidersFailedError
+
+        if not isinstance(exc, AllProvidersFailedError):
+            raise
+
+        w, h = image.size
+        audit = ProviderAudit(
+            succeeded="full-image-mask-fallback",
+            attempted=tuple(exc.attempted),
+            fallback_reason=str(exc.last_error) if exc.last_error else str(exc),
+        )
+        return SubjectMaskResult(
+            mask=np.ones((h, w), dtype=np.float32),
+            status="api_failure",
+            audit=audit,
+            mask_coverage=1.0,
+        )
+
     raw_mask = result.mask
 
     w, h = image.size
     total_pixels = w * h
     mask_area = float(np.sum(raw_mask > 0.5))
+    mask_coverage = mask_area / total_pixels if total_pixels > 0 else 0.0
 
-    if mask_area / total_pixels > full_image_threshold or mask_area == 0:
-        return np.ones((h, w), dtype=np.float32)
+    no_segments = not result.foreground_labels and not result.raw_segments
+    status: Literal["ok", "empty_mask", "full_image_mask", "api_failure"] = "ok"
+    if no_segments or mask_area == 0:
+        status = "empty_mask"
+        return SubjectMaskResult(
+            mask=np.ones((h, w), dtype=np.float32),
+            status=status,
+            audit=result.audit,
+            mask_coverage=mask_coverage,
+            foreground_labels=result.foreground_labels,
+            raw_segment_count=len(result.raw_segments),
+        )
+
+    if mask_coverage > full_image_threshold:
+        status = "full_image_mask"
+        return SubjectMaskResult(
+            mask=np.ones((h, w), dtype=np.float32),
+            status=status,
+            audit=result.audit,
+            mask_coverage=mask_coverage,
+            foreground_labels=result.foreground_labels,
+            raw_segment_count=len(result.raw_segments),
+        )
 
     if blur_radius_px > 0:
         mask_img = Image.fromarray(
             (raw_mask * 255).clip(0, 255).astype(np.uint8), mode="L"
         )
         mask_img = mask_img.filter(ImageFilter.GaussianBlur(radius=blur_radius_px))
-        return np.asarray(mask_img, dtype=np.float32) / 255.0
+        return SubjectMaskResult(
+            mask=np.asarray(mask_img, dtype=np.float32) / 255.0,
+            status=status,
+            audit=result.audit,
+            mask_coverage=mask_coverage,
+            foreground_labels=result.foreground_labels,
+            raw_segment_count=len(result.raw_segments),
+        )
 
-    return raw_mask.clip(0.0, 1.0).astype(np.float32)
+    return SubjectMaskResult(
+        mask=raw_mask.clip(0.0, 1.0).astype(np.float32),
+        status=status,
+        audit=result.audit,
+        mask_coverage=mask_coverage,
+        foreground_labels=result.foreground_labels,
+        raw_segment_count=len(result.raw_segments),
+    )
 
 
 def _deterministic_detail_unit(
@@ -776,6 +889,23 @@ def _deterministic_detail_unit(
         post_smooth_radius_px=0.0,
     )
     return _normalize_unit_array(detail_heightmap.values)
+
+
+def _provider_audit_map(**audits: ProviderAudit | None) -> dict[str, dict[str, object]]:
+    return {
+        role: audit.to_dict()
+        for role, audit in audits.items()
+        if audit is not None
+    }
+
+
+def _segmentation_status_to_dict(result: SubjectMaskResult) -> dict[str, object]:
+    return {
+        "status": result.status,
+        "mask_coverage": result.mask_coverage,
+        "foreground_labels": list(result.foreground_labels),
+        "raw_segment_count": result.raw_segment_count,
+    }
 
 
 def _extract_subject_detail_layer(
@@ -1024,8 +1154,14 @@ def _infer_depth_anything_v2_small(image: Image.Image) -> np.ndarray:
 
     Thin shim over ``app.providers.MonocularDepthChain``.
     """
+    return _infer_depth_anything_v2_small_result(image).depth
+
+
+def _infer_depth_anything_v2_small_result(image: Image.Image) -> DepthInferenceResult:
+    """Depth array and provider audit via the configured provider chain."""
     chain = _get_depth_chain()
-    return chain.infer_depth(image).depth
+    result = chain.infer_depth(image)
+    return DepthInferenceResult(depth=result.depth, audit=result.audit)
 
 
 @lru_cache(maxsize=1)

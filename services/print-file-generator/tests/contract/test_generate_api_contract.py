@@ -1,7 +1,6 @@
 import json
 import struct
 
-import numpy as np
 import pytest
 from PIL import Image
 from fastapi.testclient import TestClient
@@ -11,6 +10,7 @@ from app.main import app
 from app.models import OutputMode, PrintFileGenerationRequest, ReliefSettings
 from app.packages import generate_print_file_bundle
 from app.storage import LocalFilesystemStorage
+from tests.support import fake_depth_result, fake_subject_mask_result
 
 
 def test_stub_generation_contract_returns_planned_bundle_paths() -> None:
@@ -101,8 +101,16 @@ def test_local_generation_writes_deterministic_relief_bundle(tmp_path) -> None:
     assert metadata["width_mm"] == 127.0
     assert metadata["height_mm"] == 177.8
     assert metadata["height_provider"] == "posterized_luminance"
+    assert metadata["height_provider_policy"] == "deterministic_fallback"
+    assert metadata["height_provider_fallback_only"] is True
+    assert metadata["height_provider_target_quality_path"] is False
+    assert metadata["height_provider_checkout_default_allowed"] is True
     assert metadata["watertight"] is True
     assert metadata["triangle_count"] == triangle_count
+    assert any(
+        "not the target production-quality relief path" in warning
+        for warning in response.printability.warnings
+    )
 
 
 def test_local_generation_accepts_default_ai_proof_size(tmp_path) -> None:
@@ -176,6 +184,9 @@ def test_local_generation_can_run_experiment_1_lithophane_baseline(tmp_path) -> 
 
     metadata = json.loads((output_prefix / "metadata.json").read_text())
     assert metadata["height_provider"] == "lithophane_baseline"
+    assert metadata["height_provider_policy"] == "deterministic_fallback"
+    assert metadata["height_provider_fallback_only"] is True
+    assert metadata["height_provider_target_quality_path"] is False
     assert (output_prefix / "heightmap.png").exists()
 
 
@@ -188,17 +199,32 @@ def test_local_generation_can_run_masked_depth_detail_blend(
     image = Image.new("RGB", (10, 14), color=(180, 180, 180))
     image.save(source_path)
 
-    def fake_infer_depth(img: Image.Image) -> np.ndarray:
-        row = np.linspace(0.2, 0.8, img.width, dtype=np.float32)
-        return np.tile(row, (img.height, 1))
+    def fake_infer_depth_result(img: Image.Image):
+        return fake_depth_result(img.width, img.height)
 
-    def fake_generate_mask(img: Image.Image, *, blur_radius_px: float = 5.0) -> np.ndarray:
-        mask = np.zeros((img.height, img.width), dtype=np.float32)
-        mask[1:-1, 1:-1] = 1.0
-        return mask
+    def fake_generate_mask_result(
+        img: Image.Image,
+        *,
+        blur_radius_px: float = 5.0,
+        full_image_threshold: float = 0.90,
+    ):
+        return fake_subject_mask_result(
+            img.width,
+            img.height,
+            y_start=1,
+            y_end=img.height - 1,
+            x_start=1,
+            x_end=img.width - 1,
+        )
 
-    monkeypatch.setattr("app.depth._infer_depth_anything_v2_small", fake_infer_depth)
-    monkeypatch.setattr("app.depth._generate_subject_mask", fake_generate_mask)
+    monkeypatch.setattr(
+        "app.depth._infer_depth_anything_v2_small_result",
+        fake_infer_depth_result,
+    )
+    monkeypatch.setattr(
+        "app.depth._generate_subject_mask_result",
+        fake_generate_mask_result,
+    )
 
     request = PrintFileGenerationRequest(
         job_id="job_known",
@@ -213,14 +239,38 @@ def test_local_generation_can_run_masked_depth_detail_blend(
         ),
     )
 
-    generate_print_file_bundle(request, storage=LocalFilesystemStorage())
+    response = generate_print_file_bundle(request, storage=LocalFilesystemStorage())
 
     metadata = json.loads((output_prefix / "metadata.json").read_text())
     assert metadata["height_provider"] == "masked_depth_detail_blend"
+    assert metadata["height_provider_policy"] == "hybrid_quality_candidate"
+    assert metadata["height_provider_fallback_only"] is False
+    assert metadata["height_provider_target_quality_path"] is True
+    assert metadata["provider_audit"] == {
+        "monocular_depth": {
+            "succeeded": "stub-depth",
+            "attempted": [],
+            "model_version": "stub:v1",
+        },
+        "subject_segmentation": {
+            "succeeded": "stub-segmentation",
+            "attempted": [],
+            "model_version": "stub:v1",
+        },
+    }
+    segmentation_status = metadata["segmentation_status"]
+    assert segmentation_status["status"] == "ok"
+    assert segmentation_status["mask_coverage"] == pytest.approx(54 / 88)
+    assert segmentation_status["foreground_labels"] == ["person"]
+    assert segmentation_status["raw_segment_count"] == 1
     assert metadata["provider_settings"] == {
         "detail_source": "posterized_luminance",
         "detail_weight": 0.3,
     }
+    assert not any(
+        "not the target production-quality relief path" in warning
+        for warning in response.printability.warnings
+    )
 
 
 def test_local_generation_rejects_images_over_generation_limit(tmp_path) -> None:

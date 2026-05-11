@@ -47,3 +47,15 @@ class ProviderAudit:
     succeeded: str
     attempted: tuple[str, ...] = field(default_factory=tuple)
     fallback_reason: str | None = None
+    model_version: str | None = None
+
+    def to_dict(self) -> dict[str, object]:
+        data: dict[str, object] = {
+            "succeeded": self.succeeded,
+            "attempted": list(self.attempted),
+        }
+        if self.fallback_reason is not None:
+            data["fallback_reason"] = self.fallback_reason
+        if self.model_version is not None:
+            data["model_version"] = self.model_version
+        return data

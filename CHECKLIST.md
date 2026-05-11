@@ -86,8 +86,8 @@
 - [x] Settle AI workflow roles: Vertex/Gemini for proof generation, API-backed semantic depth, subject segmentation, optional proof cleanup/depth-friendly preprocessing, and no final STL/GLB geometry generation by image-to-3D models.
 - [x] Build the opt-in `masked_depth_detail_blend` provider using semantic depth, subject masking, subject-only detail blending, guided-filter compression, and the existing STL/GLB generator.
 - [x] During the hybrid build, compare `posterized_luminance` and `lithophane_baseline` as in-mask detail sources and use that result to set deterministic fallback priority.
-- [ ] Keep deterministic providers as the last-resort safety net; do not promote brightness-to-height providers as the target production-quality path.
-- [ ] Wire `ProviderAudit` and segmentation status into `metadata.json` and the Firestore job audit document.
+- [x] Keep deterministic providers as the last-resort safety net; do not promote brightness-to-height providers as the target production-quality path.
+- [x] Wire `ProviderAudit` and segmentation status into `metadata.json` and the Firestore job audit document.
 - [ ] Add a content-hash cache for provider responses in Firebase Storage using role, provider id, model version, and image hash.
 - [ ] Implement production API-backed depth and segmentation providers: HF Inference Depth Anything, Vertex depth/segmentation if available, and Cloudflare-gatewayed variants.
 - [ ] Add provider registry config for priority order, retries, cost ceilings, model versions, license approval, and default eligibility.

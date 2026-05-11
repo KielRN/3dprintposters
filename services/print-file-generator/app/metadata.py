@@ -2,6 +2,7 @@ from dataclasses import asdict, dataclass
 
 from .depth import Heightmap
 from .image_pipeline import NormalizedImage
+from .provider_policy import get_height_provider_policy
 from .relief import ReliefMesh
 
 
@@ -22,8 +23,14 @@ class ArtifactMetadata:
     triangle_count: int
     binary_stl_bytes: int
     height_provider: str
+    height_provider_policy: str
+    height_provider_fallback_only: bool
+    height_provider_target_quality_path: bool
+    height_provider_checkout_default_allowed: bool
     watertight: bool
     provider_settings: dict[str, object] | None = None
+    provider_audit: dict[str, dict[str, object]] | None = None
+    segmentation_status: dict[str, object] | None = None
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -44,6 +51,7 @@ def build_artifact_metadata(
     base_thickness_mm: float,
     provider_settings: dict[str, object] | None = None,
 ) -> ArtifactMetadata:
+    provider_policy = get_height_provider_policy(heightmap.provider)
     return ArtifactMetadata(
         job_id=job_id,
         uid=uid,
@@ -60,6 +68,14 @@ def build_artifact_metadata(
         triangle_count=len(mesh.faces),
         binary_stl_bytes=binary_stl_size,
         height_provider=heightmap.provider,
+        height_provider_policy=provider_policy.role,
+        height_provider_fallback_only=provider_policy.fallback_only,
+        height_provider_target_quality_path=provider_policy.target_quality_path,
+        height_provider_checkout_default_allowed=(
+            provider_policy.checkout_default_allowed
+        ),
         watertight=True,
         provider_settings=provider_settings,
+        provider_audit=heightmap.provider_audit,
+        segmentation_status=heightmap.segmentation_status,
     )

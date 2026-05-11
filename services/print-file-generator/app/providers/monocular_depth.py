@@ -80,7 +80,10 @@ class LocalDepthAnythingV2Provider:
         depth = _extract_depth_from_pipeline_output(output)
         return DepthResult(
             depth=depth,
-            audit=ProviderAudit(succeeded=self.provider_id),
+            audit=ProviderAudit(
+                succeeded=self.provider_id,
+                model_version=self.model_version,
+            ),
         )
 
 
@@ -180,6 +183,7 @@ class MonocularDepthChain:
                 succeeded=provider.provider_id,
                 attempted=tuple(attempted),
                 fallback_reason=last_reason if attempted else None,
+                model_version=provider.model_version,
             )
             return DepthResult(depth=result.depth, audit=audit)
 

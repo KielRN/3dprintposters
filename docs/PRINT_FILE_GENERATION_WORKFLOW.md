@@ -70,7 +70,7 @@ Filament painting artifacts:
 2. Validate size, MIME type, dimensions, and safety metadata.
 3. Normalize image orientation and resolution.
 4. Crop or pad to a 5:7 composition.
-5. Choose the requested server-side height provider. The default remains `posterized_luminance`.
+5. Choose the requested server-side height provider. The default remains `posterized_luminance` as a checkout-safe deterministic fallback, not as the target production-quality path.
 6. Generate a normalized float heightmap from the selected deterministic or experimental provider.
 7. Apply optional tone controls, post-heightmap smoothing, quantization, and softened edge detail according to the provider.
 8. Convert height values into closed relief geometry with top surface, bottom base plane, sidewalls, consistent winding, and controlled relief depth.
@@ -126,9 +126,10 @@ Future versions may add slicer-specific project files or generated G-code, but t
 - `printFileArtifacts.filamentLayerSwapsTxt`
 - `printFileArtifacts.filamentPrintSettingsJson`
 - `printability`
+- `printFileAudit`
 - `packageReadiness`
 
-Paid orders preserve the exact manifest and settings used at checkout so future regeneration cannot silently change a customer order. The current checkout precondition requires `printFileStatus: "generated"` and generated `modelStl`/`previewGlb` artifact paths.
+The print-file audit is also written to `jobs/{jobId}/audit/printFileGeneration` after Functions reads `metadata.json` from Storage. Paid orders preserve the exact manifest, settings, and print-file audit used at checkout so future regeneration cannot silently change a customer order. The current checkout precondition requires `printFileStatus: "generated"` and generated `modelStl`/`previewGlb` artifact paths.
 
 ## Current MVP Strategy
 
@@ -141,6 +142,8 @@ The accepted extraction plan is now partially implemented:
 - Make the STL a closed, watertight 5in x 7in relief object before adding AI depth, color packages, or fulfillment automation.
 - Add printability checks before checkout can depend on generated print files.
 - Keep `posterized_luminance` as the default checkout provider while testing `continuous_luminance`, `lithophane_baseline`, depth providers, masked providers, and `masked_depth_detail_blend` as opt-in providers.
+- Write height-provider policy fields into `metadata.json` so deterministic brightness-to-height providers are marked fallback-only and current quality candidates are distinguishable from the safety net.
+- Write `provider_audit` and `segmentation_status` into `metadata.json`; Functions copies the same audit into the job document and `jobs/{jobId}/audit/printFileGeneration`.
 - Run local experiment comparisons with `python scripts/run_heightmap_experiment.py <source-image>` from `services/print-file-generator`; outputs stay under ignored `.tmp/experiments/experiment_1`.
 - Run hybrid comparisons with `--provider masked_depth_detail_blend`; outputs stay under ignored `.tmp/experiments/hybrid` unless an explicit `--output-root` is provided.
 - For future heightmap experiments, run both canonical local inputs from `.tmp/input_image`: `Gemini_Generated_Image_lzneejlzneejlzne.png` and `Profile-Pic-HIMSS.jpg`.

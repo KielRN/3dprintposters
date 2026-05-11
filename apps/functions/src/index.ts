@@ -4,6 +4,7 @@ import {
   getFirestore,
   type DocumentReference,
 } from "firebase-admin/firestore";
+import { getStorage } from "firebase-admin/storage";
 import { defineSecret } from "firebase-functions/params";
 import { HttpsError, onCall, onRequest } from "firebase-functions/v2/https";
 import Stripe from "stripe";
@@ -70,6 +71,38 @@ const printFileGenerationResponseSchema = z.object({
   }),
 });
 
+const providerAuditEntrySchema = z
+  .object({
+    succeeded: z.string().min(1),
+    attempted: z.array(z.string()).default([]),
+    fallback_reason: z.string().min(1).optional(),
+    model_version: z.string().min(1).optional(),
+  })
+  .passthrough();
+
+const segmentationStatusSchema = z
+  .object({
+    status: z.string().min(1),
+    mask_coverage: z.number().optional(),
+    foreground_labels: z.array(z.string()).optional(),
+    raw_segment_count: z.number().optional(),
+  })
+  .passthrough();
+
+const printFileMetadataAuditSchema = z
+  .object({
+    height_provider: z.string().min(1).optional(),
+    height_provider_policy: z.string().min(1).optional(),
+    height_provider_fallback_only: z.boolean().optional(),
+    height_provider_target_quality_path: z.boolean().optional(),
+    height_provider_checkout_default_allowed: z.boolean().optional(),
+    provider_audit: z
+      .record(z.string(), providerAuditEntrySchema)
+      .optional(),
+    segmentation_status: segmentationStatusSchema.optional(),
+  })
+  .passthrough();
+
 type PrintFileArtifacts = {
   modelStl: string;
   heightmapPng: string;
@@ -85,6 +118,26 @@ type PrintFileArtifacts = {
   filamentPrintSettingsJson: string;
   filamentPreviewPng: string;
 };
+
+type PrintFileAudit =
+  | {
+      status: "captured";
+      metadataJson: string;
+      heightProvider: string | null;
+      heightProviderPolicy: string | null;
+      heightProviderFallbackOnly: boolean | null;
+      heightProviderTargetQualityPath: boolean | null;
+      heightProviderCheckoutDefaultAllowed: boolean | null;
+      providerAudit: Record<string, z.infer<typeof providerAuditEntrySchema>> | null;
+      segmentationStatus: z.infer<typeof segmentationStatusSchema> | null;
+      capturedAt: FieldValue;
+    }
+  | {
+      status: "unavailable";
+      metadataJson: string;
+      reason: string;
+      capturedAt: FieldValue;
+    };
 
 function buildGenerationError(error: unknown) {
   return {
@@ -164,6 +217,54 @@ function normalizePrintFileArtifacts(
   };
 }
 
+async function readPrintFileAudit(input: {
+  bucketName: string;
+  metadataJsonPath: string;
+}): Promise<PrintFileAudit> {
+  try {
+    const [metadataBytes] = await getStorage()
+      .bucket(input.bucketName)
+      .file(input.metadataJsonPath)
+      .download();
+    const metadata = JSON.parse(metadataBytes.toString("utf8")) as unknown;
+    const parsed = printFileMetadataAuditSchema.safeParse(metadata);
+    if (!parsed.success) {
+      return {
+        status: "unavailable",
+        metadataJson: input.metadataJsonPath,
+        reason: "metadata_schema_mismatch",
+        capturedAt: FieldValue.serverTimestamp(),
+      };
+    }
+
+    return {
+      status: "captured",
+      metadataJson: input.metadataJsonPath,
+      heightProvider: parsed.data.height_provider ?? null,
+      heightProviderPolicy: parsed.data.height_provider_policy ?? null,
+      heightProviderFallbackOnly:
+        parsed.data.height_provider_fallback_only ?? null,
+      heightProviderTargetQualityPath:
+        parsed.data.height_provider_target_quality_path ?? null,
+      heightProviderCheckoutDefaultAllowed:
+        parsed.data.height_provider_checkout_default_allowed ?? null,
+      providerAudit: parsed.data.provider_audit ?? null,
+      segmentationStatus: parsed.data.segmentation_status ?? null,
+      capturedAt: FieldValue.serverTimestamp(),
+    };
+  } catch (error) {
+    return {
+      status: "unavailable",
+      metadataJson: input.metadataJsonPath,
+      reason:
+        error instanceof Error
+          ? error.message.slice(0, 300)
+          : "metadata_read_failed",
+      capturedAt: FieldValue.serverTimestamp(),
+    };
+  }
+}
+
 async function generatePrintFilesForApprovedJob(input: {
   jobRef: DocumentReference;
   jobId: string;
@@ -214,6 +315,10 @@ async function generatePrintFilesForApprovedJob(input: {
     bucketName,
     parsed.data.artifact_paths,
   );
+  const printFileAudit = await readPrintFileAudit({
+    bucketName,
+    metadataJsonPath: artifacts.metadataJson,
+  });
 
   await input.jobRef.set(
     {
@@ -221,6 +326,7 @@ async function generatePrintFilesForApprovedJob(input: {
       printFileOutputPrefix: outputPrefix,
       printFileArtifacts: artifacts,
       printability: parsed.data.printability,
+      printFileAudit,
       printFileGeneration: {
         provider: "print-file-generator",
         status: parsed.data.status,
@@ -229,6 +335,10 @@ async function generatePrintFilesForApprovedJob(input: {
       printFileError: null,
       updatedAt: FieldValue.serverTimestamp(),
     },
+    { merge: true },
+  );
+  await input.jobRef.collection("audit").doc("printFileGeneration").set(
+    printFileAudit,
     { merge: true },
   );
 
@@ -597,6 +707,7 @@ export const createCheckoutSession = onCall(
         approvedImagePath: jobData.approvedImagePath,
         printFileOutputPrefix: jobData.printFileOutputPrefix ?? null,
         printFileArtifacts,
+        printFileAudit: jobData.printFileAudit ?? null,
         printability: jobData.printability ?? null,
         status: "checkout_created",
         paymentStatus: "pending",

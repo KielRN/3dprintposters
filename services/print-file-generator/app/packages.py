@@ -10,6 +10,7 @@ from .models import (
     PrintFileGenerationResponse,
 )
 from .printability import evaluate_printability, require_printable
+from .provider_policy import provider_policy_warning
 from .preview import neutral_preview_glb_bytes
 from .relief import binary_stl_bytes, build_closed_relief_mesh
 from .storage import StorageAdapter, artifact_path
@@ -88,6 +89,7 @@ def generate_print_file_bundle(
         binary_stl_size=len(stl_bytes),
     )
     require_printable(printability)
+    policy_warning = provider_policy_warning(heightmap.provider)
 
     metadata = build_artifact_metadata(
         job_id=request.job_id,
@@ -146,6 +148,7 @@ def generate_print_file_bundle(
             ],
             warnings=[
                 *printability.warnings,
+                *([policy_warning] if policy_warning else []),
                 "Full-color 3MF/OBJ/VRML/PLY packages are not implemented yet.",
                 "Filament painting palette and layer swap logic are not implemented yet.",
             ],

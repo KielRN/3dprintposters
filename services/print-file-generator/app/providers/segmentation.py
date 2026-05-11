@@ -111,7 +111,10 @@ class HfInferenceSegmentationProvider:
                 mask=np.ones((h, w), dtype=np.float32),
                 foreground_labels=(),
                 raw_segments=(),
-                audit=ProviderAudit(succeeded=self.provider_id),
+                audit=ProviderAudit(
+                    succeeded=self.provider_id,
+                    model_version=self.model_version,
+                ),
             )
 
         combined = np.zeros((h, w), dtype=np.float32)
@@ -135,7 +138,10 @@ class HfInferenceSegmentationProvider:
             mask=combined.clip(0.0, 1.0).astype(np.float32),
             foreground_labels=tuple(foreground),
             raw_segments=tuple(segments),
-            audit=ProviderAudit(succeeded=self.provider_id),
+            audit=ProviderAudit(
+                succeeded=self.provider_id,
+                model_version=self.model_version,
+            ),
         )
 
     def _call_api(self, image: Image.Image) -> list[dict[str, Any]]:
@@ -269,6 +275,7 @@ class SubjectSegmentationChain:
                 succeeded=provider.provider_id,
                 attempted=tuple(attempted),
                 fallback_reason=last_reason if attempted else None,
+                model_version=provider.model_version,
             )
             return SegmentationResult(
                 mask=result.mask,
