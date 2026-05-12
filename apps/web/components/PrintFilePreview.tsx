@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Download,
   FileJson,
+  FileText,
   Image as ImageIcon,
   Loader2,
   TriangleAlert,
@@ -33,7 +34,7 @@ export type ArtifactDownload = {
   label: string;
   filename: string;
   url: string;
-  icon: "model" | "preview" | "heightmap" | "metadata";
+  icon: "model" | "preview" | "heightmap" | "metadata" | "texture" | "guide";
 };
 
 function ReliefGlbModel({ previewUrl }: { previewUrl: string }) {
@@ -61,6 +62,14 @@ function ArtifactIcon({ icon }: { icon: ArtifactDownload["icon"] }) {
 
   if (icon === "metadata") {
     return <FileJson size={17} aria-hidden="true" />;
+  }
+
+  if (icon === "texture") {
+    return <ImageIcon size={17} aria-hidden="true" />;
+  }
+
+  if (icon === "guide") {
+    return <FileText size={17} aria-hidden="true" />;
   }
 
   if (icon === "model") {

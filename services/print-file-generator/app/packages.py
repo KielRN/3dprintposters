@@ -1,7 +1,8 @@
 import json
 
+from .color_packages import build_color_package_bundle
 from .depth import get_depth_provider, heightmap_to_image_bytes
-from .image_pipeline import fit_image_to_aspect, image_to_png_bytes, load_validated_rgb_image
+from .image_pipeline import fit_image_to_aspect, load_validated_rgb_image
 from .metadata import build_artifact_metadata
 from .models import (
     PackageReadinessSummary,
@@ -24,6 +25,7 @@ def build_artifact_paths(output_prefix: str) -> PrintFileArtifactPaths:
         metadata_json=artifact_path(output_prefix, "metadata.json"),
         full_color_3mf=artifact_path(output_prefix, "full-color/print-package.3mf"),
         full_color_obj=artifact_path(output_prefix, "full-color/model.obj"),
+        full_color_obj_mtl=artifact_path(output_prefix, "full-color/model.mtl"),
         full_color_texture_png=artifact_path(output_prefix, "full-color/texture.png"),
         full_color_vrml=artifact_path(output_prefix, "full-color/model.wrl"),
         full_color_ply=artifact_path(output_prefix, "full-color/model.ply"),
@@ -94,6 +96,11 @@ def generate_print_file_bundle(
     )
     require_printable(printability)
     policy_warning = provider_policy_warning(heightmap.provider)
+    color_package = build_color_package_bundle(
+        request=request,
+        mesh=mesh,
+        source_image=normalized_image.image,
+    )
 
     metadata = build_artifact_metadata(
         job_id=request.job_id,
@@ -104,6 +111,7 @@ def generate_print_file_bundle(
         binary_stl_size=len(stl_bytes),
         base_thickness_mm=request.relief.base_thickness_mm,
         provider_settings=provider_settings,
+        package_metadata=color_package.metadata,
     )
 
     storage.write_bytes(
@@ -130,17 +138,66 @@ def generate_print_file_bundle(
         content_type="application/json",
     )
     storage.write_bytes(
-        artifact_paths.filament_preview_png,
-        image_to_png_bytes(normalized_image.image),
+        artifact_paths.full_color_3mf,
+        color_package.three_mf,
+        content_type="application/vnd.ms-package.3dmanufacturing-3dmodel+xml",
+    )
+    storage.write_bytes(
+        artifact_paths.full_color_obj,
+        color_package.obj,
+        content_type="model/obj",
+    )
+    storage.write_bytes(
+        artifact_paths.full_color_obj_mtl,
+        color_package.obj_mtl,
+        content_type="text/plain",
+    )
+    storage.write_bytes(
+        artifact_paths.full_color_texture_png,
+        color_package.texture_png,
         content_type="image/png",
     )
+    storage.write_bytes(
+        artifact_paths.full_color_vrml,
+        color_package.vrml,
+        content_type="model/vrml",
+    )
+    storage.write_bytes(
+        artifact_paths.full_color_ply,
+        color_package.ply,
+        content_type="application/octet-stream",
+    )
+    storage.write_bytes(
+        artifact_paths.filament_palette_json,
+        color_package.filament_palette_json,
+        content_type="application/json",
+    )
+    storage.write_bytes(
+        artifact_paths.filament_layer_swaps_txt,
+        color_package.filament_layer_swaps_txt,
+        content_type="text/plain",
+    )
+    storage.write_bytes(
+        artifact_paths.filament_print_settings_json,
+        color_package.filament_print_settings_json,
+        content_type="application/json",
+    )
+    storage.write_bytes(
+        artifact_paths.filament_preview_png,
+        color_package.filament_preview_png,
+        content_type="image/png",
+    )
+    package_warnings = [
+        *printability.warnings,
+        *([policy_warning] if policy_warning else []),
+    ]
 
     return PrintFileGenerationResponse(
         job_id=request.job_id,
         status="generated",
         artifact_paths=artifact_paths,
         printability=PackageReadinessSummary(
-            status="passed_with_warnings",
+            status="passed_with_warnings" if package_warnings else "passed",
             checks=[
                 "source_image_validated",
                 "image_normalized_to_5x7_window",
@@ -148,13 +205,9 @@ def generate_print_file_bundle(
                 "closed_binary_stl_generated",
                 "neutral_preview_glb_generated",
                 *printability.checks,
+                *color_package.checks,
                 "metadata_written",
             ],
-            warnings=[
-                *printability.warnings,
-                *([policy_warning] if policy_warning else []),
-                "Full-color 3MF/OBJ/VRML/PLY packages are not implemented yet.",
-                "Filament painting palette and layer swap logic are not implemented yet.",
-            ],
+            warnings=package_warnings,
         ),
     )

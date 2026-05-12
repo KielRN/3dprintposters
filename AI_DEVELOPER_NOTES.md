@@ -25,7 +25,7 @@ Use `STL`, not `SLT`.
 - Product domain: `3dprintposters.com`.
 - Current proof generation: direct Vertex/Gemini through `apps/functions/src/aiProvider.ts`, with generated proofs stored under `generated/{uid}/{jobId}/`.
 - Current print-file generation: `approveGeneratedImage` calls the FastAPI generator with `masked_depth_detail_blend`, `lithophane_baseline` detail source, `target_width_px: 200`, and explicit dimensions for a 5in x 7in image window inside a 5.5in x 7.5in physical object.
-- Current print-file artifacts: `model.stl`, `preview.glb`, `heightmap.png`, `metadata.json`, plus placeholder paths for future full-color and filament-painting outputs. The physical object is now 5.5in x 7.5in with a 5in x 7in image relief window and 1/4in border.
+- Current print-file artifacts: `model.stl`, `preview.glb`, `heightmap.png`, `metadata.json`, deterministic full-color package files (`3MF`, `OBJ`/`MTL`/texture, `VRML`, `PLY`), and filament painting files (`palette.json`, `layer-swaps.txt`, `print-settings.json`, `preview.png`). The physical object is now 5.5in x 7.5in with a 5in x 7in image relief window and 1/4in border.
 - Checkout is gated on proof approval and generated print-file artifacts.
 
 ## Durable Decisions
@@ -55,5 +55,5 @@ Current human-test handoff: `human-tasks/open/test-hybrid-relief-product-flow.md
 - Local Depth Anything V2 now uses normal service dependencies (`torch`, `transformers`), so Cloud Run image size, cold start, memory, and CPU behavior need production validation.
 - HF SegFormer requires a provider credential in the service runtime. Do not print or move secret values.
 - Provider failures should surface clearly in testing instead of silently producing lower-quality reliefs.
-- Full-color 3MF/OBJ/VRML/PLY packages, filament painting palette/layer swaps, and partner-specific fulfillment handoff are still unimplemented.
+- Full-color 3MF/OBJ/VRML/PLY packages and filament painting guides are generated deterministically, but still need partner and slicer validation before fulfillment can depend on them.
 - A Mimaki 3DUJ-2207 or comparable full-color print partner still needs file-format, material, sizing, quote, and fulfillment-process validation.

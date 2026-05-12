@@ -100,6 +100,7 @@ class PrintFileArtifactPaths(BaseModel):
     metadata_json: str
     full_color_3mf: str
     full_color_obj: str
+    full_color_obj_mtl: str
     full_color_texture_png: str
     full_color_vrml: str
     full_color_ply: str

@@ -57,6 +57,7 @@ def test_stub_generation_contract_returns_planned_bundle_paths() -> None:
     assert response.artifact_paths.model_stl == "print-files/user_123/job_123/model.stl"
     assert response.artifact_paths.heightmap_png == "print-files/user_123/job_123/heightmap.png"
     assert response.artifact_paths.full_color_3mf.endswith("/full-color/print-package.3mf")
+    assert response.artifact_paths.full_color_obj_mtl.endswith("/full-color/model.mtl")
     assert response.artifact_paths.filament_palette_json.endswith(
         "/filament-painting/palette.json"
     )
@@ -121,13 +122,24 @@ def test_local_generation_writes_default_hybrid_relief_bundle(
     response = generate_print_file_bundle(request, storage=LocalFilesystemStorage())
 
     assert response.status == "generated"
-    assert response.printability.status == "passed_with_warnings"
+    assert response.printability.status == "passed"
     assert (output_prefix / "model.stl").exists()
     assert (output_prefix / "preview.glb").exists()
     assert (output_prefix / "heightmap.png").exists()
     assert (output_prefix / "metadata.json").exists()
+    assert (output_prefix / "full-color" / "print-package.3mf").exists()
+    assert (output_prefix / "full-color" / "model.obj").exists()
+    assert (output_prefix / "full-color" / "model.mtl").exists()
+    assert (output_prefix / "full-color" / "texture.png").exists()
+    assert (output_prefix / "full-color" / "model.wrl").exists()
+    assert (output_prefix / "full-color" / "model.ply").exists()
+    assert (output_prefix / "filament-painting" / "palette.json").exists()
+    assert (output_prefix / "filament-painting" / "layer-swaps.txt").exists()
+    assert (output_prefix / "filament-painting" / "print-settings.json").exists()
     assert (output_prefix / "filament-painting" / "preview.png").exists()
     assert "neutral_preview_glb_generated" in response.printability.checks
+    assert "full_color_3mf_generated" in response.printability.checks
+    assert "filament_layer_swaps_generated" in response.printability.checks
 
     stl_bytes = (output_prefix / "model.stl").read_bytes()
     triangle_count = struct.unpack("<I", stl_bytes[80:84])[0]
@@ -150,6 +162,8 @@ def test_local_generation_writes_default_hybrid_relief_bundle(
         "detail_source": "lithophane_baseline",
         "detail_weight": 0.22,
     }
+    assert metadata["full_color_package"]["formats"] == ["3mf", "obj", "vrml", "ply"]
+    assert metadata["filament_painting"]["palette_color_count"] >= 1
     assert metadata["watertight"] is True
     assert metadata["triangle_count"] == triangle_count
     assert not any(

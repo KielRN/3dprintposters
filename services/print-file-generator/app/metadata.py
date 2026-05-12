@@ -34,6 +34,8 @@ class ArtifactMetadata:
     provider_settings: dict[str, object] | None = None
     provider_audit: dict[str, dict[str, object]] | None = None
     segmentation_status: dict[str, object] | None = None
+    full_color_package: dict[str, object] | None = None
+    filament_painting: dict[str, object] | None = None
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -53,6 +55,7 @@ def build_artifact_metadata(
     binary_stl_size: int,
     base_thickness_mm: float,
     provider_settings: dict[str, object] | None = None,
+    package_metadata: dict[str, object] | None = None,
 ) -> ArtifactMetadata:
     provider_policy = get_height_provider_policy(heightmap.provider)
     return ArtifactMetadata(
@@ -84,4 +87,14 @@ def build_artifact_metadata(
         provider_settings=provider_settings,
         provider_audit=heightmap.provider_audit,
         segmentation_status=heightmap.segmentation_status,
+        full_color_package=(
+            package_metadata.get("full_color")
+            if package_metadata
+            else None
+        ),
+        filament_painting=(
+            package_metadata.get("filament_painting")
+            if package_metadata
+            else None
+        ),
     )

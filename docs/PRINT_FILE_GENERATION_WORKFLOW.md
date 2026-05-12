@@ -54,6 +54,7 @@ Full-color print partner artifacts:
 
 - `full-color/print-package.3mf`
 - `full-color/model.obj`
+- `full-color/model.mtl`
 - `full-color/texture.png`
 - `full-color/model.wrl`
 - `full-color/model.ply`
@@ -122,7 +123,12 @@ Future versions may add slicer-specific project files or generated G-code, but t
 - `printFileArtifacts.heightmapPng`
 - `printFileArtifacts.previewGlb`
 - `printFileArtifacts.metadataJson`
-- `printFileArtifacts.fullColorPackage3mf`
+- `printFileArtifacts.fullColor3mf`
+- `printFileArtifacts.fullColorObj`
+- `printFileArtifacts.fullColorObjMtl`
+- `printFileArtifacts.fullColorTexturePng`
+- `printFileArtifacts.fullColorVrml`
+- `printFileArtifacts.fullColorPly`
 - `printFileArtifacts.filamentPaletteJson`
 - `printFileArtifacts.filamentLayerSwapsTxt`
 - `printFileArtifacts.filamentPrintSettingsJson`
@@ -140,6 +146,8 @@ The accepted extraction plan is now partially implemented:
 - Add service modules for image processing, heightmap generation, closed relief mesh generation, STL export, storage, metadata, and validation.
 - Port/adapt only core concepts from `E:\PROJECTS\print-file-generator`.
 - Generate hybrid relief artifacts: `model.stl`, `preview.glb`, `heightmap.png`, and `metadata.json`.
+- Generate deterministic color-package artifacts: `full-color/print-package.3mf`, `full-color/model.obj`, `full-color/model.mtl`, `full-color/texture.png`, `full-color/model.wrl`, and `full-color/model.ply`.
+- Generate portable filament-painting artifacts: `filament-painting/palette.json`, `filament-painting/layer-swaps.txt`, `filament-painting/print-settings.json`, and `filament-painting/preview.png`.
 - Make the STL a closed, watertight 5.5in x 7.5in object with a 5in x 7in image relief window before adding color packages or fulfillment automation.
 - Add printability checks before checkout can depend on generated print files.
 - Use `masked_depth_detail_blend` as the default checkout provider with `lithophane_baseline` detail source.
@@ -151,7 +159,7 @@ The accepted extraction plan is now partially implemented:
 - Call the print-file generator from `approveGeneratedImage` after proof approval.
 - Pass the production dimensions and relief settings from `approveGeneratedImage`: 139.7mm x 190.5mm physical object, 127mm x 177.8mm image window, 6.35mm border, `height_provider: masked_depth_detail_blend`, `detail_source: lithophane_baseline`, and `target_width_px: 200`.
 - Store artifact paths and printability output on `jobs/{jobId}`.
-- Render the approved proof, generated `heightmap.png`, and `preview.glb` side by side on `/jobs/{jobId}`, with baseline artifact downloads for local quality checks.
+- Render the approved proof, generated `heightmap.png`, and `preview.glb` side by side on `/jobs/{jobId}`, with baseline, full-color, and filament-painting artifact downloads for local quality checks.
 - Keep checkout locked until print-file artifacts are ready.
 - For local hybrid testing, run the print-file generator on `http://127.0.0.1:8089` and set `PRINT_FILE_GENERATOR_URL` in `apps/functions/.env`.
 
@@ -160,9 +168,8 @@ Then improve:
 - Deploy the print-file generator as a Cloud Run service and point `PRINT_FILE_GENERATOR_URL` at that endpoint.
 - Move long-running print generation behind Cloud Tasks or Pub/Sub.
 - Improve edge-preserving smoothing and subject-aware depth based on human product-flow test results.
-- Add palette quantization.
-- Add filament swap calculation.
-- Add partner-specific full-color packaging.
+- Validate the generated color-package formats with the chosen print partner.
+- Add partner-specific package tuning once accepted format, units, texture/color handling, and review workflow are confirmed.
 - Add slicer-specific exports after printer and slicer targets are known.
 
 ## Risks

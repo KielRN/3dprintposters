@@ -101,8 +101,8 @@
 - [ ] Replace the dropped composition-preservation quality gate with a relief-appropriate metric before strict non-portrait gating.
 - [ ] Feed provider latency and cost metrics from Cloud Logging/Monitoring into provider eligibility.
 - [x] Declare implicit provider dependencies intentionally, including `requests`, optional `python-dotenv`, and experiment-only extras.
-- [ ] Add color-capable export package for Mimaki 3DUJ-2207 partners.
-- [ ] Add filament painting palette, layer swap, print settings, and preview outputs.
+- [x] Add color-capable export package for Mimaki 3DUJ-2207 partners.
+- [x] Add filament painting palette, layer swap, print settings, and preview outputs.
 - [ ] Add color/material recipe generation.
 
 ## Phase 4 - Payments and Fulfillment

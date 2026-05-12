@@ -65,6 +65,7 @@ const printFileArtifactPathsSchema = z.object({
   metadata_json: z.string().min(1),
   full_color_3mf: z.string().min(1),
   full_color_obj: z.string().min(1),
+  full_color_obj_mtl: z.string().min(1),
   full_color_texture_png: z.string().min(1),
   full_color_vrml: z.string().min(1),
   full_color_ply: z.string().min(1),
@@ -124,6 +125,7 @@ type PrintFileArtifacts = {
   metadataJson: string;
   fullColor3mf: string;
   fullColorObj: string;
+  fullColorObjMtl: string;
   fullColorTexturePng: string;
   fullColorVrml: string;
   fullColorPly: string;
@@ -206,6 +208,10 @@ function normalizePrintFileArtifacts(
     metadataJson: gcsUriToStoragePath(bucketName, artifactPaths.metadata_json),
     fullColor3mf: gcsUriToStoragePath(bucketName, artifactPaths.full_color_3mf),
     fullColorObj: gcsUriToStoragePath(bucketName, artifactPaths.full_color_obj),
+    fullColorObjMtl: gcsUriToStoragePath(
+      bucketName,
+      artifactPaths.full_color_obj_mtl,
+    ),
     fullColorTexturePng: gcsUriToStoragePath(
       bucketName,
       artifactPaths.full_color_texture_png,

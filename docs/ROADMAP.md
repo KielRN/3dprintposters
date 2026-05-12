@@ -36,10 +36,9 @@ This file tracks product direction and enhancement ideas that are not yet commit
 
 - Keep `services/print-file-generator` as the FastAPI/Cloud Run production boundary and selectively extract core image, heightmap, STL, color, and test concepts from `E:\PROJECTS\print-file-generator`.
 - Do not vendor the standalone Flask, SQLite, browser-session, CLI, or TD1 hardware app architecture into the production service.
-- First replace the service stub with deterministic image validation, normalization, 5:7 crop/padding, heightmap generation, and a closed watertight 5.5in x 7.5in physical relief mesh with a 5in x 7in image window, base, and sidewalls.
-- Export binary `model.stl`, `heightmap.png`, `metadata.json`, and then add a browser-friendly preview output, likely GLB or a lightweight mesh representation.
-- Add filament painting support files: palette, layer swaps, print settings, and preview.
-- Add full-color package artifacts such as 3MF or OBJ plus texture after the deterministic geometry path is validated.
+- The service now generates validated image input, 5:7 crop/padding, a closed watertight 5.5in x 7.5in physical relief mesh with a 5in x 7in image window, binary `model.stl`, `heightmap.png`, `metadata.json`, and browser-friendly `preview.glb`.
+- The service now generates filament painting support files: palette, layer swaps, print settings, and preview.
+- The service now generates full-color package artifacts: 3MF, OBJ/MTL/texture, VRML, and PLY. These still need partner validation before fulfillment depends on them.
 - Add printability checks for 5in x 7in model dimensions, thickness, relief depth, texture alignment, layer swap assumptions, and file size.
 - The five-experiment heightmap research cycle is complete (see [research/HEIGHTMAP_EXPERIMENTS_FINAL_EVALUATION.md](../research/HEIGHTMAP_EXPERIMENTS_FINAL_EVALUATION.md) and [research/HEIGHTMAP_FINAL_EVALUATION_REVIEW.md](../research/HEIGHTMAP_FINAL_EVALUATION_REVIEW.md)). Full image-to-3D reconstruction (TripoSR class) is rejected for poster relief — it builds standalone figurines, not image-plane depth.
 - Harden the opt-in `masked_depth_detail_blend` provider as the next production-eligible relief path: semantic depth, subject mask, in-mask detail blend from the deterministic luminance/lithophane source, guided-filter bas-relief compression, and the existing closed-mesh STL/GLB generator.
