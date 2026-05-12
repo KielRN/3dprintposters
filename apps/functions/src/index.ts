@@ -41,6 +41,14 @@ const defaultReliefSettings = {
   target_width_px: 200,
 } as const;
 
+const defaultPhysicalDimensions = {
+  target_width_mm: 139.7,
+  target_height_mm: 190.5,
+  image_window_width_mm: 127.0,
+  image_window_height_mm: 177.8,
+  border_mm: 6.35,
+} as const;
+
 type CheckoutSessionWebhookObject = {
   metadata?: Record<string, string> | null;
   payment_intent?: string | null | object;
@@ -298,6 +306,7 @@ async function generatePrintFilesForApprovedJob(input: {
         input.selectedImagePath,
       ),
       output_prefix: storagePathToGcsUri(bucketName, outputPrefix),
+      dimensions: defaultPhysicalDimensions,
       relief: defaultReliefSettings,
       style_metadata: {
         selectedStyle: input.selectedStyle,

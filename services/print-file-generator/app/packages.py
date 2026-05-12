@@ -50,8 +50,8 @@ def generate_print_file_bundle(
     )
     normalized_image = fit_image_to_aspect(
         source_image,
-        target_width_mm=request.dimensions.target_width_mm,
-        target_height_mm=request.dimensions.target_height_mm,
+        target_width_mm=request.dimensions.image_window_width_mm,
+        target_height_mm=request.dimensions.image_window_height_mm,
         target_width_px=request.relief.target_width_px,
     )
 
@@ -79,6 +79,10 @@ def generate_print_file_bundle(
         heightmap.values,
         width_mm=request.dimensions.target_width_mm,
         height_mm=request.dimensions.target_height_mm,
+        image_window_width_mm=request.dimensions.image_window_width_mm,
+        image_window_height_mm=request.dimensions.image_window_height_mm,
+        border_mm=request.dimensions.border_mm,
+        border_height_mm=request.relief.base_thickness_mm,
     )
     stl_bytes = binary_stl_bytes(mesh)
     preview_glb_bytes = neutral_preview_glb_bytes(mesh)
@@ -139,7 +143,7 @@ def generate_print_file_bundle(
             status="passed_with_warnings",
             checks=[
                 "source_image_validated",
-                "image_normalized_to_5x7",
+                "image_normalized_to_5x7_window",
                 f"{heightmap.provider}_heightmap_generated",
                 "closed_binary_stl_generated",
                 "neutral_preview_glb_generated",

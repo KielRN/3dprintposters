@@ -10,8 +10,25 @@ class OutputMode(str, Enum):
 
 
 class PhysicalDimensions(BaseModel):
-    target_width_mm: float = Field(default=127.0, gt=0)
-    target_height_mm: float = Field(default=177.8, gt=0)
+    target_width_mm: float = Field(default=139.7, gt=0)
+    target_height_mm: float = Field(default=190.5, gt=0)
+    image_window_width_mm: float = Field(default=127.0, gt=0)
+    image_window_height_mm: float = Field(default=177.8, gt=0)
+    border_mm: float = Field(default=6.35, ge=0)
+
+    @model_validator(mode="after")
+    def validate_image_window_and_border(self) -> "PhysicalDimensions":
+        expected_width = self.image_window_width_mm + 2 * self.border_mm
+        expected_height = self.image_window_height_mm + 2 * self.border_mm
+        if abs(self.target_width_mm - expected_width) > 0.001:
+            raise ValueError(
+                "Target width must equal image window width plus twice the border"
+            )
+        if abs(self.target_height_mm - expected_height) > 0.001:
+            raise ValueError(
+                "Target height must equal image window height plus twice the border"
+            )
+        return self
 
 
 class ReliefSettings(BaseModel):

@@ -6,14 +6,15 @@ The accepted implementation direction is selective extraction from `E:\PROJECTS\
 
 The 3D conversion pipeline is the riskiest technical area, so it is separated into a Python Cloud Run service with a stable API contract. This lets us iterate with Python imaging and mesh libraries, and it gives us a clean place to run another AI workflow if needed.
 
-The target product size is now a 5in x 7in physical relief. The target print path is a fulfillment business that can print on a Mimaki 3DUJ-2207 or comparable full-color UV-curable inkjet 3D printer. Keep Sculpteo API work on hold until we confirm whether it fits this printer and file-handoff strategy.
+The target product size is now a 5.5in x 7.5in physical relief with a 5in x 7in image window and 1/4in border. The target print path is a fulfillment business that can print on a Mimaki 3DUJ-2207 or comparable full-color UV-curable inkjet 3D printer. Keep Sculpteo API work on hold until we confirm whether it fits this printer and file-handoff strategy.
 
 ## Inputs
 
 - `jobId`
 - `uid`
 - `sourceImagePath` or `approvedImagePath`
-- Target dimensions: 127mm x 177.8mm for 5in x 7in.
+- Target physical dimensions: 139.7mm x 190.5mm for 5.5in x 7.5in.
+- Image relief window: 127mm x 177.8mm for 5in x 7in, with a 6.35mm border on all sides.
 - Relief depth range, initially 0.4mm to 3.0mm.
 - Material profile, initially `mimaki_3duj_2207_full_color_uv_resin`.
 - Optional style metadata from the image generation step.
@@ -37,7 +38,7 @@ STL remains useful as a geometry baseline and for generic printability checks, b
 5. Posterize or segment the image to reduce noisy micro-detail.
 6. Generate a grayscale heightmap.
 7. Smooth the heightmap enough for printability while preserving major edges.
-8. Convert height values into a closed watertight relief mesh with top surface, base plane, sidewalls, consistent normals, and exact 127mm x 177.8mm bounds.
+8. Convert height values into a closed watertight relief mesh with top surface, base plane, sidewalls, consistent normals, and exact 139.7mm x 190.5mm physical bounds.
 9. Add a poster base plate with minimum thickness.
 10. Attach color/texture data for the approved generated image.
 11. Export binary STL for geometry validation.
@@ -59,7 +60,7 @@ STL remains useful as a geometry baseline and for generic printability checks, b
 - Modeling method: UV-curable inkjet.
 - Build area: 203mm x 203mm x 76mm, with a 3kg or less object limit.
 - Published 3D data formats include SSTL, OBJ, VRML, PLY, and 3MF.
-- 5in x 7in equals 127mm x 177.8mm, which fits within the published build area before adding depth and supports.
+- 5.5in x 7.5in equals 139.7mm x 190.5mm, which fits within the published build area before adding depth and supports.
 - Treat the print partner as the source of truth for accepted file package, wall/base thickness, relief depth, minimum feature size, color management, support cleanup, and post-processing.
 
 ## Where Another AI Workflow May Help

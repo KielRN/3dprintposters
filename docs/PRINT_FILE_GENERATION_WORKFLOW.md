@@ -25,7 +25,8 @@ Implementation direction: keep this service's FastAPI contract and selectively e
 - Requested output modes:
   - `full_color_relief`
   - `filament_painting`
-- Target dimensions: 127mm x 177.8mm for 5in x 7in.
+- Target physical dimensions: 139.7mm x 190.5mm for a 5.5in x 7.5in object.
+- Image relief window: 127mm x 177.8mm for 5in x 7in, with a 6.35mm border on all sides.
 - Relief depth range, initially 0.4mm to 3.0mm.
 - Source image decoded pixel limit, initially 4,000,000 pixels before normalization to the working relief resolution.
 - Base thickness, initially 1.2mm.
@@ -69,11 +70,11 @@ Filament painting artifacts:
 1. Fetch the approved generated image from Cloud Storage. During the current test flow, this may be the source upload used as a temporary proof.
 2. Validate size, MIME type, dimensions, and safety metadata.
 3. Normalize image orientation and resolution.
-4. Crop or pad to a 5:7 composition.
+4. Crop or pad to the 5:7 image-window composition.
 5. Choose the requested server-side height provider. The product default is `masked_depth_detail_blend` with `lithophane_baseline` detail source.
 6. Generate a normalized float heightmap from the selected provider.
 7. Apply optional tone controls, post-heightmap smoothing, quantization, and softened edge detail according to the provider.
-8. Convert height values into closed relief geometry with top surface, bottom base plane, sidewalls, consistent winding, and controlled relief depth.
+8. Convert height values into closed relief geometry with a 5in x 7in image window, 1/4in border, top surface, bottom base plane, sidewalls, consistent winding, and controlled relief depth.
 9. Add a poster base plate with minimum thickness.
 10. Export baseline STL for geometry validation workflows.
 11. Generate a browser preview mesh.
@@ -139,7 +140,7 @@ The accepted extraction plan is now partially implemented:
 - Add service modules for image processing, heightmap generation, closed relief mesh generation, STL export, storage, metadata, and validation.
 - Port/adapt only core concepts from `E:\PROJECTS\print-file-generator`.
 - Generate hybrid relief artifacts: `model.stl`, `preview.glb`, `heightmap.png`, and `metadata.json`.
-- Make the STL a closed, watertight 5in x 7in relief object before adding color packages or fulfillment automation.
+- Make the STL a closed, watertight 5.5in x 7.5in object with a 5in x 7in image relief window before adding color packages or fulfillment automation.
 - Add printability checks before checkout can depend on generated print files.
 - Use `masked_depth_detail_blend` as the default checkout provider with `lithophane_baseline` detail source.
 - Write height-provider policy fields into `metadata.json` so deterministic brightness-to-height providers are marked fallback-only and current quality candidates are distinguishable from the safety net.
@@ -148,7 +149,7 @@ The accepted extraction plan is now partially implemented:
 - Run hybrid comparisons with `--provider masked_depth_detail_blend`; outputs stay under ignored `.tmp/experiments/hybrid` unless an explicit `--output-root` is provided.
 - For future heightmap experiments, run both canonical local inputs from `.tmp/input_image`: `Gemini_Generated_Image_lzneejlzneejlzne.png` and `Profile-Pic-HIMSS.jpg`.
 - Call the print-file generator from `approveGeneratedImage` after proof approval.
-- Pass the production relief settings from `approveGeneratedImage`: `height_provider: masked_depth_detail_blend`, `detail_source: lithophane_baseline`, and `target_width_px: 200`.
+- Pass the production dimensions and relief settings from `approveGeneratedImage`: 139.7mm x 190.5mm physical object, 127mm x 177.8mm image window, 6.35mm border, `height_provider: masked_depth_detail_blend`, `detail_source: lithophane_baseline`, and `target_width_px: 200`.
 - Store artifact paths and printability output on `jobs/{jobId}`.
 - Render the approved proof, generated `heightmap.png`, and `preview.glb` side by side on `/jobs/{jobId}`, with baseline artifact downloads for local quality checks.
 - Keep checkout locked until print-file artifacts are ready.

@@ -81,8 +81,11 @@ def test_request_defaults_include_both_output_modes() -> None:
         OutputMode.FULL_COLOR_RELIEF,
         OutputMode.FILAMENT_PAINTING,
     ]
-    assert request.dimensions.target_width_mm == 127.0
-    assert request.dimensions.target_height_mm == 177.8
+    assert request.dimensions.target_width_mm == 139.7
+    assert request.dimensions.target_height_mm == 190.5
+    assert request.dimensions.image_window_width_mm == 127.0
+    assert request.dimensions.image_window_height_mm == 177.8
+    assert request.dimensions.border_mm == 6.35
     assert request.relief.height_provider == "masked_depth_detail_blend"
     assert request.relief.detail_source == "lithophane_baseline"
     assert request.relief.target_width_px == 200
@@ -133,8 +136,11 @@ def test_local_generation_writes_default_hybrid_relief_bundle(
 
     metadata = json.loads((output_prefix / "metadata.json").read_text())
     assert metadata["job_id"] == "job_123"
-    assert metadata["width_mm"] == 127.0
-    assert metadata["height_mm"] == 177.8
+    assert metadata["width_mm"] == 139.7
+    assert metadata["height_mm"] == 190.5
+    assert metadata["image_window_width_mm"] == 127.0
+    assert metadata["image_window_height_mm"] == 177.8
+    assert metadata["border_mm"] == 6.35
     assert metadata["height_provider"] == "masked_depth_detail_blend"
     assert metadata["height_provider_policy"] == "hybrid_quality_candidate"
     assert metadata["height_provider_fallback_only"] is False
@@ -197,9 +203,9 @@ def test_known_image_metadata_is_deterministic(tmp_path, monkeypatch) -> None:
     assert metadatas[0] == metadatas[1]
     assert metadatas[0]["normalized_width_px"] == 4
     assert metadatas[0]["normalized_height_px"] == 6
-    assert metadatas[0]["vertex_count"] == 48
-    assert metadatas[0]["triangle_count"] == 92
-    assert metadatas[0]["binary_stl_bytes"] == 4684
+    assert metadatas[0]["vertex_count"] == 96
+    assert metadatas[0]["triangle_count"] == 188
+    assert metadatas[0]["binary_stl_bytes"] == 9484
     assert metadatas[0]["height_provider"] == "masked_depth_detail_blend"
 
 

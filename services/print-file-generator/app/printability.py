@@ -29,6 +29,12 @@ def evaluate_printability(
     failures: list[str] = []
 
     _check_bounds(request=request, mesh=mesh, checks=checks, failures=failures)
+    _check_image_window_border(
+        request=request,
+        mesh=mesh,
+        checks=checks,
+        failures=failures,
+    )
     _check_base_and_relief(
         request=request,
         heightmap=heightmap,
@@ -122,6 +128,36 @@ def _check_base_and_relief(
             "relief depth must stay between "
             f"{request.relief.min_relief_mm:.3f}mm and "
             f"{request.relief.max_relief_mm:.3f}mm"
+        )
+
+
+def _check_image_window_border(
+    *,
+    request: PrintFileGenerationRequest,
+    mesh: ReliefMesh,
+    checks: list[str],
+    failures: list[str],
+) -> None:
+    dimensions = request.dimensions
+    if dimensions.border_mm == 0:
+        checks.append("image_window_matches_physical_bounds")
+        return
+
+    image_window_matches = (
+        mesh.image_window_width_mm is not None
+        and mesh.image_window_height_mm is not None
+        and _close(mesh.image_window_width_mm, dimensions.image_window_width_mm)
+        and _close(mesh.image_window_height_mm, dimensions.image_window_height_mm)
+        and _close(mesh.border_mm, dimensions.border_mm)
+    )
+    if image_window_matches:
+        checks.append("image_window_border_matches_target")
+    else:
+        failures.append(
+            "image window must be "
+            f"{dimensions.image_window_width_mm:.3f}mm x "
+            f"{dimensions.image_window_height_mm:.3f}mm with a "
+            f"{dimensions.border_mm:.3f}mm border"
         )
 
 

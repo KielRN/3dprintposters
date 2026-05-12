@@ -16,6 +16,9 @@ class ArtifactMetadata:
     normalized_height_px: int
     width_mm: float
     height_mm: float
+    image_window_width_mm: float
+    image_window_height_mm: float
+    border_mm: float
     base_thickness_mm: float
     min_height_mm: float
     max_height_mm: float
@@ -61,6 +64,9 @@ def build_artifact_metadata(
         normalized_height_px=normalized_image.normalized_height_px,
         width_mm=mesh.width_mm,
         height_mm=mesh.height_mm,
+        image_window_width_mm=mesh.image_window_width_mm or mesh.width_mm,
+        image_window_height_mm=mesh.image_window_height_mm or mesh.height_mm,
+        border_mm=mesh.border_mm,
         base_thickness_mm=base_thickness_mm,
         min_height_mm=heightmap.min_height_mm,
         max_height_mm=heightmap.max_height_mm,

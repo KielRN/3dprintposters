@@ -49,7 +49,7 @@ Responsibilities:
 
 - Read selected generated image from Cloud Storage.
 - Convert image into a relief heightmap and geometry.
-- Generate a closed, watertight 5in x 7in relief mesh with top surface, base plane, sidewalls, controlled relief range, and exact physical bounds.
+- Generate a closed, watertight 5.5in x 7.5in physical relief mesh with a 5in x 7in image window, top surface, base plane, sidewalls, controlled relief range, and exact physical bounds.
 - Generate binary STL as a baseline geometry artifact.
 - Generate a color-capable print package for Mimaki 3DUJ-2207 partners, such as 3MF or OBJ plus texture.
 - Generate filament painting support files such as palette, layer swaps, print settings, and preview.

@@ -36,7 +36,7 @@ This file is the first place Codex or another coding agent should read before wo
 3. Web calls `createGenerationJob`.
 4. Functions call Vertex/Gemini through the internal provider adapter and store proof output under `generated/{uid}/{jobId}/preview.{png|jpg|webp}`.
 5. User approves a proof on `/jobs/{jobId}`.
-6. `approveGeneratedImage` calls `PRINT_FILE_GENERATOR_URL` with `masked_depth_detail_blend`, `lithophane_baseline` detail source, and the production relief settings.
+6. `approveGeneratedImage` calls `PRINT_FILE_GENERATOR_URL` with `masked_depth_detail_blend`, `lithophane_baseline` detail source, the 5in x 7in image-window / 5.5in x 7.5in physical dimensions, and the production relief settings.
 7. The print-file generator writes artifacts under `print-files/{uid}/{jobId}`:
    - `model.stl`
    - `preview.glb`
@@ -91,7 +91,7 @@ JDK 21+ is installed on this machine, so the full Firebase emulator suite can ru
 - Keep the direct Vertex/Gemini route as the MVP default.
 - Keep Cloudflare AI Gateway deferred until provider comparison, centralized AI observability, rate limits, or retries become important.
 - Keep `services/print-file-generator` as the production print-file boundary. Do not vendor the standalone `E:\PROJECTS\print-file-generator` Flask routes, SQLite project database, browser session state, local CLI flow, TD1 hardware code, or old open-surface mesh topology.
-- Current print-file path is the hybrid relief provider: validated image input, 5:7 normalization, Depth Anything V2 semantic depth, SegFormer subject masking, `lithophane_baseline` in-mask detail, guided-filter bas-relief compression, closed watertight 127mm x 177.8mm mesh, binary STL, neutral GLB preview, heightmap PNG, metadata JSON, and printability checks.
+- Current print-file path is the hybrid relief provider: validated image input, 5:7 image-window normalization, Depth Anything V2 semantic depth, SegFormer subject masking, `lithophane_baseline` in-mask detail, guided-filter bas-relief compression, closed watertight 139.7mm x 190.5mm mesh with a 127mm x 177.8mm relief window and 6.35mm border, binary STL, neutral GLB preview, heightmap PNG, metadata JSON, and printability checks.
 - Firestore stores metadata and Storage paths, not binary payloads or signed URLs.
 - Use idempotency for job creation, checkout, file handoff, and fulfillment actions.
 

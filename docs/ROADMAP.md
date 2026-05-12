@@ -36,7 +36,7 @@ This file tracks product direction and enhancement ideas that are not yet commit
 
 - Keep `services/print-file-generator` as the FastAPI/Cloud Run production boundary and selectively extract core image, heightmap, STL, color, and test concepts from `E:\PROJECTS\print-file-generator`.
 - Do not vendor the standalone Flask, SQLite, browser-session, CLI, or TD1 hardware app architecture into the production service.
-- First replace the service stub with deterministic image validation, normalization, 5:7 crop/padding, heightmap generation, and a closed watertight 5in x 7in relief mesh with base and sidewalls.
+- First replace the service stub with deterministic image validation, normalization, 5:7 crop/padding, heightmap generation, and a closed watertight 5.5in x 7.5in physical relief mesh with a 5in x 7in image window, base, and sidewalls.
 - Export binary `model.stl`, `heightmap.png`, `metadata.json`, and then add a browser-friendly preview output, likely GLB or a lightweight mesh representation.
 - Add filament painting support files: palette, layer swaps, print settings, and preview.
 - Add full-color package artifacts such as 3MF or OBJ plus texture after the deterministic geometry path is validated.

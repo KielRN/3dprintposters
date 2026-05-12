@@ -27,6 +27,7 @@ All notable project changes will be documented in this file.
 - Added per-job print-file audit capture: provider-chain audit and segmentation status now flow into `metadata.json`, `jobs/{jobId}.printFileAudit`, and `jobs/{jobId}/audit/printFileGeneration`.
 - Added a documented print-file generator test layout with `contract/`, `unit/`, `integration/`, and shared test support helpers for future color-package coverage.
 - Added the PM/human-test handoff rule: after AI implementation and verification, create or update a human task when the next validation is the full product workflow in the browser.
+- Added explicit 5in x 7in image-window metadata and a 1/4in product border to print-file generator artifacts, making the default physical object 5.5in x 7.5in.
 
 ### Changed
 
@@ -46,6 +47,7 @@ All notable project changes will be documented in this file.
 - Promoted `masked_depth_detail_blend` with `lithophane_baseline` detail source into the default web approval flow and print-file generator defaults.
 - Changed hybrid relief generation to fail loudly when required depth or segmentation providers are unavailable instead of quietly substituting a lower-quality result.
 - Condensed `AI_DEVELOPER_NOTES.md` into compact durable memory and aligned `AGENTS.md` plus the repo PM skill around source-of-truth boundaries.
+- Changed default relief geometry from a full-bleed 5in x 7in plate to a 5in x 7in relief window inside a 5.5in x 7.5in physical object.
 
 ### Verified
 
@@ -56,6 +58,7 @@ All notable project changes will be documented in this file.
 - Verified mesh orientation with a regression test that maps the image top row to positive model `Y`.
 - Verified `masked_depth_detail_blend` with unit coverage for subject-only detail blending and deterministic detail-source switching.
 - Verified both canonical inputs with hybrid lithophane and posterized detail-source runs under `.tmp/experiments/hybrid`.
+- Verified the print-file generator test suite passes with the bordered physical object defaults.
 
 ## [Unreleased] - 2026-05-05
 

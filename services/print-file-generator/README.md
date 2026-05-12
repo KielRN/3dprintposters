@@ -26,12 +26,12 @@ Do not bring over:
 - TD1 hardware communication
 - the current open-surface mesh topology as-is
 
-The current product path generates a hybrid closed 5in x 7in relief object with top surface, base plane, sidewalls, binary `model.stl`, `preview.glb`, `heightmap.png`, `metadata.json`, and printability checks.
+The current product path generates a hybrid closed 5.5in x 7.5in relief object with a 5in x 7in image window, 1/4in border, top surface, base plane, sidewalls, binary `model.stl`, `preview.glb`, `heightmap.png`, `metadata.json`, and printability checks.
 
 ## Responsibilities
 
 - Read a selected generated image from Cloud Storage.
-- Normalize the image into the 5in x 7in product composition.
+- Normalize the image into the 5in x 7in product composition inside the larger bordered object.
 - Generate hybrid heightmap and closed relief geometry artifacts.
 - Produce baseline geometry files for validation workflows.
 - Produce full-color handoff packages for Mimaki 3DUJ-2207 or comparable partners.
@@ -94,7 +94,7 @@ Filament painting artifacts:
 
 ## Current State
 
-The `/v1/generate` API can now read a local or GCS image, normalize it to the 5in x 7in product shape, build a hybrid `masked_depth_detail_blend` heightmap, export a closed binary STL, write a neutral-material `preview.glb`, write `heightmap.png`, write `metadata.json`, and run baseline printability checks.
+The `/v1/generate` API can now read a local or GCS image, normalize it to the 5in x 7in image window, build a hybrid `masked_depth_detail_blend` heightmap, export a closed 5.5in x 7.5in binary STL with a 1/4in border, write a neutral-material `preview.glb`, write `heightmap.png`, write `metadata.json`, and run baseline printability checks.
 
 `masked_depth_detail_blend` is the default product relief provider. It uses Depth Anything semantic depth, SegFormer subject masking, `lithophane_baseline` in-mask detail, guided-filter bas-relief compression, and the existing closed STL/GLB generator. `metadata.json` records each provider's policy with `height_provider_policy`, `height_provider_fallback_only`, `height_provider_target_quality_path`, and `height_provider_checkout_default_allowed`. Providers that use monocular depth or subject segmentation also write `provider_audit` and `segmentation_status` so Functions can persist the exact per-job audit to Firestore.
 

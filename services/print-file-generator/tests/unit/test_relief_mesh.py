@@ -2,6 +2,7 @@ import json
 import struct
 
 import numpy as np
+import pytest
 
 from app.depth import Heightmap
 from app.models import PrintFileGenerationRequest
@@ -50,6 +51,38 @@ def test_relief_mesh_maps_image_top_to_positive_y() -> None:
     assert mesh.vertices[3] == (10.0, 20.0, 2.0)
 
 
+def test_relief_mesh_adds_product_border_around_image_window() -> None:
+    heightmap = np.array(
+        [
+            [1.6, 2.0],
+            [3.0, 4.2],
+        ],
+        dtype=np.float32,
+    )
+
+    mesh = build_closed_relief_mesh(
+        heightmap,
+        width_mm=139.7,
+        height_mm=190.5,
+        image_window_width_mm=127.0,
+        image_window_height_mm=177.8,
+        border_mm=6.35,
+        border_height_mm=1.2,
+    )
+
+    assert mesh.width_mm == 139.7
+    assert mesh.height_mm == 190.5
+    assert mesh.image_window_width_mm == 127.0
+    assert mesh.image_window_height_mm == 177.8
+    assert mesh.border_mm == 6.35
+    assert len(mesh.vertices) == 32
+    assert len(mesh.faces) == 60
+    assert mesh.vertices[0] == (0.0, 0.0, 1.2)
+    assert mesh.vertices[3] == (139.7, 0.0, 1.2)
+    assert mesh.vertices[5] == (6.35, 6.35, 3.0)
+    assert mesh.vertices[9] == pytest.approx((6.35, 184.15, 1.6))
+
+
 def test_printability_checks_pass_for_closed_target_relief() -> None:
     heightmap = np.array(
         [
@@ -58,7 +91,15 @@ def test_printability_checks_pass_for_closed_target_relief() -> None:
         ],
         dtype=np.float32,
     )
-    mesh = build_closed_relief_mesh(heightmap, width_mm=127.0, height_mm=177.8)
+    mesh = build_closed_relief_mesh(
+        heightmap,
+        width_mm=139.7,
+        height_mm=190.5,
+        image_window_width_mm=127.0,
+        image_window_height_mm=177.8,
+        border_mm=6.35,
+        border_height_mm=1.2,
+    )
     stl_bytes = binary_stl_bytes(mesh)
     request = PrintFileGenerationRequest(
         job_id="job_123",
@@ -81,6 +122,7 @@ def test_printability_checks_pass_for_closed_target_relief() -> None:
 
     assert report.status == "passed"
     assert "physical_bounds_match_target" in report.checks
+    assert "image_window_border_matches_target" in report.checks
     assert "mesh_is_watertight" in report.checks
     assert report.failures == []
 

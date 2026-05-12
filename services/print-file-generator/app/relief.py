@@ -17,6 +17,9 @@ class ReliefMesh:
     height_mm: float
     min_z_mm: float
     max_z_mm: float
+    image_window_width_mm: float | None = None
+    image_window_height_mm: float | None = None
+    border_mm: float = 0.0
 
 
 def build_closed_relief_mesh(
@@ -24,6 +27,10 @@ def build_closed_relief_mesh(
     *,
     width_mm: float,
     height_mm: float,
+    image_window_width_mm: float | None = None,
+    image_window_height_mm: float | None = None,
+    border_mm: float = 0.0,
+    border_height_mm: float | None = None,
 ) -> ReliefMesh:
     if heightmap.ndim != 2:
         raise ValueError("Heightmap must be a 2D array")
@@ -32,30 +39,80 @@ def build_closed_relief_mesh(
     if rows < 2 or cols < 2:
         raise ValueError("Heightmap must be at least 2x2")
 
-    x_scale = width_mm / (cols - 1)
-    y_scale = height_mm / (rows - 1)
+    if border_mm < 0:
+        raise ValueError("Border must be non-negative")
+
+    if border_mm > 0:
+        if image_window_width_mm is None or image_window_height_mm is None:
+            raise ValueError("Image window dimensions are required when border is set")
+        _validate_window_bounds(
+            width_mm=width_mm,
+            height_mm=height_mm,
+            image_window_width_mm=image_window_width_mm,
+            image_window_height_mm=image_window_height_mm,
+            border_mm=border_mm,
+        )
+        x_coords = [
+            0.0,
+            *(
+                border_mm + x * image_window_width_mm / (cols - 1)
+                for x in range(cols)
+            ),
+            width_mm,
+        ]
+        y_coords = [
+            0.0,
+            *(
+                border_mm + y * image_window_height_mm / (rows - 1)
+                for y in range(rows)
+            ),
+            height_mm,
+        ]
+        top_rows = rows + 2
+        top_cols = cols + 2
+        flat_border_height = (
+            float(np.min(heightmap)) if border_height_mm is None else border_height_mm
+        )
+    else:
+        image_window_width_mm = width_mm
+        image_window_height_mm = height_mm
+        x_coords = [x * width_mm / (cols - 1) for x in range(cols)]
+        y_coords = [y * height_mm / (rows - 1) for y in range(rows)]
+        top_rows = rows
+        top_cols = cols
+        flat_border_height = 0.0
+
     vertices: list[Vertex] = []
 
-    for y in range(rows):
-        for x in range(cols):
-            source_y = rows - 1 - y
-            vertices.append((x * x_scale, y * y_scale, float(heightmap[source_y, x])))
+    for y in range(top_rows):
+        for x in range(top_cols):
+            is_border_vertex = (
+                border_mm > 0
+                and (x == 0 or y == 0 or x == top_cols - 1 or y == top_rows - 1)
+            )
+            if is_border_vertex:
+                z = float(flat_border_height)
+            else:
+                source_x = x - 1 if border_mm > 0 else x
+                source_y = rows - 1 - (y - 1 if border_mm > 0 else y)
+                z = float(heightmap[source_y, source_x])
+            vertices.append((x_coords[x], y_coords[y], z))
 
     bottom_offset = len(vertices)
-    for y in range(rows):
-        for x in range(cols):
-            vertices.append((x * x_scale, y * y_scale, 0.0))
+    for y in range(top_rows):
+        for x in range(top_cols):
+            vertices.append((x_coords[x], y_coords[y], 0.0))
 
     faces: list[Face] = []
 
     def top_index(x: int, y: int) -> int:
-        return y * cols + x
+        return y * top_cols + x
 
     def bottom_index(x: int, y: int) -> int:
-        return bottom_offset + y * cols + x
+        return bottom_offset + y * top_cols + x
 
-    for y in range(rows - 1):
-        for x in range(cols - 1):
+    for y in range(top_rows - 1):
+        for x in range(top_cols - 1):
             t00 = top_index(x, y)
             t10 = top_index(x + 1, y)
             t01 = top_index(x, y + 1)
@@ -70,7 +127,7 @@ def build_closed_relief_mesh(
             faces.append((b00, b01, b10))
             faces.append((b10, b01, b11))
 
-    for x in range(cols - 1):
+    for x in range(top_cols - 1):
         t0 = top_index(x, 0)
         t1 = top_index(x + 1, 0)
         b0 = bottom_index(x, 0)
@@ -78,7 +135,7 @@ def build_closed_relief_mesh(
         faces.append((t0, b0, t1))
         faces.append((t1, b0, b1))
 
-        y = rows - 1
+        y = top_rows - 1
         t0 = top_index(x, y)
         t1 = top_index(x + 1, y)
         b0 = bottom_index(x, y)
@@ -86,7 +143,7 @@ def build_closed_relief_mesh(
         faces.append((t0, t1, b0))
         faces.append((t1, b1, b0))
 
-    for y in range(rows - 1):
+    for y in range(top_rows - 1):
         t0 = top_index(0, y)
         t1 = top_index(0, y + 1)
         b0 = bottom_index(0, y)
@@ -94,7 +151,7 @@ def build_closed_relief_mesh(
         faces.append((t0, t1, b0))
         faces.append((t1, b1, b0))
 
-        x = cols - 1
+        x = top_cols - 1
         t0 = top_index(x, y)
         t1 = top_index(x, y + 1)
         b0 = bottom_index(x, y)
@@ -110,8 +167,27 @@ def build_closed_relief_mesh(
         width_mm=width_mm,
         height_mm=height_mm,
         min_z_mm=0.0,
-        max_z_mm=float(np.max(heightmap)),
+        max_z_mm=float(max(np.max(heightmap), flat_border_height)),
+        image_window_width_mm=image_window_width_mm,
+        image_window_height_mm=image_window_height_mm,
+        border_mm=border_mm,
     )
+
+
+def _validate_window_bounds(
+    *,
+    width_mm: float,
+    height_mm: float,
+    image_window_width_mm: float,
+    image_window_height_mm: float,
+    border_mm: float,
+) -> None:
+    expected_width = image_window_width_mm + 2 * border_mm
+    expected_height = image_window_height_mm + 2 * border_mm
+    if abs(width_mm - expected_width) > 0.001:
+        raise ValueError("Width must equal image window width plus twice the border")
+    if abs(height_mm - expected_height) > 0.001:
+        raise ValueError("Height must equal image window height plus twice the border")
 
 
 def validate_mesh(vertices: list[Vertex], faces: list[Face]) -> None:
