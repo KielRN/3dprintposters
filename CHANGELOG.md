@@ -22,6 +22,7 @@ All notable project changes will be documented in this file.
 - Added the opt-in `masked_depth_detail_blend` provider, combining semantic depth, subject masking, subject-only deterministic detail, guided-filter bas-relief compression, and the existing STL/GLB generator.
 - Added request/experiment-runner controls for the hybrid provider's deterministic detail source and detail blend weight.
 - Added hybrid output discovery to the quality-gate harness so `masked_depth_detail_blend` variants are reported alongside prior experiment providers.
+- Added `composition_gradient_correlation` as the replacement composition-preservation quality gate for source image versus heightmap edge placement.
 - Declared provider dependencies explicitly in the print-file generator package, including `requests`, `python-dotenv`, and experiment-only `trimesh`.
 - Added `human-tasks/` for human-owned validation, testing, decision, and external-action follow-ups after AI developer work.
 - Added per-job print-file audit capture: provider-chain audit and segmentation status now flow into `metadata.json`, `jobs/{jobId}.printFileAudit`, and `jobs/{jobId}/audit/printFileGeneration`.
@@ -51,6 +52,7 @@ All notable project changes will be documented in this file.
 - Changed default relief geometry from a full-bleed 5in x 7in plate to a 5in x 7in relief window inside a 5.5in x 7.5in physical object.
 - Replaced placeholder color-package and filament-painting warnings with generated artifact checks in the print-file readiness summary.
 - Changed generated `preview.glb` files from neutral material previews to image-colored previews using vertex colors sampled from the normalized proof image.
+- Removed `scikit-image` from the print-file generator quality-gates extra because composition scoring no longer depends on SSIM.
 
 ### Verified
 

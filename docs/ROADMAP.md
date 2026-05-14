@@ -49,7 +49,7 @@ This file tracks product direction and enhancement ideas that are not yet commit
 
 - Treat the per-metric gates in [research/HEIGHTMAP_FINAL_EVALUATION_REVIEW.md](../research/HEIGHTMAP_FINAL_EVALUATION_REVIEW.md) item 3 as the acceptance bar for default-eligible relief providers: subject/background separation, background flatness (the primary discriminator after the bas-relief transform swap), hard mask ridge, high-frequency printable noise, and portrait face detection.
 - Compute gates per provider so providers serving the same role can be compared and swapped. Implementation lives at [services/print-file-generator/app/quality_gates.py](../services/print-file-generator/app/quality_gates.py); calibration view at `scripts/run_quality_gates.py`.
-- Replace the dropped composition-preservation metric (SSIM-on-brightness is structurally broken for relief) with a relief-appropriate one (gradient-magnitude correlation or edge-map IoU) before any non-portrait gate runs in strict mode.
+- Composition preservation now uses gradient-magnitude correlation instead of SSIM-on-brightness, so the gate compares whether major source-image edges survive in the relief heightmap without treating inverted brightness as a failure.
 - Wire latency/cost metrics from Cloud Logging into the same gate framework so production traffic, not just CI, drives provider eligibility.
 
 ## Production Provider Registry

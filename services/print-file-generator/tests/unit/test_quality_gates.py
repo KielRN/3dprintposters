@@ -15,9 +15,14 @@ import json
 import math
 from pathlib import Path
 
+import numpy as np
+from PIL import Image
 import pytest
 
-from app.quality_gates import compute_all_gates
+from app.quality_gates import (
+    composition_gradient_correlation,
+    compute_all_gates,
+)
 
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -71,6 +76,42 @@ def _canonical_mask_path(job_id: str) -> Path | None:
 
 
 _BUNDLES = _discover_bundles()
+
+
+def test_composition_gradient_correlation_rewards_aligned_edges(tmp_path: Path) -> None:
+    source_path = tmp_path / "source.png"
+    source = Image.new("L", (64, 64), color=0)
+    source_pixels = source.load()
+    for y in range(16, 48):
+        for x in range(16, 48):
+            source_pixels[x, y] = 255
+    source.save(source_path)
+
+    heightmap = np.zeros((64, 64), dtype=np.float32)
+    heightmap[16:48, 16:48] = 1.0
+
+    score = composition_gradient_correlation(source_path, heightmap)
+
+    assert score > 0.95
+
+
+def test_composition_gradient_correlation_penalizes_misaligned_edges(
+    tmp_path: Path,
+) -> None:
+    source_path = tmp_path / "source.png"
+    source = Image.new("L", (64, 64), color=0)
+    source_pixels = source.load()
+    for y in range(16, 48):
+        for x in range(16, 48):
+            source_pixels[x, y] = 255
+    source.save(source_path)
+
+    heightmap = np.zeros((64, 64), dtype=np.float32)
+    heightmap[4:20, 4:20] = 1.0
+
+    score = composition_gradient_correlation(source_path, heightmap)
+
+    assert score < 0.25
 
 
 @pytest.mark.skipif(not _BUNDLES, reason="No experiment bundles under .tmp/experiments/")

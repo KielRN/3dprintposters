@@ -131,7 +131,7 @@ Thresholds calibrated 2026-05-09 against the existing five experiments on the tw
 | Portrait face detected | OpenCV Haar frontal-face detection on grayscale render of heightmap | required on portrait inputs (rejects TripoSR) |
 | Hard mask ridge | Max heightmap gradient (mm/pixel) within 5-pixel band of subject mask edge | ≤ 0.6 mm/pixel |
 | High-frequency printable noise | Ratio of high-pass energy (above 1/3 Nyquist) to total energy | ≤ 0.03 |
-| Composition preservation | _to be replaced_ — current SSIM-on-brightness metric is structurally broken for relief because dark image regions correctly map to high relief, producing negative SSIM on portraits and near-zero on stylized art. Replacement candidates: gradient-magnitude correlation, edge-map IoU. | dropped until replaced |
+| Composition preservation | `composition_gradient_correlation`: Pearson correlation between source-image gradient magnitude and heightmap gradient magnitude after coarse resizing. This replaces SSIM-on-brightness, which was structurally broken for relief because dark image regions can correctly map to high relief. | calibration metric landed; strict threshold TBD |
 | Latency | Per-image wall-clock, p50 and p95. CI: synthetic measurement on canonical inputs. Production: rolling p50/p95 from Cloud Logging per provider. | p95 ≤ 30s |
 | Cost | Per-image cost per provider, from billing or provider self-report, surfaced into the registry config | Default-eligible providers: ≤ $0.10/image |
 | License / ToS | API ToS permits commercial use of outputs AND provider is on the GCP org approved-vendors list | Both required for default-eligible providers |
@@ -154,7 +154,7 @@ Two providers are now default-eligible by the calibrated gates: `depth_anything_
 Two gating modes:
 
 - **Strict (default-fallback eligibility):** all gates must pass on all canonical inputs.
-- **Opt-in (prototype eligibility):** subject/background separation + composition preservation + hard mask ridge required; the rest reported but not blocking.
+- **Opt-in (prototype eligibility):** subject/background separation + composition gradient correlation + hard mask ridge required; the rest reported but not blocking.
 
 Implementation notes:
 
@@ -374,7 +374,7 @@ Outstanding after the hybrid build:
 - Wire `ProviderAudit` into per-job `metadata.json` and the eventual Firestore audit document. The audit objects are produced today but not surfaced.
 - Cache provider responses by content hash in Firebase Storage. Cache key = `sha256(image_bytes) + role + provider_id + model_version`.
 - Implement `VertexSegmentationProvider`, `HfInferenceDepthAnythingProvider`, `VertexDepthProvider`, `CloudflareGatewaySegmentationProvider`. Stubs raise `ProviderError` so the chain falls through cleanly.
-- Replace the dropped composition-preservation gate with a relief-appropriate metric (gradient-magnitude correlation or edge-map IoU).
+- Replace the dropped composition-preservation gate with a relief-appropriate metric. Landed as `composition_gradient_correlation`, which compares source-image edge placement to heightmap edge placement without depending on brightness polarity.
 - Surface segmentation status (`ok` / `empty_mask` / `full_image_mask` / `api_failure`) into job metadata.
 - Declare implicit deps (`requests`, `python-dotenv`) in `pyproject.toml`.
 

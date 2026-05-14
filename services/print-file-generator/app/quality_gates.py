@@ -133,14 +133,18 @@ def high_frequency_noise_ratio(
     return float(psd[radial_freq > cutoff].sum() / total)
 
 
-def composition_ssim(
+def composition_gradient_correlation(
     source_image_path: Path,
     heightmap_mm: np.ndarray,
-    coarse_shape: tuple[int, int] = (44, 32),
+    coarse_shape: tuple[int, int] = (70, 50),
 ) -> float:
-    """SSIM between source grayscale and heightmap, downsampled to coarse_shape (H, W)."""
-    from skimage.metrics import structural_similarity as ssim
+    """Correlation between source-image edges and heightmap edges.
 
+    This preserves the intent of the old composition gate without comparing
+    brightness directly. A relief may correctly turn dark pixels into high
+    geometry, so the useful signal is whether major image edges still land in
+    the same places after conversion.
+    """
     source = Image.open(source_image_path).convert("L")
     source = source.resize((coarse_shape[1], coarse_shape[0]), Image.BILINEAR)
     source_arr = np.asarray(source, dtype=np.float32) / 255.0
@@ -153,7 +157,18 @@ def composition_ssim(
     height_pil = height_pil.resize((coarse_shape[1], coarse_shape[0]), Image.BILINEAR)
     height_arr = np.asarray(height_pil, dtype=np.float32) / 255.0
 
-    return float(ssim(source_arr, height_arr, data_range=1.0))
+    source_edges = _gradient_magnitude(source_arr).ravel()
+    height_edges = _gradient_magnitude(height_arr).ravel()
+    source_std = float(source_edges.std())
+    height_std = float(height_edges.std())
+    if source_std <= 1e-8 or height_std <= 1e-8:
+        return float("nan")
+    return float(np.corrcoef(source_edges, height_edges)[0, 1])
+
+
+def _gradient_magnitude(arr: np.ndarray) -> np.ndarray:
+    grad_y, grad_x = np.gradient(arr)
+    return np.sqrt(grad_x**2 + grad_y**2)
 
 
 def face_detection(heightmap_mm: np.ndarray) -> tuple[bool, int]:
@@ -209,12 +224,11 @@ def compute_all_gates(
         result["skipped"]["face_count"] = "opencv-python not installed"
 
     if source_image_path is not None and source_image_path.exists():
-        try:
-            result["metrics"]["composition_ssim"] = composition_ssim(source_image_path, h)
-        except ImportError:
-            result["skipped"]["composition_ssim"] = "scikit-image not installed"
+        result["metrics"]["composition_gradient_correlation"] = (
+            composition_gradient_correlation(source_image_path, h)
+        )
     else:
-        result["skipped"]["composition_ssim"] = "no source image"
+        result["skipped"]["composition_gradient_correlation"] = "no source image"
 
     if subject_mask_path is not None and subject_mask_path.exists():
         mask = load_subject_mask(subject_mask_path, h.shape)

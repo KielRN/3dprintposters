@@ -20,7 +20,7 @@ METRIC_ORDER = [
     "background_flatness_mm",
     "hard_mask_ridge_mm_per_pixel",
     "high_frequency_noise_ratio",
-    "composition_ssim",
+    "composition_gradient_correlation",
     "face_detected",
     "face_count",
 ]

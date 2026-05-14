@@ -20,4 +20,3 @@ Provides-Extra: experiments
 Requires-Dist: trimesh>=4.5; extra == "experiments"
 Provides-Extra: quality-gates
 Requires-Dist: opencv-python>=4.10; extra == "quality-gates"
-Requires-Dist: scikit-image>=0.24; extra == "quality-gates"

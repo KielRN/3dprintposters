@@ -99,7 +99,7 @@
 - [ ] Add a content-hash cache for provider responses in Firebase Storage using role, provider id, model version, and image hash.
 - [ ] Implement production API-backed depth and segmentation providers: HF Inference Depth Anything, Vertex depth/segmentation if available, and Cloudflare-gatewayed variants.
 - [ ] Add provider registry config for priority order, retries, cost ceilings, model versions, license approval, and default eligibility.
-- [ ] Replace the dropped composition-preservation quality gate with a relief-appropriate metric before strict non-portrait gating.
+- [x] Replace the dropped composition-preservation quality gate with a relief-appropriate metric before strict non-portrait gating.
 - [ ] Feed provider latency and cost metrics from Cloud Logging/Monitoring into provider eligibility.
 - [x] Declare implicit provider dependencies intentionally, including `requests`, optional `python-dotenv`, and experiment-only extras.
 - [x] Add color-capable export package for Mimaki 3DUJ-2207 partners.
