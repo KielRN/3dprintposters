@@ -47,7 +47,7 @@ Shared baseline artifacts:
 
 - `model.stl`
 - `heightmap.png`
-- `preview.glb`
+- `preview.glb`, with image-derived vertex colors for browser review.
 - `metadata.json`
 
 Full-color print partner artifacts:
@@ -78,7 +78,7 @@ Filament painting artifacts:
 8. Convert height values into closed relief geometry with a 5in x 7in image window, 1/4in border, top surface, bottom base plane, sidewalls, consistent winding, and controlled relief depth.
 9. Add a poster base plate with minimum thickness.
 10. Export baseline STL for geometry validation workflows.
-11. Generate a browser preview mesh.
+11. Generate a color browser preview mesh.
 12. Generate a full-color package for the selected print partner.
 13. Generate filament painting palette and layer swap support files.
 14. Run printability and package readiness checks.
@@ -145,7 +145,7 @@ The accepted extraction plan is now partially implemented:
 - Preserve the existing FastAPI `/v1/generate` contract and stable output paths.
 - Add service modules for image processing, heightmap generation, closed relief mesh generation, STL export, storage, metadata, and validation.
 - Port/adapt only core concepts from `E:\PROJECTS\print-file-generator`.
-- Generate hybrid relief artifacts: `model.stl`, `preview.glb`, `heightmap.png`, and `metadata.json`.
+- Generate hybrid relief artifacts: `model.stl`, image-colored `preview.glb`, `heightmap.png`, and `metadata.json`.
 - Generate deterministic color-package artifacts: `full-color/print-package.3mf`, `full-color/model.obj`, `full-color/model.mtl`, `full-color/texture.png`, `full-color/model.wrl`, and `full-color/model.ply`.
 - Generate portable filament-painting artifacts: `filament-painting/palette.json`, `filament-painting/layer-swaps.txt`, `filament-painting/print-settings.json`, and `filament-painting/preview.png`.
 - Make the STL a closed, watertight 5.5in x 7.5in object with a 5in x 7in image relief window before adding color packages or fulfillment automation.
@@ -159,7 +159,7 @@ The accepted extraction plan is now partially implemented:
 - Call the print-file generator from `approveGeneratedImage` after proof approval.
 - Pass the production dimensions and relief settings from `approveGeneratedImage`: 139.7mm x 190.5mm physical object, 127mm x 177.8mm image window, 6.35mm border, `height_provider: masked_depth_detail_blend`, `detail_source: lithophane_baseline`, and `target_width_px: 200`.
 - Store artifact paths and printability output on `jobs/{jobId}`.
-- Render the approved proof, generated `heightmap.png`, and `preview.glb` side by side on `/jobs/{jobId}`, with baseline, full-color, and filament-painting artifact downloads for local quality checks.
+- Render the approved proof, generated `heightmap.png`, and color `preview.glb` side by side on `/jobs/{jobId}`, with baseline, full-color, and filament-painting artifact downloads for local quality checks.
 - Keep checkout locked until print-file artifacts are ready.
 - For local hybrid testing, run the print-file generator on `http://127.0.0.1:8089` and set `PRINT_FILE_GENERATOR_URL` in `apps/functions/.env`.
 

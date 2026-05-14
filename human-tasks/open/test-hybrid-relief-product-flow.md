@@ -3,7 +3,7 @@
 Status: open
 Owner: Human
 Created: 2026-05-11
-Source: `AGENTS.md`, `AI_DEVELOPER_NOTES.md`, `CHECKLIST.md`, `apps/functions/src/index.ts`, `services/print-file-generator/app/models.py`, `services/print-file-generator/app/color_packages.py`
+Source: `AGENTS.md`, `AI_DEVELOPER_NOTES.md`, `CHECKLIST.md`, `apps/functions/src/index.ts`, `services/print-file-generator/app/models.py`, `services/print-file-generator/app/preview.py`, `services/print-file-generator/app/color_packages.py`
 
 ## Why Human
 
@@ -15,8 +15,8 @@ This needs Elliot's end-to-end product judgment in the browser: sign-in, upload,
 2. Confirm the print-file generator has the provider credentials/dependencies needed for `masked_depth_detail_blend`; do not record secret values.
 3. Create a new job from the web app with a portrait-style source image.
 4. Approve the generated proof and wait for print-file generation.
-5. Inspect the job page side by side: approved proof, `heightmap.png`, `preview.glb`, printability status, and download links.
-6. Confirm the generated `preview.glb` and downloadable STL represent a 5.5in x 7.5in physical object with a 5in x 7in image relief window and 1/4in border.
+5. Inspect the job page side by side: approved proof, `heightmap.png`, color `preview.glb`, printability status, and download links.
+6. Confirm the generated `preview.glb` is no longer neutral gray and uses image-derived color while the downloadable STL still represents a 5.5in x 7.5in physical object with a 5in x 7in image relief window and 1/4in border.
 7. Download and spot-check the color package files: `print-package.3mf`, `model.obj`, `model.mtl`, `texture.png`, `model.wrl`, and `model.ply`.
 8. Download and spot-check the filament painting files: `palette.json`, `layer-swaps.txt`, `print-settings.json`, and filament `preview.png`.
 9. Confirm checkout unlocks only after the hybrid print-file artifacts are generated.
@@ -33,7 +33,7 @@ This needs Elliot's end-to-end product judgment in the browser: sign-in, upload,
 
 - Local routes checked, especially `/jobs/{jobId}`.
 - Job id and artifact path names, without signed URLs or secret values.
-- Screenshot or short notes about the heightmap and GLB preview quality.
+- Screenshot or short notes about the heightmap, GLB color preview, and relief quality.
 - Notes about whether the generated color-package and filament guide files open in available local tools.
 - Any visible error message from the app, Functions emulator, or print-file generator.
 
@@ -44,4 +44,5 @@ This needs Elliot's end-to-end product judgment in the browser: sign-in, upload,
 - `elliot_quick_dev_Startup.md`
 - `apps/functions/src/index.ts`
 - `services/print-file-generator/app/models.py`
+- `services/print-file-generator/app/preview.py`
 - `services/print-file-generator/app/color_packages.py`

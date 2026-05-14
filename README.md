@@ -13,7 +13,7 @@ Working now:
 - Browser upload to Firebase Storage
 - Firebase callable Functions for job creation, proof approval, print-file generation orchestration, and checkout
 - Direct Vertex/Gemini proof-generation adapter in `apps/functions`
-- Python print-file generator service for baseline STL, GLB preview, heightmap, metadata, full-color packages, filament painting guides, and printability output
+- Python print-file generator service for baseline STL, image-colored GLB preview, heightmap, metadata, full-color packages, filament painting guides, and printability output
 - Job-page proof, heightmap, 3D GLB inspection view, and downloadable print-package artifacts after proof approval
 - Firestore and Storage security rules for the dev Firebase project
 - Stripe Checkout session creation boundary
@@ -36,7 +36,7 @@ Think of this app as three cooperating pieces:
 
 - The web app is what the customer sees and clicks.
 - Firebase Functions are the trusted backend. They check ownership, call AI, create jobs, orchestrate print-file generation, and talk to Stripe.
-- The print-file generator is a Python service that turns an approved image into printable artifacts like STL, heightmap, preview GLB, metadata, full-color packages, and filament painting guides.
+- The print-file generator is a Python service that turns an approved image into printable artifacts like STL, heightmap, image-colored preview GLB, metadata, full-color packages, and filament painting guides.
 
 ```mermaid
 flowchart LR
@@ -91,7 +91,7 @@ sequenceDiagram
   Customer->>Web: Review and approve proof
   Web->>Fn: approveGeneratedImage
   Fn->>DB: Mark job approved
-  Fn->>Print: Generate STL, GLB preview, color packages, and filament guides
+  Fn->>Print: Generate STL, color GLB preview, color packages, and filament guides
   Print->>Storage: Store print-files/{uid}/{jobId}
   Fn->>DB: Save print file artifacts and printability
   Web->>Storage: Load proof, heightmap.png, and preview.glb
@@ -101,7 +101,7 @@ sequenceDiagram
   Stripe-->>Customer: Collect payment
 ```
 
-The home-page 3D panel is still a visual preview shell. The job page shows the approved proof, generated `heightmap.png`, and real `preview.glb` side by side after the user approves the proof and the print-file generator finishes. It also exposes the generated 3MF, OBJ/MTL/texture, VRML, PLY, palette, layer-swap, and print-settings files for inspection.
+The home-page 3D panel is still a visual preview shell. The job page shows the approved proof, generated `heightmap.png`, and real color `preview.glb` side by side after the user approves the proof and the print-file generator finishes. It also exposes the generated 3MF, OBJ/MTL/texture, VRML, PLY, palette, layer-swap, and print-settings files for inspection.
 
 ## Why There Is A Dev Server And A Functions Emulator
 
@@ -428,7 +428,7 @@ Use Stripe test mode until payment, webhook, and fulfillment state transitions a
 - [x] Generate a closed watertight 5.5in x 7.5in physical relief mesh with a 5in x 7in image window, base, and sidewalls.
 - [x] Generate binary STL files from the closed relief mesh.
 - [x] Generate `heightmap.png` and `metadata.json`.
-- [x] Generate browser preview mesh as GLB.
+- [x] Generate browser preview mesh as color GLB.
 - [x] Store the exact artifact manifest used for checkout.
 - [x] Add known-image test fixtures.
 - [ ] Deploy the print-file generator as a Cloud Run service and set production `PRINT_FILE_GENERATOR_URL`.

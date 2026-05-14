@@ -12,7 +12,7 @@ from .models import (
 )
 from .printability import evaluate_printability, require_printable
 from .provider_policy import provider_policy_warning
-from .preview import neutral_preview_glb_bytes
+from .preview import color_preview_glb_bytes
 from .relief import binary_stl_bytes, build_closed_relief_mesh
 from .storage import StorageAdapter, artifact_path
 
@@ -87,7 +87,7 @@ def generate_print_file_bundle(
         border_height_mm=request.relief.base_thickness_mm,
     )
     stl_bytes = binary_stl_bytes(mesh)
-    preview_glb_bytes = neutral_preview_glb_bytes(mesh)
+    preview_glb_bytes = color_preview_glb_bytes(mesh, normalized_image.image)
     printability = evaluate_printability(
         request=request,
         mesh=mesh,
@@ -203,7 +203,7 @@ def generate_print_file_bundle(
                 "image_normalized_to_5x7_window",
                 f"{heightmap.provider}_heightmap_generated",
                 "closed_binary_stl_generated",
-                "neutral_preview_glb_generated",
+                "color_preview_glb_generated",
                 *printability.checks,
                 *color_package.checks,
                 "metadata_written",

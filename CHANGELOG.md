@@ -11,7 +11,7 @@ All notable project changes will be documented in this file.
 - Added the first deterministic print-file generator pipeline with image normalization, luminance heightmaps, closed relief STL export, local/GCS storage adapters, artifact metadata, and regression tests.
 - Added printability checks for relief bounds, base thickness, relief depth, triangle count, binary STL size, and watertight mesh edges.
 - Added known-image metadata regression coverage and invalid-image endpoint error coverage for the print-file generator.
-- Added neutral-material GLB preview mesh generation for browser previews.
+- Added GLB preview mesh generation for browser previews.
 - Added proof-approval orchestration that calls the print-file generator, stores STL/GLB artifact paths on the job, and gates checkout on generated print files.
 - Added a job-page GLB relief viewer backed by generated `preview.glb` artifacts.
 - Added a job-page artifact inspection view with side-by-side approved proof, generated `heightmap.png`, `preview.glb`, warning details, and download buttons for baseline print artifacts.
@@ -50,6 +50,7 @@ All notable project changes will be documented in this file.
 - Condensed `AI_DEVELOPER_NOTES.md` into compact durable memory and aligned `AGENTS.md` plus the repo PM skill around source-of-truth boundaries.
 - Changed default relief geometry from a full-bleed 5in x 7in plate to a 5in x 7in relief window inside a 5.5in x 7.5in physical object.
 - Replaced placeholder color-package and filament-painting warnings with generated artifact checks in the print-file readiness summary.
+- Changed generated `preview.glb` files from neutral material previews to image-colored previews using vertex colors sampled from the normalized proof image.
 
 ### Verified
 
@@ -62,6 +63,7 @@ All notable project changes will be documented in this file.
 - Verified both canonical inputs with hybrid lithophane and posterized detail-source runs under `.tmp/experiments/hybrid`.
 - Verified the print-file generator test suite passes with the bordered physical object defaults.
 - Verified color-package generation with focused Python contract/unit tests, Functions build, and web typecheck.
+- Verified color preview GLB generation with focused print-file generator unit and contract tests.
 
 ## [Unreleased] - 2026-05-05
 

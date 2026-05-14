@@ -137,7 +137,7 @@ def test_local_generation_writes_default_hybrid_relief_bundle(
     assert (output_prefix / "filament-painting" / "layer-swaps.txt").exists()
     assert (output_prefix / "filament-painting" / "print-settings.json").exists()
     assert (output_prefix / "filament-painting" / "preview.png").exists()
-    assert "neutral_preview_glb_generated" in response.printability.checks
+    assert "color_preview_glb_generated" in response.printability.checks
     assert "full_color_3mf_generated" in response.printability.checks
     assert "filament_layer_swaps_generated" in response.printability.checks
 

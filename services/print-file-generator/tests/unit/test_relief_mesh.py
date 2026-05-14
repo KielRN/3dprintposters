@@ -3,11 +3,17 @@ import struct
 
 import numpy as np
 import pytest
+from PIL import Image
 
 from app.depth import Heightmap
 from app.models import PrintFileGenerationRequest
 from app.printability import evaluate_printability
-from app.preview import BIN_CHUNK_TYPE, JSON_CHUNK_TYPE, neutral_preview_glb_bytes
+from app.preview import (
+    BIN_CHUNK_TYPE,
+    JSON_CHUNK_TYPE,
+    color_preview_glb_bytes,
+    neutral_preview_glb_bytes,
+)
 from app.relief import binary_stl_bytes, build_closed_relief_mesh
 
 
@@ -197,3 +203,46 @@ def test_neutral_preview_glb_contains_mesh_and_material() -> None:
     assert gltf["accessors"][1]["count"] == len(mesh.faces) * 3
     assert gltf["buffers"][0]["byteLength"] == bin_length
     assert gltf["materials"][0]["name"] == "warm-neutral-preview"
+
+
+def test_color_preview_glb_contains_image_vertex_colors() -> None:
+    heightmap = np.array(
+        [
+            [1.0, 2.0],
+            [3.0, 4.0],
+        ],
+        dtype=np.float32,
+    )
+    mesh = build_closed_relief_mesh(heightmap, width_mm=127.0, height_mm=177.8)
+    image = Image.new("RGB", (2, 2))
+    image.putdata(
+        [
+            (255, 0, 0),
+            (0, 255, 0),
+            (0, 0, 255),
+            (255, 255, 255),
+        ]
+    )
+
+    glb_bytes = color_preview_glb_bytes(mesh, image)
+
+    magic, version, total_length = struct.unpack("<4sII", glb_bytes[:12])
+    assert magic == b"glTF"
+    assert version == 2
+    assert total_length == len(glb_bytes)
+
+    json_length, json_type = struct.unpack("<II", glb_bytes[12:20])
+    assert json_type == JSON_CHUNK_TYPE
+    json_start = 20
+    json_end = json_start + json_length
+    gltf = json.loads(glb_bytes[json_start:json_end].decode("utf-8"))
+
+    bin_length, bin_type = struct.unpack("<II", glb_bytes[json_end : json_end + 8])
+    assert bin_type == BIN_CHUNK_TYPE
+    assert gltf["buffers"][0]["byteLength"] == bin_length
+    primitive = gltf["meshes"][0]["primitives"][0]
+    assert primitive["attributes"]["COLOR_0"] == 1
+    assert primitive["indices"] == 2
+    assert gltf["accessors"][1]["count"] == len(mesh.vertices)
+    assert gltf["accessors"][1]["componentType"] == 5126
+    assert gltf["materials"][0]["name"] == "image-color-preview"
