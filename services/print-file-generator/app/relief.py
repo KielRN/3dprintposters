@@ -52,51 +52,67 @@ def build_closed_relief_mesh(
             image_window_height_mm=image_window_height_mm,
             border_mm=border_mm,
         )
-        x_coords = [
-            0.0,
-            *(
-                border_mm + x * image_window_width_mm / (cols - 1)
-                for x in range(cols)
-            ),
-            width_mm,
-        ]
-        y_coords = [
-            0.0,
-            *(
-                border_mm + y * image_window_height_mm / (rows - 1)
-                for y in range(rows)
-            ),
-            height_mm,
-        ]
-        top_rows = rows + 2
-        top_cols = cols + 2
         flat_border_height = (
             float(np.min(heightmap)) if border_height_mm is None else border_height_mm
+        )
+        x_coords = _bordered_axis_coords(
+            physical_mm=width_mm,
+            window_mm=image_window_width_mm,
+            border_mm=border_mm,
+            source_count=cols,
+        )
+        y_coords = _bordered_axis_coords(
+            physical_mm=height_mm,
+            window_mm=image_window_height_mm,
+            border_mm=border_mm,
+            source_count=rows,
         )
     else:
         image_window_width_mm = width_mm
         image_window_height_mm = height_mm
         x_coords = [x * width_mm / (cols - 1) for x in range(cols)]
         y_coords = [y * height_mm / (rows - 1) for y in range(rows)]
-        top_rows = rows
-        top_cols = cols
         flat_border_height = 0.0
 
+    top_rows = len(y_coords)
+    top_cols = len(x_coords)
     vertices: list[Vertex] = []
+    frame_raise_mm = _default_frame_raise_mm(
+        heightmap=heightmap,
+        border_height_mm=flat_border_height,
+        border_mm=border_mm,
+    )
 
     for y in range(top_rows):
         for x in range(top_cols):
-            is_border_vertex = (
-                border_mm > 0
-                and (x == 0 or y == 0 or x == top_cols - 1 or y == top_rows - 1)
-            )
-            if is_border_vertex:
-                z = float(flat_border_height)
+            x_mm = x_coords[x]
+            y_mm = y_coords[y]
+            if border_mm > 0 and not _inside_image_window(
+                x_mm=x_mm,
+                y_mm=y_mm,
+                width_mm=width_mm,
+                height_mm=height_mm,
+                border_mm=border_mm,
+            ):
+                z = _frame_height_at(
+                    x_mm=x_mm,
+                    y_mm=y_mm,
+                    width_mm=width_mm,
+                    height_mm=height_mm,
+                    border_mm=border_mm,
+                    border_height_mm=flat_border_height,
+                    frame_raise_mm=frame_raise_mm,
+                )
             else:
-                source_x = x - 1 if border_mm > 0 else x
-                source_y = rows - 1 - (y - 1 if border_mm > 0 else y)
-                z = float(heightmap[source_y, source_x])
-            vertices.append((x_coords[x], y_coords[y], z))
+                z = _sample_heightmap_at(
+                    heightmap=heightmap,
+                    x_mm=x_mm,
+                    y_mm=y_mm,
+                    border_mm=border_mm,
+                    image_window_width_mm=image_window_width_mm,
+                    image_window_height_mm=image_window_height_mm,
+                )
+            vertices.append((x_mm, y_mm, float(z)))
 
     bottom_offset = len(vertices)
     for y in range(top_rows):
@@ -167,11 +183,139 @@ def build_closed_relief_mesh(
         width_mm=width_mm,
         height_mm=height_mm,
         min_z_mm=0.0,
-        max_z_mm=float(max(np.max(heightmap), flat_border_height)),
+        max_z_mm=float(max(np.max(heightmap), flat_border_height + frame_raise_mm)),
         image_window_width_mm=image_window_width_mm,
         image_window_height_mm=image_window_height_mm,
         border_mm=border_mm,
     )
+
+
+def _bordered_axis_coords(
+    *,
+    physical_mm: float,
+    window_mm: float,
+    border_mm: float,
+    source_count: int,
+) -> list[float]:
+    outer_bevel_mm = min(border_mm * 0.24, 1.6)
+    inner_bevel_mm = min(border_mm * 0.30, 2.0)
+    inner_lip_mm = border_mm - inner_bevel_mm * 0.35
+    frame_coords = [
+        0.0,
+        outer_bevel_mm,
+        border_mm - inner_bevel_mm,
+        inner_lip_mm,
+        border_mm,
+        *(border_mm + index * window_mm / (source_count - 1) for index in range(source_count)),
+        physical_mm - border_mm,
+        physical_mm - inner_lip_mm,
+        physical_mm - border_mm + inner_bevel_mm,
+        physical_mm - outer_bevel_mm,
+        physical_mm,
+    ]
+    return _unique_sorted(frame_coords)
+
+
+def _unique_sorted(values: list[float]) -> list[float]:
+    rounded = sorted({round(value, 9) for value in values})
+    return [float(value) for value in rounded]
+
+
+def _default_frame_raise_mm(
+    *,
+    heightmap: np.ndarray,
+    border_height_mm: float,
+    border_mm: float,
+) -> float:
+    if border_mm <= 0:
+        return 0.0
+    relief_span = max(0.0, float(np.max(heightmap)) - border_height_mm)
+    return min(border_mm * 0.14, max(0.55, relief_span * 0.22))
+
+
+def _inside_image_window(
+    *,
+    x_mm: float,
+    y_mm: float,
+    width_mm: float,
+    height_mm: float,
+    border_mm: float,
+) -> bool:
+    tolerance = 1e-9
+    return (
+        x_mm >= border_mm - tolerance
+        and x_mm <= width_mm - border_mm + tolerance
+        and y_mm >= border_mm - tolerance
+        and y_mm <= height_mm - border_mm + tolerance
+    )
+
+
+def _frame_height_at(
+    *,
+    x_mm: float,
+    y_mm: float,
+    width_mm: float,
+    height_mm: float,
+    border_mm: float,
+    border_height_mm: float,
+    frame_raise_mm: float,
+) -> float:
+    if border_mm <= 0:
+        return border_height_mm
+
+    distance_from_outer_edge = min(x_mm, y_mm, width_mm - x_mm, height_mm - y_mm)
+    outer_bevel_mm = min(border_mm * 0.24, 1.6)
+    inner_bevel_mm = min(border_mm * 0.30, 2.0)
+    shoulder_end_mm = max(outer_bevel_mm, border_mm - inner_bevel_mm)
+    peak_height = border_height_mm + frame_raise_mm
+    inner_lip_height = border_height_mm + frame_raise_mm * 0.68
+
+    if distance_from_outer_edge <= outer_bevel_mm:
+        progress = distance_from_outer_edge / max(outer_bevel_mm, 1e-9)
+        return border_height_mm + frame_raise_mm * progress
+    if distance_from_outer_edge <= shoulder_end_mm:
+        return peak_height
+
+    progress = (distance_from_outer_edge - shoulder_end_mm) / max(
+        border_mm - shoulder_end_mm,
+        1e-9,
+    )
+    return peak_height + (inner_lip_height - peak_height) * min(1.0, progress)
+
+
+def _sample_heightmap_at(
+    *,
+    heightmap: np.ndarray,
+    x_mm: float,
+    y_mm: float,
+    border_mm: float,
+    image_window_width_mm: float,
+    image_window_height_mm: float,
+) -> float:
+    rows, cols = heightmap.shape
+    u = (x_mm - border_mm) / image_window_width_mm if image_window_width_mm else 0.0
+    v = (y_mm - border_mm) / image_window_height_mm if image_window_height_mm else 0.0
+    source_x = min(cols - 1, max(0.0, u * (cols - 1)))
+    source_y = min(rows - 1, max(0.0, (1.0 - v) * (rows - 1)))
+    return _bilinear_sample(heightmap, source_x=source_x, source_y=source_y)
+
+
+def _bilinear_sample(
+    heightmap: np.ndarray,
+    *,
+    source_x: float,
+    source_y: float,
+) -> float:
+    x0 = int(math.floor(source_x))
+    y0 = int(math.floor(source_y))
+    x1 = min(x0 + 1, heightmap.shape[1] - 1)
+    y1 = min(y0 + 1, heightmap.shape[0] - 1)
+    tx = source_x - x0
+    ty = source_y - y0
+
+    top = (1.0 - tx) * float(heightmap[y0, x0]) + tx * float(heightmap[y0, x1])
+    bottom = (1.0 - tx) * float(heightmap[y1, x0]) + tx * float(heightmap[y1, x1])
+    return (1.0 - ty) * top + ty * bottom
 
 
 def _validate_window_bounds(

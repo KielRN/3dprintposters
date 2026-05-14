@@ -26,7 +26,7 @@ Implementation direction: keep this service's FastAPI contract and selectively e
   - `full_color_relief`
   - `filament_painting`
 - Target physical dimensions: 139.7mm x 190.5mm for a 5.5in x 7.5in object.
-- Image relief window: 127mm x 177.8mm for 5in x 7in, with a 6.35mm border on all sides.
+- Image relief window: 127mm x 177.8mm for 5in x 7in, with a shaped 6.35mm border/frame on all sides.
 - Relief depth range, initially 0.4mm to 3.0mm.
 - Source image decoded pixel limit, initially 4,000,000 pixels before normalization to the working relief resolution.
 - Base thickness, initially 1.2mm.
@@ -75,7 +75,7 @@ Filament painting artifacts:
 5. Choose the requested server-side height provider. The product default is `masked_depth_detail_blend` with `lithophane_baseline` detail source.
 6. Generate a normalized float heightmap from the selected provider.
 7. Apply optional tone controls, post-heightmap smoothing, quantization, and softened edge detail according to the provider.
-8. Convert height values into closed relief geometry with a 5in x 7in image window, 1/4in border, top surface, bottom base plane, sidewalls, consistent winding, and controlled relief depth.
+8. Convert height values into closed relief geometry with a 5in x 7in image window, shaped 1/4in border/frame, top surface, bottom base plane, sidewalls, consistent winding, and controlled relief depth.
 9. Add a poster base plate with minimum thickness.
 10. Export baseline STL for geometry validation workflows.
 11. Generate a color browser preview mesh.
@@ -148,7 +148,7 @@ The accepted extraction plan is now partially implemented:
 - Generate hybrid relief artifacts: `model.stl`, image-colored `preview.glb`, `heightmap.png`, and `metadata.json`.
 - Generate deterministic color-package artifacts: `full-color/print-package.3mf`, `full-color/model.obj`, `full-color/model.mtl`, `full-color/texture.png`, `full-color/model.wrl`, and `full-color/model.ply`.
 - Generate portable filament-painting artifacts: `filament-painting/palette.json`, `filament-painting/layer-swaps.txt`, `filament-painting/print-settings.json`, and `filament-painting/preview.png`.
-- Make the STL a closed, watertight 5.5in x 7.5in object with a 5in x 7in image relief window before adding color packages or fulfillment automation.
+- Make the STL a closed, watertight 5.5in x 7.5in object with a 5in x 7in image relief window and shaped border/frame before adding fulfillment automation.
 - Add printability checks before checkout can depend on generated print files.
 - Use `masked_depth_detail_blend` as the default checkout provider with `lithophane_baseline` detail source.
 - Write height-provider policy fields into `metadata.json` so deterministic brightness-to-height providers are marked fallback-only and current quality candidates are distinguishable from the safety net.

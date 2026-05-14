@@ -81,12 +81,18 @@ def test_relief_mesh_adds_product_border_around_image_window() -> None:
     assert mesh.image_window_width_mm == 127.0
     assert mesh.image_window_height_mm == 177.8
     assert mesh.border_mm == 6.35
-    assert len(mesh.vertices) == 32
-    assert len(mesh.faces) == 60
-    assert mesh.vertices[0] == (0.0, 0.0, 1.2)
-    assert mesh.vertices[3] == (139.7, 0.0, 1.2)
-    assert mesh.vertices[5] == (6.35, 6.35, 3.0)
-    assert mesh.vertices[9] == pytest.approx((6.35, 184.15, 1.6))
+    assert len(mesh.vertices) == 200
+    assert len(mesh.faces) == 396
+
+    top_vertices = mesh.vertices[: len(mesh.vertices) // 2]
+    vertices_by_xy = {(vertex[0], vertex[1]): vertex for vertex in top_vertices}
+    assert vertices_by_xy[(0.0, 0.0)] == (0.0, 0.0, 1.2)
+    assert vertices_by_xy[(139.7, 0.0)] == (139.7, 0.0, 1.2)
+    assert vertices_by_xy[(1.524, 1.524)][2] == pytest.approx(1.86)
+    assert vertices_by_xy[(4.445, 4.445)][2] == pytest.approx(1.86)
+    assert vertices_by_xy[(5.68325, 5.68325)][2] == pytest.approx(1.72272)
+    assert vertices_by_xy[(6.35, 6.35)] == pytest.approx((6.35, 6.35, 3.0))
+    assert vertices_by_xy[(6.35, 184.15)] == pytest.approx((6.35, 184.15, 1.6))
 
 
 def test_printability_checks_pass_for_closed_target_relief() -> None:

@@ -13,7 +13,7 @@ Working now:
 - Browser upload to Firebase Storage
 - Firebase callable Functions for job creation, proof approval, print-file generation orchestration, and checkout
 - Direct Vertex/Gemini proof-generation adapter in `apps/functions`
-- Python print-file generator service for baseline STL, image-colored GLB preview, heightmap, metadata, full-color packages, filament painting guides, and printability output
+- Python print-file generator service for baseline STL, shaped-frame relief geometry, image-colored GLB preview, heightmap, metadata, full-color packages, filament painting guides, and printability output
 - Job-page proof, heightmap, 3D GLB inspection view, and downloadable print-package artifacts after proof approval
 - Firestore and Storage security rules for the dev Firebase project
 - Stripe Checkout session creation boundary
@@ -158,7 +158,7 @@ The next major implementation slice is the print-file generator. We accepted the
 - Keep `services/print-file-generator` as the FastAPI/Cloud Run service boundary.
 - Selectively port core image, heightmap, STL, metadata, color, and test ideas from `E:\PROJECTS\print-file-generator`.
 - Do not copy the standalone Flask app, SQLite project database, browser session state, CLI control plane, or TD1 hardware code into the production service.
-- Build relief generation around a 5in x 7in image window inside a 5.5in x 7.5in physical object: validated image input, 5:7 crop/pad, heightmap, closed watertight mesh with base and sidewalls, binary STL, heightmap PNG, metadata, and printability checks.
+- Build relief generation around a 5in x 7in image window inside a 5.5in x 7.5in physical object: validated image input, 5:7 crop/pad, heightmap, closed watertight mesh with base, sidewalls, and shaped border/frame geometry, binary STL, heightmap PNG, metadata, and printability checks.
 - Add Depth Anything V2 Small, Depth Pro, MoGe, or other AI depth providers only after the deterministic relief pipeline works.
 
 See `docs/PRINT_FILE_GENERATOR_ARCHITECTURE_ROADMAP_EVALUATION.md` for the phased roadmap.
@@ -425,7 +425,7 @@ Use Stripe test mode until payment, webhook, and fulfillment state transitions a
 - [x] Implement image validation and normalization.
 - [x] Add 5:7 crop/pad handling.
 - [x] Generate deterministic luminance heightmaps.
-- [x] Generate a closed watertight 5.5in x 7.5in physical relief mesh with a 5in x 7in image window, base, and sidewalls.
+- [x] Generate a closed watertight 5.5in x 7.5in physical relief mesh with a 5in x 7in image window, shaped border/frame, base, and sidewalls.
 - [x] Generate binary STL files from the closed relief mesh.
 - [x] Generate `heightmap.png` and `metadata.json`.
 - [x] Generate browser preview mesh as color GLB.

@@ -30,6 +30,7 @@ All notable project changes will be documented in this file.
 - Added the PM/human-test handoff rule: after AI implementation and verification, create or update a human task when the next validation is the full product workflow in the browser.
 - Added explicit 5in x 7in image-window metadata and a 1/4in product border to print-file generator artifacts, making the default physical object 5.5in x 7.5in.
 - Added deterministic full-color package outputs (`3MF`, `OBJ`/`MTL`/texture, `VRML`, `PLY`) plus filament painting palette, layer-swap guide, print settings, and quantized preview artifacts.
+- Added shaped border/frame mesh geometry with an outer bevel, raised shoulder, and inner lip for the 5.5in x 7.5in relief object.
 
 ### Changed
 
@@ -53,6 +54,7 @@ All notable project changes will be documented in this file.
 - Replaced placeholder color-package and filament-painting warnings with generated artifact checks in the print-file readiness summary.
 - Changed generated `preview.glb` files from neutral material previews to image-colored previews using vertex colors sampled from the normalized proof image.
 - Removed `scikit-image` from the print-file generator quality-gates extra because composition scoring no longer depends on SSIM.
+- Changed the bordered relief mesh from a flat perimeter ring to a shaped product frame while preserving the 5in x 7in image window and 1/4in border dimensions.
 
 ### Verified
 
@@ -66,6 +68,7 @@ All notable project changes will be documented in this file.
 - Verified the print-file generator test suite passes with the bordered physical object defaults.
 - Verified color-package generation with focused Python contract/unit tests, Functions build, and web typecheck.
 - Verified color preview GLB generation with focused print-file generator unit and contract tests.
+- Verified shaped border/frame geometry with the full print-file generator test suite.
 
 ## [Unreleased] - 2026-05-05
 

@@ -91,7 +91,7 @@
 - [x] Wire `ProviderAudit` and segmentation status into `metadata.json` and the Firestore job audit document.
 - [x] Change the physical relief object from a full-bleed 5in x 7in plate to a 5in x 7in image relief window with an additional 1/4in border on all sides, for a total object size of 5.5in x 7.5in.
 - [x] Make generated `preview.glb` artifacts color-aware with image-derived vertex colors for job-page review.
-- [ ] Add border/frame geometry so the 1/4in border reads as an intentional product edge, not unused flat margin.
+- [x] Add border/frame geometry so the 1/4in border reads as an intentional product edge, not unused flat margin.
 - [ ] Add an image-window mask and edge-fade so the relief settles cleanly before the border and avoids hard crop/depth artifacts at the physical edge.
 - [ ] Tune hybrid portrait relief quality after human product-flow review: reduce bottom-band artifacts, preserve larger facial forms, and reduce harsh photo-embossed detail around eyes, teeth, and skin texture.
 - [ ] Increase and test production heightmap/mesh resolution beyond the current 200px width, starting with 280px or 320px, while keeping triangle count and preview performance acceptable.

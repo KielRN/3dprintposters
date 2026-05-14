@@ -217,9 +217,9 @@ def test_known_image_metadata_is_deterministic(tmp_path, monkeypatch) -> None:
     assert metadatas[0] == metadatas[1]
     assert metadatas[0]["normalized_width_px"] == 4
     assert metadatas[0]["normalized_height_px"] == 6
-    assert metadatas[0]["vertex_count"] == 96
-    assert metadatas[0]["triangle_count"] == 188
-    assert metadatas[0]["binary_stl_bytes"] == 9484
+    assert metadatas[0]["vertex_count"] == 336
+    assert metadatas[0]["triangle_count"] == 668
+    assert metadatas[0]["binary_stl_bytes"] == 33484
     assert metadatas[0]["height_provider"] == "masked_depth_detail_blend"
 
 
