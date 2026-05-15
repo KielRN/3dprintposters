@@ -7,7 +7,11 @@ SERVICE_ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(SERVICE_ROOT))
 
-from app.models import PrintFileGenerationRequest, ReliefSettings  # noqa: E402
+from app.models import (  # noqa: E402
+    PRODUCTION_TARGET_WIDTH_PX,
+    PrintFileGenerationRequest,
+    ReliefSettings,
+)
 from app.packages import generate_print_file_bundle  # noqa: E402
 from app.storage import LocalFilesystemStorage  # noqa: E402
 
@@ -49,7 +53,7 @@ def main() -> None:
     parser.add_argument("source_image", type=Path)
     parser.add_argument("--job-id", default=None)
     parser.add_argument("--uid", default="local_experiment")
-    parser.add_argument("--target-width-px", type=int, default=200)
+    parser.add_argument("--target-width-px", type=int, default=PRODUCTION_TARGET_WIDTH_PX)
     parser.add_argument("--max-source-pixels", type=int, default=16_000_000)
     parser.add_argument("--contrast", type=float, default=1.0)
     parser.add_argument("--gamma", type=float, default=1.0)

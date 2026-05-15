@@ -4,6 +4,11 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field, model_validator
 
 
+PRODUCTION_TARGET_WIDTH_PX = 280
+PRODUCTION_MAX_TRIANGLE_COUNT = 500_000
+PRODUCTION_MAX_BINARY_STL_BYTES = 25_000_000
+
+
 class OutputMode(str, Enum):
     FULL_COLOR_RELIEF = "full_color_relief"
     FILAMENT_PAINTING = "filament_painting"
@@ -46,9 +51,9 @@ class ReliefSettings(BaseModel):
     min_relief_mm: float = Field(default=0.4, ge=0)
     max_relief_mm: float = Field(default=3.0, gt=0)
     max_source_pixels: int = Field(default=4_000_000, ge=4)
-    target_width_px: int = Field(default=200, ge=2)
-    max_triangle_count: int = Field(default=250_000, ge=1)
-    max_binary_stl_bytes: int = Field(default=15_000_000, ge=84)
+    target_width_px: int = Field(default=PRODUCTION_TARGET_WIDTH_PX, ge=2)
+    max_triangle_count: int = Field(default=PRODUCTION_MAX_TRIANGLE_COUNT, ge=1)
+    max_binary_stl_bytes: int = Field(default=PRODUCTION_MAX_BINARY_STL_BYTES, ge=84)
     contrast: float = Field(default=1.0, gt=0)
     gamma: float = Field(default=1.0, gt=0)
     post_smooth_radius_px: float = Field(default=0.0, ge=0)

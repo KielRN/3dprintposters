@@ -1,6 +1,6 @@
 # 3DPrintPosters - AI Developer Notes
 
-Last updated: 2026-05-14
+Last updated: 2026-05-15
 
 ## Purpose
 
@@ -24,9 +24,9 @@ Use `STL`, not `SLT`.
 - Dev Firebase/GCP project: `gen-lang-client-0675309660`.
 - Product domain: `3dprintposters.com`.
 - Current proof generation: direct Vertex/Gemini through `apps/functions/src/aiProvider.ts`, with generated proofs stored under `generated/{uid}/{jobId}/`.
-- Current print-file generation: `approveGeneratedImage` calls the FastAPI generator with `masked_depth_detail_blend`, `lithophane_baseline` detail source, `target_width_px: 200`, and explicit dimensions for a 5in x 7in image window inside a 5.5in x 7.5in physical object.
+- Current print-file generation: `approveGeneratedImage` calls the FastAPI generator with `masked_depth_detail_blend`, `lithophane_baseline` detail source, `target_width_px: 280`, and explicit dimensions for a 5in x 7in image window inside a 5.5in x 7.5in physical object.
 - Current print-file artifacts: `model.stl`, image-colored `preview.glb`, `heightmap.png`, `metadata.json`, deterministic full-color package files (`3MF`, `OBJ`/`MTL`/texture, `VRML`, `PLY`), and filament painting files (`palette.json`, `layer-swaps.txt`, `print-settings.json`, `preview.png`). The physical object is now 5.5in x 7.5in with a 5in x 7in image relief window and shaped 1/4in border/frame, and the job page uses an interactive GLB inspection viewer with zoom, orbit, and reset controls.
-- Observed local full print-file bundles are about 60 MB per completed job at the current `target_width_px: 200` settings, including baseline, full-color, and filament-painting artifacts. This is acceptable for the current dev flow and useful as the storage/performance baseline before testing higher mesh resolutions.
+- The 280px production relief mesh measures 230,400 vertices, 460,796 triangles, and a 23,039,884 byte binary STL before full-color and filament-painting package files. The printability caps are now 500,000 triangles and 25,000,000 STL bytes.
 - Checkout is gated on proof approval and generated print-file artifacts.
 
 ## Durable Decisions
@@ -45,8 +45,7 @@ Phase 3 is now about product relief geometry and quality, not more provider rese
 
 1. Add an image-window mask and edge fade so relief settles cleanly before the border.
 2. Tune portrait quality: reduce bottom-band artifacts, preserve larger facial forms, and reduce harsh photo-embossed detail around eyes, teeth, and skin texture.
-3. Test higher production heightmap/mesh resolution, starting with 280px or 320px width while keeping triangle count and preview performance acceptable.
-4. Tune color GLB preview lighting/material and performance so browser review reflects actual relief and color quality.
+3. Tune color GLB preview lighting/material and performance so browser review reflects actual relief and color quality.
 
 Current human-test handoff: `human-tasks/open/test-hybrid-relief-product-flow.md`.
 

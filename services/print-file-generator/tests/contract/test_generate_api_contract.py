@@ -89,7 +89,9 @@ def test_request_defaults_include_both_output_modes() -> None:
     assert request.dimensions.border_mm == 6.35
     assert request.relief.height_provider == "masked_depth_detail_blend"
     assert request.relief.detail_source == "lithophane_baseline"
-    assert request.relief.target_width_px == 200
+    assert request.relief.target_width_px == 280
+    assert request.relief.max_triangle_count == 500_000
+    assert request.relief.max_binary_stl_bytes == 25_000_000
     assert request.relief.max_source_pixels == 4_000_000
 
 

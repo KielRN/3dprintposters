@@ -33,6 +33,7 @@ All notable project changes will be documented in this file.
 - Added shaped border/frame mesh geometry with an outer bevel, raised shoulder, and inner lip for the 5.5in x 7.5in relief object.
 - Added local Functions emulator mirroring for generated print-file artifacts under `.tmp/print-files/{uid}/{jobId}` after proof approval.
 - Added job-page GLB inspection controls for zooming, orbiting, and resetting the 3D relief preview.
+- Added a 280px production relief resolution default with updated printability caps for 500,000 triangles and 25 MB binary STL output.
 
 ### Changed
 
@@ -60,6 +61,7 @@ All notable project changes will be documented in this file.
 - Removed customer-facing print-file download buttons from the job review preview while keeping proof, heightmap, GLB preview, and printability inspection.
 - Changed the job-page GLB preview from a passive animated model to a stable inspection viewer with explicit zoom controls.
 - Changed the job-page artifact layout so the approved proof and heightmap stay in the comparison row while the GLB preview gets a larger full-width inspection panel underneath.
+- Changed the Functions approval flow and print-file generator defaults from a 200px to 280px working relief width.
 
 ### Verified
 
@@ -75,6 +77,7 @@ All notable project changes will be documented in this file.
 - Verified color preview GLB generation with focused print-file generator unit and contract tests.
 - Verified shaped border/frame geometry with the full print-file generator test suite.
 - Verified the web typecheck after adding job-page GLB inspection controls.
+- Verified the full print-file generator test suite and Firebase Functions build at the 280px production default.
 
 ## [Unreleased] - 2026-05-05
 
