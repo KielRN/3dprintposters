@@ -159,7 +159,8 @@ The accepted extraction plan is now partially implemented:
 - Call the print-file generator from `approveGeneratedImage` after proof approval.
 - Pass the production dimensions and relief settings from `approveGeneratedImage`: 139.7mm x 190.5mm physical object, 127mm x 177.8mm image window, 6.35mm border, `height_provider: masked_depth_detail_blend`, `detail_source: lithophane_baseline`, and `target_width_px: 200`.
 - Store artifact paths and printability output on `jobs/{jobId}`.
-- Render the approved proof, generated `heightmap.png`, and color `preview.glb` side by side on `/jobs/{jobId}`, with baseline, full-color, and filament-painting artifact downloads for local quality checks.
+- Render the approved proof and generated `heightmap.png` in a comparison row on `/jobs/{jobId}`, with the color `preview.glb` in a larger full-width inspection panel below with interactive zoom/orbit controls and without customer-facing artifact download links.
+- During local Functions emulator runs, mirror generated print-file artifacts to `.tmp/print-files/{uid}/{jobId}` so the full bundle is available on disk for inspection and future printer-owner handoff.
 - Keep checkout locked until print-file artifacts are ready.
 - For local hybrid testing, run the print-file generator on `http://127.0.0.1:8089` and set `PRINT_FILE_GENERATOR_URL` in `apps/functions/.env`.
 

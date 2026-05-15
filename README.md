@@ -14,7 +14,7 @@ Working now:
 - Firebase callable Functions for job creation, proof approval, print-file generation orchestration, and checkout
 - Direct Vertex/Gemini proof-generation adapter in `apps/functions`
 - Python print-file generator service for baseline STL, shaped-frame relief geometry, image-colored GLB preview, heightmap, metadata, full-color packages, filament painting guides, and printability output
-- Job-page proof, heightmap, 3D GLB inspection view, and downloadable print-package artifacts after proof approval
+- Job-page proof, heightmap, 3D GLB inspection view, and local `.tmp` print-package mirroring after proof approval
 - Firestore and Storage security rules for the dev Firebase project
 - Stripe Checkout session creation boundary
 - PWA manifest, icons, and install behavior
@@ -259,10 +259,11 @@ In this mode:
 - Callable Functions use your local emulator.
 - Vertex/Gemini generation is live when `AI_PROVIDER_ROUTE=vertex-gemini-direct`.
 - Print-file generation calls `PRINT_FILE_GENERATOR_URL` and writes artifacts under `print-files/{uid}/{jobId}`.
+- The Functions emulator mirrors generated print-file artifacts to `.tmp/print-files/{uid}/{jobId}` for local inspection and later printer-owner handoff.
 
 If generation fails with `Poster generation failed before a proof was ready`, check `apps/functions/.env` first. The local Functions emulator needs `VERTEX_API_KEY` before it can call Vertex/Gemini.
 
-If approval fails with `3D preview generation failed`, make sure the print-file generator is running on `http://127.0.0.1:8089` and that `apps/functions/.env` has `PRINT_FILE_GENERATOR_URL=http://127.0.0.1:8089`. The print-file generator accepts generated proof images up to 4,000,000 decoded pixels by default before resizing them to the working relief resolution.
+If approval fails with `3D preview generation failed`, make sure the print-file generator is running on `http://127.0.0.1:8089` and that `apps/functions/.env` has `PRINT_FILE_GENERATOR_URL=http://127.0.0.1:8089`. The print-file generator accepts generated proof images up to 4,000,000 decoded pixels by default before resizing them to the working relief resolution. In local emulator runs, also confirm the mirror directory is writable; by default it is `.tmp`, and `PRINT_FILE_LOCAL_MIRROR_DIR` can override it.
 
 ## Local Testing: Web Only
 

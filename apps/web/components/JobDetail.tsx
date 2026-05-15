@@ -16,11 +16,7 @@ import { onAuthStateChanged, type User } from "firebase/auth";
 import { doc, onSnapshot } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { getDownloadURL, ref } from "firebase/storage";
-import {
-  PrintFilePreview,
-  PrintFileStatusPanel,
-  type ArtifactDownload,
-} from "./PrintFilePreview";
+import { PrintFilePreview, PrintFileStatusPanel } from "./PrintFilePreview";
 
 type GeneratedImage = {
   id: string;
@@ -186,104 +182,6 @@ export function JobDetail({ jobId }: { jobId: string }) {
   const heightmapUrl = printFileArtifacts?.heightmapPng
     ? artifactUrls[printFileArtifacts.heightmapPng] ?? ""
     : "";
-  const artifactDownloadSpecs = [
-    {
-      label: "Download model.stl",
-      filename: "model.stl",
-      path: printFileArtifacts?.modelStl,
-      icon: "model" as const,
-    },
-    {
-      label: "Download preview.glb",
-      filename: "preview.glb",
-      path: printFileArtifacts?.previewGlb,
-      icon: "preview" as const,
-    },
-    {
-      label: "Download heightmap.png",
-      filename: "heightmap.png",
-      path: printFileArtifacts?.heightmapPng,
-      icon: "heightmap" as const,
-    },
-    {
-      label: "Download metadata.json",
-      filename: "metadata.json",
-      path: printFileArtifacts?.metadataJson,
-      icon: "metadata" as const,
-    },
-    {
-      label: "Download print-package.3mf",
-      filename: "print-package.3mf",
-      path: printFileArtifacts?.fullColor3mf,
-      icon: "model" as const,
-    },
-    {
-      label: "Download model.obj",
-      filename: "model.obj",
-      path: printFileArtifacts?.fullColorObj,
-      icon: "model" as const,
-    },
-    {
-      label: "Download model.mtl",
-      filename: "model.mtl",
-      path: printFileArtifacts?.fullColorObjMtl,
-      icon: "guide" as const,
-    },
-    {
-      label: "Download texture.png",
-      filename: "texture.png",
-      path: printFileArtifacts?.fullColorTexturePng,
-      icon: "texture" as const,
-    },
-    {
-      label: "Download model.wrl",
-      filename: "model.wrl",
-      path: printFileArtifacts?.fullColorVrml,
-      icon: "model" as const,
-    },
-    {
-      label: "Download model.ply",
-      filename: "model.ply",
-      path: printFileArtifacts?.fullColorPly,
-      icon: "model" as const,
-    },
-    {
-      label: "Download palette.json",
-      filename: "palette.json",
-      path: printFileArtifacts?.filamentPaletteJson,
-      icon: "metadata" as const,
-    },
-    {
-      label: "Download layer-swaps.txt",
-      filename: "layer-swaps.txt",
-      path: printFileArtifacts?.filamentLayerSwapsTxt,
-      icon: "guide" as const,
-    },
-    {
-      label: "Download print-settings.json",
-      filename: "print-settings.json",
-      path: printFileArtifacts?.filamentPrintSettingsJson,
-      icon: "metadata" as const,
-    },
-    {
-      label: "Download filament preview.png",
-      filename: "filament-preview.png",
-      path: printFileArtifacts?.filamentPreviewPng,
-      icon: "texture" as const,
-    },
-  ];
-  const artifactDownloads: ArtifactDownload[] = artifactDownloadSpecs.flatMap((artifact) =>
-    artifact.path && artifactUrls[artifact.path]
-      ? [
-          {
-            label: artifact.label,
-            filename: artifact.filename,
-            url: artifactUrls[artifact.path],
-            icon: artifact.icon,
-          },
-        ]
-      : [],
-  );
 
   useEffect(() => {
     if (!firebaseClients) {
@@ -383,22 +281,9 @@ export function JobDetail({ jobId }: { jobId: string }) {
 
     const paths = Array.from(
       new Set(
-        [
-          artifacts.modelStl,
-          artifacts.previewGlb,
-          artifacts.heightmapPng,
-          artifacts.metadataJson,
-          artifacts.fullColor3mf,
-          artifacts.fullColorObj,
-          artifacts.fullColorObjMtl,
-          artifacts.fullColorTexturePng,
-          artifacts.fullColorVrml,
-          artifacts.fullColorPly,
-          artifacts.filamentPaletteJson,
-          artifacts.filamentLayerSwapsTxt,
-          artifacts.filamentPrintSettingsJson,
-          artifacts.filamentPreviewPng,
-        ].filter((path): path is string => Boolean(path)),
+        [artifacts.previewGlb, artifacts.heightmapPng].filter(
+          (path): path is string => Boolean(path),
+        ),
       ),
     );
 
@@ -582,7 +467,6 @@ export function JobDetail({ jobId }: { jobId: string }) {
           heightmapUrl={heightmapUrl}
           previewUrl={previewGlbUrl}
           modelStlPath={job.printFileArtifacts?.modelStl}
-          artifactDownloads={artifactDownloads}
           printabilityStatus={job.printability?.status}
           warnings={job.printability?.warnings}
         />

@@ -25,7 +25,8 @@ Use `STL`, not `SLT`.
 - Product domain: `3dprintposters.com`.
 - Current proof generation: direct Vertex/Gemini through `apps/functions/src/aiProvider.ts`, with generated proofs stored under `generated/{uid}/{jobId}/`.
 - Current print-file generation: `approveGeneratedImage` calls the FastAPI generator with `masked_depth_detail_blend`, `lithophane_baseline` detail source, `target_width_px: 200`, and explicit dimensions for a 5in x 7in image window inside a 5.5in x 7.5in physical object.
-- Current print-file artifacts: `model.stl`, image-colored `preview.glb`, `heightmap.png`, `metadata.json`, deterministic full-color package files (`3MF`, `OBJ`/`MTL`/texture, `VRML`, `PLY`), and filament painting files (`palette.json`, `layer-swaps.txt`, `print-settings.json`, `preview.png`). The physical object is now 5.5in x 7.5in with a 5in x 7in image relief window and shaped 1/4in border/frame.
+- Current print-file artifacts: `model.stl`, image-colored `preview.glb`, `heightmap.png`, `metadata.json`, deterministic full-color package files (`3MF`, `OBJ`/`MTL`/texture, `VRML`, `PLY`), and filament painting files (`palette.json`, `layer-swaps.txt`, `print-settings.json`, `preview.png`). The physical object is now 5.5in x 7.5in with a 5in x 7in image relief window and shaped 1/4in border/frame, and the job page uses an interactive GLB inspection viewer with zoom, orbit, and reset controls.
+- Observed local full print-file bundles are about 60 MB per completed job at the current `target_width_px: 200` settings, including baseline, full-color, and filament-painting artifacts. This is acceptable for the current dev flow and useful as the storage/performance baseline before testing higher mesh resolutions.
 - Checkout is gated on proof approval and generated print-file artifacts.
 
 ## Durable Decisions
@@ -36,7 +37,7 @@ Use `STL`, not `SLT`.
 - The five-experiment heightmap cycle is complete. Full image-to-3D reconstruction providers such as TripoSR, Stable Fast 3D, TRELLIS, SAM 3D Objects, and TriplaneGaussian are rejected for poster relief because they reconstruct standalone objects rather than image-plane depth.
 - Deterministic brightness-to-height providers (`posterized_luminance`, `continuous_luminance`, `lithophane_baseline`) are reference providers, not the default checkout path.
 - The chosen relief provider is `masked_depth_detail_blend`: Depth Anything V2 semantic depth, SegFormer subject masking, `lithophane_baseline` in-mask detail, guided-filter bas-relief compression, and the existing closed STL/GLB generator.
-- The current job page is the first quality-control surface: approved proof, generated heightmap, GLB preview, printability status, warnings, and artifact downloads.
+- The current job page is the first quality-control surface: approved proof, generated heightmap, interactive GLB preview, printability status, and warnings. Local Functions emulator runs mirror the full print-file bundle under `.tmp/print-files/{uid}/{jobId}` instead of exposing customer-facing artifact download links.
 
 ## Active Product Focus
 

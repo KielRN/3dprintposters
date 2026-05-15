@@ -31,6 +31,8 @@ All notable project changes will be documented in this file.
 - Added explicit 5in x 7in image-window metadata and a 1/4in product border to print-file generator artifacts, making the default physical object 5.5in x 7.5in.
 - Added deterministic full-color package outputs (`3MF`, `OBJ`/`MTL`/texture, `VRML`, `PLY`) plus filament painting palette, layer-swap guide, print settings, and quantized preview artifacts.
 - Added shaped border/frame mesh geometry with an outer bevel, raised shoulder, and inner lip for the 5.5in x 7.5in relief object.
+- Added local Functions emulator mirroring for generated print-file artifacts under `.tmp/print-files/{uid}/{jobId}` after proof approval.
+- Added job-page GLB inspection controls for zooming, orbiting, and resetting the 3D relief preview.
 
 ### Changed
 
@@ -55,6 +57,9 @@ All notable project changes will be documented in this file.
 - Changed generated `preview.glb` files from neutral material previews to image-colored previews using vertex colors sampled from the normalized proof image.
 - Removed `scikit-image` from the print-file generator quality-gates extra because composition scoring no longer depends on SSIM.
 - Changed the bordered relief mesh from a flat perimeter ring to a shaped product frame while preserving the 5in x 7in image window and 1/4in border dimensions.
+- Removed customer-facing print-file download buttons from the job review preview while keeping proof, heightmap, GLB preview, and printability inspection.
+- Changed the job-page GLB preview from a passive animated model to a stable inspection viewer with explicit zoom controls.
+- Changed the job-page artifact layout so the approved proof and heightmap stay in the comparison row while the GLB preview gets a larger full-width inspection panel underneath.
 
 ### Verified
 
@@ -69,6 +74,7 @@ All notable project changes will be documented in this file.
 - Verified color-package generation with focused Python contract/unit tests, Functions build, and web typecheck.
 - Verified color preview GLB generation with focused print-file generator unit and contract tests.
 - Verified shaped border/frame geometry with the full print-file generator test suite.
+- Verified the web typecheck after adding job-page GLB inspection controls.
 
 ## [Unreleased] - 2026-05-05
 

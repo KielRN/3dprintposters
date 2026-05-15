@@ -7,6 +7,8 @@ import {
 import { getStorage } from "firebase-admin/storage";
 import { defineSecret } from "firebase-functions/params";
 import { HttpsError, onCall, onRequest } from "firebase-functions/v2/https";
+import { access, mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
 import Stripe from "stripe";
 import { z } from "zod";
 
@@ -135,6 +137,11 @@ type PrintFileArtifacts = {
   filamentPreviewPng: string;
 };
 
+type MirroredArtifact = {
+  storagePath: string;
+  localPath: string;
+};
+
 type PrintFileAudit =
   | {
       status: "captured";
@@ -153,6 +160,19 @@ type PrintFileAudit =
       metadataJson: string;
       reason: string;
       capturedAt: FieldValue;
+    };
+
+type PrintFileLocalMirror =
+  | {
+      status: "mirrored";
+      root: string;
+      artifactCount: number;
+      artifacts: MirroredArtifact[];
+      completedAt: FieldValue;
+    }
+  | {
+      status: "skipped";
+      reason: string;
     };
 
 function buildGenerationError(error: unknown) {
@@ -234,6 +254,132 @@ function normalizePrintFileArtifacts(
       bucketName,
       artifactPaths.filament_preview_png,
     ),
+  };
+}
+
+function listPrintFileArtifactPaths(artifacts: PrintFileArtifacts): string[] {
+  return [
+    artifacts.modelStl,
+    artifacts.previewGlb,
+    artifacts.heightmapPng,
+    artifacts.metadataJson,
+    artifacts.fullColor3mf,
+    artifacts.fullColorObj,
+    artifacts.fullColorObjMtl,
+    artifacts.fullColorTexturePng,
+    artifacts.fullColorVrml,
+    artifacts.fullColorPly,
+    artifacts.filamentPaletteJson,
+    artifacts.filamentLayerSwapsTxt,
+    artifacts.filamentPrintSettingsJson,
+    artifacts.filamentPreviewPng,
+  ];
+}
+
+function localMirrorIsEnabled(): boolean {
+  return (
+    process.env.FUNCTIONS_EMULATOR === "true" ||
+    Boolean(process.env.PRINT_FILE_LOCAL_MIRROR_DIR?.trim())
+  );
+}
+
+function safeStoragePathSegments(storagePath: string): string[] {
+  const segments = storagePath
+    .split(/[\\/]/)
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+
+  if (
+    segments.length === 0 ||
+    path.isAbsolute(storagePath) ||
+    segments.some((segment) => segment === "." || segment === "..")
+  ) {
+    throw new Error(`Unsafe artifact storage path: ${storagePath}`);
+  }
+
+  return segments;
+}
+
+async function findWorkspaceRoot(): Promise<string> {
+  const candidates = [
+    process.cwd(),
+    path.resolve(process.cwd(), ".."),
+    path.resolve(process.cwd(), "..", ".."),
+    path.resolve(process.cwd(), "..", "..", ".."),
+  ];
+
+  for (const candidate of candidates) {
+    try {
+      await Promise.all([
+        access(path.join(candidate, "AGENTS.md")),
+        access(path.join(candidate, "apps", "functions", "src", "index.ts")),
+      ]);
+      return candidate;
+    } catch {
+      // Keep walking up from the emulator working directory.
+    }
+  }
+
+  return process.cwd();
+}
+
+async function resolveLocalMirrorRoot(): Promise<{
+  absoluteRoot: string;
+  displayRoot: string;
+}> {
+  const configuredRoot = process.env.PRINT_FILE_LOCAL_MIRROR_DIR?.trim();
+  if (configuredRoot) {
+    return {
+      absoluteRoot: path.isAbsolute(configuredRoot)
+        ? configuredRoot
+        : path.resolve(process.cwd(), configuredRoot),
+      displayRoot: configuredRoot,
+    };
+  }
+
+  return {
+    absoluteRoot: path.join(await findWorkspaceRoot(), ".tmp"),
+    displayRoot: ".tmp",
+  };
+}
+
+async function mirrorPrintFileArtifactsToLocalTmp(input: {
+  bucketName: string;
+  artifacts: PrintFileArtifacts;
+}): Promise<PrintFileLocalMirror> {
+  if (!localMirrorIsEnabled()) {
+    return {
+      status: "skipped",
+      reason: "local_mirror_disabled",
+    };
+  }
+
+  const mirrorRoot = await resolveLocalMirrorRoot();
+  const bucket = getStorage().bucket(input.bucketName);
+  const artifactPaths = listPrintFileArtifactPaths(input.artifacts);
+  const mirroredArtifacts: MirroredArtifact[] = [];
+
+  for (const storagePath of artifactPaths) {
+    const safeSegments = safeStoragePathSegments(storagePath);
+    const [artifactBytes] = await bucket.file(storagePath).download();
+    const localPath = path.join(mirrorRoot.absoluteRoot, ...safeSegments);
+    await mkdir(path.dirname(localPath), { recursive: true });
+    await writeFile(localPath, artifactBytes);
+    mirroredArtifacts.push({
+      storagePath,
+      localPath: path.posix.join(
+        mirrorRoot.displayRoot.replaceAll("\\", "/"),
+        ...safeSegments,
+      ),
+    });
+  }
+
+  return {
+    status: "mirrored",
+    root: mirrorRoot.displayRoot,
+    artifactCount: mirroredArtifacts.length,
+    artifacts: mirroredArtifacts,
+    completedAt: FieldValue.serverTimestamp(),
   };
 }
 
@@ -341,6 +487,10 @@ async function generatePrintFilesForApprovedJob(input: {
     bucketName,
     metadataJsonPath: artifacts.metadataJson,
   });
+  const printFileLocalMirror = await mirrorPrintFileArtifactsToLocalTmp({
+    bucketName,
+    artifacts,
+  });
 
   await input.jobRef.set(
     {
@@ -349,6 +499,7 @@ async function generatePrintFilesForApprovedJob(input: {
       printFileArtifacts: artifacts,
       printability: parsed.data.printability,
       printFileAudit,
+      printFileLocalMirror,
       printFileGeneration: {
         provider: "print-file-generator",
         status: parsed.data.status,
