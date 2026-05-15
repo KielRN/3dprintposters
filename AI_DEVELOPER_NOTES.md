@@ -49,6 +49,13 @@ Phase 3 is now about product relief geometry and quality, not more provider rese
 
 Current human-test handoff: `human-tasks/open/test-hybrid-relief-product-flow.md`.
 
+Latest human review notes:
+
+- Gray relief screenshots are Blender views of generated print files.
+- Print files still look blocky in Blender.
+- The nose/face can read as recessed or carved instead of naturally protruding.
+- A read-only comparison of the latest local `heightmap.png` against `model.stl` found the STL top surface matches the heightmap correctly: heightmap-to-STL-Z correlation was `0.99996939`, mean absolute difference was about `0.00193mm`, and inverted-Z correlation was negative. Treat this as a relief/heightmap quality and display-shading issue, not a confirmed STL polarity/read bug.
+
 ## Open Risks
 
 - Local Depth Anything V2 now uses normal service dependencies (`torch`, `transformers`), so Cloud Run image size, cold start, memory, and CPU behavior need production validation.
