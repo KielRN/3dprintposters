@@ -37,6 +37,7 @@ Use `STL`, not `SLT`.
 - The five-experiment heightmap cycle is complete. Full image-to-3D reconstruction providers such as TripoSR, Stable Fast 3D, TRELLIS, SAM 3D Objects, and TriplaneGaussian are rejected for poster relief because they reconstruct standalone objects rather than image-plane depth.
 - Deterministic brightness-to-height providers (`posterized_luminance`, `continuous_luminance`, `lithophane_baseline`) are reference providers, not the default checkout path.
 - The chosen relief provider is `masked_depth_detail_blend`: Depth Anything V2 semantic depth, SegFormer subject masking, `lithophane_baseline` in-mask detail, guided-filter bas-relief compression, and the existing closed STL/GLB generator.
+- The recommended production maturity path is API-backed AI for proof generation, monocular depth, subject segmentation, and optional proof cleanup/depth-friendly preprocessing, while final heightmap blending, STL/GLB construction, texture packaging, and fulfillment artifacts remain deterministic server-side generation in `services/print-file-generator`.
 - The current job page is the first quality-control surface: approved proof, generated heightmap, interactive GLB preview, printability status, and warnings. Local Functions emulator runs mirror the full print-file bundle under `.tmp/print-files/{uid}/{jobId}` instead of exposing customer-facing artifact download links.
 
 ## Active Product Focus

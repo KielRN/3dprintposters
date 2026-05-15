@@ -26,7 +26,7 @@ This file tracks product direction and enhancement ideas that are not yet commit
 
 - Start with direct GCP Vertex/Gemini integration for MVP speed; the first proof-generation route uses `gemini-2.5-flash-image` through Vertex AI express mode unless overridden.
 - Production assumes API-based AI inference. Local model inference is dev/experiment territory only; offline operation is not a goal.
-- Each AI role (poster proof generation, monocular depth, subject segmentation, future image-to-3D) sits behind a typed provider interface modeled on `apps/functions/src/aiProvider.ts`, with a chain of API-backed implementations (Vertex AI, HF Inference, Cloudflare-gatewayed) selected by registry config.
+- Each AI role that supports the poster-relief workflow (poster proof generation, monocular depth, subject segmentation, and optional proof cleanup/depth-friendly preprocessing) sits behind a typed provider interface modeled on `apps/functions/src/aiProvider.ts`, with a chain of API-backed implementations (Vertex AI, HF Inference, Cloudflare-gatewayed) selected by registry config. Image-to-3D providers stay rejected for the 5x7 relief product unless the product scope expands to standalone figurines or object sculptures.
 - Cloudflare AI Gateway is the unified observability/rate-limit/fallback pane for cross-provider routing, not an MVP-only afterthought. Wire roles through it as their gateway-served implementations land.
 - Start with a single generation path per role before adding style variations, prompt tuning, or batch generation.
 - Add moderation, quota checks, and cost caps before public traffic.
@@ -41,8 +41,8 @@ This file tracks product direction and enhancement ideas that are not yet commit
 - The service now generates full-color package artifacts: 3MF, OBJ/MTL/texture, VRML, and PLY. These still need partner validation before fulfillment depends on them.
 - Add printability checks for 5in x 7in model dimensions, thickness, relief depth, texture alignment, layer swap assumptions, and file size.
 - The five-experiment heightmap research cycle is complete (see [research/HEIGHTMAP_EXPERIMENTS_FINAL_EVALUATION.md](../research/HEIGHTMAP_EXPERIMENTS_FINAL_EVALUATION.md) and [research/HEIGHTMAP_FINAL_EVALUATION_REVIEW.md](../research/HEIGHTMAP_FINAL_EVALUATION_REVIEW.md)). Full image-to-3D reconstruction (TripoSR class) is rejected for poster relief — it builds standalone figurines, not image-plane depth.
-- Harden the opt-in `masked_depth_detail_blend` provider as the next production-eligible relief path: semantic depth, subject mask, in-mask detail blend from the deterministic luminance/lithophane source, guided-filter bas-relief compression, and the existing closed-mesh STL/GLB generator.
-- Treat the deterministic providers (`posterized_luminance`, `continuous_luminance`, `lithophane_baseline`) as last-resort safety net only — used when every API-backed provider in the chain fails. They are not the production target.
+- Continue hardening the now-default `masked_depth_detail_blend` relief path: semantic depth, subject mask, in-mask detail blend from the deterministic lithophane source, guided-filter bas-relief compression, and the existing closed-mesh STL/GLB generator.
+- Treat the deterministic providers (`posterized_luminance`, `continuous_luminance`, `lithophane_baseline`) as sidecar reference providers and explicit fallback-test tools only. They are not the production target and should not silently replace the hybrid checkout path when a provider fails.
 - Preserve the exact artifact manifest, color package, filament settings, geometry settings, and provider audit (which provider served each AI role, attempted fallbacks, model versions) used for any paid order.
 
 ## Quality Gates for Relief Output
