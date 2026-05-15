@@ -31,6 +31,7 @@ Implementation direction: keep this service's FastAPI contract and selectively e
 - Source image decoded pixel limit, initially 4,000,000 pixels before normalization to the working relief resolution.
 - Base thickness, initially 1.2mm.
 - Relief settings: height provider, contrast, gamma, post-heightmap smoothing radius, heightmap PNG bit depth, and hybrid detail source/weight.
+- Optional portrait-region analysis metadata from local/server-side face detection or landmarks. This should be used for relief tuning only, not identity recognition.
 - Full-color material profile, initially `mimaki_3duj_2207_full_color_uv_resin`.
 - Filament material profile, initially `generic_multicolor_fdm_filament_painting`.
 - Optional style metadata from the image generation step.
@@ -73,16 +74,17 @@ Filament painting artifacts:
 3. Normalize image orientation and resolution.
 4. Crop or pad to the 5:7 image-window composition.
 5. Choose the requested server-side height provider. The product default is `masked_depth_detail_blend` with `lithophane_baseline` detail source.
-6. Generate a normalized float heightmap from the selected provider.
-7. Apply optional tone controls, post-heightmap smoothing, quantization, and softened edge detail according to the provider.
-8. Convert height values into closed relief geometry with a 5in x 7in image window, shaped 1/4in border/frame, top surface, bottom base plane, sidewalls, consistent winding, and controlled relief depth.
-9. Add a poster base plate with minimum thickness.
-10. Export baseline STL for geometry validation workflows.
-11. Generate a color browser preview mesh.
-12. Generate a full-color package for the selected print partner.
-13. Generate filament painting palette and layer swap support files.
-14. Run printability and package readiness checks.
-15. Store artifacts and return a manifest to the orchestrating backend.
+6. For portrait-heavy inputs, optionally generate local/server-side face-region masks for the face oval, eyes, mouth/teeth, and skin-detail zones. Prefer local detection or landmarks first; defer external face APIs until local misses are proven in product-flow review.
+7. Generate a normalized float heightmap from the selected provider.
+8. Apply optional tone controls, post-heightmap smoothing, quantization, softened edge detail, and face-aware detail damping according to the provider.
+9. Convert height values into closed relief geometry with a 5in x 7in image window, shaped 1/4in border/frame, top surface, bottom base plane, sidewalls, consistent winding, and controlled relief depth.
+10. Add a poster base plate with minimum thickness.
+11. Export baseline STL for geometry validation workflows.
+12. Generate a color browser preview mesh.
+13. Generate a full-color package for the selected print partner.
+14. Generate filament painting palette and layer swap support files.
+15. Run printability and package readiness checks.
+16. Store artifacts and return a manifest to the orchestrating backend.
 
 ## Full-Color Relief Track
 
@@ -151,6 +153,7 @@ The accepted extraction plan is now partially implemented:
 - Make the STL a closed, watertight 5.5in x 7.5in object with a 5in x 7in image relief window and shaped border/frame before adding fulfillment automation.
 - Add printability checks before checkout can depend on generated print files.
 - Use `masked_depth_detail_blend` as the default checkout provider with `lithophane_baseline` detail source.
+- Add face-aware portrait tuning to the default hybrid path before adding another external AI API: local face detection/landmarks should produce soft masks that preserve larger facial forms while reducing harsh deterministic detail around eyes, teeth, mouth, and skin texture.
 - Write height-provider policy fields into `metadata.json` so deterministic brightness-to-height providers are marked fallback-only and current quality candidates are distinguishable from the safety net.
 - Write `provider_audit` and `segmentation_status` into `metadata.json`; Functions copies the same audit into the job document and `jobs/{jobId}/audit/printFileGeneration`.
 - Run local experiment comparisons with `python scripts/run_heightmap_experiment.py <source-image>` from `services/print-file-generator`; outputs stay under ignored `.tmp/experiments/experiment_1`.

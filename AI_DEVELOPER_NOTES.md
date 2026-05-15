@@ -37,6 +37,7 @@ Use `STL`, not `SLT`.
 - The five-experiment heightmap cycle is complete. Full image-to-3D reconstruction providers such as TripoSR, Stable Fast 3D, TRELLIS, SAM 3D Objects, and TriplaneGaussian are rejected for poster relief because they reconstruct standalone objects rather than image-plane depth.
 - Deterministic brightness-to-height providers (`posterized_luminance`, `continuous_luminance`, `lithophane_baseline`) are reference providers, not the default checkout path.
 - The chosen relief provider is `masked_depth_detail_blend`: Depth Anything V2 semantic depth, SegFormer subject masking, `lithophane_baseline` in-mask detail, guided-filter bas-relief compression, and the existing closed STL/GLB generator.
+- Portrait relief tuning should become face-aware inside server-side print-file generation. Prefer local/on-service face detection or landmarks first, using soft face-region masks for face oval, eyes, mouth/teeth, and skin-detail zones; defer an external face API fallback until local detection misses real product-flow cases.
 - The recommended production maturity path is API-backed AI for proof generation, monocular depth, subject segmentation, and optional proof cleanup/depth-friendly preprocessing, while final heightmap blending, STL/GLB construction, texture packaging, and fulfillment artifacts remain deterministic server-side generation in `services/print-file-generator`.
 - The current job page is the first quality-control surface: approved proof, generated heightmap, interactive GLB preview, printability status, and warnings. Local Functions emulator runs mirror the full print-file bundle under `.tmp/print-files/{uid}/{jobId}` instead of exposing customer-facing artifact download links.
 
@@ -45,7 +46,7 @@ Use `STL`, not `SLT`.
 Phase 3 is now about product relief geometry and quality, not more provider research:
 
 1. Add an image-window mask and edge fade so relief settles cleanly before the border.
-2. Tune portrait quality: reduce bottom-band artifacts, preserve larger facial forms, and reduce harsh photo-embossed detail around eyes, teeth, and skin texture.
+2. Add face-aware portrait tuning to `masked_depth_detail_blend`: preserve larger facial forms, reduce bottom-band artifacts, and damp harsh photo-embossed detail around eyes, teeth, mouth, and skin texture.
 3. Tune color GLB preview lighting/material and performance so browser review reflects actual relief and color quality.
 
 Current human-test handoff: `human-tasks/open/test-hybrid-relief-product-flow.md`.
@@ -62,5 +63,6 @@ Latest human review notes:
 - Local Depth Anything V2 now uses normal service dependencies (`torch`, `transformers`), so Cloud Run image size, cold start, memory, and CPU behavior need production validation.
 - HF SegFormer requires a provider credential in the service runtime. Do not print or move secret values.
 - Provider failures should surface clearly in testing instead of silently producing lower-quality reliefs.
+- Face-aware tuning can improve likely portrait-heavy usage, but detector misses, profile faces, stylized proofs, and runtime/dependency cost need metadata, tests, and human review before depending on it for checkout quality.
 - Full-color 3MF/OBJ/VRML/PLY packages and filament painting guides are generated deterministically, but still need partner and slicer validation before fulfillment can depend on them.
 - A Mimaki 3DUJ-2207 or comparable full-color print partner still needs file-format, material, sizing, quote, and fulfillment-process validation.

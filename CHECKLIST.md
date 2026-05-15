@@ -93,6 +93,8 @@
 - [x] Make generated `preview.glb` artifacts color-aware with image-derived vertex colors for job-page review.
 - [x] Add border/frame geometry so the 1/4in border reads as an intentional product edge, not unused flat margin.
 - [ ] Add an image-window mask and edge-fade so the relief settles cleanly before the border and avoids hard crop/depth artifacts at the physical edge.
+- [ ] Add server-side face-region detection/landmarking for portrait relief tuning, preferring a local/on-service detector first and deferring any external face API fallback until real product-flow failures justify it.
+- [ ] Tune `masked_depth_detail_blend` with face-aware soft masks so larger facial forms are preserved while eyes, teeth, mouth, and skin microtexture receive gentler deterministic detail.
 - [ ] Tune hybrid portrait relief quality after human product-flow review: reduce bottom-band artifacts, preserve larger facial forms, and reduce harsh photo-embossed detail around eyes, teeth, and skin texture.
 - [x] Increase and test production heightmap/mesh resolution from 200px to 280px width while keeping triangle count and preview performance inside the updated production caps.
 - [ ] Tune color GLB preview lighting/material so the job page shows relief depth and image color clearly enough for human quality review.
