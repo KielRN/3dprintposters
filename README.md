@@ -263,7 +263,7 @@ In this mode:
 
 If generation fails with `Poster generation failed before a proof was ready`, check `apps/functions/.env` first. The local Functions emulator needs `VERTEX_API_KEY` before it can call Vertex/Gemini.
 
-If approval fails with `3D preview generation failed`, make sure the print-file generator is running on `http://127.0.0.1:8089` and that `apps/functions/.env` has `PRINT_FILE_GENERATOR_URL=http://127.0.0.1:8089`. The print-file generator accepts generated proof images up to 4,000,000 decoded pixels by default before resizing them to the 768px geometry-analysis image and 400px mesh/color output. In local emulator runs, also confirm the mirror directory is writable; by default it is `.tmp`, and `PRINT_FILE_LOCAL_MIRROR_DIR` can override it.
+If approval fails with `3D preview generation failed`, make sure the print-file generator is running on `http://127.0.0.1:8089` and that `apps/functions/.env` has `PRINT_FILE_GENERATOR_URL=http://127.0.0.1:8089`. The print-file generator accepts generated proof images up to 4,000,000 decoded pixels by default before resizing them to the 768px geometry-analysis image and 400px mesh/color output. The approval callable and web client allow up to 9 minutes because the hybrid relief path can take longer than the default 60-second Functions timeout on first local runs. In local emulator runs, also confirm the mirror directory is writable; by default it is `.tmp`, and `PRINT_FILE_LOCAL_MIRROR_DIR` can override it.
 
 ## Local Testing: Web Only
 

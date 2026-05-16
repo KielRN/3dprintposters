@@ -54,6 +54,8 @@ const defaultPhysicalDimensions = {
   border_mm: 6.35,
 } as const;
 
+const printFileGenerationTimeoutSeconds = 540;
+
 type CheckoutSessionWebhookObject = {
   metadata?: Record<string, string> | null;
   payment_intent?: string | null | object;
@@ -682,91 +684,96 @@ export const createGenerationJob = onCall(
   },
 );
 
-export const approveGeneratedImage = onCall(async (request) => {
-  if (!request.auth) {
-    throw new HttpsError(
-      "unauthenticated",
-      "Sign in before approving a proof.",
+export const approveGeneratedImage = onCall(
+  {
+    timeoutSeconds: printFileGenerationTimeoutSeconds,
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError(
+        "unauthenticated",
+        "Sign in before approving a proof.",
+      );
+    }
+
+    const parsed = approveGeneratedImageSchema.safeParse(request.data);
+    if (!parsed.success) {
+      throw new HttpsError(
+        "invalid-argument",
+        "jobId and imagePath are required.",
+      );
+    }
+
+    const jobRef = db.collection("jobs").doc(parsed.data.jobId);
+    const jobSnap = await jobRef.get();
+    const jobData = jobSnap.data();
+
+    if (!jobSnap.exists || jobData?.uid !== request.auth.uid) {
+      throw new HttpsError("not-found", "Job not found.");
+    }
+
+    const generatedImages = Array.isArray(jobData.generatedImages)
+      ? (jobData.generatedImages as GeneratedImage[])
+      : [];
+    const canApproveImage = generatedImages.some(
+      (image) => image.storagePath === parsed.data.imagePath,
     );
-  }
 
-  const parsed = approveGeneratedImageSchema.safeParse(request.data);
-  if (!parsed.success) {
-    throw new HttpsError(
-      "invalid-argument",
-      "jobId and imagePath are required.",
-    );
-  }
+    if (!canApproveImage) {
+      throw new HttpsError(
+        "permission-denied",
+        "The approved proof must belong to this job.",
+      );
+    }
 
-  const jobRef = db.collection("jobs").doc(parsed.data.jobId);
-  const jobSnap = await jobRef.get();
-  const jobData = jobSnap.data();
-
-  if (!jobSnap.exists || jobData?.uid !== request.auth.uid) {
-    throw new HttpsError("not-found", "Job not found.");
-  }
-
-  const generatedImages = Array.isArray(jobData.generatedImages)
-    ? (jobData.generatedImages as GeneratedImage[])
-    : [];
-  const canApproveImage = generatedImages.some(
-    (image) => image.storagePath === parsed.data.imagePath,
-  );
-
-  if (!canApproveImage) {
-    throw new HttpsError(
-      "permission-denied",
-      "The approved proof must belong to this job.",
-    );
-  }
-
-  await jobRef.set(
-    {
-      status: "approved",
-      approvedImagePath: parsed.data.imagePath,
-      approvedAt: FieldValue.serverTimestamp(),
-      printFileStatus: "generating",
-      printFileOutputPrefix: `print-files/${request.auth.uid}/${parsed.data.jobId}`,
-      printFileError: null,
-      updatedAt: FieldValue.serverTimestamp(),
-    },
-    { merge: true },
-  );
-
-  let printFileArtifacts: PrintFileArtifacts;
-  try {
-    printFileArtifacts = await generatePrintFilesForApprovedJob({
-      jobRef,
-      jobId: jobRef.id,
-      uid: request.auth.uid,
-      selectedImagePath: parsed.data.imagePath,
-      selectedStyle:
-        typeof jobData.selectedStyle === "string" ? jobData.selectedStyle : "",
-    });
-  } catch (error) {
     await jobRef.set(
       {
-        printFileStatus: "failed",
-        printFileError: buildPrintFileError(error),
+        status: "approved",
+        approvedImagePath: parsed.data.imagePath,
+        approvedAt: FieldValue.serverTimestamp(),
+        printFileStatus: "generating",
+        printFileOutputPrefix: `print-files/${request.auth.uid}/${parsed.data.jobId}`,
+        printFileError: null,
         updatedAt: FieldValue.serverTimestamp(),
       },
       { merge: true },
     );
 
-    throw new HttpsError(
-      "failed-precondition",
-      "Proof approved, but 3D preview generation failed. Check the Functions emulator and print-file generator logs.",
-    );
-  }
+    let printFileArtifacts: PrintFileArtifacts;
+    try {
+      printFileArtifacts = await generatePrintFilesForApprovedJob({
+        jobRef,
+        jobId: jobRef.id,
+        uid: request.auth.uid,
+        selectedImagePath: parsed.data.imagePath,
+        selectedStyle:
+          typeof jobData.selectedStyle === "string" ? jobData.selectedStyle : "",
+      });
+    } catch (error) {
+      await jobRef.set(
+        {
+          printFileStatus: "failed",
+          printFileError: buildPrintFileError(error),
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
 
-  return {
-    jobId: jobRef.id,
-    status: "approved",
-    approvedImagePath: parsed.data.imagePath,
-    printFileStatus: "generated",
-    printFileArtifacts,
-  };
-});
+      throw new HttpsError(
+        "failed-precondition",
+        "Proof approved, but 3D preview generation failed. Check the Functions emulator and print-file generator logs.",
+      );
+    }
+
+    return {
+      jobId: jobRef.id,
+      status: "approved",
+      approvedImagePath: parsed.data.imagePath,
+      printFileStatus: "generated",
+      printFileArtifacts,
+    };
+  },
+);
 
 export const createCheckoutSession = onCall(
   {

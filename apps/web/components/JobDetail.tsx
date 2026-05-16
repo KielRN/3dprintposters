@@ -86,6 +86,8 @@ type PrintabilitySummary = {
   warnings?: string[];
 };
 
+const PRINT_FILE_GENERATION_TIMEOUT_MS = 540_000;
+
 const styleLabels: Record<string, string> = {
   "gallery-relief": "Gallery Relief",
   "anime-poster": "Anime Poster",
@@ -332,7 +334,9 @@ export function JobDetail({ jobId }: { jobId: string }) {
       const approveGeneratedImage = httpsCallable<
         ApproveGeneratedImageRequest,
         ApproveGeneratedImageResult
-      >(firebaseClients.functions, "approveGeneratedImage");
+      >(firebaseClients.functions, "approveGeneratedImage", {
+        timeout: PRINT_FILE_GENERATION_TIMEOUT_MS,
+      });
       await approveGeneratedImage({ jobId, imagePath });
       setNotice("3D relief preview is ready. Checkout is unlocked.");
     } catch (approvalError) {

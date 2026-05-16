@@ -169,6 +169,7 @@ The accepted extraction plan is now partially implemented:
 - During local Functions emulator runs, mirror generated print-file artifacts to `.tmp/print-files/{uid}/{jobId}` so the full bundle is available on disk for inspection and future printer-owner handoff.
 - Keep checkout locked until print-file artifacts are ready.
 - For local hybrid testing, run the print-file generator on `http://127.0.0.1:8089` and set `PRINT_FILE_GENERATOR_URL` in `apps/functions/.env`.
+- Keep the `approveGeneratedImage` callable and browser client timeout aligned at 9 minutes; first local hybrid relief runs can exceed the default 60-second callable timeout while still succeeding in the Python generator.
 
 Then improve:
 

@@ -24,11 +24,13 @@ Human eyes needed. Blender view tells us if poster relief looks good enough.
 - Not likely an STL polarity bug.
 - More likely: heightmap shape, relief tuning, blocky mesh, Blender lighting, or shading.
 - 2026-05-15 implementation follow-up: the production approval path now uses 768px geometry analysis, 400px mesh/color output, geometry-only proof cleanup, contour-smoothed subject masks, and nose-aware portrait shaping.
+- 2026-05-16 implementation follow-up: approval was timing out at the default ~60-second callable limit even though the Python generator returned `200 OK`; the Functions callable and browser client now allow 9 minutes.
 - The next useful validation is a fresh product-flow regeneration in the browser, then Blender inspection of the newly mirrored `.tmp/print-files/{uid}/{jobId}` bundle.
 
 ## Checklist
 
 - [ ] Regenerate 3D preview for the approved proof so the job uses the new 400px/768px relief path.
+- [ ] Restart the Functions emulator after the timeout fix, then retry approval or **Retry 3D generation** for the affected job.
 - [ ] Confirm `metadata.json` shows `target_width_px`/`mesh_target_width_px` behavior through `normalized_width_px: 400` and `geometry_analysis_width_px: 768`.
 - [ ] Open latest `model.stl` in Blender.
 - [ ] Look at face from low side angle.

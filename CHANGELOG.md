@@ -68,6 +68,7 @@ All notable project changes will be documented in this file.
 - Changed the job-page artifact layout so the approved proof and heightmap stay in the comparison row while the GLB preview gets a larger full-width inspection panel underneath.
 - Changed the Functions approval flow and print-file generator defaults from a 200px to 280px working relief width.
 - Changed the Functions approval flow and print-file generator defaults from a single 280px working relief width to 768px geometry analysis, 400px mesh output, 1,000,000 triangle cap, and 50 MB binary STL cap.
+- Extended the proof-approval callable and browser callable timeout to 9 minutes so the production hybrid relief path can finish before the client reports an internal timeout.
 
 ### Verified
 
