@@ -28,9 +28,9 @@ Implementation direction: keep this service's FastAPI contract and selectively e
 - Target physical dimensions: 139.7mm x 190.5mm for a 5.5in x 7.5in object.
 - Image relief window: 127mm x 177.8mm for 5in x 7in, with a shaped 6.35mm border/frame on all sides.
 - Relief depth range, initially 0.4mm to 3.0mm.
-- Source image decoded pixel limit, initially 4,000,000 pixels before normalization to the working relief resolution.
+- Source image decoded pixel limit, initially 4,000,000 pixels before normalization to both the geometry-analysis image and mesh/color output image.
 - Base thickness, initially 1.2mm.
-- Relief settings: height provider, contrast, gamma, post-heightmap smoothing radius, heightmap PNG bit depth, and hybrid detail source/weight.
+- Relief settings: height provider, geometry-analysis width, mesh target width, contrast, gamma, post-heightmap smoothing radius, heightmap PNG bit depth, and hybrid detail source/weight.
 - Optional portrait-region analysis metadata from local/server-side face detection or landmarks. This should be used for relief tuning only, not identity recognition.
 - Full-color material profile, initially `mimaki_3duj_2207_full_color_uv_resin`.
 - Filament material profile, initially `generic_multicolor_fdm_filament_painting`.
@@ -72,19 +72,20 @@ Filament painting artifacts:
 1. Fetch the approved generated image from Cloud Storage. During the current test flow, this may be the source upload used as a temporary proof.
 2. Validate size, MIME type, dimensions, and safety metadata.
 3. Normalize image orientation and resolution.
-4. Crop or pad to the 5:7 image-window composition.
+4. Crop or pad to the 5:7 image-window composition twice: a 768px-wide geometry-analysis image for depth/segmentation/detail and a 400px-wide mesh/color output image for final artifacts.
 5. Choose the requested server-side height provider. The product default is `masked_depth_detail_blend` with `lithophane_baseline` detail source.
-6. For portrait-heavy inputs, optionally generate local/server-side face-region masks for the face oval, eyes, mouth/teeth, and skin-detail zones. Prefer local detection or landmarks first; defer external face APIs until local misses are proven in product-flow review.
-7. Generate a normalized float heightmap from the selected provider.
-8. Apply optional tone controls, post-heightmap smoothing, quantization, softened edge detail, and face-aware detail damping according to the provider.
-9. Convert height values into closed relief geometry with a 5in x 7in image window, shaped 1/4in border/frame, top surface, bottom base plane, sidewalls, consistent winding, and controlled relief depth.
-10. Add a poster base plate with minimum thickness.
-11. Export baseline STL for geometry validation workflows.
-12. Generate a color browser preview mesh.
-13. Generate a full-color package for the selected print partner.
-14. Generate filament painting palette and layer swap support files.
-15. Run printability and package readiness checks.
-16. Store artifacts and return a manifest to the orchestrating backend.
+6. Generate local/server-side face-region status with OpenCV Haar face boxes. When faces are detected, build soft face-oval, central-face, eye, nose, and mouth masks for relief tuning only; defer external face APIs until local misses are proven in product-flow review.
+7. Generate a contour-smoothed subject mask, then build a geometry-only proof-cleanup image that suppresses subject halos, faceted backgrounds, and noisy shirt/background texture without changing the approved color proof used for texture output.
+8. Generate a normalized float heightmap from the selected provider at geometry-analysis resolution.
+9. Apply optional tone controls, post-heightmap smoothing, quantization, softened edge detail, edge-aware subject-surface smoothing, face-aware detail damping and surface smoothing, nose-aware relief shaping, resampling to the 400px mesh output, and an image-window edge fade so relief settles before the shaped frame.
+10. Convert height values into closed relief geometry with a 5in x 7in image window, shaped 1/4in border/frame, top surface, bottom base plane, sidewalls, consistent winding, and controlled relief depth.
+11. Add a poster base plate with minimum thickness.
+12. Export baseline STL for geometry validation workflows.
+13. Generate a color browser preview mesh.
+14. Generate a full-color package for the selected print partner.
+15. Generate filament painting palette and layer swap support files.
+16. Run printability and package readiness checks.
+17. Store artifacts and return a manifest to the orchestrating backend.
 
 ## Full-Color Relief Track
 
@@ -153,14 +154,16 @@ The accepted extraction plan is now partially implemented:
 - Make the STL a closed, watertight 5.5in x 7.5in object with a 5in x 7in image relief window and shaped border/frame before adding fulfillment automation.
 - Add printability checks before checkout can depend on generated print files.
 - Use `masked_depth_detail_blend` as the default checkout provider with `lithophane_baseline` detail source.
-- Add face-aware portrait tuning to the default hybrid path before adding another external AI API: local face detection/landmarks should produce soft masks that preserve larger facial forms while reducing harsh deterministic detail around eyes, teeth, mouth, and skin texture.
+- Use face-aware portrait tuning in the default hybrid path before adding another external AI API: local OpenCV face boxes produce soft masks that preserve larger facial forms, raise the nose region as a broad protruding form, and reduce harsh deterministic detail around eyes, mouth, and skin texture.
+- Use a 768px geometry-analysis image and 400px mesh/color output by default. The hybrid provider builds depth, segmentation, detail, and geometry-only proof cleanup at analysis resolution, then resamples the finished heightmap to the output mesh resolution before STL/GLB/package generation.
+- Use contour-smoothed subject masks and geometry-only proof cleanup in the production hybrid path to reduce blocky silhouette/shirt boundaries, white subject-outline ridges, faceted background relief, and rough shirt/background texture.
 - Write height-provider policy fields into `metadata.json` so deterministic brightness-to-height providers are marked fallback-only and current quality candidates are distinguishable from the safety net.
-- Write `provider_audit` and `segmentation_status` into `metadata.json`; Functions copies the same audit into the job document and `jobs/{jobId}/audit/printFileGeneration`.
+- Write `provider_audit`, `segmentation_status`, `face_analysis_status`, `geometry_analysis_width_px`, and `geometry_analysis_height_px` into `metadata.json`; Functions copies the same audit fields into the job document and `jobs/{jobId}/audit/printFileGeneration`.
 - Run local experiment comparisons with `python scripts/run_heightmap_experiment.py <source-image>` from `services/print-file-generator`; outputs stay under ignored `.tmp/experiments/experiment_1`.
 - Run hybrid comparisons with `--provider masked_depth_detail_blend`; outputs stay under ignored `.tmp/experiments/hybrid` unless an explicit `--output-root` is provided.
 - For future heightmap experiments, run both canonical local inputs from `.tmp/input_image`: `Gemini_Generated_Image_lzneejlzneejlzne.png` and `Profile-Pic-HIMSS.jpg`.
 - Call the print-file generator from `approveGeneratedImage` after proof approval.
-- Pass the production dimensions and relief settings from `approveGeneratedImage`: 139.7mm x 190.5mm physical object, 127mm x 177.8mm image window, 6.35mm border, `height_provider: masked_depth_detail_blend`, `detail_source: lithophane_baseline`, `target_width_px: 280`, `max_triangle_count: 500000`, and `max_binary_stl_bytes: 25000000`.
+- Pass the production dimensions and relief settings from `approveGeneratedImage`: 139.7mm x 190.5mm physical object, 127mm x 177.8mm image window, 6.35mm border, `height_provider: masked_depth_detail_blend`, `detail_source: lithophane_baseline`, `target_width_px: 400`, `geometry_analysis_width_px: 768`, `max_triangle_count: 1000000`, and `max_binary_stl_bytes: 50000000`.
 - Store artifact paths and printability output on `jobs/{jobId}`.
 - Render the approved proof and generated `heightmap.png` in a comparison row on `/jobs/{jobId}`, with the color `preview.glb` in a larger full-width inspection panel below with interactive zoom/orbit controls and without customer-facing artifact download links.
 - During local Functions emulator runs, mirror generated print-file artifacts to `.tmp/print-files/{uid}/{jobId}` so the full bundle is available on disk for inspection and future printer-owner handoff.
@@ -172,6 +175,7 @@ Then improve:
 - Deploy the print-file generator as a Cloud Run service and point `PRINT_FILE_GENERATOR_URL` at that endpoint.
 - Move long-running print generation behind Cloud Tasks or Pub/Sub.
 - Improve edge-preserving smoothing and subject-aware depth based on human product-flow test results.
+- Review whether the 400px mesh output is enough for the intended print partner after Blender/app inspection; future increases should account for STL/package size, browser preview performance, and partner upload limits.
 - Validate the generated color-package formats with the chosen print partner.
 - Add partner-specific package tuning once accepted format, units, texture/color handling, and review workflow are confirmed.
 - Add slicer-specific exports after printer and slicer targets are known.

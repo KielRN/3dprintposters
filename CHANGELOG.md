@@ -34,6 +34,10 @@ All notable project changes will be documented in this file.
 - Added local Functions emulator mirroring for generated print-file artifacts under `.tmp/print-files/{uid}/{jobId}` after proof approval.
 - Added job-page GLB inspection controls for zooming, orbiting, and resetting the 3D relief preview.
 - Added a 280px production relief resolution default with updated printability caps for 500,000 triangles and 25 MB binary STL output.
+- Added image-window edge fade before mesh construction so generated relief settles into the shaped frame instead of carrying hard crop artifacts to the physical edge.
+- Added server-side portrait region analysis for the print-file generator, including soft face oval, central face, eye, and mouth masks plus `face_analysis_status` metadata.
+- Added a 768px geometry-analysis image and 400px mesh/color output default for the production relief path, with metadata for geometry-analysis dimensions.
+- Added geometry-only proof cleanup, contour-smoothed subject masks, and nose-aware portrait relief shaping to reduce blocky subject edges, white outline ridges, rough shirt/background texture, and nose recession.
 
 ### Changed
 
@@ -48,6 +52,7 @@ All notable project changes will be documented in this file.
 - Replaced the earlier `posterized_luminance` print-file generator default with the chosen hybrid provider path.
 - Corrected closed-relief mesh orientation so STL/GLB outputs preserve the source image's upright top-to-bottom direction.
 - Made `lithophane_baseline` the production in-mask detail source for the hybrid provider.
+- Tuned `masked_depth_detail_blend` to damp deterministic lithophane detail, smooth broad subject-surface roughness such as shirt texture, and further smooth detected eyes, mouth, and central-face skin while preserving low-frequency semantic shape and stronger structural edges.
 - Added height-provider policy metadata and warnings so deterministic brightness-to-height providers are explicitly marked as fallback-only, not the target production-quality path.
 - Updated the repo PM skill and agent guide to create or summarize human follow-up tasks during handoffs.
 - Promoted `masked_depth_detail_blend` with `lithophane_baseline` detail source into the default web approval flow and print-file generator defaults.
@@ -62,6 +67,7 @@ All notable project changes will be documented in this file.
 - Changed the job-page GLB preview from a passive animated model to a stable inspection viewer with explicit zoom controls.
 - Changed the job-page artifact layout so the approved proof and heightmap stay in the comparison row while the GLB preview gets a larger full-width inspection panel underneath.
 - Changed the Functions approval flow and print-file generator defaults from a 200px to 280px working relief width.
+- Changed the Functions approval flow and print-file generator defaults from a single 280px working relief width to 768px geometry analysis, 400px mesh output, 1,000,000 triangle cap, and 50 MB binary STL cap.
 
 ### Verified
 
@@ -78,6 +84,8 @@ All notable project changes will be documented in this file.
 - Verified shaped border/frame geometry with the full print-file generator test suite.
 - Verified the web typecheck after adding job-page GLB inspection controls.
 - Verified the full print-file generator test suite and Firebase Functions build at the 280px production default.
+- Verified focused print-file generator unit and contract coverage for geometry-analysis resampling, contour smoothing, geometry cleanup, and nose-aware shaping.
+- Verified the full print-file generator suite, Firebase Functions build, and web typecheck after promoting the 400px/768px relief-quality path.
 
 ## [Unreleased] - 2026-05-05
 

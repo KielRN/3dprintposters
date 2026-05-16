@@ -40,9 +40,10 @@ const approveGeneratedImageSchema = z.object({
 const defaultReliefSettings = {
   height_provider: "masked_depth_detail_blend",
   detail_source: "lithophane_baseline",
-  target_width_px: 280,
-  max_triangle_count: 500_000,
-  max_binary_stl_bytes: 25_000_000,
+  target_width_px: 400,
+  geometry_analysis_width_px: 768,
+  max_triangle_count: 1_000_000,
+  max_binary_stl_bytes: 50_000_000,
 } as const;
 
 const defaultPhysicalDimensions = {
@@ -110,6 +111,10 @@ const segmentationStatusSchema = z
 
 const printFileMetadataAuditSchema = z
   .object({
+    normalized_width_px: z.number().optional(),
+    normalized_height_px: z.number().optional(),
+    geometry_analysis_width_px: z.number().optional(),
+    geometry_analysis_height_px: z.number().optional(),
     height_provider: z.string().min(1).optional(),
     height_provider_policy: z.string().min(1).optional(),
     height_provider_fallback_only: z.boolean().optional(),
@@ -119,6 +124,7 @@ const printFileMetadataAuditSchema = z
       .record(z.string(), providerAuditEntrySchema)
       .optional(),
     segmentation_status: segmentationStatusSchema.optional(),
+    face_analysis_status: z.record(z.string(), z.unknown()).optional(),
   })
   .passthrough();
 
@@ -153,8 +159,13 @@ type PrintFileAudit =
       heightProviderFallbackOnly: boolean | null;
       heightProviderTargetQualityPath: boolean | null;
       heightProviderCheckoutDefaultAllowed: boolean | null;
+      normalizedWidthPx: number | null;
+      normalizedHeightPx: number | null;
+      geometryAnalysisWidthPx: number | null;
+      geometryAnalysisHeightPx: number | null;
       providerAudit: Record<string, z.infer<typeof providerAuditEntrySchema>> | null;
       segmentationStatus: z.infer<typeof segmentationStatusSchema> | null;
+      faceAnalysisStatus: Record<string, unknown> | null;
       capturedAt: FieldValue;
     }
   | {
@@ -416,8 +427,13 @@ async function readPrintFileAudit(input: {
         parsed.data.height_provider_target_quality_path ?? null,
       heightProviderCheckoutDefaultAllowed:
         parsed.data.height_provider_checkout_default_allowed ?? null,
+      normalizedWidthPx: parsed.data.normalized_width_px ?? null,
+      normalizedHeightPx: parsed.data.normalized_height_px ?? null,
+      geometryAnalysisWidthPx: parsed.data.geometry_analysis_width_px ?? null,
+      geometryAnalysisHeightPx: parsed.data.geometry_analysis_height_px ?? null,
       providerAudit: parsed.data.provider_audit ?? null,
       segmentationStatus: parsed.data.segmentation_status ?? null,
+      faceAnalysisStatus: parsed.data.face_analysis_status ?? null,
       capturedAt: FieldValue.serverTimestamp(),
     };
   } catch (error) {

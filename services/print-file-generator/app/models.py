@@ -4,9 +4,10 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field, model_validator
 
 
-PRODUCTION_TARGET_WIDTH_PX = 280
-PRODUCTION_MAX_TRIANGLE_COUNT = 500_000
-PRODUCTION_MAX_BINARY_STL_BYTES = 25_000_000
+PRODUCTION_TARGET_WIDTH_PX = 400
+PRODUCTION_GEOMETRY_ANALYSIS_WIDTH_PX = 768
+PRODUCTION_MAX_TRIANGLE_COUNT = 1_000_000
+PRODUCTION_MAX_BINARY_STL_BYTES = 50_000_000
 
 
 class OutputMode(str, Enum):
@@ -52,6 +53,10 @@ class ReliefSettings(BaseModel):
     max_relief_mm: float = Field(default=3.0, gt=0)
     max_source_pixels: int = Field(default=4_000_000, ge=4)
     target_width_px: int = Field(default=PRODUCTION_TARGET_WIDTH_PX, ge=2)
+    geometry_analysis_width_px: int = Field(
+        default=PRODUCTION_GEOMETRY_ANALYSIS_WIDTH_PX,
+        ge=2,
+    )
     max_triangle_count: int = Field(default=PRODUCTION_MAX_TRIANGLE_COUNT, ge=1)
     max_binary_stl_bytes: int = Field(default=PRODUCTION_MAX_BINARY_STL_BYTES, ge=84)
     contrast: float = Field(default=1.0, gt=0)
@@ -67,6 +72,10 @@ class ReliefSettings(BaseModel):
     def validate_relief_range(self) -> "ReliefSettings":
         if self.min_relief_mm > self.max_relief_mm:
             raise ValueError("Minimum relief cannot exceed maximum relief")
+        if self.geometry_analysis_width_px < self.target_width_px:
+            raise ValueError(
+                "Geometry analysis width must be greater than or equal to target width"
+            )
         return self
 
 

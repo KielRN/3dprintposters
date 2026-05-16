@@ -1,6 +1,7 @@
 import numpy as np
 
 from app.depth import DepthInferenceResult, SubjectMaskResult
+from app.portrait_regions import PortraitRegionMasks
 from app.providers.base import ProviderAudit
 
 
@@ -33,6 +34,20 @@ def fake_subject_mask_result(
         mask_coverage=float(np.mean(mask > 0.5)),
         foreground_labels=("person",),
         raw_segment_count=1,
+    )
+
+
+def fake_no_face_regions(width: int, height: int) -> PortraitRegionMasks:
+    empty = np.zeros((height, width), dtype=np.float32)
+    return PortraitRegionMasks(
+        face_oval=empty,
+        central_face=empty,
+        eyes=empty,
+        nose=empty,
+        mouth=empty,
+        status="no_face",
+        face_count=0,
+        detector="stub",
     )
 
 

@@ -92,11 +92,15 @@
 - [x] Change the physical relief object from a full-bleed 5in x 7in plate to a 5in x 7in image relief window with an additional 1/4in border on all sides, for a total object size of 5.5in x 7.5in.
 - [x] Make generated `preview.glb` artifacts color-aware with image-derived vertex colors for job-page review.
 - [x] Add border/frame geometry so the 1/4in border reads as an intentional product edge, not unused flat margin.
-- [ ] Add an image-window mask and edge-fade so the relief settles cleanly before the border and avoids hard crop/depth artifacts at the physical edge.
-- [ ] Add server-side face-region detection/landmarking for portrait relief tuning, preferring a local/on-service detector first and deferring any external face API fallback until real product-flow failures justify it.
-- [ ] Tune `masked_depth_detail_blend` with face-aware soft masks so larger facial forms are preserved while eyes, teeth, mouth, and skin microtexture receive gentler deterministic detail.
-- [ ] Tune hybrid portrait relief quality after human product-flow review: reduce bottom-band artifacts, preserve larger facial forms, and reduce harsh photo-embossed detail around eyes, teeth, and skin texture.
-- [x] Increase and test production heightmap/mesh resolution from 200px to 280px width while keeping triangle count and preview performance inside the updated production caps.
+- [x] Add an image-window mask and edge-fade so the relief settles cleanly before the border and avoids hard crop/depth artifacts at the physical edge.
+- [x] Add server-side face-region detection/landmarking for portrait relief tuning, preferring a local/on-service detector first and deferring any external face API fallback until real product-flow failures justify it.
+- [x] Tune `masked_depth_detail_blend` with face-aware soft masks so larger facial forms are preserved while eyes, teeth, mouth, and skin microtexture receive gentler deterministic detail.
+- [x] Tune hybrid portrait relief quality after human product-flow review: reduce bottom-band artifacts, preserve larger facial forms, and reduce harsh photo-embossed detail around eyes, teeth, and skin texture.
+- [x] Decouple geometry analysis from mesh output: run the hybrid provider on a 768px geometry-analysis image, then resample the heightmap to the 400px mesh/color output.
+- [x] Add geometry-only proof cleanup before depth/detail inference so white subject halos, faceted backgrounds, and high-frequency shirt/background texture are damped without changing the approved color proof.
+- [x] Add contour-smoothed subject masks and nose-aware portrait relief shaping to reduce blocky silhouette/shirt boundaries and make the nose read as a protruding form.
+- [x] Increase and test production heightmap/mesh resolution from 280px to 400px width while keeping triangle count and STL size inside the updated production caps.
+- [ ] Run human product-flow review on the new 400px/768px geometry-analysis relief path in the browser and Blender.
 - [ ] Tune color GLB preview lighting/material so the job page shows relief depth and image color clearly enough for human quality review.
 - [ ] Add a content-hash cache for provider responses in Firebase Storage using role, provider id, model version, and image hash.
 - [ ] Implement production API-backed depth and segmentation providers: HF Inference Depth Anything, Vertex depth/segmentation if available, and Cloudflare-gatewayed variants.

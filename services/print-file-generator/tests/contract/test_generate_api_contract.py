@@ -10,7 +10,7 @@ from app.main import app
 from app.models import OutputMode, PrintFileGenerationRequest, ReliefSettings
 from app.packages import generate_print_file_bundle
 from app.storage import LocalFilesystemStorage
-from tests.support import fake_depth_result, fake_subject_mask_result
+from tests.support import fake_depth_result, fake_no_face_regions, fake_subject_mask_result
 
 
 def _stub_hybrid_providers(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -39,6 +39,10 @@ def _stub_hybrid_providers(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         "app.depth._generate_subject_mask_result",
         fake_generate_mask_result,
+    )
+    monkeypatch.setattr(
+        "app.depth.analyze_portrait_regions",
+        lambda img: fake_no_face_regions(img.width, img.height),
     )
 
 
@@ -89,9 +93,10 @@ def test_request_defaults_include_both_output_modes() -> None:
     assert request.dimensions.border_mm == 6.35
     assert request.relief.height_provider == "masked_depth_detail_blend"
     assert request.relief.detail_source == "lithophane_baseline"
-    assert request.relief.target_width_px == 280
-    assert request.relief.max_triangle_count == 500_000
-    assert request.relief.max_binary_stl_bytes == 25_000_000
+    assert request.relief.target_width_px == 400
+    assert request.relief.geometry_analysis_width_px == 768
+    assert request.relief.max_triangle_count == 1_000_000
+    assert request.relief.max_binary_stl_bytes == 50_000_000
     assert request.relief.max_source_pixels == 4_000_000
 
 
@@ -119,6 +124,10 @@ def test_local_generation_writes_default_hybrid_relief_bundle(
         uid="user_123",
         selected_image_path=str(source_path),
         output_prefix=str(output_prefix),
+        relief=ReliefSettings(
+            target_width_px=40,
+            geometry_analysis_width_px=64,
+        ),
     )
 
     response = generate_print_file_bundle(request, storage=LocalFilesystemStorage())
@@ -163,7 +172,12 @@ def test_local_generation_writes_default_hybrid_relief_bundle(
     assert metadata["provider_settings"] == {
         "detail_source": "lithophane_baseline",
         "detail_weight": 0.22,
+        "geometry_input": "subject_aware_cleanup",
+        "geometry_analysis_width_px": 64,
+        "mesh_target_width_px": 40,
     }
+    assert metadata["normalized_width_px"] == 40
+    assert metadata["geometry_analysis_width_px"] == 64
     assert metadata["full_color_package"]["formats"] == ["3mf", "obj", "vrml", "ply"]
     assert metadata["filament_painting"]["palette_color_count"] >= 1
     assert metadata["watertight"] is True
@@ -185,6 +199,10 @@ def test_local_generation_accepts_default_ai_proof_size(tmp_path, monkeypatch) -
         uid="user_123",
         selected_image_path=str(source_path),
         output_prefix=str(output_prefix),
+        relief=ReliefSettings(
+            target_width_px=40,
+            geometry_analysis_width_px=64,
+        ),
     )
 
     response = generate_print_file_bundle(request, storage=LocalFilesystemStorage())
@@ -194,6 +212,7 @@ def test_local_generation_accepts_default_ai_proof_size(tmp_path, monkeypatch) -
     assert metadata["source_width_px"] == 1024
     assert metadata["source_height_px"] == 1024
     assert metadata["normalized_width_px"] == request.relief.target_width_px
+    assert metadata["geometry_analysis_width_px"] == request.relief.geometry_analysis_width_px
 
 
 def test_known_image_metadata_is_deterministic(tmp_path, monkeypatch) -> None:
@@ -210,7 +229,10 @@ def test_known_image_metadata_is_deterministic(tmp_path, monkeypatch) -> None:
             uid="user_known",
             selected_image_path=str(source_path),
             output_prefix=str(output_prefix),
-            relief=ReliefSettings(target_width_px=4),
+            relief=ReliefSettings(
+                target_width_px=4,
+                geometry_analysis_width_px=8,
+            ),
         )
 
         generate_print_file_bundle(request, storage=LocalFilesystemStorage())
@@ -239,6 +261,7 @@ def test_local_generation_can_run_experiment_1_lithophane_baseline(tmp_path) -> 
         relief=ReliefSettings(
             height_provider="lithophane_baseline",
             target_width_px=4,
+            geometry_analysis_width_px=8,
             heightmap_png_bit_depth=16,
         ),
     )
@@ -288,6 +311,10 @@ def test_local_generation_can_run_masked_depth_detail_blend(
         "app.depth._generate_subject_mask_result",
         fake_generate_mask_result,
     )
+    monkeypatch.setattr(
+        "app.depth.analyze_portrait_regions",
+        lambda img: fake_no_face_regions(img.width, img.height),
+    )
 
     request = PrintFileGenerationRequest(
         job_id="job_known",
@@ -297,6 +324,7 @@ def test_local_generation_can_run_masked_depth_detail_blend(
         relief=ReliefSettings(
             height_provider="masked_depth_detail_blend",
             target_width_px=8,
+            geometry_analysis_width_px=16,
             detail_source="posterized_luminance",
             detail_weight=0.3,
         ),
@@ -323,12 +351,27 @@ def test_local_generation_can_run_masked_depth_detail_blend(
     }
     segmentation_status = metadata["segmentation_status"]
     assert segmentation_status["status"] == "ok"
-    assert segmentation_status["mask_coverage"] == pytest.approx(54 / 88)
+    expected_mask_coverage = (
+        (metadata["geometry_analysis_height_px"] - 2)
+        * (metadata["geometry_analysis_width_px"] - 2)
+        / (
+            metadata["geometry_analysis_height_px"]
+            * metadata["geometry_analysis_width_px"]
+        )
+    )
+    assert segmentation_status["mask_coverage"] == pytest.approx(expected_mask_coverage)
     assert segmentation_status["foreground_labels"] == ["person"]
     assert segmentation_status["raw_segment_count"] == 1
+    face_analysis_status = metadata["face_analysis_status"]
+    assert face_analysis_status["status"] == "no_face"
+    assert face_analysis_status["face_count"] == 0
+    assert face_analysis_status["detector"] == "stub"
     assert metadata["provider_settings"] == {
         "detail_source": "posterized_luminance",
         "detail_weight": 0.3,
+        "geometry_input": "subject_aware_cleanup",
+        "geometry_analysis_width_px": 16,
+        "mesh_target_width_px": 8,
     }
     assert not any(
         "not the target production-quality relief path" in warning
@@ -367,7 +410,11 @@ def test_local_generation_rejects_artifacts_over_triangle_limit(
         uid="user_123",
         selected_image_path=str(source_path),
         output_prefix=str(output_prefix),
-        relief=ReliefSettings(max_triangle_count=1),
+        relief=ReliefSettings(
+            target_width_px=4,
+            geometry_analysis_width_px=8,
+            max_triangle_count=1,
+        ),
     )
 
     with pytest.raises(ValueError, match="triangle count"):

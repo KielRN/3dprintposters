@@ -6,6 +6,7 @@ Requires-Python: >=3.12
 Requires-Dist: fastapi>=0.115
 Requires-Dist: google-cloud-storage>=2.19
 Requires-Dist: numpy>=2.2
+Requires-Dist: opencv-python-headless>=4.10
 Requires-Dist: pillow>=11.0
 Requires-Dist: python-dotenv>=1.0
 Requires-Dist: pydantic>=2.10
@@ -19,4 +20,4 @@ Requires-Dist: ruff>=0.8; extra == "dev"
 Provides-Extra: experiments
 Requires-Dist: trimesh>=4.5; extra == "experiments"
 Provides-Extra: quality-gates
-Requires-Dist: opencv-python>=4.10; extra == "quality-gates"
+Requires-Dist: opencv-python-headless>=4.10; extra == "quality-gates"

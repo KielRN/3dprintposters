@@ -1,7 +1,12 @@
 import json
 
 from .color_packages import build_color_package_bundle
-from .depth import get_depth_provider, heightmap_to_image_bytes
+from .depth import (
+    apply_image_window_edge_fade,
+    get_depth_provider,
+    heightmap_to_image_bytes,
+    resize_heightmap_to_shape,
+)
 from .image_pipeline import fit_image_to_aspect, load_validated_rgb_image
 from .metadata import build_artifact_metadata
 from .models import (
@@ -56,6 +61,12 @@ def generate_print_file_bundle(
         target_height_mm=request.dimensions.image_window_height_mm,
         target_width_px=request.relief.target_width_px,
     )
+    geometry_analysis_image = fit_image_to_aspect(
+        source_image,
+        target_width_mm=request.dimensions.image_window_width_mm,
+        target_height_mm=request.dimensions.image_window_height_mm,
+        target_width_px=request.relief.geometry_analysis_width_px,
+    )
 
     height_provider = get_depth_provider(request.relief.height_provider)
     heightmap_kwargs = {
@@ -70,12 +81,26 @@ def generate_print_file_bundle(
         heightmap_kwargs["detail_source"] = request.relief.detail_source
         heightmap_kwargs["detail_weight"] = request.relief.detail_weight
 
-    heightmap = height_provider.generate(normalized_image.image, **heightmap_kwargs)
+    heightmap = height_provider.generate(
+        geometry_analysis_image.image,
+        **heightmap_kwargs,
+    )
+    heightmap = resize_heightmap_to_shape(
+        heightmap,
+        target_shape=(
+            normalized_image.normalized_height_px,
+            normalized_image.normalized_width_px,
+        ),
+    )
+    heightmap = apply_image_window_edge_fade(heightmap)
     provider_settings = None
     if request.relief.height_provider == "masked_depth_detail_blend":
         provider_settings = {
             "detail_source": request.relief.detail_source,
             "detail_weight": request.relief.detail_weight,
+            "geometry_input": "subject_aware_cleanup",
+            "geometry_analysis_width_px": request.relief.geometry_analysis_width_px,
+            "mesh_target_width_px": request.relief.target_width_px,
         }
     mesh = build_closed_relief_mesh(
         heightmap.values,
@@ -106,6 +131,7 @@ def generate_print_file_bundle(
         job_id=request.job_id,
         uid=request.uid,
         normalized_image=normalized_image,
+        geometry_analysis_image=geometry_analysis_image,
         heightmap=heightmap,
         mesh=mesh,
         binary_stl_size=len(stl_bytes),

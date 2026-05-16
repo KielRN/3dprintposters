@@ -15,17 +15,19 @@ The target product size is now a 5.5in x 7.5in physical relief with a 5in x 7in 
 - `sourceImagePath` or `approvedImagePath`
 - Target physical dimensions: 139.7mm x 190.5mm for 5.5in x 7.5in.
 - Image relief window: 127mm x 177.8mm for 5in x 7in, with a 6.35mm border on all sides.
+- Geometry-analysis width: 768px by default.
+- Mesh/color output width: 400px by default.
 - Relief depth range, initially 0.4mm to 3.0mm.
 - Material profile, initially `mimaki_3duj_2207_full_color_uv_resin`.
 - Optional style metadata from the image generation step.
 
 ## Output Artifacts
 
-- `stl/{uid}/{jobId}/model.stl`
-- `stl/{uid}/{jobId}/print-package.3mf` or provider-preferred OBJ/VRML/PLY package.
-- `stl/{uid}/{jobId}/preview.glb` or simplified mesh JSON.
-- `stl/{uid}/{jobId}/heightmap.png`
-- `stl/{uid}/{jobId}/metadata.json`
+- `print-files/{uid}/{jobId}/model.stl`
+- `print-files/{uid}/{jobId}/full-color/print-package.3mf` or provider-preferred OBJ/VRML/PLY package.
+- `print-files/{uid}/{jobId}/preview.glb`
+- `print-files/{uid}/{jobId}/heightmap.png`
+- `print-files/{uid}/{jobId}/metadata.json`
 
 STL remains useful as a geometry baseline and for generic printability checks, but STL does not carry full-color texture data. For Mimaki 3DUJ-2207 partners, preserve a color-capable handoff format such as 3MF, OBJ plus textures, VRML, or PLY once the partner confirms its preferred intake format.
 
@@ -34,17 +36,18 @@ STL remains useful as a geometry baseline and for generic printability checks, b
 1. Fetch the approved generated image from Cloud Storage. During the current test flow, this may be the source upload used as a temporary proof.
 2. Validate size, MIME type, dimensions, and safety metadata.
 3. Normalize image orientation and resolution.
-4. Crop or pad to a 5:7 composition.
-5. Posterize or segment the image to reduce noisy micro-detail.
-6. Generate a grayscale heightmap.
-7. Smooth the heightmap enough for printability while preserving major edges.
-8. Convert height values into a closed watertight relief mesh with top surface, base plane, sidewalls, consistent normals, and exact 139.7mm x 190.5mm physical bounds.
-9. Add a poster base plate with minimum thickness.
-10. Attach color/texture data for the approved generated image.
-11. Export binary STL for geometry validation.
-12. Export a Mimaki-partner handoff package, initially 3MF or OBJ plus texture.
-13. Generate preview mesh for browser display.
-14. Run printability checks:
+4. Crop or pad to a 5:7 composition at both geometry-analysis and mesh/color output widths.
+5. Segment the subject, smooth the subject contour, and build a geometry-only proof-cleanup image to reduce halos, faceted backgrounds, and texture noise.
+6. Generate a hybrid heightmap from semantic depth plus controlled deterministic detail.
+7. Smooth the heightmap enough for printability while preserving major edges and applying nose-aware portrait shaping when a face is detected.
+8. Resample the heightmap from 768px analysis width to 400px output width.
+9. Convert height values into a closed watertight relief mesh with top surface, base plane, sidewalls, consistent normals, and exact 139.7mm x 190.5mm physical bounds.
+10. Add a poster base plate with minimum thickness.
+11. Attach color/texture data from the approved generated image.
+12. Export binary STL for geometry validation.
+13. Export a Mimaki-partner handoff package, initially 3MF or OBJ plus texture.
+14. Generate preview mesh for browser display.
+15. Run printability checks:
     - Watertight mesh.
     - Minimum thickness.
     - Triangle count.
@@ -52,14 +55,14 @@ STL remains useful as a geometry baseline and for generic printability checks, b
     - Relief depth limit.
     - Color texture and mesh alignment.
     - Mimaki 3DUJ-2207 build envelope fit: 203mm x 203mm x 76mm, including support material.
-15. Store artifacts and return metadata.
+16. Store artifacts and return metadata.
 
 ## Mimaki 3DUJ-2207 Target Notes
 
 - Official printer model name: Mimaki 3DUJ-2207.
 - Modeling method: UV-curable inkjet.
 - Build area: 203mm x 203mm x 76mm, with a 3kg or less object limit.
-- Published 3D data formats include SSTL, OBJ, VRML, PLY, and 3MF.
+- Published 3D data formats include STL, OBJ, VRML, PLY, and 3MF.
 - 5.5in x 7.5in equals 139.7mm x 190.5mm, which fits within the published build area before adding depth and supports.
 - Treat the print partner as the source of truth for accepted file package, wall/base thickness, relief depth, minimum feature size, color management, support cleanup, and post-processing.
 
@@ -85,19 +88,16 @@ Still deterministic:
 
 ## First MVP Strategy
 
-Start simple:
+Current MVP path:
 
-- Convert luminosity to Z height.
-- Add a closed base plate and sidewalls.
-- Export STL.
-- Export a color-aware preview and record the intended 5x7 dimensions.
-- Show a browser preview.
+- Use `masked_depth_detail_blend` as the checkout default.
+- Use 768px geometry analysis and 400px mesh/color output.
+- Add a closed base plate, sidewalls, shaped 1/4in border, STL, color preview, metadata, full-color package artifacts, and filament-painting support files.
+- Show the approved proof, heightmap, and generated GLB on the job page after proof approval.
 
 Then improve:
 
-- Add edge-preserving smoothing.
-- Add subject-aware depth.
-- Add material profiles.
+- Validate the new roughness/blocky-edge tuning through browser and Blender review.
 - Add Mimaki partner-specific printability and color-package checks.
 
 ## Risks

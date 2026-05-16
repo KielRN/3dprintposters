@@ -14,6 +14,8 @@ class ArtifactMetadata:
     source_height_px: int
     normalized_width_px: int
     normalized_height_px: int
+    geometry_analysis_width_px: int
+    geometry_analysis_height_px: int
     width_mm: float
     height_mm: float
     image_window_width_mm: float
@@ -34,6 +36,7 @@ class ArtifactMetadata:
     provider_settings: dict[str, object] | None = None
     provider_audit: dict[str, dict[str, object]] | None = None
     segmentation_status: dict[str, object] | None = None
+    face_analysis_status: dict[str, object] | None = None
     full_color_package: dict[str, object] | None = None
     filament_painting: dict[str, object] | None = None
 
@@ -50,6 +53,7 @@ def build_artifact_metadata(
     job_id: str,
     uid: str,
     normalized_image: NormalizedImage,
+    geometry_analysis_image: NormalizedImage,
     heightmap: Heightmap,
     mesh: ReliefMesh,
     binary_stl_size: int,
@@ -65,6 +69,8 @@ def build_artifact_metadata(
         source_height_px=normalized_image.source_height_px,
         normalized_width_px=normalized_image.normalized_width_px,
         normalized_height_px=normalized_image.normalized_height_px,
+        geometry_analysis_width_px=geometry_analysis_image.normalized_width_px,
+        geometry_analysis_height_px=geometry_analysis_image.normalized_height_px,
         width_mm=mesh.width_mm,
         height_mm=mesh.height_mm,
         image_window_width_mm=mesh.image_window_width_mm or mesh.width_mm,
@@ -87,6 +93,7 @@ def build_artifact_metadata(
         provider_settings=provider_settings,
         provider_audit=heightmap.provider_audit,
         segmentation_status=heightmap.segmentation_status,
+        face_analysis_status=heightmap.face_analysis_status,
         full_color_package=(
             package_metadata.get("full_color")
             if package_metadata

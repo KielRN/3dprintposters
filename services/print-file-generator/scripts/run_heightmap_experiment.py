@@ -8,6 +8,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(SERVICE_ROOT))
 
 from app.models import (  # noqa: E402
+    PRODUCTION_GEOMETRY_ANALYSIS_WIDTH_PX,
     PRODUCTION_TARGET_WIDTH_PX,
     PrintFileGenerationRequest,
     ReliefSettings,
@@ -54,6 +55,11 @@ def main() -> None:
     parser.add_argument("--job-id", default=None)
     parser.add_argument("--uid", default="local_experiment")
     parser.add_argument("--target-width-px", type=int, default=PRODUCTION_TARGET_WIDTH_PX)
+    parser.add_argument(
+        "--geometry-analysis-width-px",
+        type=int,
+        default=PRODUCTION_GEOMETRY_ANALYSIS_WIDTH_PX,
+    )
     parser.add_argument("--max-source-pixels", type=int, default=16_000_000)
     parser.add_argument("--contrast", type=float, default=1.0)
     parser.add_argument("--gamma", type=float, default=1.0)
@@ -127,6 +133,7 @@ def main() -> None:
                 height_provider=provider,
                 max_source_pixels=args.max_source_pixels,
                 target_width_px=args.target_width_px,
+                geometry_analysis_width_px=args.geometry_analysis_width_px,
                 contrast=args.contrast,
                 gamma=args.gamma,
                 post_smooth_radius_px=args.post_smooth_radius_px,

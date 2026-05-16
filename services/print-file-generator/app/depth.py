@@ -5,6 +5,7 @@ from typing import Any, Literal
 import numpy as np
 from PIL import Image, ImageFilter, ImageOps
 
+from .portrait_regions import PortraitRegionMasks, analyze_portrait_regions
 from .providers.base import ProviderAudit
 
 
@@ -33,6 +34,7 @@ class Heightmap:
     provider: str
     provider_audit: dict[str, dict[str, object]] | None = None
     segmentation_status: dict[str, object] | None = None
+    face_analysis_status: dict[str, object] | None = None
 
 
 @dataclass(frozen=True)
@@ -377,23 +379,32 @@ class MaskedDepthDetailBlendProvider:
         mask_blur_radius_px: float = 5.0,
         compression_strength: float = 0.75,
     ) -> Heightmap:
-        depth_result = _infer_depth_anything_v2_small_result(image)
-        relative_depth = depth_result.depth
-        depth = _normalize_depth(relative_depth)
-        depth = _apply_tone_curve(depth, contrast=contrast, gamma=gamma)
-
         subject_mask_result = _generate_subject_mask_result(
             image,
             blur_radius_px=mask_blur_radius_px,
         )
         subject_mask = subject_mask_result.mask
+        portrait_regions = analyze_portrait_regions(image)
+        geometry_image = prepare_geometry_analysis_image(
+            image,
+            subject_mask=subject_mask,
+            portrait_regions=portrait_regions,
+        )
+
+        depth_result = _infer_depth_anything_v2_small_result(geometry_image)
+        relative_depth = depth_result.depth
+        depth = _normalize_depth(relative_depth)
+        if depth.shape != subject_mask.shape:
+            depth = _resize_unit_array(depth, subject_mask.shape)
+        depth = _apply_tone_curve(depth, contrast=contrast, gamma=gamma)
+
         semantic_base = depth * (
             subject_boost * subject_mask + background_scale * (1.0 - subject_mask)
         )
         semantic_base = _normalize_unit_array(semantic_base)
 
         detail_unit = _deterministic_detail_unit(
-            image,
+            geometry_image,
             source=detail_source,
             contrast=contrast,
             gamma=gamma,
@@ -404,12 +415,32 @@ class MaskedDepthDetailBlendProvider:
             clip=detail_clip,
         )
 
-        blended = semantic_base + detail_weight * subject_mask * detail_layer
+        detail_weight_map = _portrait_detail_weight_map(
+            detail_layer.shape,
+            portrait_regions=portrait_regions,
+        )
+
+        blended = (
+            semantic_base
+            + detail_weight * subject_mask * detail_weight_map * detail_layer
+        )
         blended = blended.clip(0.0, 1.0).astype(np.float32)
 
         relief_depth = _apply_bas_relief_transform(
             blended,
             compression_strength=compression_strength,
+        )
+        relief_depth = _apply_subject_surface_smoothing(
+            relief_depth,
+            subject_mask=subject_mask,
+        )
+        relief_depth = _apply_portrait_surface_smoothing(
+            relief_depth,
+            portrait_regions=portrait_regions,
+        )
+        relief_depth = _apply_portrait_nose_relief_prior(
+            relief_depth,
+            portrait_regions=portrait_regions,
         )
         relief_depth = _smooth_unit_array(relief_depth, post_smooth_radius_px)
 
@@ -430,6 +461,7 @@ class MaskedDepthDetailBlendProvider:
                 subject_segmentation=subject_mask_result.audit,
             ),
             segmentation_status=_segmentation_status_to_dict(subject_mask_result),
+            face_analysis_status=portrait_regions.to_metadata(),
         )
 
 
@@ -816,12 +848,11 @@ def _generate_subject_mask_result(
         )
 
     if blur_radius_px > 0:
-        mask_img = Image.fromarray(
-            (raw_mask * 255).clip(0, 255).astype(np.uint8), mode="L"
-        )
-        mask_img = mask_img.filter(ImageFilter.GaussianBlur(radius=blur_radius_px))
         return SubjectMaskResult(
-            mask=np.asarray(mask_img, dtype=np.float32) / 255.0,
+            mask=_smooth_subject_mask_contour(
+                raw_mask,
+                feather_radius_px=blur_radius_px,
+            ),
             status=status,
             audit=result.audit,
             mask_coverage=mask_coverage,
@@ -884,6 +915,123 @@ def _segmentation_status_to_dict(result: SubjectMaskResult) -> dict[str, object]
     }
 
 
+def _smooth_subject_mask_contour(
+    raw_mask: np.ndarray,
+    *,
+    feather_radius_px: float,
+) -> np.ndarray:
+    """Smooth blocky segmentation contours and return a feathered subject mask."""
+    mask = raw_mask.astype(np.float32).clip(0.0, 1.0)
+    if mask.size == 0:
+        return mask
+
+    binary = mask > 0.5
+    if np.all(binary):
+        return np.ones(mask.shape, dtype=np.float32)
+    if not np.any(binary):
+        return np.zeros(mask.shape, dtype=np.float32)
+
+    try:
+        import cv2
+
+        radius = max(1, min(9, int(round(feather_radius_px * 0.45))))
+        kernel_size = radius * 2 + 1
+        kernel = cv2.getStructuringElement(
+            cv2.MORPH_ELLIPSE,
+            (kernel_size, kernel_size),
+        )
+        binary_u8 = (binary.astype(np.uint8) * 255)
+        closed = cv2.morphologyEx(binary_u8, cv2.MORPH_CLOSE, kernel)
+        opened = cv2.morphologyEx(closed, cv2.MORPH_OPEN, kernel)
+        inside = cv2.distanceTransform(opened, cv2.DIST_L2, 3)
+        outside = cv2.distanceTransform(255 - opened, cv2.DIST_L2, 3)
+        signed_distance = inside - outside
+        feather = max(1.0, float(feather_radius_px))
+        soft = ((signed_distance + feather) / (2.0 * feather)).clip(0.0, 1.0)
+        return _smoothstep_array(soft).astype(np.float32)
+    except Exception:
+        mask_img = Image.fromarray((mask * 255).round().astype(np.uint8), mode="L")
+        mask_img = mask_img.filter(ImageFilter.GaussianBlur(radius=feather_radius_px))
+        return (np.asarray(mask_img, dtype=np.float32) / 255.0).clip(0.0, 1.0)
+
+
+def prepare_geometry_analysis_image(
+    image: Image.Image,
+    *,
+    subject_mask: np.ndarray,
+    portrait_regions: PortraitRegionMasks | None = None,
+) -> Image.Image:
+    """Build a geometry-only image that suppresses proof halos and texture noise."""
+    rgb_image = image.convert("RGB")
+    width, height = rgb_image.size
+    mask = subject_mask.astype(np.float32).clip(0.0, 1.0)
+    if mask.shape != (height, width):
+        mask = _resize_unit_array(mask, (height, width))
+
+    rgb = np.asarray(rgb_image, dtype=np.float32) / 255.0
+    local_smooth = np.asarray(
+        rgb_image.filter(ImageFilter.GaussianBlur(radius=1.35)),
+        dtype=np.float32,
+    ) / 255.0
+    broad_radius = max(6.0, min(width, height) * 0.035)
+    broad_smooth = np.asarray(
+        rgb_image.filter(ImageFilter.GaussianBlur(radius=broad_radius)),
+        dtype=np.float32,
+    ) / 255.0
+
+    background_pixels = rgb[mask < 0.08]
+    if background_pixels.size:
+        background_color = np.median(background_pixels, axis=0)
+    else:
+        background_color = np.median(rgb.reshape(-1, 3), axis=0)
+    background_flat = 0.72 * background_color.reshape(1, 1, 3) + 0.28 * broad_smooth
+
+    face_preserve = np.zeros((height, width), dtype=np.float32)
+    if portrait_regions is not None and portrait_regions.face_oval.shape == mask.shape:
+        face_preserve = np.maximum(face_preserve, 0.55 * portrait_regions.face_oval)
+        face_preserve = np.maximum(face_preserve, 0.72 * portrait_regions.central_face)
+        face_preserve = np.maximum(face_preserve, 0.90 * portrait_regions.eyes)
+        face_preserve = np.maximum(face_preserve, 0.72 * portrait_regions.nose)
+        face_preserve = np.maximum(face_preserve, 0.90 * portrait_regions.mouth)
+        face_preserve = face_preserve.clip(0.0, 0.92)
+
+    subject_keep = 0.52 + 0.42 * face_preserve
+    subject_clean = rgb * subject_keep[..., None] + local_smooth * (
+        1.0 - subject_keep[..., None]
+    )
+
+    boundary = _smooth_unit_array(_normalized_gradient_magnitude(mask), 1.6)
+    boundary = boundary.clip(0.0, 0.85)
+    composed = background_flat * (1.0 - mask[..., None]) + subject_clean * mask[..., None]
+    composed = composed * (1.0 - boundary[..., None]) + local_smooth * boundary[..., None]
+
+    return Image.fromarray((composed * 255.0).round().clip(0, 255).astype(np.uint8))
+
+
+def resize_heightmap_to_shape(
+    heightmap: Heightmap,
+    *,
+    target_shape: tuple[int, int],
+) -> Heightmap:
+    target_rows, target_cols = target_shape
+    if heightmap.values.shape == target_shape:
+        return heightmap
+    if target_rows < 2 or target_cols < 2:
+        raise ValueError("Target heightmap shape must be at least 2x2")
+
+    resized = _resize_float_array(heightmap.values, target_shape)
+    resized = resized.clip(heightmap.min_height_mm, heightmap.max_height_mm)
+    return Heightmap(
+        values=resized.astype(np.float32),
+        min_height_mm=float(np.min(resized)),
+        max_height_mm=float(np.max(resized)),
+        provider=heightmap.provider,
+        provider_audit=heightmap.provider_audit,
+        segmentation_status=heightmap.segmentation_status,
+        face_analysis_status=heightmap.face_analysis_status,
+    )
+
+
 def _extract_subject_detail_layer(
     detail_unit: np.ndarray,
     *,
@@ -904,6 +1052,180 @@ def _extract_subject_detail_layer(
         return high_frequency.astype(np.float32)
 
     return (np.clip(high_frequency, -clip, clip) / clip).astype(np.float32)
+
+
+def _portrait_detail_weight_map(
+    shape: tuple[int, int],
+    *,
+    portrait_regions: PortraitRegionMasks,
+) -> np.ndarray:
+    if portrait_regions.face_count == 0:
+        return np.ones(shape, dtype=np.float32)
+    if portrait_regions.central_face.shape != shape:
+        return np.ones(shape, dtype=np.float32)
+
+    skin = np.clip(
+        portrait_regions.central_face
+        - np.maximum(portrait_regions.eyes, portrait_regions.mouth),
+        0.0,
+        1.0,
+    )
+    damping = (
+        0.25 * skin
+        + 0.65 * portrait_regions.eyes
+        + 0.35 * portrait_regions.nose
+        + 0.55 * portrait_regions.mouth
+    )
+    return (1.0 - damping).clip(0.18, 1.0).astype(np.float32)
+
+
+def _apply_portrait_surface_smoothing(
+    relief_depth: np.ndarray,
+    *,
+    portrait_regions: PortraitRegionMasks,
+    radius_px: float = 2.4,
+) -> np.ndarray:
+    if portrait_regions.face_count == 0:
+        return relief_depth.astype(np.float32)
+    if portrait_regions.face_oval.shape != relief_depth.shape:
+        return relief_depth.astype(np.float32)
+
+    smoothed = _smooth_unit_array(relief_depth, radius_px)
+    face_mask = np.maximum(
+        0.55 * portrait_regions.face_oval,
+        0.78 * portrait_regions.central_face,
+    )
+    face_mask = np.maximum(face_mask, 0.88 * portrait_regions.eyes)
+    face_mask = np.maximum(face_mask, 0.68 * portrait_regions.nose)
+    face_mask = np.maximum(face_mask, 0.84 * portrait_regions.mouth)
+    face_mask = face_mask.clip(0.0, 0.88).astype(np.float32)
+
+    return (
+        relief_depth.astype(np.float32) * (1.0 - face_mask)
+        + smoothed.astype(np.float32) * face_mask
+    ).clip(0.0, 1.0).astype(np.float32)
+
+
+def _apply_portrait_nose_relief_prior(
+    relief_depth: np.ndarray,
+    *,
+    portrait_regions: PortraitRegionMasks,
+    radius_px: float = 5.5,
+    strength: float = 0.075,
+) -> np.ndarray:
+    if portrait_regions.face_count == 0:
+        return relief_depth.astype(np.float32)
+    if portrait_regions.nose.shape != relief_depth.shape:
+        return relief_depth.astype(np.float32)
+
+    nose_mask = portrait_regions.nose.astype(np.float32).clip(0.0, 1.0)
+    if float(np.max(nose_mask)) <= 0.0:
+        return relief_depth.astype(np.float32)
+
+    broad_face = _smooth_unit_array(relief_depth, radius_px)
+    raised_nose = np.maximum(
+        relief_depth.astype(np.float32),
+        broad_face + float(strength) * nose_mask,
+    ).clip(0.0, 1.0)
+    blend = (0.74 * nose_mask).clip(0.0, 0.74)
+    return (
+        relief_depth.astype(np.float32) * (1.0 - blend)
+        + raised_nose.astype(np.float32) * blend
+    ).clip(0.0, 1.0).astype(np.float32)
+
+
+def _apply_subject_surface_smoothing(
+    relief_depth: np.ndarray,
+    *,
+    subject_mask: np.ndarray,
+    radius_px: float = 1.8,
+    strength: float = 0.42,
+) -> np.ndarray:
+    if relief_depth.size == 0 or subject_mask.shape != relief_depth.shape:
+        return relief_depth.astype(np.float32)
+
+    smoothed = _smooth_unit_array(relief_depth, radius_px)
+    structural_base = _guided_filter_self(
+        relief_depth.astype(np.float32),
+        radius=5,
+        eps=0.025,
+    )
+    structural_edges = _normalized_gradient_magnitude(structural_base)
+    edge_protection = _smoothstep_array(
+        ((structural_edges - 0.22) / 0.45).clip(0.0, 1.0)
+    )
+    smoothing_mask = (
+        subject_mask.astype(np.float32).clip(0.0, 1.0)
+        * float(np.clip(strength, 0.0, 1.0))
+        * (1.0 - edge_protection)
+    )
+
+    return (
+        relief_depth.astype(np.float32) * (1.0 - smoothing_mask)
+        + smoothed.astype(np.float32) * smoothing_mask
+    ).clip(0.0, 1.0).astype(np.float32)
+
+
+def apply_image_window_edge_fade(
+    heightmap: Heightmap,
+    *,
+    fade_width_px: int | None = None,
+) -> Heightmap:
+    values = heightmap.values.astype(np.float32)
+    if values.size == 0:
+        return heightmap
+
+    rows, cols = values.shape
+    if rows < 3 or cols < 3:
+        return heightmap
+
+    width = fade_width_px
+    if width is None:
+        width = max(2, min(14, round(min(rows, cols) * 0.045)))
+    width = int(width)
+    if width <= 0:
+        return heightmap
+
+    edge_mask = _image_window_edge_mask(rows=rows, cols=cols, fade_width_px=width)
+    floor = float(heightmap.min_height_mm)
+    faded = floor + (values - floor) * edge_mask
+    return Heightmap(
+        values=faded.astype(np.float32),
+        min_height_mm=float(np.min(faded)),
+        max_height_mm=float(np.max(faded)),
+        provider=heightmap.provider,
+        provider_audit=heightmap.provider_audit,
+        segmentation_status=heightmap.segmentation_status,
+        face_analysis_status=heightmap.face_analysis_status,
+    )
+
+
+def _image_window_edge_mask(*, rows: int, cols: int, fade_width_px: int) -> np.ndarray:
+    y_distance = np.minimum(np.arange(rows), np.arange(rows)[::-1])
+    x_distance = np.minimum(np.arange(cols), np.arange(cols)[::-1])
+    edge_distance = np.minimum(y_distance[:, None], x_distance[None, :]).astype(
+        np.float32
+    )
+    progress = (edge_distance / max(float(fade_width_px), 1.0)).clip(0.0, 1.0)
+    return _smoothstep_array(progress).astype(np.float32)
+
+
+def _normalized_gradient_magnitude(values: np.ndarray) -> np.ndarray:
+    gradient_y, gradient_x = np.gradient(values.astype(np.float32))
+    magnitude = np.sqrt(gradient_x * gradient_x + gradient_y * gradient_y)
+    finite = magnitude[np.isfinite(magnitude)]
+    if finite.size == 0:
+        return np.zeros(values.shape, dtype=np.float32)
+
+    scale = float(np.percentile(finite, 96.0))
+    if scale <= 1e-6:
+        return np.zeros(values.shape, dtype=np.float32)
+
+    return (magnitude / scale).clip(0.0, 1.0).astype(np.float32)
+
+
+def _smoothstep_array(values: np.ndarray) -> np.ndarray:
+    return values * values * (3.0 - 2.0 * values)
 
 
 @lru_cache(maxsize=1)
@@ -1095,6 +1417,22 @@ def _smooth_unit_array(values: np.ndarray, radius_px: float) -> np.ndarray:
         arr=padded_y,
     )
     return smoothed.astype(np.float32).clip(0.0, 1.0)
+
+
+def _resize_float_array(values: np.ndarray, target_shape: tuple[int, int]) -> np.ndarray:
+    target_rows, target_cols = target_shape
+    if values.shape == target_shape:
+        return values.astype(np.float32)
+
+    resampling = getattr(Image, "Resampling", Image).BICUBIC
+    image = Image.fromarray(values.astype(np.float32), mode="F")
+    resized = image.resize((target_cols, target_rows), resampling)
+    return np.asarray(resized, dtype=np.float32)
+
+
+def _resize_unit_array(values: np.ndarray, target_shape: tuple[int, int]) -> np.ndarray:
+    resized = _resize_float_array(values.astype(np.float32), target_shape)
+    return resized.clip(0.0, 1.0).astype(np.float32)
 
 
 def _normalize_depth(values: np.ndarray) -> np.ndarray:

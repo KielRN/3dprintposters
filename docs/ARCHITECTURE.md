@@ -48,18 +48,18 @@ Architecture decision: keep this as the production FastAPI/Cloud Run boundary an
 Responsibilities:
 
 - Read selected generated image from Cloud Storage.
-- Convert image into a relief heightmap and geometry.
+- Convert image into a geometry-analysis relief heightmap and final mesh/color output geometry.
 - Generate a closed, watertight 5.5in x 7.5in physical relief mesh with a 5in x 7in image window, top surface, base plane, sidewalls, controlled relief range, and exact physical bounds.
 - Generate binary STL as a baseline geometry artifact.
 - Generate a color-capable print package for Mimaki 3DUJ-2207 partners, such as 3MF or OBJ plus texture.
 - Generate filament painting support files such as palette, layer swaps, print settings, and preview.
-- Optionally generate a lower-poly GLB/mesh preview for the web app.
+- Generate an image-colored GLB/mesh preview for the web app from the same output geometry.
 - Write print artifacts and preview assets back to Cloud Storage.
 - Return an artifact manifest and printability metadata.
 
 This is intentionally separate from Firebase Functions because geometry generation, texture packaging, and filament painting preparation may need Python libraries, CPU time, memory, and longer request windows.
 
-The first implementation should be deterministic: validated image input, 5:7 crop/pad, luminance heightmap fallback, closed mesh generation, STL/heightmap/metadata output, and printability checks. AI depth providers such as Depth Anything V2 Small, Depth Pro, or MoGe should plug into the heightmap step only after the deterministic relief path is working.
+The current implementation is a hybrid deterministic/service boundary: validated image input, separate 768px geometry-analysis and 400px output normalizations, geometry-only proof cleanup, Depth Anything V2 semantic depth, contour-smoothed SegFormer subject masking, deterministic in-mask lithophane detail, nose-aware portrait shaping, closed mesh generation, STL/heightmap/GLB/metadata output, color packages, filament-painting support files, and printability checks.
 
 ### Firebase/GCP
 

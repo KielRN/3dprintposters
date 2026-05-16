@@ -1,6 +1,7 @@
 fastapi>=0.115
 google-cloud-storage>=2.19
 numpy>=2.2
+opencv-python-headless>=4.10
 pillow>=11.0
 python-dotenv>=1.0
 pydantic>=2.10
@@ -17,4 +18,4 @@ ruff>=0.8
 trimesh>=4.5
 
 [quality_gates]
-opencv-python>=4.10
+opencv-python-headless>=4.10

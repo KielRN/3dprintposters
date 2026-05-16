@@ -1,6 +1,7 @@
 README.md
 pyproject.toml
 app/__init__.py
+app/color_packages.py
 app/depth.py
 app/generation.py
 app/image_pipeline.py
@@ -8,6 +9,7 @@ app/main.py
 app/metadata.py
 app/models.py
 app/packages.py
+app/portrait_regions.py
 app/preview.py
 app/printability.py
 app/provider_policy.py
