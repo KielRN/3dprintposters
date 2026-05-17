@@ -1,6 +1,6 @@
 # 3D Print Posters
 
-3D Print Posters is a mobile-first web app for turning a user photo into a stylized 3D-printable poster relief with a 5in x 7in image window inside a 5.5in x 7.5in physical object. The current MVP lets a user sign in, upload a photo, choose a style, ask the backend to generate a proof image, approve that proof, and start Stripe Checkout.
+3D Print Posters is a mobile-first web app for turning a user photo into controlled stylized art, then into a 3D-printable poster relief with a 5in x 7in image window inside a 5.5in x 7.5in physical object. The Super Dad proof is the MVP north star: smooth stylized human surfaces, clean poster-like volumes, crisp raised text/logos, simple backgrounds, and intentional texture only. The current MVP lets a user sign in, upload a photo, choose a style, ask the backend to generate a proof image, approve that proof, and start Stripe Checkout.
 
 This project is still in local MVP development. It is not production-ready yet.
 
@@ -14,6 +14,7 @@ Working now:
 - Firebase callable Functions for job creation, proof approval, print-file generation orchestration, and checkout
 - Direct Vertex/Gemini proof-generation adapter in `apps/functions`
 - Python print-file generator service for 400px mesh-output STL, 768px geometry-analysis depth/mask/detail work, geometry-only proof cleanup, contour-smoothed subject edges, face-aware texture damping, face/forehead pit guarding, image-colored GLB preview, heightmap, metadata, full-color packages, filament painting guides, debug artifacts, and printability output
+- Product direction for the next relief-quality pass: surface-intent aware generation where skin, scalp, neck, simple clothing, and backgrounds are smooth by default, while text, logos, emblems, panel lines, and approved material textures stay crisp
 - Job-page proof, heightmap, 3D GLB inspection view, and local `.tmp` print-package mirroring after proof approval
 - Firestore and Storage security rules for the dev Firebase project
 - Stripe Checkout session creation boundary
@@ -148,8 +149,8 @@ Start with these files when you feel lost:
 - `CHANGELOG.md`: what changed recently
 - `docs/ARCHITECTURE.md`: deeper system design
 - `docs/DEPLOYMENT.md`: hosting, Firebase, Cloudflare, and secret notes
-- `docs/PRINT_FILE_GENERATOR_ARCHITECTURE_ROADMAP_EVALUATION.md`: accepted print-file generator integration plan
-- `AI_3D_MODEL_GENERATION_RESEARCH.md`: AI depth and image-to-3D research behind that plan
+- `docs/PRINT_FILE_GENERATION_WORKFLOW.md`: current print-file generator contract and product direction
+- `research/HEIGHTMAP_AND_3D_WORKFLOW_RESEARCH.md`: AI depth and image-to-3D research behind that plan
 
 ## Print-File Generator Direction
 
@@ -159,9 +160,10 @@ The next major implementation slice is the print-file generator. We accepted the
 - Selectively port core image, heightmap, STL, metadata, color, and test ideas from `E:\PROJECTS\print-file-generator`.
 - Do not copy the standalone Flask app, SQLite project database, browser session state, CLI control plane, or TD1 hardware code into the production service.
 - Build relief generation around a 5in x 7in image window inside a 5.5in x 7.5in physical object: validated image input, 5:7 crop/pad, 768px geometry-analysis image, 400px mesh/color output heightmap, closed watertight mesh with base, sidewalls, shaped border/frame geometry, binary STL, heightmap PNG, metadata, debug artifacts, and printability checks.
+- Treat the Super Dad generated proof as the near-term style target. The customer photo provides identity/reference, but the approved proof and a surface-intent policy should control manufacturing geometry. Smooth is the default unless a region is explicitly intended to be raised text, logo, panel line, hair, fabric, or another printable texture.
 - Add Depth Anything V2 Small, Depth Pro, MoGe, or other AI depth providers only after the deterministic relief pipeline works.
 
-See `docs/PRINT_FILE_GENERATOR_ARCHITECTURE_ROADMAP_EVALUATION.md` for the phased roadmap.
+See `docs/PRINT_FILE_GENERATION_WORKFLOW.md` and `docs/ROADMAP.md` for the current phased direction.
 
 ## Setup
 
@@ -434,6 +436,8 @@ Use Stripe test mode until payment, webhook, and fulfillment state transitions a
 - [x] Add known-image test fixtures.
 - [x] Decouple geometry analysis from mesh output with a 768px analysis image and 400px mesh/color output.
 - [x] Add geometry-only proof cleanup, contour-smoothed subject masks, broad face smoothing, and a face/forehead pit guard for roughness/blocky-edge concerns.
+- [ ] Add Super Dad style constraints and surface-intent metadata so smooth surfaces stay smooth and only intended regions carry texture.
+- [ ] Add region roughness checks for smooth skin/body/fabric/background surfaces.
 - [ ] Deploy the print-file generator as a Cloud Run service and set production `PRINT_FILE_GENERATOR_URL`.
 - [x] Generate full-color package artifacts such as 3MF or OBJ plus texture.
 - [x] Generate filament painting files: palette, layer swaps, settings, preview.

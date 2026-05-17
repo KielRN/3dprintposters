@@ -8,6 +8,8 @@ The 3D conversion pipeline is the riskiest technical area, so it is separated in
 
 The target product size is now a 5.5in x 7.5in physical relief with a 5in x 7in image window and 1/4in border. The target print path is a fulfillment business that can print on a Mimaki 3DUJ-2207 or comparable full-color UV-curable inkjet 3D printer. Keep Sculpteo API work on hold until we confirm whether it fits this printer and file-handoff strategy.
 
+The MVP visual north star is the "Super Dad" generated proof: controlled poster art with smooth stylized human surfaces, clean body volumes, crisp raised text/logos, simple backgrounds, and intentional material texture only. STL generation should not preserve every source-photo or proof texture as geometry.
+
 ## Inputs
 
 - `jobId`
@@ -19,7 +21,7 @@ The target product size is now a 5.5in x 7.5in physical relief with a 5in x 7in 
 - Mesh/color output width: 400px by default.
 - Relief depth range, initially 0.4mm to 3.0mm.
 - Material profile, initially `mimaki_3duj_2207_full_color_uv_resin`.
-- Optional style metadata from the image generation step.
+- Optional style and surface-intent metadata from the image generation step.
 
 ## Output Artifacts
 
@@ -37,25 +39,27 @@ STL remains useful as a geometry baseline and for generic printability checks, b
 2. Validate size, MIME type, dimensions, and safety metadata.
 3. Normalize image orientation and resolution.
 4. Crop or pad to a 5:7 composition at both geometry-analysis and mesh/color output widths.
-5. Segment the subject, smooth the subject contour, and build a geometry-only proof-cleanup image to reduce halos, faceted backgrounds, and texture noise.
-6. Generate a hybrid heightmap from semantic depth plus controlled deterministic detail.
-7. Smooth the heightmap enough for printability while preserving major edges and applying nose-aware portrait shaping when a face is detected.
-8. Resample the heightmap from 768px analysis width to 400px output width.
-9. Convert height values into a closed watertight relief mesh with top surface, base plane, sidewalls, consistent normals, and exact 139.7mm x 190.5mm physical bounds.
-10. Add a poster base plate with minimum thickness.
-11. Attach color/texture data from the approved generated image.
-12. Export binary STL for geometry validation.
-13. Export a Mimaki-partner handoff package, initially 3MF or OBJ plus texture.
-14. Generate preview mesh for browser display.
-15. Run printability checks:
+5. Segment the subject, smooth the subject contour, and build or infer a surface-intent map. Default to smooth surfaces unless text, logos, emblems, panel lines, hair, fabric, or other printable texture classes are explicitly requested.
+6. Build a geometry-only proof-cleanup image to reduce halos, faceted backgrounds, and unintended skin/scalp/neck/shirt texture noise.
+7. Generate a hybrid heightmap from semantic depth plus controlled deterministic detail.
+8. Smooth the heightmap enough for printability while preserving major designed edges and applying portrait/body smoothing for face, scalp/top-of-head, neck, ears, hands, shirt/collar, and other smooth-intent regions.
+9. Resample the heightmap from 768px analysis width to 400px output width.
+10. Convert height values into a closed watertight relief mesh with top surface, base plane, sidewalls, consistent normals, and exact 139.7mm x 190.5mm physical bounds.
+11. Add a poster base plate with minimum thickness.
+12. Attach color/texture data from the approved generated image.
+13. Export binary STL for geometry validation.
+14. Export a Mimaki-partner handoff package, initially 3MF or OBJ plus texture.
+15. Generate preview mesh for browser display.
+16. Run printability checks:
     - Watertight mesh.
     - Minimum thickness.
     - Triangle count.
     - Bounding box size.
     - Relief depth limit.
     - Color texture and mesh alignment.
+    - Region roughness limits for smooth-intent surfaces.
     - Mimaki 3DUJ-2207 build envelope fit: 203mm x 203mm x 76mm, including support material.
-16. Store artifacts and return metadata.
+17. Store artifacts and return metadata.
 
 ## Mimaki 3DUJ-2207 Target Notes
 
@@ -75,6 +79,7 @@ Good AI-assisted candidates:
 - Subject/background segmentation.
 - Monocular depth estimation.
 - Style prompts that produce clean posterized regions.
+- Surface-intent or region/material metadata for controlled styles.
 - Automated QA on generated previews.
 - Suggesting full-color texture cleanup for Mimaki-style color printing.
 
@@ -94,15 +99,17 @@ Current MVP path:
 - Use 768px geometry analysis and 400px mesh/color output.
 - Add a closed base plate, sidewalls, shaped 1/4in border, STL, color preview, metadata, full-color package artifacts, and filament-painting support files.
 - Show the approved proof, heightmap, and generated GLB on the job page after proof approval.
+- Promote the Super Dad controlled-art path as the default style target for the next relief-quality pass.
 
 Then improve:
 
-- Validate the new roughness/blocky-edge tuning through browser and Blender review.
+- Add surface-intent-aware smoothing/detail gating, then validate the new roughness/blocky-edge tuning through browser and Blender review.
 - Add Mimaki partner-specific printability and color-package checks.
 
 ## Risks
 
 - Noisy AI images can create unprintable tiny geometry.
+- Controlled proofs can still carry visual texture that should remain color-only, not geometry, unless surface intent suppresses it.
 - Faces may look strange when converted directly from brightness.
 - Large STL files can get expensive to store and slow to upload.
 - Fulfillment providers may reject models that look fine in browser preview.

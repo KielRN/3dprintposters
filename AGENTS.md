@@ -98,7 +98,10 @@ JDK 21+ is installed on this machine, so the full Firebase emulator suite can ru
 ## Relief Quality Direction
 
 - The chosen production relief provider is `masked_depth_detail_blend` with `lithophane_baseline` detail source at `detail_weight: 0.12`.
-- Current Phase 3 focus is product geometry and quality tuning: 5in x 7in image relief window, 1/4in border on all sides, intentional frame geometry, edge fade, geometry-analysis cleanup, contour-smoothed subject edges, face smoothing/pit guarding without a nose-specific boost, higher mesh resolution, and better GLB preview lighting/material.
+- The Super Dad generated proof is the MVP north star for the HueForge-like product direction: controlled printable art, smooth stylized human surfaces, clean body volumes, crisp raised text/logos, simple backgrounds, and intentional texture only.
+- The customer photo is identity/reference input. The approved generated proof plus style/surface policy should be the manufacturing input.
+- Current Phase 3 focus is product geometry and quality tuning: 5in x 7in image relief window, 1/4in border on all sides, intentional frame geometry, edge fade, geometry-analysis cleanup, contour-smoothed subject edges, face smoothing/pit guarding without a nose-specific boost, higher mesh resolution, better GLB preview lighting/material, and surface-intent-aware smoothing/detail gating.
+- Default surface policy should be smooth unless explicitly called: skin, scalp/top-of-head, neck, ears, hands, simple clothing, and backgrounds should not inherit rough source/proof texture. Text, logos, graphic edges, panel lines, hair, fabric, and other material textures should keep detail only when intentionally marked.
 - Run future experiments as sidecar scripts until reviewed, then promote the chosen path into the real checkout workflow instead of leaving it opt-in.
 - Use canonical local inputs from `.tmp/input_image` for future relief comparisons when relevant: `Gemini_Generated_Image_lzneejlzneejlzne.png` and `Profile-Pic-HIMSS.jpg`.
 - Keep experiment outputs under ignored local paths such as `.tmp/experiments/{provider}/{jobId}`.

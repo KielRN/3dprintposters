@@ -32,9 +32,9 @@ Implementation direction: keep this service's FastAPI contract and selectively e
 - Base thickness, initially 1.2mm.
 - Relief settings: height provider, geometry-analysis width, mesh target width, contrast, gamma, post-heightmap smoothing radius, heightmap PNG bit depth, and hybrid detail source/weight.
 - Optional portrait-region analysis metadata from local/server-side face detection or landmarks. This should be used for relief tuning only, not identity recognition.
+- Optional style and surface-intent metadata from proof generation. The Super Dad MVP path should default to smooth printable surfaces unless a region is explicitly marked as raised text, logo, graphic edge, panel line, hair, fabric, or another intentional texture class.
 - Full-color material profile, initially `mimaki_3duj_2207_full_color_uv_resin`.
 - Filament material profile, initially `generic_multicolor_fdm_filament_painting`.
-- Optional style metadata from the image generation step.
 
 ## Output Artifacts
 
@@ -76,17 +76,18 @@ Filament painting artifacts:
 4. Crop or pad to the 5:7 image-window composition twice: a 768px-wide geometry-analysis image for depth/segmentation/detail and a 400px-wide mesh/color output image for final artifacts.
 5. Choose the requested server-side height provider. The product default is `masked_depth_detail_blend` with `lithophane_baseline` detail source.
 6. Generate local/server-side face-region status with OpenCV Haar face boxes. When faces are detected, build soft face-oval, central-face, eye, nose, and mouth masks for relief tuning only; defer external face APIs until local misses are proven in product-flow review.
-7. Generate a contour-smoothed subject mask, then build a geometry-only proof-cleanup image that suppresses subject halos, faceted backgrounds, and noisy shirt/background texture without changing the approved color proof used for texture output.
-8. Generate a normalized float heightmap from the selected provider at geometry-analysis resolution.
-9. Apply optional tone controls, post-heightmap smoothing, quantization, softened edge detail, edge-aware subject-surface smoothing, reduced face-aware detail blending, broader face-oval smoothing, face/forehead pit guarding, resampling to the 400px mesh output, and an image-window edge fade so relief settles before the shaped frame.
-10. Convert height values into closed relief geometry with a 5in x 7in image window, shaped 1/4in border/frame, top surface, bottom base plane, sidewalls, consistent winding, and controlled relief depth.
-11. Add a poster base plate with minimum thickness.
-12. Export baseline STL for geometry validation workflows.
-13. Generate a color browser preview mesh.
-14. Generate a full-color package for the selected print partner.
-15. Generate filament painting palette and layer swap support files.
-16. Run printability and package readiness checks.
-17. Store artifacts and return a manifest to the orchestrating backend.
+7. Generate or infer a surface-intent map. V1 can combine style metadata, subject mask, portrait masks, and image cues, but the policy should be explicit: smooth by default; preserve sharp/raised detail only for intentional text, logos, emblems, panel lines, hair, fabric, or other approved texture classes.
+8. Generate a contour-smoothed subject mask, then build a geometry-only proof-cleanup image that suppresses subject halos, faceted backgrounds, and noisy skin/scalp/neck/shirt/background texture without changing the approved color proof used for texture output.
+9. Generate a normalized float heightmap from the selected provider at geometry-analysis resolution.
+10. Apply optional tone controls, post-heightmap smoothing, quantization, softened edge detail, edge-aware subject-surface smoothing, reduced face-aware detail blending, broader face/head/neck/body smoothing, face/forehead pit guarding, surface-intent detail gating, resampling to the 400px mesh output, and an image-window edge fade so relief settles before the shaped frame.
+11. Convert height values into closed relief geometry with a 5in x 7in image window, shaped 1/4in border/frame, top surface, bottom base plane, sidewalls, consistent winding, and controlled relief depth.
+12. Add a poster base plate with minimum thickness.
+13. Export baseline STL for geometry validation workflows.
+14. Generate a color browser preview mesh.
+15. Generate a full-color package for the selected print partner.
+16. Generate filament painting palette and layer swap support files.
+17. Run printability, package readiness, and region roughness checks.
+18. Store artifacts and return a manifest to the orchestrating backend.
 
 ## Full-Color Relief Track
 
@@ -159,6 +160,9 @@ The accepted extraction plan is now partially implemented:
 - Use face-aware portrait tuning in the default hybrid path before adding another external AI API: local OpenCV face boxes produce soft masks that reduce harsh deterministic detail around eyes, mouth, skin texture, and outer face areas. Do not add a nose-specific height boost; use a face/forehead pit guard to prevent local facial depressions without creating new protruding shapes.
 - Use a 768px geometry-analysis image and 400px mesh/color output by default. The hybrid provider builds depth, segmentation, detail, and geometry-only proof cleanup at analysis resolution, then resamples the finished heightmap to the output mesh resolution before STL/GLB/package generation.
 - Use contour-smoothed subject masks and geometry-only proof cleanup in the production hybrid path to reduce blocky silhouette/shirt boundaries, white subject-outline ridges, faceted background relief, and rough shirt/background texture.
+- Adopt the Super Dad generated proof as the north-star MVP style. The proof-generation and print-generation systems should converge on controlled poster art: smooth stylized skin and body forms, simple backgrounds, crisp raised text/logos, and intentionally limited material texture.
+- Add a surface-intent/material policy to the print-file generator. The default for unmarked surfaces is smooth, especially scalp/top-of-head, neck, ears, hands, simple clothing, and background regions. Detail should be retained only where style metadata or inferred masks identify text, logos, graphic panel lines, hair, fabric, or another approved printable texture.
+- Write surface-intent policy metadata into `metadata.json` and the print-file audit once implemented, so each paid order preserves the exact smoothing/detail policy used at checkout.
 - Write height-provider policy fields into `metadata.json` so deterministic brightness-to-height providers are marked fallback-only and current quality candidates are distinguishable from the safety net.
 - Write `provider_audit`, `segmentation_status`, `face_analysis_status`, `geometry_analysis_width_px`, and `geometry_analysis_height_px` into `metadata.json`; Functions copies the same audit fields into the job document and `jobs/{jobId}/audit/printFileGeneration`.
 - Run local experiment comparisons with `python scripts/run_heightmap_experiment.py <source-image>` from `services/print-file-generator`; outputs stay under ignored `.tmp/experiments/experiment_1`.
@@ -179,6 +183,7 @@ Then improve:
 - Deploy the print-file generator as a Cloud Run service and point `PRINT_FILE_GENERATOR_URL` at that endpoint.
 - Move long-running print generation behind Cloud Tasks or Pub/Sub.
 - Improve edge-preserving smoothing and subject-aware depth based on human product-flow test results.
+- Implement and tune the Super Dad surface-intent path, then run a fresh browser and Blender review with scalp/top-of-head, neck, shirt/collar, text/logo crispness, and unintended roughness called out explicitly.
 - Review whether the 400px mesh output is enough for the intended print partner after Blender/app inspection; future increases should account for STL/package size, browser preview performance, and partner upload limits.
 - Validate the generated color-package formats with the chosen print partner.
 - Add partner-specific package tuning once accepted format, units, texture/color handling, and review workflow are confirmed.
@@ -187,6 +192,7 @@ Then improve:
 ## Risks
 
 - Noisy AI images can create unprintable tiny geometry.
+- Proofs that look visually appealing but contain uncontrolled photorealistic or AI brush texture can still create rough print geometry unless style constraints and surface-intent smoothing are enforced.
 - Faces may look strange when converted directly from brightness.
 - Full-color printing and filament painting may need different geometry assumptions.
 - Filament painting is highly printer, slicer, nozzle, layer height, and material dependent.

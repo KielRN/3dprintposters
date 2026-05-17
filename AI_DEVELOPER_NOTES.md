@@ -10,7 +10,9 @@ Do not let this file become a second copy of those sources. Keep only durable pr
 
 ## Product Direction
 
-3DPrintPosters lets a user upload a personal photo, generate a stylized proof image, convert the approved proof into a 3D-printable poster relief, inspect the generated artifacts, and eventually send the paid order to a full-color 3D print partner.
+3DPrintPosters lets a user upload a personal photo, generate a controlled stylized proof image, convert the approved proof into a 3D-printable poster relief, inspect the generated artifacts, and eventually send the paid order to a full-color 3D print partner.
+
+2026-05-17 product direction: use the "Super Dad" generated proof as the north-star style for the MVP relief product. The customer photo is identity/reference input, not a command to preserve every source-photo texture. The generated proof should be printable-friendly art with smooth stylized skin, clean toy-like or poster-like forms, crisp raised text/graphics, and only intentional material texture. The print-file generator should move toward a surface-intent/material policy where surfaces are smooth by default unless the proof/style metadata explicitly marks a region as text, logo, panel line, fabric grain, hair texture, or another printable texture class.
 
 Development posture: build toward the intended final product behavior first. Once a product direction is reviewed and chosen, wire it into the real user workflow instead of leaving it as opt-in experiment code. Prefer loud failures during testing over quiet lower-quality substitute behavior; when human testing finds a failure, fix that production path directly.
 
@@ -37,7 +39,8 @@ Use `STL`, not `SLT`.
 - The five-experiment heightmap cycle is complete. Full image-to-3D reconstruction providers such as TripoSR, Stable Fast 3D, TRELLIS, SAM 3D Objects, and TriplaneGaussian are rejected for poster relief because they reconstruct standalone objects rather than image-plane depth.
 - Deterministic brightness-to-height providers (`posterized_luminance`, `continuous_luminance`, `lithophane_baseline`) are reference providers, not the default checkout path.
 - The chosen relief provider is `masked_depth_detail_blend`: 768px geometry-analysis cleanup, Depth Anything V2 semantic depth, contour-smoothed SegFormer subject masking, reduced `lithophane_baseline` in-mask detail, guided-filter bas-relief compression, broader face smoothing, face/forehead pit guarding, and the existing closed STL/GLB generator.
-- Portrait relief tuning is face-aware inside server-side print-file generation. Local OpenCV Haar face boxes build soft face-oval, central-face, eye, nose, and mouth masks for relief tuning and debug visibility only; defer an external face API fallback until local detection misses real product-flow cases. Do not reintroduce the removed nose-specific height boost unless human review explicitly reverses that decision.
+- Portrait relief tuning is currently face-aware inside server-side print-file generation. Local OpenCV Haar face boxes build soft face-oval, central-face, eye, nose, and mouth masks for relief tuning and debug visibility only; defer an external face API fallback until local detection misses real product-flow cases. Do not reintroduce the removed nose-specific height boost unless human review explicitly reverses that decision.
+- Next relief-quality direction is surface-intent aware generation: infer or pass region/material intent from the proof-generation style so skin, scalp, neck, ears, hands, simple clothing, and backgrounds remain smooth unless explicitly marked for texture. Text, logos, suit panel lines, emblems, and designed graphic edges should stay crisp and raised.
 - The recommended production maturity path is API-backed AI for proof generation, monocular depth, subject segmentation, and optional proof cleanup/depth-friendly preprocessing, while final heightmap blending, STL/GLB construction, texture packaging, and fulfillment artifacts remain deterministic server-side generation in `services/print-file-generator`.
 - The current job page is the first quality-control surface: approved proof, generated heightmap, interactive GLB preview, printability status, and warnings. Local Functions emulator runs mirror the full print-file bundle under `.tmp/print-files/{uid}/{jobId}` instead of exposing customer-facing artifact download links.
 
@@ -45,9 +48,11 @@ Use `STL`, not `SLT`.
 
 Phase 3 is now about product relief geometry and quality, not more provider research:
 
-1. Run product-flow review on the 400px mesh / 768px geometry-analysis `masked_depth_detail_blend` path, especially subject edges, forehead/face pits, face smoothness, and whether the nose now avoids the puppet-like boost.
-2. Tune color GLB preview lighting/material and performance so browser review reflects actual relief and color quality.
-3. Continue relief quality tuning from generated artifacts and `debug/*.png`, especially blockiness, face/forehead pits, and photo texture becoming geometry.
+1. Promote the "Super Dad" controlled proof style into the real product workflow as the MVP north star: smooth stylized skin, clean body volumes, crisp raised text/graphics, and intentional texture only.
+2. Add a surface-intent/material policy to the proof-to-print pipeline. V1 can be inferred from existing masks and style metadata, but the default rule should be smooth unless texture is explicitly requested.
+3. Tune the hybrid relief path for broader skin/body smoothness beyond the face, especially scalp/top-of-head, ears, neck, hands, and simple clothing areas that currently inherit rough photo/proof texture.
+4. Tune color GLB preview lighting/material and performance so browser review reflects actual relief and color quality.
+5. Continue relief quality tuning from generated artifacts and `debug/*.png`, especially blockiness, unintended roughness, and photo/proof texture becoming geometry.
 
 Current human-test handoff: `human-tasks/open/test-hybrid-relief-product-flow.md`.
 
@@ -62,6 +67,7 @@ Latest human review notes:
 - 2026-05-15 resolution decision: increase mesh output from 280px to 400px and run provider analysis at 768px, because the intended Mimaki 3DUJ-2207 class is finer than the old 0.455mm mesh pitch. Keep future increases behind human review because file size grows quickly.
 - 2026-05-15 relief-quality decision: add geometry-only proof cleanup, contour-smoothed subject masks, and nose-aware portrait shaping to address blocky edges and nose recession concerns in the real checkout path.
 - 2026-05-17 relief-quality decision: remove the nose-specific height boost completely after Blender review showed a puppet-like nose. Reduce default hybrid detail weight to `0.12`, expand face-oval smoothing, add a face/forehead pit guard, and emit `debug/*.png` relief-stage artifacts for the next batch.
+- 2026-05-17 Super Dad direction decision: the latest review accepted the improved face smoothness but found the top-of-head/scalp area and neck still too rough. Future tuning should stop treating all subject detail as printable geometry and instead use a controlled surface-intent policy: smooth by default, texture only when the product style explicitly calls for it.
 - A read-only comparison of the latest local `heightmap.png` against `model.stl` found the STL top surface matches the heightmap correctly: heightmap-to-STL-Z correlation was `0.99996939`, mean absolute difference was about `0.00193mm`, and inverted-Z correlation was negative. Treat this as a relief/heightmap quality and display-shading issue, not a confirmed STL polarity/read bug.
 
 ## Open Risks
@@ -70,6 +76,8 @@ Latest human review notes:
 - HF SegFormer requires a provider credential in the service runtime. Do not print or move secret values.
 - Provider failures should surface clearly in testing instead of silently producing lower-quality reliefs.
 - Face-aware tuning now uses server-side OpenCV Haar face boxes to build soft face/eye/nose/mouth masks. These masks should damp detail, smooth face areas, and support pit guarding, not create a nose protrusion. Detector misses, profile faces, stylized proofs, multiple-face behavior, and runtime cost still need human product-flow review.
+- The product direction now depends on generated proofs being controlled printable art. If prompt/style metadata drifts toward photorealistic or noisy textures, the print-file generator will keep fighting the wrong input. Add style constraints and surface-intent metadata before broadening style options.
+- Surface-intent masks are not implemented yet. Until they are, scalp, neck, ears, hands, shirt/collar zones, and AI brush artifacts can still become rough geometry even when the face looks smooth.
 - The 400px output path roughly doubles binary STL size versus 280px and makes full-color OBJ/VRML/PLY packages larger. Watch Cloud Run memory/time, Storage cost, browser preview performance, and partner upload limits.
 - Full-color 3MF/OBJ/VRML/PLY packages and filament painting guides are generated deterministically, but still need partner and slicer validation before fulfillment can depend on them.
 - A Mimaki 3DUJ-2207 or comparable full-color print partner still needs file-format, material, sizing, quote, and fulfillment-process validation.

@@ -59,7 +59,7 @@
 - [x] Create Python Cloud Run service contract for STL generation.
 - [x] Create broader print file generator service contract.
 - [x] Decide to keep `services/print-file-generator` as the production FastAPI/Cloud Run boundary and selectively extract core modules from `E:\PROJECTS\print-file-generator`.
-- [x] Document the extraction roadmap in `docs/PRINT_FILE_GENERATOR_ARCHITECTURE_ROADMAP_EVALUATION.md`.
+- [x] Document the extraction roadmap in `docs/PRINT_FILE_GENERATION_WORKFLOW.md` and `docs/ROADMAP.md`.
 - [x] Add service module skeleton for `image_pipeline`, `depth`, `relief`, `packages`, `storage`, and `metadata`.
 - [x] Port/adapt image validation, RGB conversion, pixel-array handling, and generation-limit tests from the standalone generator.
 - [x] Implement image validation and normalization.
@@ -101,7 +101,14 @@
 - [x] Add contour-smoothed subject masks and portrait relief tuning to reduce blocky silhouette/shirt boundaries and avoid recessed face forms.
 - [x] Increase and test production heightmap/mesh resolution from 280px to 400px width while keeping triangle count and STL size inside the updated production caps.
 - [x] Remove the nose-specific height boost after Blender review showed a puppet-like nose; reduce hybrid detail weight, expand face-oval smoothing, add a face/forehead pit guard, and emit debug relief-stage artifacts.
-- [ ] Run human product-flow review on the new 400px/768px geometry-analysis relief path in the browser and Blender.
+- [x] Adopt the "Super Dad" controlled proof as the MVP relief north star: smooth stylized skin/body forms, crisp raised text/graphics, clean poster-like volumes, and intentional texture only.
+- [ ] Add a proof-generation style contract for the Super Dad north-star path so generated proofs avoid noisy photorealistic skin, scalp, neck, shirt, and background texture.
+- [ ] Add a surface-intent/material policy schema for print generation, where regions default to smooth unless explicitly marked as text, logo, panel line, hair, fabric, or another printable texture class.
+- [ ] Thread style/surface-intent metadata from job creation or AI proof generation into `approveGeneratedImage`, `metadata.json`, and the print-file audit without storing secret prompt/provider values.
+- [ ] Implement v1 inferred surface-intent masks in `services/print-file-generator`: smooth skin/scalp/neck/ears/hands/simple clothing/background, crisp raised text/logos/graphic edges, and optional shallow material texture only when requested.
+- [ ] Extend portrait/body smoothing beyond the current face masks to address rough top-of-head, scalp, neck, ear, hand, collar, and shoulder zones.
+- [ ] Add region-aware roughness quality gates or debug metrics so `smooth_skin`, `smooth_body`, `smooth_fabric`, and `flat_background` areas warn when high-frequency geometry exceeds the allowed threshold.
+- [ ] Run human product-flow review on the Super Dad north-star proof-to-print path in the browser and Blender, with special attention to scalp/top-of-head, neck, shirt/collar, text/logo crispness, and whether texture appears only where intended.
 - [ ] Tune color GLB preview lighting/material so the job page shows relief depth and image color clearly enough for human quality review.
 - [ ] Add a content-hash cache for provider responses in Firebase Storage using role, provider id, model version, and image hash.
 - [ ] Implement production API-backed depth and segmentation providers: HF Inference Depth Anything, Vertex depth/segmentation if available, and Cloudflare-gatewayed variants.

@@ -2,7 +2,7 @@
 
 ## Product Shape
 
-3D Print Posters starts as a mobile-first web app/PWA. Users upload a photo, choose a style, approve generated art, preview a 5in x 7in 3D relief, pay for a physical poster, and track fulfillment.
+3D Print Posters starts as a mobile-first web app/PWA. Users upload a photo, choose a style, approve controlled generated art, preview a 5in x 7in 3D relief, pay for a physical poster, and track fulfillment. The "Super Dad" generated proof is the MVP north star: the uploaded photo provides identity/reference, while the approved proof and surface policy provide printable-friendly manufacturing input.
 
 The native app path stays open because the product boundaries are server-centered. A future iOS or Android app can reuse the same Firebase Auth, Firestore records, Storage artifacts, Stripe order state, and print file generation service.
 
@@ -48,6 +48,7 @@ Architecture decision: keep this as the production FastAPI/Cloud Run boundary an
 Responsibilities:
 
 - Read selected generated image from Cloud Storage.
+- Interpret style and surface-intent metadata when available, with smooth surfaces as the default unless text, logos, panel lines, fabric, hair, or other printable texture classes are explicitly requested.
 - Convert image into a geometry-analysis relief heightmap and final mesh/color output geometry.
 - Generate a closed, watertight 5.5in x 7.5in physical relief mesh with a 5in x 7in image window, top surface, base plane, sidewalls, controlled relief range, and exact physical bounds.
 - Generate binary STL as a baseline geometry artifact.
@@ -59,7 +60,9 @@ Responsibilities:
 
 This is intentionally separate from Firebase Functions because geometry generation, texture packaging, and filament painting preparation may need Python libraries, CPU time, memory, and longer request windows.
 
-The current implementation is a hybrid deterministic/service boundary: validated image input, separate 768px geometry-analysis and 400px output normalizations, geometry-only proof cleanup, Depth Anything V2 semantic depth, contour-smoothed SegFormer subject masking, deterministic in-mask lithophane detail, nose-aware portrait shaping, closed mesh generation, STL/heightmap/GLB/metadata output, color packages, filament-painting support files, and printability checks.
+The current implementation is a hybrid deterministic/service boundary: validated image input, separate 768px geometry-analysis and 400px output normalizations, geometry-only proof cleanup, Depth Anything V2 semantic depth, contour-smoothed SegFormer subject masking, deterministic in-mask lithophane detail, face/forehead pit guarding without a nose-specific boost, closed mesh generation, STL/heightmap/GLB/metadata output, color packages, filament-painting support files, and printability checks.
+
+The next product-quality layer is surface-intent aware relief generation. Instead of treating every approved-proof texture as geometry, the service should infer or consume region/material intent so scalp, neck, skin, simple clothing, and background areas stay smooth, while text, logos, suit panels, emblems, and deliberate material textures stay crisp.
 
 ### Firebase/GCP
 
@@ -100,7 +103,7 @@ The first implementation should isolate provider logic behind a small interface:
 2. Web app creates a job id and uploads a source JPG or PNG to `uploads/{uid}/{jobId}/source.{jpg|png}`.
 3. Web app calls `createGenerationJob` with `jobId`, `sourceImagePath`, and `selectedStyle`.
 4. Function verifies the signed-in user owns the upload path and creates `jobs/{jobId}` with `status: "generating"`.
-5. Function calls the internal AI provider adapter, stores the generated proof under `generated/{uid}/{jobId}/preview.{png|jpg|webp}`, stores non-secret `aiGeneration` metadata, and marks the job `preview_ready` or `failed`.
+5. Function calls the internal AI provider adapter, stores the generated proof under `generated/{uid}/{jobId}/preview.{png|jpg|webp}`, stores non-secret `aiGeneration` metadata, and marks the job `preview_ready` or `failed`. For controlled styles such as the Super Dad path, the generation metadata should eventually include or imply surface intent for print generation.
 6. Job `generatedImages` lists the generated proof Storage path so the approval and checkout flow use the real AI output.
 7. User approves one proof through `approveGeneratedImage`; the Function records `approvedImagePath` and sets `status: "approved"`.
 8. Backend dispatches `services/print-file-generator` with the approved image path.
@@ -201,6 +204,7 @@ Initial deployment shape:
 ## Open Decisions
 
 - Exact Mimaki 3DUJ-2207 print partner and whether it supports API order creation or requires manual quoting/file review.
-- Which first AI provider/model should generate final artwork, and whether AI should also help produce depth maps.
+- Exact surface-intent schema and whether v1 should be fully inferred by the print-file generator, emitted by proof generation, or both.
+- Which AI provider/model should generate the final controlled artwork for each style family, and whether AI should also help produce depth maps or region/material masks.
 - Whether filament painting should stay as support files first or eventually produce slicer-specific projects.
 - Whether the preview mesh should be generated in Python, in the browser, or both.
