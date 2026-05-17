@@ -44,6 +44,16 @@ def build_artifact_paths(output_prefix: str) -> PrintFileArtifactPaths:
     )
 
 
+def build_debug_artifact_paths(
+    output_prefix: str,
+    artifact_names: list[str],
+) -> dict[str, str]:
+    return {
+        name: artifact_path(output_prefix, f"debug/{name}")
+        for name in sorted(artifact_names)
+    }
+
+
 def generate_print_file_bundle(
     request: PrintFileGenerationRequest,
     *,
@@ -85,6 +95,7 @@ def generate_print_file_bundle(
         geometry_analysis_image.image,
         **heightmap_kwargs,
     )
+    debug_artifacts = dict(heightmap.debug_artifacts or {})
     heightmap = resize_heightmap_to_shape(
         heightmap,
         target_shape=(
@@ -93,14 +104,27 @@ def generate_print_file_bundle(
         ),
     )
     heightmap = apply_image_window_edge_fade(heightmap)
+    if debug_artifacts:
+        debug_artifacts["final-heightmap.png"] = heightmap_to_image_bytes(
+            heightmap,
+            bit_depth=request.relief.heightmap_png_bit_depth,
+        )
+        artifact_paths.debug_artifacts = build_debug_artifact_paths(
+            request.output_prefix,
+            list(debug_artifacts),
+        )
     provider_settings = None
     if request.relief.height_provider == "masked_depth_detail_blend":
         provider_settings = {
             "detail_source": request.relief.detail_source,
             "detail_weight": request.relief.detail_weight,
+            "debug_artifacts": "enabled",
+            "face_pit_guard": "enabled",
             "geometry_input": "subject_aware_cleanup",
             "geometry_analysis_width_px": request.relief.geometry_analysis_width_px,
             "mesh_target_width_px": request.relief.target_width_px,
+            "portrait_nose_boost": "disabled",
+            "portrait_surface_smoothing": "expanded_face_oval",
         }
     mesh = build_closed_relief_mesh(
         heightmap.values,
@@ -163,6 +187,12 @@ def generate_print_file_bundle(
         json.dumps(metadata.to_dict(), indent=2, sort_keys=True).encode("utf-8"),
         content_type="application/json",
     )
+    for name, data in debug_artifacts.items():
+        storage.write_bytes(
+            artifact_paths.debug_artifacts[name],
+            data,
+            content_type="image/png",
+        )
     storage.write_bytes(
         artifact_paths.full_color_3mf,
         color_package.three_mf,
@@ -233,6 +263,7 @@ def generate_print_file_bundle(
                 *printability.checks,
                 *color_package.checks,
                 "metadata_written",
+                *(["debug_artifacts_written"] if debug_artifacts else []),
             ],
             warnings=package_warnings,
         ),

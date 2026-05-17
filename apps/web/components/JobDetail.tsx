@@ -78,6 +78,7 @@ type PrintFileArtifacts = {
   filamentLayerSwapsTxt?: string;
   filamentPrintSettingsJson?: string;
   filamentPreviewPng?: string;
+  debugArtifacts?: Record<string, string>;
 };
 
 type PrintabilitySummary = {
@@ -206,6 +207,13 @@ export function JobDetail({ jobId }: { jobId: string }) {
       setNotice("Checkout was cancelled. Your approved proof is still saved.");
     }
   }, []);
+
+  useEffect(() => {
+    if (approvalBusyPath && job?.printFileStatus === "generated") {
+      setApprovalBusyPath("");
+      setNotice("3D relief preview is ready. Checkout is unlocked.");
+    }
+  }, [approvalBusyPath, job?.printFileStatus]);
 
   useEffect(() => {
     if (!firebaseClients || !user) {

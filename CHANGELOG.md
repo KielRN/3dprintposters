@@ -38,6 +38,7 @@ All notable project changes will be documented in this file.
 - Added server-side portrait region analysis for the print-file generator, including soft face oval, central face, eye, and mouth masks plus `face_analysis_status` metadata.
 - Added a 768px geometry-analysis image and 400px mesh/color output default for the production relief path, with metadata for geometry-analysis dimensions.
 - Added geometry-only proof cleanup, contour-smoothed subject masks, and nose-aware portrait relief shaping to reduce blocky subject edges, white outline ridges, rough shirt/background texture, and nose recession.
+- Added hybrid relief debug artifacts under `debug/*.png` for geometry input, masks, detail maps, blended depth, relief depth, and final heightmap; local Functions mirroring now includes these debug artifacts.
 
 ### Changed
 
@@ -69,6 +70,8 @@ All notable project changes will be documented in this file.
 - Changed the Functions approval flow and print-file generator defaults from a 200px to 280px working relief width.
 - Changed the Functions approval flow and print-file generator defaults from a single 280px working relief width to 768px geometry analysis, 400px mesh output, 1,000,000 triangle cap, and 50 MB binary STL cap.
 - Extended the proof-approval callable and browser callable timeout to 9 minutes so the production hybrid relief path can finish before the client reports an internal timeout.
+- Changed local artifact mirroring so approved jobs become `generated` before the optional `.tmp` mirror downloads every print-file artifact.
+- Removed the hybrid provider's nose-specific height boost after Blender review showed a puppet-like nose. The path now uses lower default detail weight, broader face-oval smoothing, and a face/forehead pit guard instead of creating a nose protrusion.
 
 ### Verified
 
@@ -87,6 +90,7 @@ All notable project changes will be documented in this file.
 - Verified the full print-file generator test suite and Firebase Functions build at the 280px production default.
 - Verified focused print-file generator unit and contract coverage for geometry-analysis resampling, contour smoothing, geometry cleanup, and nose-aware shaping.
 - Verified the full print-file generator suite, Firebase Functions build, and web typecheck after promoting the 400px/768px relief-quality path.
+- Verified focused print-file generator unit/contract tests and Firebase Functions build after removing the nose boost, adding the face pit guard, reducing texture detail, and returning debug artifact paths.
 
 ## [Unreleased] - 2026-05-05
 

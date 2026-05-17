@@ -40,6 +40,7 @@ const approveGeneratedImageSchema = z.object({
 const defaultReliefSettings = {
   height_provider: "masked_depth_detail_blend",
   detail_source: "lithophane_baseline",
+  detail_weight: 0.12,
   target_width_px: 400,
   geometry_analysis_width_px: 768,
   max_triangle_count: 1_000_000,
@@ -55,6 +56,7 @@ const defaultPhysicalDimensions = {
 } as const;
 
 const printFileGenerationTimeoutSeconds = 540;
+const printFileGeneratorFetchTimeoutMs = 480_000;
 
 type CheckoutSessionWebhookObject = {
   metadata?: Record<string, string> | null;
@@ -80,6 +82,7 @@ const printFileArtifactPathsSchema = z.object({
   filament_layer_swaps_txt: z.string().min(1),
   filament_print_settings_json: z.string().min(1),
   filament_preview_png: z.string().min(1),
+  debug_artifacts: z.record(z.string(), z.string().min(1)).default({}),
 });
 
 const printFileGenerationResponseSchema = z.object({
@@ -145,6 +148,7 @@ type PrintFileArtifacts = {
   filamentLayerSwapsTxt: string;
   filamentPrintSettingsJson: string;
   filamentPreviewPng: string;
+  debugArtifacts: Record<string, string>;
 };
 
 type MirroredArtifact = {
@@ -186,6 +190,11 @@ type PrintFileLocalMirror =
       completedAt: FieldValue;
     }
   | {
+      status: "pending";
+      reason: string;
+      startedAt: FieldValue;
+    }
+  | {
       status: "skipped";
       reason: string;
     };
@@ -207,6 +216,15 @@ function buildPrintFileError(error: unknown) {
         ? error.message
         : "3D print file generation did not complete.",
     stage: "print_file_generation",
+  };
+}
+
+function buildLocalMirrorError(error: unknown): PrintFileLocalMirror {
+  const message =
+    error instanceof Error ? error.message : "local_mirror_failed";
+  return {
+    status: "skipped",
+    reason: `local_mirror_failed: ${message.slice(0, 240)}`,
   };
 }
 
@@ -269,6 +287,12 @@ function normalizePrintFileArtifacts(
       bucketName,
       artifactPaths.filament_preview_png,
     ),
+    debugArtifacts: Object.fromEntries(
+      Object.entries(artifactPaths.debug_artifacts).map(([name, artifactPath]) => [
+        name,
+        gcsUriToStoragePath(bucketName, artifactPath),
+      ]),
+    ),
   };
 }
 
@@ -288,6 +312,7 @@ function listPrintFileArtifactPaths(artifacts: PrintFileArtifacts): string[] {
     artifacts.filamentLayerSwapsTxt,
     artifacts.filamentPrintSettingsJson,
     artifacts.filamentPreviewPng,
+    ...Object.values(artifacts.debugArtifacts),
   ];
 }
 
@@ -296,6 +321,21 @@ function localMirrorIsEnabled(): boolean {
     process.env.FUNCTIONS_EMULATOR === "true" ||
     Boolean(process.env.PRINT_FILE_LOCAL_MIRROR_DIR?.trim())
   );
+}
+
+function initialPrintFileLocalMirror(): PrintFileLocalMirror {
+  if (!localMirrorIsEnabled()) {
+    return {
+      status: "skipped",
+      reason: "local_mirror_disabled",
+    };
+  }
+
+  return {
+    status: "pending",
+    reason: "local_mirror_in_progress",
+    startedAt: FieldValue.serverTimestamp(),
+  };
 }
 
 function safeStoragePathSegments(storagePath: string): string[] {
@@ -458,6 +498,7 @@ async function generatePrintFilesForApprovedJob(input: {
   selectedImagePath: string;
   selectedStyle: string;
 }): Promise<PrintFileArtifacts> {
+  const startedAt = Date.now();
   const serviceUrl = resolveRequiredEnv("PRINT_FILE_GENERATOR_URL").replace(
     /\/$/,
     "",
@@ -465,11 +506,17 @@ async function generatePrintFilesForApprovedJob(input: {
   const bucketName = resolveRequiredEnv("APP_STORAGE_BUCKET");
   const outputPrefix = `print-files/${input.uid}/${input.jobId}`;
 
+  console.info("print-file generation request started", {
+    jobId: input.jobId,
+    outputPrefix,
+  });
+
   const response = await fetch(`${serviceUrl}/v1/generate`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
+    signal: AbortSignal.timeout(printFileGeneratorFetchTimeoutMs),
     body: JSON.stringify({
       job_id: input.jobId,
       uid: input.uid,
@@ -484,6 +531,12 @@ async function generatePrintFilesForApprovedJob(input: {
         selectedStyle: input.selectedStyle,
       },
     }),
+  });
+
+  console.info("print-file generator responded", {
+    jobId: input.jobId,
+    status: response.status,
+    elapsedMs: Date.now() - startedAt,
   });
 
   if (!response.ok) {
@@ -507,10 +560,6 @@ async function generatePrintFilesForApprovedJob(input: {
     bucketName,
     metadataJsonPath: artifacts.metadataJson,
   });
-  const printFileLocalMirror = await mirrorPrintFileArtifactsToLocalTmp({
-    bucketName,
-    artifacts,
-  });
 
   await input.jobRef.set(
     {
@@ -519,12 +568,12 @@ async function generatePrintFilesForApprovedJob(input: {
       printFileArtifacts: artifacts,
       printability: parsed.data.printability,
       printFileAudit,
-      printFileLocalMirror,
       printFileGeneration: {
         provider: "print-file-generator",
         status: parsed.data.status,
         completedAt: FieldValue.serverTimestamp(),
       },
+      printFileLocalMirror: initialPrintFileLocalMirror(),
       printFileError: null,
       updatedAt: FieldValue.serverTimestamp(),
     },
@@ -534,6 +583,42 @@ async function generatePrintFilesForApprovedJob(input: {
     printFileAudit,
     { merge: true },
   );
+
+  console.info("print-file job marked generated", {
+    jobId: input.jobId,
+    elapsedMs: Date.now() - startedAt,
+  });
+
+  try {
+    const printFileLocalMirror = await mirrorPrintFileArtifactsToLocalTmp({
+      bucketName,
+      artifacts,
+    });
+    await input.jobRef.set(
+      {
+        printFileLocalMirror,
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+    console.info("print-file local mirror completed", {
+      jobId: input.jobId,
+      status: printFileLocalMirror.status,
+      elapsedMs: Date.now() - startedAt,
+    });
+  } catch (error) {
+    await input.jobRef.set(
+      {
+        printFileLocalMirror: buildLocalMirrorError(error),
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+    console.warn("print-file local mirror failed", {
+      jobId: input.jobId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
 
   return artifacts;
 }

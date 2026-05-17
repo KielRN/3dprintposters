@@ -50,6 +50,7 @@ Shared baseline artifacts:
 - `heightmap.png`
 - `preview.glb`, with image-derived vertex colors for browser review.
 - `metadata.json`
+- `debug/*.png`, local/developer relief-stage images for diagnosing depth, mask, detail, and final heightmap quality.
 
 Full-color print partner artifacts:
 
@@ -77,7 +78,7 @@ Filament painting artifacts:
 6. Generate local/server-side face-region status with OpenCV Haar face boxes. When faces are detected, build soft face-oval, central-face, eye, nose, and mouth masks for relief tuning only; defer external face APIs until local misses are proven in product-flow review.
 7. Generate a contour-smoothed subject mask, then build a geometry-only proof-cleanup image that suppresses subject halos, faceted backgrounds, and noisy shirt/background texture without changing the approved color proof used for texture output.
 8. Generate a normalized float heightmap from the selected provider at geometry-analysis resolution.
-9. Apply optional tone controls, post-heightmap smoothing, quantization, softened edge detail, edge-aware subject-surface smoothing, face-aware detail damping and surface smoothing, nose-aware relief shaping, resampling to the 400px mesh output, and an image-window edge fade so relief settles before the shaped frame.
+9. Apply optional tone controls, post-heightmap smoothing, quantization, softened edge detail, edge-aware subject-surface smoothing, reduced face-aware detail blending, broader face-oval smoothing, face/forehead pit guarding, resampling to the 400px mesh output, and an image-window edge fade so relief settles before the shaped frame.
 10. Convert height values into closed relief geometry with a 5in x 7in image window, shaped 1/4in border/frame, top surface, bottom base plane, sidewalls, consistent winding, and controlled relief depth.
 11. Add a poster base plate with minimum thickness.
 12. Export baseline STL for geometry validation workflows.
@@ -135,6 +136,7 @@ Future versions may add slicer-specific project files or generated G-code, but t
 - `printFileArtifacts.filamentPaletteJson`
 - `printFileArtifacts.filamentLayerSwapsTxt`
 - `printFileArtifacts.filamentPrintSettingsJson`
+- `printFileArtifacts.debugArtifacts`
 - `printability`
 - `printFileAudit`
 - `packageReadiness`
@@ -154,7 +156,7 @@ The accepted extraction plan is now partially implemented:
 - Make the STL a closed, watertight 5.5in x 7.5in object with a 5in x 7in image relief window and shaped border/frame before adding fulfillment automation.
 - Add printability checks before checkout can depend on generated print files.
 - Use `masked_depth_detail_blend` as the default checkout provider with `lithophane_baseline` detail source.
-- Use face-aware portrait tuning in the default hybrid path before adding another external AI API: local OpenCV face boxes produce soft masks that preserve larger facial forms, raise the nose region as a broad protruding form, and reduce harsh deterministic detail around eyes, mouth, and skin texture.
+- Use face-aware portrait tuning in the default hybrid path before adding another external AI API: local OpenCV face boxes produce soft masks that reduce harsh deterministic detail around eyes, mouth, skin texture, and outer face areas. Do not add a nose-specific height boost; use a face/forehead pit guard to prevent local facial depressions without creating new protruding shapes.
 - Use a 768px geometry-analysis image and 400px mesh/color output by default. The hybrid provider builds depth, segmentation, detail, and geometry-only proof cleanup at analysis resolution, then resamples the finished heightmap to the output mesh resolution before STL/GLB/package generation.
 - Use contour-smoothed subject masks and geometry-only proof cleanup in the production hybrid path to reduce blocky silhouette/shirt boundaries, white subject-outline ridges, faceted background relief, and rough shirt/background texture.
 - Write height-provider policy fields into `metadata.json` so deterministic brightness-to-height providers are marked fallback-only and current quality candidates are distinguishable from the safety net.
@@ -163,13 +165,14 @@ The accepted extraction plan is now partially implemented:
 - Run hybrid comparisons with `--provider masked_depth_detail_blend`; outputs stay under ignored `.tmp/experiments/hybrid` unless an explicit `--output-root` is provided.
 - For future heightmap experiments, run both canonical local inputs from `.tmp/input_image`: `Gemini_Generated_Image_lzneejlzneejlzne.png` and `Profile-Pic-HIMSS.jpg`.
 - Call the print-file generator from `approveGeneratedImage` after proof approval.
-- Pass the production dimensions and relief settings from `approveGeneratedImage`: 139.7mm x 190.5mm physical object, 127mm x 177.8mm image window, 6.35mm border, `height_provider: masked_depth_detail_blend`, `detail_source: lithophane_baseline`, `target_width_px: 400`, `geometry_analysis_width_px: 768`, `max_triangle_count: 1000000`, and `max_binary_stl_bytes: 50000000`.
+- Pass the production dimensions and relief settings from `approveGeneratedImage`: 139.7mm x 190.5mm physical object, 127mm x 177.8mm image window, 6.35mm border, `height_provider: masked_depth_detail_blend`, `detail_source: lithophane_baseline`, `detail_weight: 0.12`, `target_width_px: 400`, `geometry_analysis_width_px: 768`, `max_triangle_count: 1000000`, and `max_binary_stl_bytes: 50000000`.
 - Store artifact paths and printability output on `jobs/{jobId}`.
 - Render the approved proof and generated `heightmap.png` in a comparison row on `/jobs/{jobId}`, with the color `preview.glb` in a larger full-width inspection panel below with interactive zoom/orbit controls and without customer-facing artifact download links.
-- During local Functions emulator runs, mirror generated print-file artifacts to `.tmp/print-files/{uid}/{jobId}` so the full bundle is available on disk for inspection and future printer-owner handoff.
+- During local Functions emulator runs, mirror generated print-file artifacts, including `debug/` relief-stage PNGs, to `.tmp/print-files/{uid}/{jobId}` so the full bundle is available on disk for inspection and future printer-owner handoff.
 - Keep checkout locked until print-file artifacts are ready.
 - For local hybrid testing, run the print-file generator on `http://127.0.0.1:8089` and set `PRINT_FILE_GENERATOR_URL` in `apps/functions/.env`.
 - Keep the `approveGeneratedImage` callable and browser client timeout aligned at 9 minutes; first local hybrid relief runs can exceed the default 60-second callable timeout while still succeeding in the Python generator.
+- In local emulator runs, mark the job `generated` after artifact paths and audit are captured, then mirror generated artifacts to `.tmp` as follow-up developer convenience so checkout and preview are not blocked by GCS-to-disk downloads.
 
 Then improve:
 

@@ -7,7 +7,7 @@ from app.depth import (
     Heightmap,
     MaskedDepthDetailBlendProvider,
     SubjectMaskResult,
-    _apply_portrait_nose_relief_prior,
+    _apply_portrait_face_pit_guard,
     _apply_portrait_surface_smoothing,
     _apply_subject_surface_smoothing,
     _smooth_subject_mask_contour,
@@ -304,20 +304,25 @@ def test_portrait_region_boxes_create_soft_face_eye_and_mouth_masks() -> None:
     assert masks.face_oval[5, 5] == 0.0
 
 
-def test_portrait_nose_relief_prior_raises_nose_region() -> None:
+def test_portrait_face_pit_guard_fills_forehead_pit_without_nose_boost() -> None:
     width, height = 80, 100
-    relief_depth = np.full((height, width), 0.42, dtype=np.float32)
+    relief_depth = np.full((height, width), 0.52, dtype=np.float32)
+    relief_depth[30:38, 33:47] = 0.32
     portrait = masks_from_face_boxes(width=width, height=height, boxes=((20, 18, 40, 58),))
 
-    shaped = _apply_portrait_nose_relief_prior(
+    shaped = _apply_portrait_face_pit_guard(
         relief_depth,
         portrait_regions=portrait,
-        strength=0.09,
+        max_drop=0.04,
     )
 
+    pit_zone = np.zeros((height, width), dtype=bool)
+    pit_zone[30:38, 33:47] = True
     nose_zone = portrait.nose > 0.55
     cheek_zone = (portrait.central_face > 0.5) & (portrait.nose < 0.05)
-    assert float(np.mean(shaped[nose_zone])) > float(np.mean(shaped[cheek_zone])) + 0.02
+
+    assert float(np.mean(shaped[pit_zone])) > float(np.mean(relief_depth[pit_zone])) + 0.08
+    assert abs(float(np.mean(shaped[nose_zone])) - float(np.mean(shaped[cheek_zone]))) < 0.02
 
 
 def test_masked_depth_detail_blend_damps_eye_mouth_detail_without_flattening_face(

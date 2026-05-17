@@ -35,6 +35,7 @@ class Heightmap:
     provider_audit: dict[str, dict[str, object]] | None = None
     segmentation_status: dict[str, object] | None = None
     face_analysis_status: dict[str, object] | None = None
+    debug_artifacts: dict[str, bytes] | None = None
 
 
 @dataclass(frozen=True)
@@ -371,9 +372,9 @@ class MaskedDepthDetailBlendProvider:
             "lithophane_baseline",
             "posterized_luminance",
         ] = "lithophane_baseline",
-        detail_weight: float = 0.22,
+        detail_weight: float = 0.12,
         detail_radius_px: int = 9,
-        detail_clip: float = 0.18,
+        detail_clip: float = 0.14,
         subject_boost: float = 1.0,
         background_scale: float = 0.22,
         mask_blur_radius_px: float = 5.0,
@@ -438,7 +439,7 @@ class MaskedDepthDetailBlendProvider:
             relief_depth,
             portrait_regions=portrait_regions,
         )
-        relief_depth = _apply_portrait_nose_relief_prior(
+        relief_depth = _apply_portrait_face_pit_guard(
             relief_depth,
             portrait_regions=portrait_regions,
         )
@@ -462,6 +463,16 @@ class MaskedDepthDetailBlendProvider:
             ),
             segmentation_status=_segmentation_status_to_dict(subject_mask_result),
             face_analysis_status=portrait_regions.to_metadata(),
+            debug_artifacts=_hybrid_debug_artifacts(
+                geometry_image=geometry_image,
+                subject_mask=subject_mask,
+                portrait_regions=portrait_regions,
+                semantic_base=semantic_base,
+                detail_layer=detail_layer,
+                detail_weight_map=detail_weight_map,
+                blended=blended,
+                relief_depth=relief_depth,
+            ),
         )
 
 
@@ -1008,6 +1019,39 @@ def prepare_geometry_analysis_image(
     return Image.fromarray((composed * 255.0).round().clip(0, 255).astype(np.uint8))
 
 
+def _hybrid_debug_artifacts(
+    *,
+    geometry_image: Image.Image,
+    subject_mask: np.ndarray,
+    portrait_regions: PortraitRegionMasks,
+    semantic_base: np.ndarray,
+    detail_layer: np.ndarray,
+    detail_weight_map: np.ndarray,
+    blended: np.ndarray,
+    relief_depth: np.ndarray,
+) -> dict[str, bytes]:
+    from .image_pipeline import image_to_png_bytes
+
+    return {
+        "geometry-input.png": image_to_png_bytes(geometry_image.convert("RGB")),
+        "subject-mask.png": _debug_unit_array_png_bytes(subject_mask),
+        "portrait-face-oval-mask.png": _debug_unit_array_png_bytes(
+            portrait_regions.face_oval
+        ),
+        "portrait-central-face-mask.png": _debug_unit_array_png_bytes(
+            portrait_regions.central_face
+        ),
+        "portrait-nose-mask.png": _debug_unit_array_png_bytes(portrait_regions.nose),
+        "portrait-detail-weight-map.png": _debug_unit_array_png_bytes(
+            detail_weight_map
+        ),
+        "semantic-base.png": _debug_unit_array_png_bytes(semantic_base),
+        "detail-layer.png": _debug_signed_array_png_bytes(detail_layer),
+        "blended-depth.png": _debug_unit_array_png_bytes(blended),
+        "relief-depth.png": _debug_unit_array_png_bytes(relief_depth),
+    }
+
+
 def resize_heightmap_to_shape(
     heightmap: Heightmap,
     *,
@@ -1029,6 +1073,7 @@ def resize_heightmap_to_shape(
         provider_audit=heightmap.provider_audit,
         segmentation_status=heightmap.segmentation_status,
         face_analysis_status=heightmap.face_analysis_status,
+        debug_artifacts=heightmap.debug_artifacts,
     )
 
 
@@ -1064,26 +1109,39 @@ def _portrait_detail_weight_map(
     if portrait_regions.central_face.shape != shape:
         return np.ones(shape, dtype=np.float32)
 
-    skin = np.clip(
+    feature_mask = np.maximum.reduce(
+        (
+            portrait_regions.eyes,
+            portrait_regions.nose,
+            portrait_regions.mouth,
+        )
+    )
+    central_skin = np.clip(
         portrait_regions.central_face
-        - np.maximum(portrait_regions.eyes, portrait_regions.mouth),
+        - feature_mask,
+        0.0,
+        1.0,
+    )
+    outer_face_skin = np.clip(
+        portrait_regions.face_oval - portrait_regions.central_face - feature_mask,
         0.0,
         1.0,
     )
     damping = (
-        0.25 * skin
-        + 0.65 * portrait_regions.eyes
-        + 0.35 * portrait_regions.nose
-        + 0.55 * portrait_regions.mouth
+        0.62 * central_skin
+        + 0.56 * outer_face_skin
+        + 0.78 * portrait_regions.eyes
+        + 0.52 * portrait_regions.nose
+        + 0.72 * portrait_regions.mouth
     )
-    return (1.0 - damping).clip(0.18, 1.0).astype(np.float32)
+    return (1.0 - damping).clip(0.12, 1.0).astype(np.float32)
 
 
 def _apply_portrait_surface_smoothing(
     relief_depth: np.ndarray,
     *,
     portrait_regions: PortraitRegionMasks,
-    radius_px: float = 2.4,
+    radius_px: float = 3.4,
 ) -> np.ndarray:
     if portrait_regions.face_count == 0:
         return relief_depth.astype(np.float32)
@@ -1092,13 +1150,13 @@ def _apply_portrait_surface_smoothing(
 
     smoothed = _smooth_unit_array(relief_depth, radius_px)
     face_mask = np.maximum(
-        0.55 * portrait_regions.face_oval,
-        0.78 * portrait_regions.central_face,
+        0.74 * portrait_regions.face_oval,
+        0.82 * portrait_regions.central_face,
     )
     face_mask = np.maximum(face_mask, 0.88 * portrait_regions.eyes)
-    face_mask = np.maximum(face_mask, 0.68 * portrait_regions.nose)
+    face_mask = np.maximum(face_mask, 0.72 * portrait_regions.nose)
     face_mask = np.maximum(face_mask, 0.84 * portrait_regions.mouth)
-    face_mask = face_mask.clip(0.0, 0.88).astype(np.float32)
+    face_mask = face_mask.clip(0.0, 0.90).astype(np.float32)
 
     return (
         relief_depth.astype(np.float32) * (1.0 - face_mask)
@@ -1106,31 +1164,37 @@ def _apply_portrait_surface_smoothing(
     ).clip(0.0, 1.0).astype(np.float32)
 
 
-def _apply_portrait_nose_relief_prior(
+def _apply_portrait_face_pit_guard(
     relief_depth: np.ndarray,
     *,
     portrait_regions: PortraitRegionMasks,
-    radius_px: float = 5.5,
-    strength: float = 0.075,
+    radius_px: float = 7.5,
+    max_drop: float = 0.035,
+    strength: float = 0.92,
 ) -> np.ndarray:
     if portrait_regions.face_count == 0:
         return relief_depth.astype(np.float32)
-    if portrait_regions.nose.shape != relief_depth.shape:
+    if portrait_regions.face_oval.shape != relief_depth.shape:
         return relief_depth.astype(np.float32)
 
-    nose_mask = portrait_regions.nose.astype(np.float32).clip(0.0, 1.0)
-    if float(np.max(nose_mask)) <= 0.0:
+    face_mask = np.maximum(
+        0.78 * portrait_regions.face_oval,
+        0.86 * portrait_regions.central_face,
+    )
+    feature_preserve = np.maximum(0.92 * portrait_regions.eyes, 0.72 * portrait_regions.mouth)
+    face_mask = (face_mask * (1.0 - feature_preserve)).clip(0.0, 0.86)
+    if float(np.max(face_mask)) <= 0.0:
         return relief_depth.astype(np.float32)
 
     broad_face = _smooth_unit_array(relief_depth, radius_px)
-    raised_nose = np.maximum(
+    guarded = np.maximum(
         relief_depth.astype(np.float32),
-        broad_face + float(strength) * nose_mask,
+        broad_face - float(np.clip(max_drop, 0.0, 1.0)),
     ).clip(0.0, 1.0)
-    blend = (0.74 * nose_mask).clip(0.0, 0.74)
+    blend = (face_mask * float(np.clip(strength, 0.0, 1.0))).clip(0.0, 0.86)
     return (
         relief_depth.astype(np.float32) * (1.0 - blend)
-        + raised_nose.astype(np.float32) * blend
+        + guarded.astype(np.float32) * blend
     ).clip(0.0, 1.0).astype(np.float32)
 
 
@@ -1138,8 +1202,8 @@ def _apply_subject_surface_smoothing(
     relief_depth: np.ndarray,
     *,
     subject_mask: np.ndarray,
-    radius_px: float = 1.8,
-    strength: float = 0.42,
+    radius_px: float = 2.3,
+    strength: float = 0.55,
 ) -> np.ndarray:
     if relief_depth.size == 0 or subject_mask.shape != relief_depth.shape:
         return relief_depth.astype(np.float32)
@@ -1197,6 +1261,7 @@ def apply_image_window_edge_fade(
         provider_audit=heightmap.provider_audit,
         segmentation_status=heightmap.segmentation_status,
         face_analysis_status=heightmap.face_analysis_status,
+        debug_artifacts=heightmap.debug_artifacts,
     )
 
 
@@ -1378,6 +1443,23 @@ def heightmap_to_image_bytes(
 
     normalized = (normalized_unit * 255.0).round().astype(np.uint8)
     return image_to_png_bytes(Image.fromarray(normalized))
+
+
+def _debug_unit_array_png_bytes(values: np.ndarray) -> bytes:
+    from .image_pipeline import image_to_png_bytes
+
+    unit = values.astype(np.float32)
+    if unit.size == 0:
+        unit = np.zeros((1, 1), dtype=np.float32)
+    unit = unit.clip(0.0, 1.0)
+    return image_to_png_bytes(
+        Image.fromarray((unit * 255.0).round().astype(np.uint8), mode="L")
+    )
+
+
+def _debug_signed_array_png_bytes(values: np.ndarray) -> bytes:
+    unit = (values.astype(np.float32).clip(-1.0, 1.0) + 1.0) * 0.5
+    return _debug_unit_array_png_bytes(unit)
 
 
 def _apply_tone_curve(values: np.ndarray, *, contrast: float, gamma: float) -> np.ndarray:

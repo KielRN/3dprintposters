@@ -98,8 +98,9 @@
 - [x] Tune hybrid portrait relief quality after human product-flow review: reduce bottom-band artifacts, preserve larger facial forms, and reduce harsh photo-embossed detail around eyes, teeth, and skin texture.
 - [x] Decouple geometry analysis from mesh output: run the hybrid provider on a 768px geometry-analysis image, then resample the heightmap to the 400px mesh/color output.
 - [x] Add geometry-only proof cleanup before depth/detail inference so white subject halos, faceted backgrounds, and high-frequency shirt/background texture are damped without changing the approved color proof.
-- [x] Add contour-smoothed subject masks and nose-aware portrait relief shaping to reduce blocky silhouette/shirt boundaries and make the nose read as a protruding form.
+- [x] Add contour-smoothed subject masks and portrait relief tuning to reduce blocky silhouette/shirt boundaries and avoid recessed face forms.
 - [x] Increase and test production heightmap/mesh resolution from 280px to 400px width while keeping triangle count and STL size inside the updated production caps.
+- [x] Remove the nose-specific height boost after Blender review showed a puppet-like nose; reduce hybrid detail weight, expand face-oval smoothing, add a face/forehead pit guard, and emit debug relief-stage artifacts.
 - [ ] Run human product-flow review on the new 400px/768px geometry-analysis relief path in the browser and Blender.
 - [ ] Tune color GLB preview lighting/material so the job page shows relief depth and image color clearly enough for human quality review.
 - [ ] Add a content-hash cache for provider responses in Firebase Storage using role, provider id, model version, and image hash.

@@ -76,6 +76,7 @@ Baseline relief artifacts:
 - `heightmap.png`
 - `preview.glb`
 - `metadata.json`
+- `debug/*.png`
 
 Full-color print partner artifacts:
 
@@ -94,9 +95,9 @@ Filament painting artifacts:
 
 ## Current State
 
-The `/v1/generate` API can now read a local or GCS image, normalize it to the 5in x 7in image window at both 768px geometry-analysis width and 400px mesh/color output width, build a hybrid `masked_depth_detail_blend` heightmap, export a closed 5.5in x 7.5in binary STL with a 1/4in border, write an image-colored `preview.glb`, write `heightmap.png`, write `metadata.json`, and run baseline printability checks.
+The `/v1/generate` API can now read a local or GCS image, normalize it to the 5in x 7in image window at both 768px geometry-analysis width and 400px mesh/color output width, build a hybrid `masked_depth_detail_blend` heightmap, export a closed 5.5in x 7.5in binary STL with a 1/4in border, write an image-colored `preview.glb`, write `heightmap.png`, write `metadata.json`, write `debug/` relief-stage PNGs, and run baseline printability checks.
 
-`masked_depth_detail_blend` is the default product relief provider. It uses geometry-only proof cleanup, Depth Anything semantic depth, contour-smoothed SegFormer subject masking, `lithophane_baseline` in-mask detail, edge-aware subject-surface smoothing, conservative face-aware detail damping and surface smoothing, nose-aware portrait relief shaping, guided-filter bas-relief compression, heightmap resampling to the output mesh width, image-window edge fade, and the existing closed STL/GLB generator. `metadata.json` records each provider's policy with `height_provider_policy`, `height_provider_fallback_only`, `height_provider_target_quality_path`, and `height_provider_checkout_default_allowed`. Providers that use monocular depth, subject segmentation, or portrait analysis also write `provider_audit`, `segmentation_status`, `face_analysis_status`, and geometry-analysis dimensions so Functions can persist the exact per-job audit to Firestore.
+`masked_depth_detail_blend` is the default product relief provider. It uses geometry-only proof cleanup, Depth Anything semantic depth, contour-smoothed SegFormer subject masking, reduced `lithophane_baseline` in-mask detail, edge-aware subject-surface smoothing, broader face-aware detail damping and surface smoothing, a face/forehead pit guard, guided-filter bas-relief compression, heightmap resampling to the output mesh width, image-window edge fade, and the existing closed STL/GLB generator. It does not apply a nose-specific height boost. `metadata.json` records each provider's policy with `height_provider_policy`, `height_provider_fallback_only`, `height_provider_target_quality_path`, and `height_provider_checkout_default_allowed`. Providers that use monocular depth, subject segmentation, or portrait analysis also write `provider_audit`, `segmentation_status`, `face_analysis_status`, and geometry-analysis dimensions so Functions can persist the exact per-job audit to Firestore.
 
 Deterministic reference providers remain available for sidecar comparison:
 
@@ -110,7 +111,7 @@ Semantic depth reference provider:
 
 The product hybrid provider:
 
-- `masked_depth_detail_blend`: semantic depth for low-frequency shape, contour-smoothed subject masking for background suppression, geometry-only proof cleanup for halos/faceted backgrounds/rough clothing texture, subject-only deterministic detail blending, edge-aware subject-surface smoothing for photo texture, OpenCV face-region masks for eye/nose/mouth/skin detail damping and nose-aware broad-form shaping, guided-filter bas-relief compression, image-window edge fade, and the existing closed STL/GLB generator. It defaults to `lithophane_baseline` as the in-mask detail source.
+- `masked_depth_detail_blend`: semantic depth for low-frequency shape, contour-smoothed subject masking for background suppression, geometry-only proof cleanup for halos/faceted backgrounds/rough clothing texture, reduced subject-only deterministic detail blending, edge-aware subject-surface smoothing for photo texture, OpenCV face-region masks for eye/nose/mouth/skin detail damping, broader face-oval smoothing, face/forehead pit guarding, guided-filter bas-relief compression, image-window edge fade, and the existing closed STL/GLB generator. It defaults to `lithophane_baseline` as the in-mask detail source at `detail_weight: 0.12`.
 
 Local provider comparison:
 

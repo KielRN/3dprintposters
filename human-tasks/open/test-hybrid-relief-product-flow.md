@@ -25,17 +25,21 @@ Human eyes needed. Blender view tells us if poster relief looks good enough.
 - More likely: heightmap shape, relief tuning, blocky mesh, Blender lighting, or shading.
 - 2026-05-15 implementation follow-up: the production approval path now uses 768px geometry analysis, 400px mesh/color output, geometry-only proof cleanup, contour-smoothed subject masks, and nose-aware portrait shaping.
 - 2026-05-16 implementation follow-up: approval was timing out at the default ~60-second callable limit even though the Python generator returned `200 OK`; the Functions callable and browser client now allow 9 minutes.
+- 2026-05-16 implementation follow-up: the latest retry generated successfully after about 197 seconds, with artifacts mirrored to `.tmp`; the app now marks jobs `generated` before that optional local mirror finishes.
+- 2026-05-17 implementation follow-up: the nose-specific height boost was removed after Blender review showed a puppet-like nose. The hybrid path now uses lower photo-detail weight, broader face smoothing, a face/forehead pit guard, and `debug/*.png` relief-stage artifacts.
 - The next useful validation is a fresh product-flow regeneration in the browser, then Blender inspection of the newly mirrored `.tmp/print-files/{uid}/{jobId}` bundle.
 
 ## Checklist
 
-- [ ] Regenerate 3D preview for the approved proof so the job uses the new 400px/768px relief path.
+- [ ] Regenerate 3D preview for the approved proof so the job uses the latest 400px/768px relief path without the nose boost.
 - [ ] Restart the Functions emulator after the timeout fix, then retry approval or **Retry 3D generation** for the affected job.
 - [ ] Confirm `metadata.json` shows `target_width_px`/`mesh_target_width_px` behavior through `normalized_width_px: 400` and `geometry_analysis_width_px: 768`.
+- [ ] Confirm `metadata.json` provider settings show `detail_weight: 0.12`, `portrait_nose_boost: disabled`, `face_pit_guard: enabled`, and `debug_artifacts: enabled`.
+- [ ] Open the mirrored `debug/` folder and compare `geometry-input.png`, `detail-layer.png`, `relief-depth.png`, and `final-heightmap.png` if the face still looks wrong.
 - [ ] Open latest `model.stl` in Blender.
 - [ ] Look at face from low side angle.
-- [ ] Check nose. Should look like bump.
-- [ ] Check cheeks and forehead. Should look smooth, not chunky.
+- [ ] Check nose. It should not look recessed, but it also should not look like a separate puppet/clown bump.
+- [ ] Check cheeks and forehead. They should look smooth, not chunky, and the forehead should not have a pit/hole.
 - [ ] Check eyes, teeth, and skin. Should not look harsh or carved too deep.
 - [ ] Check shirt and background. Should not steal attention from face.
 - [ ] Check head, ear, neck, and shirt boundaries in the app preview. Edges should look less jagged than the previous 280px output.

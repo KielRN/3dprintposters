@@ -66,7 +66,7 @@ class ReliefSettings(BaseModel):
     detail_source: Literal["lithophane_baseline", "posterized_luminance"] = (
         "lithophane_baseline"
     )
-    detail_weight: float = Field(default=0.22, ge=0, le=1)
+    detail_weight: float = Field(default=0.12, ge=0, le=1)
 
     @model_validator(mode="after")
     def validate_relief_range(self) -> "ReliefSettings":
@@ -122,6 +122,7 @@ class PrintFileArtifactPaths(BaseModel):
     filament_layer_swaps_txt: str
     filament_print_settings_json: str
     filament_preview_png: str
+    debug_artifacts: dict[str, str] = Field(default_factory=dict)
 
 
 class PackageReadinessSummary(BaseModel):

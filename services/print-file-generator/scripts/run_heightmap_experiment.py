@@ -73,7 +73,7 @@ def main() -> None:
     parser.add_argument(
         "--detail-weight",
         type=float,
-        default=0.22,
+        default=0.12,
         help="Detail blend weight used by masked_depth_detail_blend.",
     )
     parser.add_argument(

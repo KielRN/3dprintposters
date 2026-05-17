@@ -93,6 +93,7 @@ def test_request_defaults_include_both_output_modes() -> None:
     assert request.dimensions.border_mm == 6.35
     assert request.relief.height_provider == "masked_depth_detail_blend"
     assert request.relief.detail_source == "lithophane_baseline"
+    assert request.relief.detail_weight == 0.12
     assert request.relief.target_width_px == 400
     assert request.relief.geometry_analysis_width_px == 768
     assert request.relief.max_triangle_count == 1_000_000
@@ -148,9 +149,12 @@ def test_local_generation_writes_default_hybrid_relief_bundle(
     assert (output_prefix / "filament-painting" / "layer-swaps.txt").exists()
     assert (output_prefix / "filament-painting" / "print-settings.json").exists()
     assert (output_prefix / "filament-painting" / "preview.png").exists()
+    assert (output_prefix / "debug" / "geometry-input.png").exists()
+    assert (output_prefix / "debug" / "final-heightmap.png").exists()
     assert "color_preview_glb_generated" in response.printability.checks
     assert "full_color_3mf_generated" in response.printability.checks
     assert "filament_layer_swaps_generated" in response.printability.checks
+    assert "debug_artifacts_written" in response.printability.checks
 
     stl_bytes = (output_prefix / "model.stl").read_bytes()
     triangle_count = struct.unpack("<I", stl_bytes[80:84])[0]
@@ -171,11 +175,21 @@ def test_local_generation_writes_default_hybrid_relief_bundle(
     assert metadata["height_provider_checkout_default_allowed"] is True
     assert metadata["provider_settings"] == {
         "detail_source": "lithophane_baseline",
-        "detail_weight": 0.22,
+        "detail_weight": 0.12,
+        "debug_artifacts": "enabled",
+        "face_pit_guard": "enabled",
         "geometry_input": "subject_aware_cleanup",
         "geometry_analysis_width_px": 64,
         "mesh_target_width_px": 40,
+        "portrait_nose_boost": "disabled",
+        "portrait_surface_smoothing": "expanded_face_oval",
     }
+    assert response.artifact_paths.debug_artifacts["geometry-input.png"].endswith(
+        "/debug/geometry-input.png"
+    )
+    assert response.artifact_paths.debug_artifacts["final-heightmap.png"].endswith(
+        "/debug/final-heightmap.png"
+    )
     assert metadata["normalized_width_px"] == 40
     assert metadata["geometry_analysis_width_px"] == 64
     assert metadata["full_color_package"]["formats"] == ["3mf", "obj", "vrml", "ply"]
@@ -369,9 +383,13 @@ def test_local_generation_can_run_masked_depth_detail_blend(
     assert metadata["provider_settings"] == {
         "detail_source": "posterized_luminance",
         "detail_weight": 0.3,
+        "debug_artifacts": "enabled",
+        "face_pit_guard": "enabled",
         "geometry_input": "subject_aware_cleanup",
         "geometry_analysis_width_px": 16,
         "mesh_target_width_px": 8,
+        "portrait_nose_boost": "disabled",
+        "portrait_surface_smoothing": "expanded_face_oval",
     }
     assert not any(
         "not the target production-quality relief path" in warning

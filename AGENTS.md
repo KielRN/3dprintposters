@@ -36,7 +36,7 @@ This file is the first place Codex or another coding agent should read before wo
 3. Web calls `createGenerationJob`.
 4. Functions call Vertex/Gemini through the internal provider adapter and store proof output under `generated/{uid}/{jobId}/preview.{png|jpg|webp}`.
 5. User approves a proof on `/jobs/{jobId}`.
-6. `approveGeneratedImage` calls `PRINT_FILE_GENERATOR_URL` with `masked_depth_detail_blend`, `lithophane_baseline` detail source, 400px mesh output width, 768px geometry-analysis width, the 5in x 7in image-window / 5.5in x 7.5in physical dimensions, and the production relief settings.
+6. `approveGeneratedImage` calls `PRINT_FILE_GENERATOR_URL` with `masked_depth_detail_blend`, `lithophane_baseline` detail source at `detail_weight: 0.12`, 400px mesh output width, 768px geometry-analysis width, the 5in x 7in image-window / 5.5in x 7.5in physical dimensions, and the production relief settings.
 7. The print-file generator writes artifacts under `print-files/{uid}/{jobId}`:
    - `model.stl`
    - `preview.glb`
@@ -91,14 +91,14 @@ JDK 21+ is installed on this machine, so the full Firebase emulator suite can ru
 - Keep the direct Vertex/Gemini route as the MVP default.
 - Keep Cloudflare AI Gateway deferred until provider comparison, centralized AI observability, rate limits, or retries become important.
 - Keep `services/print-file-generator` as the production print-file boundary. Do not vendor the standalone `E:\PROJECTS\print-file-generator` Flask routes, SQLite project database, browser session state, local CLI flow, TD1 hardware code, or old open-surface mesh topology.
-- Current print-file path is the hybrid relief provider: validated image input, separate 5:7 image-window normalizations for a 768px geometry-analysis image and 400px mesh/color output image, geometry-only proof cleanup, Depth Anything V2 semantic depth, SegFormer subject masking with contour smoothing, `lithophane_baseline` in-mask detail, guided-filter bas-relief compression, nose-aware portrait relief shaping, closed watertight 139.7mm x 190.5mm mesh with a 127mm x 177.8mm relief window and 6.35mm border, binary STL, image-colored GLB preview, heightmap PNG, metadata JSON, and printability checks.
+- Current print-file path is the hybrid relief provider: validated image input, separate 5:7 image-window normalizations for a 768px geometry-analysis image and 400px mesh/color output image, geometry-only proof cleanup, Depth Anything V2 semantic depth, SegFormer subject masking with contour smoothing, reduced `lithophane_baseline` in-mask detail, guided-filter bas-relief compression, broader face smoothing, face/forehead pit guarding, closed watertight 139.7mm x 190.5mm mesh with a 127mm x 177.8mm relief window and 6.35mm border, binary STL, image-colored GLB preview, heightmap PNG, metadata JSON, debug PNGs, and printability checks.
 - Firestore stores metadata and Storage paths, not binary payloads or signed URLs.
 - Use idempotency for job creation, checkout, file handoff, and fulfillment actions.
 
 ## Relief Quality Direction
 
-- The chosen production relief provider is `masked_depth_detail_blend` with `lithophane_baseline` detail source.
-- Current Phase 3 focus is product geometry and quality tuning: 5in x 7in image relief window, 1/4in border on all sides, intentional frame geometry, edge fade, geometry-analysis cleanup, contour-smoothed subject edges, nose-aware portrait tuning, higher mesh resolution, and better GLB preview lighting/material.
+- The chosen production relief provider is `masked_depth_detail_blend` with `lithophane_baseline` detail source at `detail_weight: 0.12`.
+- Current Phase 3 focus is product geometry and quality tuning: 5in x 7in image relief window, 1/4in border on all sides, intentional frame geometry, edge fade, geometry-analysis cleanup, contour-smoothed subject edges, face smoothing/pit guarding without a nose-specific boost, higher mesh resolution, and better GLB preview lighting/material.
 - Run future experiments as sidecar scripts until reviewed, then promote the chosen path into the real checkout workflow instead of leaving it opt-in.
 - Use canonical local inputs from `.tmp/input_image` for future relief comparisons when relevant: `Gemini_Generated_Image_lzneejlzneejlzne.png` and `Profile-Pic-HIMSS.jpg`.
 - Keep experiment outputs under ignored local paths such as `.tmp/experiments/{provider}/{jobId}`.
