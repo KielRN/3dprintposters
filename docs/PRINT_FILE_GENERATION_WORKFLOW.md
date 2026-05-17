@@ -161,10 +161,10 @@ The accepted extraction plan is now partially implemented:
 - Use a 768px geometry-analysis image and 400px mesh/color output by default. The hybrid provider builds depth, segmentation, detail, and geometry-only proof cleanup at analysis resolution, then resamples the finished heightmap to the output mesh resolution before STL/GLB/package generation.
 - Use contour-smoothed subject masks and geometry-only proof cleanup in the production hybrid path to reduce blocky silhouette/shirt boundaries, white subject-outline ridges, faceted background relief, and rough shirt/background texture.
 - Adopt the Super Dad generated proof as the north-star MVP style. The proof-generation path now uses the `super-dad-north-star-v1` style contract to ask for controlled poster art: smooth stylized skin and body forms, simple backgrounds, crisp raised text/logos, and intentionally limited material texture.
-- Add a surface-intent/material policy to the print-file generator. The default for unmarked surfaces is smooth, especially scalp/top-of-head, neck, ears, hands, simple clothing, and background regions. Detail should be retained only where style metadata or inferred masks identify text, logos, graphic panel lines, hair, fabric, or another approved printable texture. The current request schema and `metadata.json` use `smooth-default-v1`.
-- Write surface-intent policy metadata into the print-file audit after the approval threading is completed, so each paid order preserves the exact smoothing/detail policy used at checkout.
+- Use the print-file generator's v1 inferred surface-intent masks in the default hybrid path. The default for unmarked surfaces is smooth, especially scalp/top-of-head, neck, ears, hands, simple clothing, and background regions. Detail is retained where inferred masks identify crisp text, logos, graphic edges, or panel lines. Hair, fabric, and material texture stay shallow and are enabled only when proof-generation or human override metadata explicitly requests texture. The current request schema and `metadata.json` use `smooth-default-v1`, and `metadata.json` also records `surface_intent_status`.
+- Capture inferred `surface_intent_status` in the print-file audit. Full proof/style metadata threading from job creation through paid order audit remains a follow-up so each paid order preserves the exact style contract and smoothing/detail policy used at checkout.
 - Write height-provider policy fields into `metadata.json` so deterministic brightness-to-height providers are marked fallback-only and current quality candidates are distinguishable from the safety net.
-- Write `provider_audit`, `segmentation_status`, `face_analysis_status`, `geometry_analysis_width_px`, and `geometry_analysis_height_px` into `metadata.json`; Functions copies the same audit fields into the job document and `jobs/{jobId}/audit/printFileGeneration`.
+- Write `provider_audit`, `segmentation_status`, `face_analysis_status`, `surface_intent_status`, `geometry_analysis_width_px`, and `geometry_analysis_height_px` into `metadata.json`; Functions copies the same audit fields into the job document and `jobs/{jobId}/audit/printFileGeneration`.
 - Run local experiment comparisons with `python scripts/run_heightmap_experiment.py <source-image>` from `services/print-file-generator`; outputs stay under ignored `.tmp/experiments/experiment_1`.
 - Run hybrid comparisons with `--provider masked_depth_detail_blend`; outputs stay under ignored `.tmp/experiments/hybrid` unless an explicit `--output-root` is provided.
 - For future heightmap experiments, run both canonical local inputs from `.tmp/input_image`: `Gemini_Generated_Image_lzneejlzneejlzne.png` and `Profile-Pic-HIMSS.jpg`.
@@ -183,7 +183,7 @@ Then improve:
 - Deploy the print-file generator as a Cloud Run service and point `PRINT_FILE_GENERATOR_URL` at that endpoint.
 - Move long-running print generation behind Cloud Tasks or Pub/Sub.
 - Improve edge-preserving smoothing and subject-aware depth based on human product-flow test results.
-- Implement and tune the Super Dad surface-intent path, then run a fresh browser and Blender review with scalp/top-of-head, neck, shirt/collar, text/logo crispness, and unintended roughness called out explicitly.
+- Tune the Super Dad surface-intent path from fresh browser and Blender review, with scalp/top-of-head, neck, shirt/collar, text/logo crispness, request-gated texture, and unintended roughness called out explicitly.
 - Review whether the 400px mesh output is enough for the intended print partner after Blender/app inspection; future increases should account for STL/package size, browser preview performance, and partner upload limits.
 - Validate the generated color-package formats with the chosen print partner.
 - Add partner-specific package tuning once accepted format, units, texture/color handling, and review workflow are confirmed.
@@ -192,7 +192,7 @@ Then improve:
 ## Risks
 
 - Noisy AI images can create unprintable tiny geometry.
-- Proofs that look visually appealing but contain uncontrolled photorealistic or AI brush texture can still create rough print geometry unless style constraints and surface-intent smoothing are enforced.
+- Proofs that look visually appealing but contain uncontrolled photorealistic or AI brush texture can still create rough print geometry if inferred surface-intent thresholds miss the noisy region or if proof style constraints drift.
 - Faces may look strange when converted directly from brightness.
 - Full-color printing and filament painting may need different geometry assumptions.
 - Filament painting is highly printer, slicer, nozzle, layer height, and material dependent.

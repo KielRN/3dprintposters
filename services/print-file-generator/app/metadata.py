@@ -40,6 +40,7 @@ class ArtifactMetadata:
     provider_audit: dict[str, dict[str, object]] | None = None
     segmentation_status: dict[str, object] | None = None
     face_analysis_status: dict[str, object] | None = None
+    surface_intent_status: dict[str, object] | None = None
     full_color_package: dict[str, object] | None = None
     filament_painting: dict[str, object] | None = None
 
@@ -116,6 +117,7 @@ def build_artifact_metadata(
         provider_audit=heightmap.provider_audit,
         segmentation_status=heightmap.segmentation_status,
         face_analysis_status=heightmap.face_analysis_status,
+        surface_intent_status=heightmap.surface_intent_status,
         full_color_package=(
             package_metadata.get("full_color")
             if package_metadata

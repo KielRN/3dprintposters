@@ -130,6 +130,7 @@ const printFileMetadataAuditSchema = z
       .optional(),
     segmentation_status: segmentationStatusSchema.optional(),
     face_analysis_status: z.record(z.string(), z.unknown()).optional(),
+    surface_intent_status: z.record(z.string(), z.unknown()).optional(),
   })
   .passthrough();
 
@@ -172,6 +173,7 @@ type PrintFileAudit =
       providerAudit: Record<string, z.infer<typeof providerAuditEntrySchema>> | null;
       segmentationStatus: z.infer<typeof segmentationStatusSchema> | null;
       faceAnalysisStatus: Record<string, unknown> | null;
+      surfaceIntentStatus: Record<string, unknown> | null;
       capturedAt: FieldValue;
     }
   | {
@@ -476,6 +478,7 @@ async function readPrintFileAudit(input: {
       providerAudit: parsed.data.provider_audit ?? null,
       segmentationStatus: parsed.data.segmentation_status ?? null,
       faceAnalysisStatus: parsed.data.face_analysis_status ?? null,
+      surfaceIntentStatus: parsed.data.surface_intent_status ?? null,
       capturedAt: FieldValue.serverTimestamp(),
     };
   } catch (error) {

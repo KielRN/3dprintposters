@@ -9,7 +9,9 @@ from app.depth import (
     SubjectMaskResult,
     _apply_portrait_face_pit_guard,
     _apply_portrait_surface_smoothing,
+    _apply_surface_intent_smoothing,
     _apply_subject_surface_smoothing,
+    _infer_surface_intent_masks,
     _smooth_subject_mask_contour,
     apply_image_window_edge_fade,
     prepare_geometry_analysis_image,
@@ -82,7 +84,7 @@ def test_segformer_masked_depth_raises_subject_above_background(monkeypatch) -> 
     assert heightmap.max_height_mm <= 4.2
 
 
-def test_masked_depth_detail_blend_adds_detail_only_inside_subject(
+def test_masked_depth_detail_blend_gates_detail_to_subject_and_crisp_regions(
     monkeypatch,
 ) -> None:
     image_arr = np.full((24, 24), 180, dtype=np.uint8)
@@ -130,8 +132,10 @@ def test_masked_depth_detail_blend_adds_detail_only_inside_subject(
     )
 
     subject = heightmap.values[6:18, 6:18]
-    background = heightmap.values[0:6, 0:18]
-    assert mean_adjacent_delta(subject) > mean_adjacent_delta(background) * 2.0
+    plain_background = heightmap.values[0:4, 0:18]
+    crisp_background = heightmap.values[4:6, 4:18]
+    assert mean_adjacent_delta(subject) > mean_adjacent_delta(plain_background) * 1.3
+    assert mean_adjacent_delta(crisp_background) > mean_adjacent_delta(plain_background)
     assert heightmap.provider == "masked_depth_detail_blend"
     assert heightmap.provider_audit is not None
     assert (
@@ -148,6 +152,9 @@ def test_masked_depth_detail_blend_adds_detail_only_inside_subject(
     }
     assert heightmap.min_height_mm >= 1.6
     assert heightmap.max_height_mm <= 4.2
+    assert heightmap.surface_intent_status is not None
+    assert heightmap.surface_intent_status["version"] == "inferred-v1"
+    assert heightmap.surface_intent_status["texture_status"] == "disabled_unrequested"
 
 
 def test_masked_depth_detail_blend_detail_source_changes_subject_output(
@@ -288,6 +295,105 @@ def test_geometry_analysis_image_suppresses_halo_but_keeps_subject() -> None:
 
     assert int(cleaned_arr[6, 14, 0]) < 190
     assert int(cleaned_arr[14, 14, 0]) < 80
+
+
+def test_inferred_surface_intent_keeps_graphic_edges_crisp_and_smooths_body() -> None:
+    width, height = 80, 80
+    source = np.full((height, width), 176, dtype=np.uint8)
+    source[:, 10:34] = 164
+    source[28:52, 46:66] = 24
+    source[33:47, 51:61] = 230
+    image = Image.fromarray(source).convert("RGB")
+    subject_mask = np.ones((height, width), dtype=np.float32)
+
+    masks = _infer_surface_intent_masks(
+        image,
+        subject_mask=subject_mask,
+        portrait_regions=fake_no_face_regions(width, height),
+        surface_intent_policy=None,
+    )
+
+    plain_body = masks.smooth_mask[20:60, 12:30]
+    logo_edge = masks.crisp_mask[27:53, 45:67]
+    detail_logo = masks.detail_weight_map[27:53, 45:67]
+    detail_body = masks.detail_weight_map[20:60, 12:30]
+
+    assert float(np.mean(plain_body)) > 0.55
+    assert float(np.max(logo_edge)) > 0.65
+    assert float(np.mean(detail_logo)) > float(np.mean(detail_body)) * 2.0
+    assert float(np.max(masks.texture_mask)) == 0.0
+    assert masks.metadata["texture_status"] == "disabled_unrequested"
+
+
+def test_surface_intent_texture_mask_requires_explicit_request() -> None:
+    width, height = 72, 72
+    base = np.full((height, width), 168, dtype=np.uint8)
+    weave = ((np.indices((height, width)).sum(axis=0) % 2) * 12).astype(np.uint8)
+    source = (base + weave).clip(0, 255).astype(np.uint8)
+    image = Image.fromarray(source).convert("RGB")
+    subject_mask = np.ones((height, width), dtype=np.float32)
+
+    default_masks = _infer_surface_intent_masks(
+        image,
+        subject_mask=subject_mask,
+        portrait_regions=fake_no_face_regions(width, height),
+        surface_intent_policy=None,
+    )
+    requested_masks = _infer_surface_intent_masks(
+        image,
+        subject_mask=subject_mask,
+        portrait_regions=fake_no_face_regions(width, height),
+        surface_intent_policy={
+            "policy_id": "requested-texture-v1",
+            "regions": [
+                {
+                    "intent": "fabric_texture",
+                    "treatment": "shallow_texture",
+                    "detail_weight": 0.25,
+                    "source": "human_override",
+                }
+            ],
+        },
+    )
+
+    assert float(np.max(default_masks.texture_mask)) == 0.0
+    assert default_masks.metadata["texture_status"] == "disabled_unrequested"
+    assert float(np.max(requested_masks.texture_mask)) > 0.05
+    assert requested_masks.metadata["texture_status"] == "enabled_requested"
+
+
+def test_surface_intent_smoothing_reduces_body_noise_but_preserves_graphic_edge() -> None:
+    width, height = 80, 80
+    source = np.full((height, width), 176, dtype=np.uint8)
+    source[:, 44:] = 32
+    image = Image.fromarray(source).convert("RGB")
+    subject_mask = np.ones((height, width), dtype=np.float32)
+    masks = _infer_surface_intent_masks(
+        image,
+        subject_mask=subject_mask,
+        portrait_regions=fake_no_face_regions(width, height),
+        surface_intent_policy=None,
+    )
+    relief_depth = np.full((height, width), 0.44, dtype=np.float32)
+    relief_depth[:, 44:] += 0.22
+    body_noise = ((np.indices((height, width)).sum(axis=0) % 2) * 0.12).astype(
+        np.float32
+    )
+    relief_depth = (relief_depth + body_noise).clip(0.0, 1.0)
+
+    smoothed = _apply_surface_intent_smoothing(relief_depth, surface_intent=masks)
+
+    original_roughness = mean_adjacent_delta(relief_depth[12:68, 12:34])
+    smoothed_roughness = mean_adjacent_delta(smoothed[12:68, 12:34])
+    original_edge_step = float(
+        np.mean(relief_depth[12:68, 46]) - np.mean(relief_depth[12:68, 42])
+    )
+    smoothed_edge_step = float(
+        np.mean(smoothed[12:68, 46]) - np.mean(smoothed[12:68, 42])
+    )
+
+    assert smoothed_roughness < original_roughness * 0.70
+    assert smoothed_edge_step > original_edge_step * 0.78
 
 
 def test_portrait_region_boxes_create_soft_face_eye_and_mouth_masks() -> None:

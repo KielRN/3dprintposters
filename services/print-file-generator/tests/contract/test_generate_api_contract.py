@@ -244,6 +244,13 @@ def test_local_generation_writes_default_hybrid_relief_bundle(
     assert "smooth_scalp" in metadata["surface_intent_policy"]["smooth_intents"]
     assert "smooth_body" in metadata["surface_intent_policy"]["smooth_intents"]
     assert "raised_text" in metadata["surface_intent_policy"]["crisp_intents"]
+    surface_intent_status = metadata["surface_intent_status"]
+    assert surface_intent_status["policy_id"] == "smooth-default-v1"
+    assert surface_intent_status["version"] == "inferred-v1"
+    assert surface_intent_status["default_treatment"] == "smooth"
+    assert surface_intent_status["texture_status"] == "disabled_unrequested"
+    assert surface_intent_status["masks"]["smooth"]["coverage"] > 0
+    assert "raised_logo" in surface_intent_status["classes"]["crisp"]
     assert metadata["provider_settings"] == {
         "detail_source": "lithophane_baseline",
         "detail_weight": 0.12,
@@ -254,6 +261,9 @@ def test_local_generation_writes_default_hybrid_relief_bundle(
         "mesh_target_width_px": 40,
         "portrait_nose_boost": "disabled",
         "portrait_surface_smoothing": "expanded_face_oval",
+        "surface_intent_detail_gating": "enabled",
+        "surface_intent_masks": "inferred_v1",
+        "surface_intent_texture": "request_gated",
     }
     assert response.artifact_paths.debug_artifacts["geometry-input.png"].endswith(
         "/debug/geometry-input.png"
@@ -261,6 +271,9 @@ def test_local_generation_writes_default_hybrid_relief_bundle(
     assert response.artifact_paths.debug_artifacts["final-heightmap.png"].endswith(
         "/debug/final-heightmap.png"
     )
+    assert response.artifact_paths.debug_artifacts[
+        "surface-intent-detail-weight-map.png"
+    ].endswith("/debug/surface-intent-detail-weight-map.png")
     assert metadata["normalized_width_px"] == 40
     assert metadata["geometry_analysis_width_px"] == 64
     assert metadata["full_color_package"]["formats"] == ["3mf", "obj", "vrml", "ply"]
@@ -451,6 +464,9 @@ def test_local_generation_can_run_masked_depth_detail_blend(
     assert face_analysis_status["status"] == "no_face"
     assert face_analysis_status["face_count"] == 0
     assert face_analysis_status["detector"] == "stub"
+    surface_intent_status = metadata["surface_intent_status"]
+    assert surface_intent_status["version"] == "inferred-v1"
+    assert surface_intent_status["texture_status"] == "disabled_unrequested"
     assert metadata["provider_settings"] == {
         "detail_source": "posterized_luminance",
         "detail_weight": 0.3,
@@ -461,6 +477,9 @@ def test_local_generation_can_run_masked_depth_detail_blend(
         "mesh_target_width_px": 8,
         "portrait_nose_boost": "disabled",
         "portrait_surface_smoothing": "expanded_face_oval",
+        "surface_intent_detail_gating": "enabled",
+        "surface_intent_masks": "inferred_v1",
+        "surface_intent_texture": "request_gated",
     }
     assert not any(
         "not the target production-quality relief path" in warning

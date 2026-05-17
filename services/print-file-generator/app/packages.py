@@ -90,6 +90,9 @@ def generate_print_file_bundle(
     if request.relief.height_provider == "masked_depth_detail_blend":
         heightmap_kwargs["detail_source"] = request.relief.detail_source
         heightmap_kwargs["detail_weight"] = request.relief.detail_weight
+        heightmap_kwargs["surface_intent_policy"] = (
+            request.style_metadata.surface_intent_policy.model_dump(mode="json")
+        )
 
     heightmap = height_provider.generate(
         geometry_analysis_image.image,
@@ -125,6 +128,9 @@ def generate_print_file_bundle(
             "mesh_target_width_px": request.relief.target_width_px,
             "portrait_nose_boost": "disabled",
             "portrait_surface_smoothing": "expanded_face_oval",
+            "surface_intent_detail_gating": "enabled",
+            "surface_intent_masks": "inferred_v1",
+            "surface_intent_texture": "request_gated",
         }
     mesh = build_closed_relief_mesh(
         heightmap.values,

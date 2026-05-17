@@ -30,6 +30,7 @@ Human eyes needed. Blender view tells us if poster relief looks good enough.
 - 2026-05-17 product-direction follow-up: the "Super Dad" generated proof is now the MVP north star. The goal is a HueForge-like controlled poster product, not raw photo-to-relief. Smooth skin/scalp/neck/body surfaces should stay smooth unless the style explicitly calls for texture; text, logos, emblems, and graphic panel lines should stay crisp and raised.
 - 2026-05-17 latest review: face smoothness is improving, but top-of-head/scalp and neck still look very rough. Treat this as the next relief-quality target after the documentation update.
 - 2026-05-17 implementation follow-up: proof generation now uses the `super-dad-north-star-v1` style contract, and print-file `metadata.json` now records the `smooth-default-v1` surface-intent policy.
+- 2026-05-17 implementation follow-up: the print-file generator now infers v1 surface-intent masks, gates deterministic detail through smooth/crisp/texture intent, smooths scalp/neck/ear/body/background regions beyond the old face masks, writes `surface_intent_status`, and emits `debug/surface-intent-*.png` artifacts.
 - The next useful validation is a fresh product-flow regeneration in the browser, then Blender inspection of the newly mirrored `.tmp/print-files/{uid}/{jobId}` bundle.
 
 ## Checklist
@@ -39,7 +40,8 @@ Human eyes needed. Blender view tells us if poster relief looks good enough.
 - [ ] Confirm `metadata.json` shows `target_width_px`/`mesh_target_width_px` behavior through `normalized_width_px: 400` and `geometry_analysis_width_px: 768`.
 - [ ] Confirm `metadata.json` provider settings show `detail_weight: 0.12`, `portrait_nose_boost: disabled`, `face_pit_guard: enabled`, and `debug_artifacts: enabled`.
 - [ ] Confirm `metadata.json` includes `proof_style_contract.contract_id: super-dad-north-star-v1` and `surface_intent_policy.policy_id: smooth-default-v1`.
-- [ ] Open the mirrored `debug/` folder and compare `geometry-input.png`, `detail-layer.png`, `relief-depth.png`, and `final-heightmap.png` if the face still looks wrong.
+- [ ] Confirm `metadata.json` includes `surface_intent_status.version: inferred-v1`, `default_treatment: smooth`, and `texture_status: disabled_unrequested` unless texture was explicitly requested.
+- [ ] Open the mirrored `debug/` folder and compare `geometry-input.png`, `surface-intent-smooth-mask.png`, `surface-intent-crisp-mask.png`, `surface-intent-detail-weight-map.png`, `detail-layer.png`, `relief-depth.png`, and `final-heightmap.png` if the face/body still looks wrong.
 - [ ] Compare the generated proof and 3D output against the Super Dad north star: smooth stylized skin, smooth scalp/top-of-head, smooth neck, clean body volumes, crisp raised text/logos, and simple backgrounds.
 - [ ] Open latest `model.stl` in Blender.
 - [ ] Look at face from low side angle.

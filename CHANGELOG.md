@@ -43,6 +43,8 @@ All notable project changes will be documented in this file.
 - Added roadmap/checklist direction for a surface-intent/material policy where smooth skin, scalp, neck, simple clothing, and backgrounds stay smooth unless text, logos, panel lines, hair, fabric, or another printable texture class is explicitly requested.
 - Added the `super-dad-north-star-v1` proof-generation style contract for smooth printable poster art and intentional raised graphics.
 - Added the print-file generator `smooth-default-v1` surface-intent/material policy schema, with metadata coverage for smooth skin/scalp/neck/hands/simple clothing/backgrounds and crisp text/logos/panel lines.
+- Added v1 inferred surface-intent masks to the print-file generator, including smooth, crisp, texture, smoothing, and detail-gate debug artifacts plus `surface_intent_status` metadata.
+- Added `surfaceIntentStatus` capture to the Functions print-file audit when `metadata.json` includes inferred surface-intent status.
 
 ### Changed
 
@@ -78,6 +80,7 @@ All notable project changes will be documented in this file.
 - Removed the hybrid provider's nose-specific height boost after Blender review showed a puppet-like nose. The path now uses lower default detail weight, broader face-oval smoothing, and a face/forehead pit guard instead of creating a nose protrusion.
 - Changed the relief-quality roadmap from raw subject-detail recovery toward controlled proof-to-print manufacturing: the customer photo is identity input, while the approved generated proof and surface-intent policy should determine printable geometry.
 - Changed AI generation metadata to store the selected style contract metadata instead of raw prompt text.
+- Changed `masked_depth_detail_blend` to gate deterministic detail through inferred surface intent, smooth scalp/neck/ear/body/background regions beyond face masks, keep crisp text/logos/graphic edges raised, and allow shallow material texture only when explicitly requested by proof-generation or human override metadata.
 
 ### Verified
 
@@ -98,6 +101,7 @@ All notable project changes will be documented in this file.
 - Verified the full print-file generator suite, Firebase Functions build, and web typecheck after promoting the 400px/768px relief-quality path.
 - Verified focused print-file generator unit/contract tests and Firebase Functions build after removing the nose boost, adding the face pit guard, reducing texture detail, and returning debug artifact paths.
 - Verified the full print-file generator suite, Firebase Functions build, and web typecheck after adding the Super Dad style contract and surface-intent schema.
+- Verified the full print-file generator suite after adding inferred surface-intent masks and detail/smoothing gates.
 
 ## [Unreleased] - 2026-05-05
 

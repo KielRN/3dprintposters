@@ -105,8 +105,8 @@
 - [x] Add a proof-generation style contract for the Super Dad north-star path so generated proofs avoid noisy photorealistic skin, scalp, neck, shirt, and background texture.
 - [x] Add a surface-intent/material policy schema for print generation, where regions default to smooth unless explicitly marked as text, logo, panel line, hair, fabric, or another printable texture class.
 - [ ] Thread style/surface-intent metadata from job creation or AI proof generation into `approveGeneratedImage`, `metadata.json`, and the print-file audit without storing secret prompt/provider values.
-- [ ] Implement v1 inferred surface-intent masks in `services/print-file-generator`: smooth skin/scalp/neck/ears/hands/simple clothing/background, crisp raised text/logos/graphic edges, and optional shallow material texture only when requested.
-- [ ] Extend portrait/body smoothing beyond the current face masks to address rough top-of-head, scalp, neck, ear, hand, collar, and shoulder zones.
+- [x] Implement v1 inferred surface-intent masks in `services/print-file-generator`: smooth skin/scalp/neck/ears/hands/simple clothing/background, crisp raised text/logos/graphic edges, and optional shallow material texture only when requested.
+- [x] Extend portrait/body smoothing beyond the current face masks to address rough top-of-head, scalp, neck, ear, hand, collar, and shoulder zones.
 - [ ] Add region-aware roughness quality gates or debug metrics so `smooth_skin`, `smooth_body`, `smooth_fabric`, and `flat_background` areas warn when high-frequency geometry exceeds the allowed threshold.
 - [ ] Run human product-flow review on the Super Dad north-star proof-to-print path in the browser and Blender, with special attention to scalp/top-of-head, neck, shirt/collar, text/logo crispness, and whether texture appears only where intended.
 - [ ] Tune color GLB preview lighting/material so the job page shows relief depth and image color clearly enough for human quality review.
