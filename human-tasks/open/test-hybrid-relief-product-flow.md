@@ -29,6 +29,7 @@ Human eyes needed. Blender view tells us if poster relief looks good enough.
 - 2026-05-17 implementation follow-up: the nose-specific height boost was removed after Blender review showed a puppet-like nose. The hybrid path now uses lower photo-detail weight, broader face smoothing, a face/forehead pit guard, and `debug/*.png` relief-stage artifacts.
 - 2026-05-17 product-direction follow-up: the "Super Dad" generated proof is now the MVP north star. The goal is a HueForge-like controlled poster product, not raw photo-to-relief. Smooth skin/scalp/neck/body surfaces should stay smooth unless the style explicitly calls for texture; text, logos, emblems, and graphic panel lines should stay crisp and raised.
 - 2026-05-17 latest review: face smoothness is improving, but top-of-head/scalp and neck still look very rough. Treat this as the next relief-quality target after the documentation update.
+- 2026-05-17 implementation follow-up: proof generation now uses the `super-dad-north-star-v1` style contract, and print-file `metadata.json` now records the `smooth-default-v1` surface-intent policy.
 - The next useful validation is a fresh product-flow regeneration in the browser, then Blender inspection of the newly mirrored `.tmp/print-files/{uid}/{jobId}` bundle.
 
 ## Checklist
@@ -37,6 +38,7 @@ Human eyes needed. Blender view tells us if poster relief looks good enough.
 - [ ] Restart the Functions emulator after the timeout fix, then retry approval or **Retry 3D generation** for the affected job.
 - [ ] Confirm `metadata.json` shows `target_width_px`/`mesh_target_width_px` behavior through `normalized_width_px: 400` and `geometry_analysis_width_px: 768`.
 - [ ] Confirm `metadata.json` provider settings show `detail_weight: 0.12`, `portrait_nose_boost: disabled`, `face_pit_guard: enabled`, and `debug_artifacts: enabled`.
+- [ ] Confirm `metadata.json` includes `proof_style_contract.contract_id: super-dad-north-star-v1` and `surface_intent_policy.policy_id: smooth-default-v1`.
 - [ ] Open the mirrored `debug/` folder and compare `geometry-input.png`, `detail-layer.png`, `relief-depth.png`, and `final-heightmap.png` if the face still looks wrong.
 - [ ] Compare the generated proof and 3D output against the Super Dad north star: smooth stylized skin, smooth scalp/top-of-head, smooth neck, clean body volumes, crisp raised text/logos, and simple backgrounds.
 - [ ] Open latest `model.stl` in Blender.

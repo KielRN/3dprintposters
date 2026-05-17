@@ -102,8 +102,8 @@
 - [x] Increase and test production heightmap/mesh resolution from 280px to 400px width while keeping triangle count and STL size inside the updated production caps.
 - [x] Remove the nose-specific height boost after Blender review showed a puppet-like nose; reduce hybrid detail weight, expand face-oval smoothing, add a face/forehead pit guard, and emit debug relief-stage artifacts.
 - [x] Adopt the "Super Dad" controlled proof as the MVP relief north star: smooth stylized skin/body forms, crisp raised text/graphics, clean poster-like volumes, and intentional texture only.
-- [ ] Add a proof-generation style contract for the Super Dad north-star path so generated proofs avoid noisy photorealistic skin, scalp, neck, shirt, and background texture.
-- [ ] Add a surface-intent/material policy schema for print generation, where regions default to smooth unless explicitly marked as text, logo, panel line, hair, fabric, or another printable texture class.
+- [x] Add a proof-generation style contract for the Super Dad north-star path so generated proofs avoid noisy photorealistic skin, scalp, neck, shirt, and background texture.
+- [x] Add a surface-intent/material policy schema for print generation, where regions default to smooth unless explicitly marked as text, logo, panel line, hair, fabric, or another printable texture class.
 - [ ] Thread style/surface-intent metadata from job creation or AI proof generation into `approveGeneratedImage`, `metadata.json`, and the print-file audit without storing secret prompt/provider values.
 - [ ] Implement v1 inferred surface-intent masks in `services/print-file-generator`: smooth skin/scalp/neck/ears/hands/simple clothing/background, crisp raised text/logos/graphic edges, and optional shallow material texture only when requested.
 - [ ] Extend portrait/body smoothing beyond the current face masks to address rough top-of-head, scalp, neck, ear, hand, collar, and shoulder zones.

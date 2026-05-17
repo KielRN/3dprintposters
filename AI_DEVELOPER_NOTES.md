@@ -26,8 +26,9 @@ Use `STL`, not `SLT`.
 - Dev Firebase/GCP project: `gen-lang-client-0675309660`.
 - Product domain: `3dprintposters.com`.
 - Current proof generation: direct Vertex/Gemini through `apps/functions/src/aiProvider.ts`, with generated proofs stored under `generated/{uid}/{jobId}/`.
+- Current proof style contract: `super-dad-north-star-v1` in `apps/functions/src/styleContracts.ts`, which steers generated proofs toward smooth printable poster art and stores contract metadata instead of raw prompt text.
 - Current print-file generation: `approveGeneratedImage` calls the FastAPI generator with `masked_depth_detail_blend`, `lithophane_baseline` detail source, `detail_weight: 0.12`, `target_width_px: 400`, `geometry_analysis_width_px: 768`, and explicit dimensions for a 5in x 7in image window inside a 5.5in x 7.5in physical object.
-- Current print-file artifacts: `model.stl`, image-colored `preview.glb`, `heightmap.png`, `metadata.json`, deterministic full-color package files (`3MF`, `OBJ`/`MTL`/texture, `VRML`, `PLY`), filament painting files (`palette.json`, `layer-swaps.txt`, `print-settings.json`, `preview.png`), and `debug/*.png` relief-stage images. The physical object is now 5.5in x 7.5in with a 5in x 7in image relief window and shaped 1/4in border/frame, and the job page uses an interactive GLB inspection viewer with zoom, orbit, and reset controls.
+- Current print-file artifacts: `model.stl`, image-colored `preview.glb`, `heightmap.png`, `metadata.json`, deterministic full-color package files (`3MF`, `OBJ`/`MTL`/texture, `VRML`, `PLY`), filament painting files (`palette.json`, `layer-swaps.txt`, `print-settings.json`, `preview.png`), and `debug/*.png` relief-stage images. The physical object is now 5.5in x 7.5in with a 5in x 7in image relief window and shaped 1/4in border/frame, and the job page uses an interactive GLB inspection viewer with zoom, orbit, and reset controls. The generator request schema now includes `smooth-default-v1` surface-intent metadata, and `metadata.json` records the selected style, proof style contract, and surface-intent policy.
 - The 400px production relief mesh estimates at 463,488 vertices, 926,972 triangles, and a 46,348,684 byte binary STL before full-color and filament-painting package files. The printability caps are now 1,000,000 triangles and 50,000,000 STL bytes.
 - Checkout is gated on proof approval and generated print-file artifacts.
 
@@ -48,8 +49,8 @@ Use `STL`, not `SLT`.
 
 Phase 3 is now about product relief geometry and quality, not more provider research:
 
-1. Promote the "Super Dad" controlled proof style into the real product workflow as the MVP north star: smooth stylized skin, clean body volumes, crisp raised text/graphics, and intentional texture only.
-2. Add a surface-intent/material policy to the proof-to-print pipeline. V1 can be inferred from existing masks and style metadata, but the default rule should be smooth unless texture is explicitly requested.
+1. Thread the "Super Dad" style/surface-intent metadata through the full approval audit path so each generated job and paid order preserves the exact contract and smoothing policy used.
+2. Implement V1 inferred surface-intent masks in the print-file generator. V1 can combine existing masks and style metadata, but the default rule should be smooth unless texture is explicitly requested.
 3. Tune the hybrid relief path for broader skin/body smoothness beyond the face, especially scalp/top-of-head, ears, neck, hands, and simple clothing areas that currently inherit rough photo/proof texture.
 4. Tune color GLB preview lighting/material and performance so browser review reflects actual relief and color quality.
 5. Continue relief quality tuning from generated artifacts and `debug/*.png`, especially blockiness, unintended roughness, and photo/proof texture becoming geometry.
@@ -76,7 +77,7 @@ Latest human review notes:
 - HF SegFormer requires a provider credential in the service runtime. Do not print or move secret values.
 - Provider failures should surface clearly in testing instead of silently producing lower-quality reliefs.
 - Face-aware tuning now uses server-side OpenCV Haar face boxes to build soft face/eye/nose/mouth masks. These masks should damp detail, smooth face areas, and support pit guarding, not create a nose protrusion. Detector misses, profile faces, stylized proofs, multiple-face behavior, and runtime cost still need human product-flow review.
-- The product direction now depends on generated proofs being controlled printable art. If prompt/style metadata drifts toward photorealistic or noisy textures, the print-file generator will keep fighting the wrong input. Add style constraints and surface-intent metadata before broadening style options.
+- The product direction now depends on generated proofs being controlled printable art. If prompt/style metadata drifts toward photorealistic or noisy textures, the print-file generator will keep fighting the wrong input. The first style contract and surface-intent schema now exist, but the approval audit still needs to preserve them end to end before broadening style options.
 - Surface-intent masks are not implemented yet. Until they are, scalp, neck, ears, hands, shirt/collar zones, and AI brush artifacts can still become rough geometry even when the face looks smooth.
 - The 400px output path roughly doubles binary STL size versus 280px and makes full-color OBJ/VRML/PLY packages larger. Watch Cloud Run memory/time, Storage cost, browser preview performance, and partner upload limits.
 - Full-color 3MF/OBJ/VRML/PLY packages and filament painting guides are generated deterministically, but still need partner and slicer validation before fulfillment can depend on them.

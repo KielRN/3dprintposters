@@ -436,7 +436,8 @@ Use Stripe test mode until payment, webhook, and fulfillment state transitions a
 - [x] Add known-image test fixtures.
 - [x] Decouple geometry analysis from mesh output with a 768px analysis image and 400px mesh/color output.
 - [x] Add geometry-only proof cleanup, contour-smoothed subject masks, broad face smoothing, and a face/forehead pit guard for roughness/blocky-edge concerns.
-- [ ] Add Super Dad style constraints and surface-intent metadata so smooth surfaces stay smooth and only intended regions carry texture.
+- [x] Add Super Dad style constraints and a surface-intent schema so generated proofs and print metadata share the smooth-default contract.
+- [ ] Thread style/surface-intent metadata through the full approval audit path so paid orders preserve the exact policy used.
 - [ ] Add region roughness checks for smooth skin/body/fabric/background surfaces.
 - [ ] Deploy the print-file generator as a Cloud Run service and set production `PRINT_FILE_GENERATOR_URL`.
 - [x] Generate full-color package artifacts such as 3MF or OBJ plus texture.

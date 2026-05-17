@@ -1,4 +1,9 @@
 import { getStorage } from "firebase-admin/storage";
+import {
+  buildProofStyleMetadata,
+  buildProofStylePromptDirectives,
+  type ProofStyleMetadata,
+} from "./styleContracts.js";
 
 export type PosterGenerationInput = {
   jobId: string;
@@ -16,7 +21,7 @@ export type PosterGenerationOutput = {
     route: string;
     notes: string[];
     outputMimeType?: string;
-    promptText?: string;
+    styleMetadata?: ProofStyleMetadata;
     responseText?: string;
     modelVersion?: string;
   };
@@ -87,6 +92,7 @@ class VertexGeminiPosterAiProvider implements PosterAiProvider {
 
     const model = process.env.VERTEX_IMAGE_MODEL ?? defaultVertexImageModel;
     const promptText = buildPosterPrompt(input);
+    const styleMetadata = buildProofStyleMetadata(input.selectedStyle);
     const bucket = getConfiguredStorageBucket();
     const sourceFile = bucket.file(input.sourceImagePath);
     const [downloadResult, metadataResult] = await Promise.all([
@@ -145,7 +151,7 @@ class VertexGeminiPosterAiProvider implements PosterAiProvider {
         model,
         route: "direct-gcp-vertex-gemini-express",
         outputMimeType,
-        promptText,
+        styleMetadata,
         ...(responseText ? { responseText } : {}),
         ...(vertexResponse.modelVersion
           ? { modelVersion: vertexResponse.modelVersion }
@@ -165,6 +171,7 @@ class CloudflareGatewayPosterAiProvider implements PosterAiProvider {
   ): Promise<PosterGenerationOutput> {
     const model =
       process.env.CLOUDFLARE_AI_GATEWAY_MODEL ?? defaultVertexImageModel;
+    const styleMetadata = buildProofStyleMetadata(input.selectedStyle);
 
     return {
       provider: "cloudflare-ai-gateway",
@@ -175,6 +182,7 @@ class CloudflareGatewayPosterAiProvider implements PosterAiProvider {
       metadata: {
         model,
         route: "cloudflare-ai-gateway",
+        styleMetadata,
         notes: [
           "Cloudflare AI Gateway is reserved for later provider comparison, rate limiting, observability, and fallback.",
           "Real gateway calls are not implemented yet.",
@@ -191,8 +199,8 @@ function buildPosterPrompt(input: PosterGenerationInput): string {
     "Create one portrait proof image for a custom 5 inch by 7 inch 3D print poster relief.",
     "Use the uploaded image as the main composition reference. Preserve the primary subject, crop, and recognizable visual intent while translating it into a polished poster-ready design.",
     `Selected style: ${selectedStyle}.`,
-    "Make the design clear enough to guide a later relief/heightmap workflow: strong foreground, midground, and background separation; clean silhouettes; readable depth layers; and no tiny texture noise.",
-    "Do not add captions, watermarks, logos, UI, mockup frames, or extra border text. Output only the poster proof image.",
+    ...buildProofStylePromptDirectives(input.selectedStyle),
+    "Output only the poster proof image.",
   ].join("\n");
 }
 

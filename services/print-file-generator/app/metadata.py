@@ -33,6 +33,9 @@ class ArtifactMetadata:
     height_provider_target_quality_path: bool
     height_provider_checkout_default_allowed: bool
     watertight: bool
+    selected_style: str | None = None
+    proof_style_contract: dict[str, object] | None = None
+    surface_intent_policy: dict[str, object] | None = None
     provider_settings: dict[str, object] | None = None
     provider_audit: dict[str, dict[str, object]] | None = None
     segmentation_status: dict[str, object] | None = None
@@ -60,8 +63,14 @@ def build_artifact_metadata(
     base_thickness_mm: float,
     provider_settings: dict[str, object] | None = None,
     package_metadata: dict[str, object] | None = None,
+    style_metadata: dict[str, object] | None = None,
 ) -> ArtifactMetadata:
     provider_policy = get_height_provider_policy(heightmap.provider)
+    selected_style = (
+        style_metadata.get("selected_style")
+        if isinstance(style_metadata, dict)
+        else None
+    )
     return ArtifactMetadata(
         job_id=job_id,
         uid=uid,
@@ -90,6 +99,19 @@ def build_artifact_metadata(
             provider_policy.checkout_default_allowed
         ),
         watertight=True,
+        selected_style=selected_style if isinstance(selected_style, str) else None,
+        proof_style_contract=(
+            style_metadata.get("proof_style_contract")
+            if isinstance(style_metadata, dict)
+            and isinstance(style_metadata.get("proof_style_contract"), dict)
+            else None
+        ),
+        surface_intent_policy=(
+            style_metadata.get("surface_intent_policy")
+            if isinstance(style_metadata, dict)
+            and isinstance(style_metadata.get("surface_intent_policy"), dict)
+            else None
+        ),
         provider_settings=provider_settings,
         provider_audit=heightmap.provider_audit,
         segmentation_status=heightmap.segmentation_status,

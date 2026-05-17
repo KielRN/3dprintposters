@@ -204,7 +204,7 @@ Initial deployment shape:
 ## Open Decisions
 
 - Exact Mimaki 3DUJ-2207 print partner and whether it supports API order creation or requires manual quoting/file review.
-- Exact surface-intent schema and whether v1 should be fully inferred by the print-file generator, emitted by proof generation, or both.
+- Exact v1 surface-intent mask implementation and how much should be inferred by the print-file generator versus emitted by proof generation.
 - Which AI provider/model should generate the final controlled artwork for each style family, and whether AI should also help produce depth maps or region/material masks.
 - Whether filament painting should stay as support files first or eventually produce slicer-specific projects.
 - Whether the preview mesh should be generated in Python, in the browser, or both.

@@ -41,6 +41,8 @@ All notable project changes will be documented in this file.
 - Added hybrid relief debug artifacts under `debug/*.png` for geometry input, masks, detail maps, blended depth, relief depth, and final heightmap; local Functions mirroring now includes these debug artifacts.
 - Added the Super Dad generated proof as the MVP relief north star in project direction docs, with smooth default surfaces and intentional texture called out as the next product-quality layer.
 - Added roadmap/checklist direction for a surface-intent/material policy where smooth skin, scalp, neck, simple clothing, and backgrounds stay smooth unless text, logos, panel lines, hair, fabric, or another printable texture class is explicitly requested.
+- Added the `super-dad-north-star-v1` proof-generation style contract for smooth printable poster art and intentional raised graphics.
+- Added the print-file generator `smooth-default-v1` surface-intent/material policy schema, with metadata coverage for smooth skin/scalp/neck/hands/simple clothing/backgrounds and crisp text/logos/panel lines.
 
 ### Changed
 
@@ -75,6 +77,7 @@ All notable project changes will be documented in this file.
 - Changed local artifact mirroring so approved jobs become `generated` before the optional `.tmp` mirror downloads every print-file artifact.
 - Removed the hybrid provider's nose-specific height boost after Blender review showed a puppet-like nose. The path now uses lower default detail weight, broader face-oval smoothing, and a face/forehead pit guard instead of creating a nose protrusion.
 - Changed the relief-quality roadmap from raw subject-detail recovery toward controlled proof-to-print manufacturing: the customer photo is identity input, while the approved generated proof and surface-intent policy should determine printable geometry.
+- Changed AI generation metadata to store the selected style contract metadata instead of raw prompt text.
 
 ### Verified
 
@@ -94,6 +97,7 @@ All notable project changes will be documented in this file.
 - Verified focused print-file generator unit and contract coverage for geometry-analysis resampling, contour smoothing, geometry cleanup, and nose-aware shaping.
 - Verified the full print-file generator suite, Firebase Functions build, and web typecheck after promoting the 400px/768px relief-quality path.
 - Verified focused print-file generator unit/contract tests and Firebase Functions build after removing the nose boost, adding the face pit guard, reducing texture detail, and returning debug artifact paths.
+- Verified the full print-file generator suite, Firebase Functions build, and web typecheck after adding the Super Dad style contract and surface-intent schema.
 
 ## [Unreleased] - 2026-05-05
 

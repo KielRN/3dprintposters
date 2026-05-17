@@ -99,6 +99,64 @@ def test_request_defaults_include_both_output_modes() -> None:
     assert request.relief.max_triangle_count == 1_000_000
     assert request.relief.max_binary_stl_bytes == 50_000_000
     assert request.relief.max_source_pixels == 4_000_000
+    assert request.style_metadata.proof_style_contract.contract_id == (
+        "super-dad-north-star-v1"
+    )
+    assert request.style_metadata.surface_intent_policy.policy_id == "smooth-default-v1"
+    assert request.style_metadata.surface_intent_policy.default_treatment == "smooth"
+    assert (
+        "smooth_scalp"
+        in request.style_metadata.surface_intent_policy.smooth_intents
+    )
+    assert (
+        "smooth_body" in request.style_metadata.surface_intent_policy.smooth_intents
+    )
+    assert (
+        "raised_text" in request.style_metadata.surface_intent_policy.crisp_intents
+    )
+
+
+def test_request_accepts_selected_style_surface_intent_metadata() -> None:
+    request = PrintFileGenerationRequest(
+        job_id="job_123",
+        uid="user_123",
+        selected_image_path="generated/user_123/job_123/preview.png",
+        output_prefix="print-files/user_123/job_123",
+        style_metadata={
+            "selectedStyle": "gallery-relief",
+            "promptText": "do not persist raw prompt text",
+            "surface_intent_policy": {
+                "policy_id": "custom-smooth-default-v1",
+                "regions": [
+                    {
+                        "intent": "smooth_skin",
+                        "treatment": "smooth",
+                        "detail_weight": 0.0,
+                        "source": "proof_generation",
+                    },
+                    {
+                        "intent": "raised_logo",
+                        "treatment": "crisp_raised",
+                        "detail_weight": 0.8,
+                        "source": "proof_generation",
+                    },
+                ],
+            },
+        },
+    )
+
+    assert request.style_metadata.selected_style == "gallery-relief"
+    assert (
+        request.style_metadata.surface_intent_policy.policy_id
+        == "custom-smooth-default-v1"
+    )
+    assert request.style_metadata.surface_intent_policy.regions[0].intent == (
+        "smooth_skin"
+    )
+    assert request.style_metadata.surface_intent_policy.regions[1].treatment == (
+        "crisp_raised"
+    )
+    assert "promptText" not in request.style_metadata.to_metadata()
 
 
 def test_local_generation_writes_default_hybrid_relief_bundle(
@@ -129,6 +187,7 @@ def test_local_generation_writes_default_hybrid_relief_bundle(
             target_width_px=40,
             geometry_analysis_width_px=64,
         ),
+        style_metadata={"selectedStyle": "gallery-relief"},
     )
 
     response = generate_print_file_bundle(request, storage=LocalFilesystemStorage())
@@ -173,6 +232,18 @@ def test_local_generation_writes_default_hybrid_relief_bundle(
     assert metadata["height_provider_fallback_only"] is False
     assert metadata["height_provider_target_quality_path"] is True
     assert metadata["height_provider_checkout_default_allowed"] is True
+    assert metadata["selected_style"] == "gallery-relief"
+    assert metadata["proof_style_contract"]["contract_id"] == (
+        "super-dad-north-star-v1"
+    )
+    assert metadata["proof_style_contract"]["prompt_storage"] == (
+        "contract_metadata_only"
+    )
+    assert metadata["surface_intent_policy"]["policy_id"] == "smooth-default-v1"
+    assert metadata["surface_intent_policy"]["default_treatment"] == "smooth"
+    assert "smooth_scalp" in metadata["surface_intent_policy"]["smooth_intents"]
+    assert "smooth_body" in metadata["surface_intent_policy"]["smooth_intents"]
+    assert "raised_text" in metadata["surface_intent_policy"]["crisp_intents"]
     assert metadata["provider_settings"] == {
         "detail_source": "lithophane_baseline",
         "detail_weight": 0.12,

@@ -162,6 +162,7 @@ def generate_print_file_bundle(
         base_thickness_mm=request.relief.base_thickness_mm,
         provider_settings=provider_settings,
         package_metadata=color_package.metadata,
+        style_metadata=request.style_metadata.to_metadata(),
     )
 
     storage.write_bytes(
