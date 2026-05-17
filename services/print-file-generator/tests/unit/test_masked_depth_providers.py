@@ -48,11 +48,11 @@ def test_segformer_masked_depth_raises_subject_above_background(monkeypatch) -> 
         )
 
     monkeypatch.setattr(
-        "app.depth._infer_depth_anything_v2_small_result",
+        "app.depth_providers._infer_depth_anything_v2_small_result",
         fake_infer_depth_result,
     )
     monkeypatch.setattr(
-        "app.depth._generate_subject_mask_result",
+        "app.depth_providers._generate_subject_mask_result",
         fake_generate_mask_result,
     )
 
@@ -111,11 +111,11 @@ def test_masked_depth_detail_blend_gates_detail_to_subject_and_crisp_regions(
         )
 
     monkeypatch.setattr(
-        "app.depth._infer_depth_anything_v2_small_result",
+        "app.depth_providers._infer_depth_anything_v2_small_result",
         fake_infer_depth_result,
     )
     monkeypatch.setattr(
-        "app.depth._generate_subject_mask_result",
+        "app.depth_providers._generate_subject_mask_result",
         fake_generate_mask_result,
     )
 
@@ -183,11 +183,11 @@ def test_masked_depth_detail_blend_detail_source_changes_subject_output(
         )
 
     monkeypatch.setattr(
-        "app.depth._infer_depth_anything_v2_small_result",
+        "app.depth_providers._infer_depth_anything_v2_small_result",
         fake_infer_depth_result,
     )
     monkeypatch.setattr(
-        "app.depth._generate_subject_mask_result",
+        "app.depth_providers._generate_subject_mask_result",
         fake_generate_mask_result,
     )
 
@@ -463,15 +463,15 @@ def test_masked_depth_detail_blend_damps_eye_mouth_detail_without_flattening_fac
         )
 
     monkeypatch.setattr(
-        "app.depth._infer_depth_anything_v2_small_result",
+        "app.depth_providers._infer_depth_anything_v2_small_result",
         fake_infer_depth_result,
     )
     monkeypatch.setattr(
-        "app.depth._generate_subject_mask_result",
+        "app.depth_providers._generate_subject_mask_result",
         fake_generate_mask_result,
     )
     monkeypatch.setattr(
-        "app.depth.analyze_portrait_regions",
+        "app.depth_providers.analyze_portrait_regions",
         lambda img: fake_no_face_regions(img.width, img.height),
     )
     no_face = MaskedDepthDetailBlendProvider().generate(
@@ -486,7 +486,7 @@ def test_masked_depth_detail_blend_damps_eye_mouth_detail_without_flattening_fac
         compression_strength=0.0,
     )
 
-    monkeypatch.setattr("app.depth.analyze_portrait_regions", lambda img: portrait)
+    monkeypatch.setattr("app.depth_providers.analyze_portrait_regions", lambda img: portrait)
     face_aware = MaskedDepthDetailBlendProvider().generate(
         image,
         base_thickness_mm=1.2,

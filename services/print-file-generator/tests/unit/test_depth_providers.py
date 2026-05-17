@@ -100,7 +100,7 @@ def test_depth_anything_v2_small_maps_relative_depth_to_relief(monkeypatch) -> N
         )
 
     monkeypatch.setattr(
-        "app.depth._infer_depth_anything_v2_small_result",
+        "app.depth_providers._infer_depth_anything_v2_small_result",
         fake_infer_depth_anything_v2_small_result,
     )
 
@@ -153,8 +153,14 @@ def test_triposr_sidecar_projects_mesh_depth_to_relief(monkeypatch) -> None:
         row = np.linspace(0.1, 0.9, width_px, dtype=np.float32)
         return np.tile(row, (height_px, 1))
 
-    monkeypatch.setattr("app.depth._infer_triposr_api", fake_infer_triposr_api)
-    monkeypatch.setattr("app.depth._project_mesh_to_depth", fake_project_mesh_to_depth)
+    monkeypatch.setattr(
+        "app.experimental.triposr_sidecar._infer_triposr_api",
+        fake_infer_triposr_api,
+    )
+    monkeypatch.setattr(
+        "app.experimental.triposr_sidecar._project_mesh_to_depth",
+        fake_project_mesh_to_depth,
+    )
 
     from app.depth import TripoSRSidecarProvider
 

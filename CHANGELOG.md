@@ -81,6 +81,7 @@ All notable project changes will be documented in this file.
 - Changed the relief-quality roadmap from raw subject-detail recovery toward controlled proof-to-print manufacturing: the customer photo is identity input, while the approved generated proof and surface-intent policy should determine printable geometry.
 - Changed AI generation metadata to store the selected style contract metadata instead of raw prompt text.
 - Changed `masked_depth_detail_blend` to gate deterministic detail through inferred surface intent, smooth scalp/neck/ear/body/background regions beyond face masks, keep crisp text/logos/graphic edges raised, and allow shallow material texture only when explicitly requested by proof-generation or human override metadata.
+- Split the print-file generator depth/heightmap implementation into focused modules while preserving `app.depth` as a compatibility facade.
 
 ### Verified
 
@@ -102,6 +103,7 @@ All notable project changes will be documented in this file.
 - Verified focused print-file generator unit/contract tests and Firebase Functions build after removing the nose boost, adding the face pit guard, reducing texture detail, and returning debug artifact paths.
 - Verified the full print-file generator suite, Firebase Functions build, and web typecheck after adding the Super Dad style contract and surface-intent schema.
 - Verified the full print-file generator suite after adding inferred surface-intent masks and detail/smoothing gates.
+- Verified the full print-file generator suite passes after the depth module split.
 
 ## [Unreleased] - 2026-05-05
 
