@@ -40,9 +40,11 @@ from .portrait_relief import (
 from .providers.base import ProviderAudit
 from .segmentation_masks import _generate_subject_mask_result
 from .surface_intent import (
+    _apply_graphic_emboss_layer,
     _apply_surface_intent_smoothing,
     _compose_surface_detail_weight_map,
     _infer_surface_intent_masks,
+    _surface_roughness_metrics,
 )
 
 
@@ -435,13 +437,18 @@ class MaskedDepthDetailBlendProvider:
         blended = (
             semantic_base
             + detail_weight * detail_weight_map * detail_layer
-            + 0.025 * surface_intent.crisp_mask
+            + 0.018 * surface_intent.crisp_mask
+            + 0.038 * surface_intent.emboss_mask
         )
         blended = blended.clip(0.0, 1.0).astype(np.float32)
 
         relief_depth = _apply_bas_relief_transform(
             blended,
             compression_strength=compression_strength,
+        )
+        relief_depth = _apply_graphic_emboss_layer(
+            relief_depth,
+            surface_intent=surface_intent,
         )
         relief_depth = _apply_surface_intent_smoothing(
             relief_depth,
@@ -456,6 +463,10 @@ class MaskedDepthDetailBlendProvider:
             portrait_regions=portrait_regions,
         )
         relief_depth = _smooth_unit_array(relief_depth, post_smooth_radius_px)
+        surface_intent.metadata["roughness_metrics"] = _surface_roughness_metrics(
+            relief_depth,
+            surface_intent=surface_intent,
+        )
 
         heights = _depth_to_heights(
             relief_depth,

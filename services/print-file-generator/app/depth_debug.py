@@ -37,6 +37,9 @@ def _hybrid_debug_artifacts(
         "surface-intent-crisp-mask.png": _debug_unit_array_png_bytes(
             surface_intent.crisp_mask
         ),
+        "surface-intent-emboss-mask.png": _debug_unit_array_png_bytes(
+            surface_intent.emboss_mask
+        ),
         "surface-intent-texture-mask.png": _debug_unit_array_png_bytes(
             surface_intent.texture_mask
         ),

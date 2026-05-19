@@ -125,11 +125,13 @@ def generate_print_file_bundle(
             "face_pit_guard": "enabled",
             "geometry_input": "subject_aware_cleanup",
             "geometry_analysis_width_px": request.relief.geometry_analysis_width_px,
+            "graphic_emboss_layer": "enabled",
             "mesh_target_width_px": request.relief.target_width_px,
             "portrait_nose_boost": "disabled",
             "portrait_surface_smoothing": "expanded_face_oval",
             "surface_intent_detail_gating": "enabled",
             "surface_intent_masks": "inferred_v1",
+            "surface_intent_roughness_metrics": "enabled",
             "surface_intent_texture": "request_gated",
         }
     mesh = build_closed_relief_mesh(

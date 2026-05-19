@@ -107,7 +107,8 @@
 - [ ] Thread style/surface-intent metadata from job creation or AI proof generation into `approveGeneratedImage`, `metadata.json`, and the print-file audit without storing secret prompt/provider values.
 - [x] Implement v1 inferred surface-intent masks in `services/print-file-generator`: smooth skin/scalp/neck/ears/hands/simple clothing/background, crisp raised text/logos/graphic edges, and optional shallow material texture only when requested.
 - [x] Extend portrait/body smoothing beyond the current face masks to address rough top-of-head, scalp, neck, ear, hand, collar, and shoulder zones.
-- [ ] Add region-aware roughness quality gates or debug metrics so `smooth_skin`, `smooth_body`, `smooth_fabric`, and `flat_background` areas warn when high-frequency geometry exceeds the allowed threshold.
+- [x] Add a graphic emboss layer and debug mask so inferred text/logos/emblems get a deliberate raised treatment separate from smooth-surface texture suppression.
+- [x] Add region-aware roughness debug metrics so smooth subject/background areas warn when high-frequency geometry exceeds the allowed threshold, and crisp graphic regions warn when they are too flat.
 - [ ] Run human product-flow review on the Super Dad north-star proof-to-print path in the browser and Blender, with special attention to scalp/top-of-head, neck, shirt/collar, text/logo crispness, and whether texture appears only where intended.
 - [ ] Tune color GLB preview lighting/material so the job page shows relief depth and image color clearly enough for human quality review.
 - [ ] Add a content-hash cache for provider responses in Firebase Storage using role, provider id, model version, and image hash.

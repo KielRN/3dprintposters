@@ -45,6 +45,8 @@ All notable project changes will be documented in this file.
 - Added the print-file generator `smooth-default-v1` surface-intent/material policy schema, with metadata coverage for smooth skin/scalp/neck/hands/simple clothing/backgrounds and crisp text/logos/panel lines.
 - Added v1 inferred surface-intent masks to the print-file generator, including smooth, crisp, texture, smoothing, and detail-gate debug artifacts plus `surface_intent_status` metadata.
 - Added `surfaceIntentStatus` capture to the Functions print-file audit when `metadata.json` includes inferred surface-intent status.
+- Added a graphic emboss mask/layer for the hybrid relief path so inferred text, logos, emblems, and graphic edges can be deliberately raised without allowing random proof texture into smooth regions.
+- Added `surface-intent-emboss-mask.png` debug output and `surface_intent_status.roughness_metrics` for smooth-subject, flat-background, and crisp-graphic region review.
 
 ### Changed
 
@@ -78,6 +80,7 @@ All notable project changes will be documented in this file.
 - Extended the proof-approval callable and browser callable timeout to 9 minutes so the production hybrid relief path can finish before the client reports an internal timeout.
 - Changed local artifact mirroring so approved jobs become `generated` before the optional `.tmp` mirror downloads every print-file artifact.
 - Removed the hybrid provider's nose-specific height boost after Blender review showed a puppet-like nose. The path now uses lower default detail weight, broader face-oval smoothing, and a face/forehead pit guard instead of creating a nose protrusion.
+- Tightened Super Dad surface-intent smoothing by reducing default subject detail leakage, increasing smooth subject/background damping, and protecting only stronger graphic emboss regions from broad smoothing.
 - Changed the relief-quality roadmap from raw subject-detail recovery toward controlled proof-to-print manufacturing: the customer photo is identity input, while the approved generated proof and surface-intent policy should determine printable geometry.
 - Changed AI generation metadata to store the selected style contract metadata instead of raw prompt text.
 - Changed `masked_depth_detail_blend` to gate deterministic detail through inferred surface intent, smooth scalp/neck/ear/body/background regions beyond face masks, keep crisp text/logos/graphic edges raised, and allow shallow material texture only when explicitly requested by proof-generation or human override metadata.

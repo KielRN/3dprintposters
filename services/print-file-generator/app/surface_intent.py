@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import numpy as np
-from PIL import Image, ImageOps
+from PIL import Image, ImageFilter, ImageOps
 
 from .depth_filters import (
     _guided_filter_self,
@@ -52,9 +52,15 @@ def _infer_surface_intent_masks(
         subject_mask=subject,
         portrait_regions=portrait_regions,
     )
-    crisp_mask = crisp_signal * (1.0 - (0.90 * portrait_smooth).clip(0.0, 0.90))
-    crisp_mask = _smoothstep_array(((crisp_mask - 0.18) / 0.42).clip(0.0, 1.0))
+    crisp_signal = (
+        crisp_signal * (1.0 - (0.90 * portrait_smooth).clip(0.0, 0.90))
+    ).clip(0.0, 1.0)
+    crisp_mask = _smoothstep_array(((crisp_signal - 0.22) / 0.42).clip(0.0, 1.0))
     crisp_mask = _smooth_unit_array(crisp_mask, 0.45).clip(0.0, 1.0).astype(np.float32)
+    emboss_mask = _graphic_emboss_mask(
+        crisp_signal,
+        portrait_smooth=portrait_smooth,
+    )
 
     if texture_requested:
         texture_signal = _smoothstep_array(
@@ -72,32 +78,32 @@ def _infer_surface_intent_masks(
 
     background_mask = (1.0 - subject).clip(0.0, 1.0).astype(np.float32)
     smooth_subject = subject * (1.0 - crisp_mask) * (1.0 - texture_mask)
-    smooth_background = background_mask * (1.0 - crisp_mask)
+    smooth_background = background_mask * (1.0 - emboss_mask)
     smooth_mask = np.maximum.reduce(
         (
-            0.76 * smooth_subject,
-            0.92 * smooth_background,
+            0.84 * smooth_subject,
+            0.96 * smooth_background,
             0.98 * portrait_smooth,
         )
     ).clip(0.0, 1.0)
     smoothing_mask = np.maximum.reduce(
         (
-            0.62 * smooth_subject,
-            0.86 * smooth_background,
-            0.94 * portrait_smooth,
+            0.78 * smooth_subject,
+            0.94 * smooth_background,
+            0.96 * portrait_smooth,
         )
     )
     smoothing_mask = (
         smoothing_mask
-        * (1.0 - 0.86 * crisp_mask)
+        * (1.0 - 0.92 * emboss_mask)
         * (1.0 - 0.62 * texture_mask)
     ).clip(0.0, 0.96)
 
-    base_subject_detail = 0.30 * subject * (1.0 - 0.78 * smooth_mask)
+    base_subject_detail = 0.18 * subject * (1.0 - 0.88 * smooth_mask)
     detail_weight_map = np.maximum.reduce(
         (
             base_subject_detail,
-            0.96 * crisp_mask,
+            0.98 * crisp_mask,
             0.34 * texture_mask,
         )
     ).clip(0.0, 1.0).astype(np.float32)
@@ -136,6 +142,7 @@ def _infer_surface_intent_masks(
         "masks": {
             "smooth": _surface_mask_summary(smooth_mask),
             "crisp": _surface_mask_summary(crisp_mask),
+            "emboss": _surface_mask_summary(emboss_mask),
             "texture": _surface_mask_summary(texture_mask),
             "smoothing": _surface_mask_summary(smoothing_mask),
             "detail_weight": _surface_mask_summary(detail_weight_map),
@@ -147,6 +154,7 @@ def _infer_surface_intent_masks(
     return SurfaceIntentMasks(
         smooth_mask=smooth_mask.astype(np.float32),
         crisp_mask=crisp_mask.astype(np.float32),
+        emboss_mask=emboss_mask.astype(np.float32),
         texture_mask=texture_mask.astype(np.float32),
         smoothing_mask=smoothing_mask.astype(np.float32),
         detail_weight_map=detail_weight_map.astype(np.float32),
@@ -303,6 +311,29 @@ def _soft_rect_mask(
     mask[top:bottom, left:right] = 1.0
     return _smooth_unit_array(mask, max(0.5, feather_px)).clip(0.0, 1.0)
 
+def _graphic_emboss_mask(
+    crisp_signal: np.ndarray,
+    *,
+    portrait_smooth: np.ndarray,
+) -> np.ndarray:
+    strong = _smoothstep_array(((crisp_signal - 0.38) / 0.34).clip(0.0, 1.0))
+    cleaned = _pil_filter_unit_mask(strong, ImageFilter.MedianFilter(size=3))
+    expanded = _pil_filter_unit_mask(cleaned, ImageFilter.MaxFilter(size=5))
+    expanded = _smooth_unit_array(expanded, 0.85)
+    expanded = expanded * (1.0 - 0.95 * portrait_smooth.clip(0.0, 1.0))
+    return expanded.clip(0.0, 1.0).astype(np.float32)
+
+def _pil_filter_unit_mask(
+    mask: np.ndarray,
+    image_filter: ImageFilter.Filter,
+) -> np.ndarray:
+    values = mask.astype(np.float32)
+    if values.size == 0:
+        return values
+    image = Image.fromarray((values.clip(0.0, 1.0) * 255.0).round().astype(np.uint8))
+    filtered = image.filter(image_filter)
+    return (np.asarray(filtered, dtype=np.float32) / 255.0).clip(0.0, 1.0)
+
 def _surface_mask_summary(mask: np.ndarray) -> dict[str, object]:
     values = mask.astype(np.float32)
     return {
@@ -324,11 +355,26 @@ def _compose_surface_detail_weight_map(
     composed = np.maximum.reduce(
         (
             portrait_damped,
-            0.96 * surface_intent.crisp_mask,
+            0.98 * surface_intent.crisp_mask,
             0.30 * surface_intent.texture_mask,
         )
     )
     return composed.clip(0.0, 1.0).astype(np.float32)
+
+def _apply_graphic_emboss_layer(
+    relief_depth: np.ndarray,
+    *,
+    surface_intent: SurfaceIntentMasks,
+    strength: float = 0.045,
+) -> np.ndarray:
+    if relief_depth.size == 0 or surface_intent.emboss_mask.shape != relief_depth.shape:
+        return relief_depth.astype(np.float32)
+
+    raised = _smooth_unit_array(surface_intent.emboss_mask, 0.65)
+    return (
+        relief_depth.astype(np.float32)
+        + float(np.clip(strength, 0.0, 1.0)) * raised.astype(np.float32)
+    ).clip(0.0, 1.0).astype(np.float32)
 
 def _apply_surface_intent_smoothing(
     relief_depth: np.ndarray,
@@ -352,13 +398,13 @@ def _apply_surface_intent_smoothing(
         ((structural_edges - 0.22) / 0.45).clip(0.0, 1.0)
     )
     crisp_protection = np.maximum(
-        surface_intent.crisp_mask,
+        np.maximum(surface_intent.crisp_mask, surface_intent.emboss_mask),
         0.55 * surface_intent.texture_mask,
     ).clip(0.0, 1.0)
     smoothing_mask = (
         surface_intent.smoothing_mask
         * (1.0 - edge_protection)
-        * (1.0 - 0.90 * crisp_protection)
+        * (1.0 - 0.94 * crisp_protection)
     ).clip(0.0, 0.94)
 
     blended = (
@@ -366,11 +412,126 @@ def _apply_surface_intent_smoothing(
         + smoothed.astype(np.float32) * smoothing_mask
     )
     background_mask = (
-        0.70
+        0.82
         * surface_intent.background_mask
-        * (1.0 - 0.92 * surface_intent.crisp_mask)
-    ).clip(0.0, 0.70)
+        * (1.0 - 0.94 * surface_intent.emboss_mask)
+    ).clip(0.0, 0.82)
     return (
         blended.astype(np.float32) * (1.0 - background_mask)
         + broad_smoothed.astype(np.float32) * background_mask
     ).clip(0.0, 1.0).astype(np.float32)
+
+def _surface_roughness_metrics(
+    relief_depth: np.ndarray,
+    *,
+    surface_intent: SurfaceIntentMasks,
+) -> dict[str, object]:
+    values = relief_depth.astype(np.float32)
+    smooth_subject = (
+        surface_intent.smooth_mask
+        * (1.0 - surface_intent.background_mask)
+        * (1.0 - surface_intent.emboss_mask)
+    ).clip(0.0, 1.0)
+    flat_background = (
+        surface_intent.background_mask * (1.0 - surface_intent.emboss_mask)
+    ).clip(0.0, 1.0)
+    crisp_graphic = np.maximum(
+        surface_intent.crisp_mask,
+        surface_intent.emboss_mask,
+    ).clip(0.0, 1.0)
+
+    thresholds = {
+        "smooth_subject": 0.030,
+        "flat_background": 0.020,
+        "crisp_graphic_min": 0.018,
+    }
+    smooth_summary = _roughness_summary(
+        values,
+        smooth_subject,
+        max_mean_adjacent_delta=thresholds["smooth_subject"],
+    )
+    background_summary = _roughness_summary(
+        values,
+        flat_background,
+        max_mean_adjacent_delta=thresholds["flat_background"],
+    )
+    graphic_summary = _roughness_summary(
+        values,
+        crisp_graphic,
+        min_mean_adjacent_delta=thresholds["crisp_graphic_min"],
+    )
+    warnings: list[str] = []
+    if smooth_summary.get("status") == "warning":
+        warnings.append("smooth_subject_roughness_high")
+    if background_summary.get("status") == "warning":
+        warnings.append("flat_background_roughness_high")
+    if graphic_summary.get("status") == "warning":
+        warnings.append("crisp_graphic_relief_too_flat")
+
+    return {
+        "version": "region-roughness-v1",
+        "source": "relief_depth_pre_mesh_resize",
+        "unit": "normalized_depth_mean_adjacent_delta",
+        "thresholds": thresholds,
+        "regions": {
+            "smooth_subject": smooth_summary,
+            "flat_background": background_summary,
+            "crisp_graphic": graphic_summary,
+        },
+        "warnings": warnings,
+    }
+
+def _roughness_summary(
+    values: np.ndarray,
+    mask: np.ndarray,
+    *,
+    max_mean_adjacent_delta: float | None = None,
+    min_mean_adjacent_delta: float | None = None,
+) -> dict[str, object]:
+    active = mask.astype(np.float32) > 0.50
+    active_pixels = int(np.count_nonzero(active))
+    if active_pixels < 4:
+        return {
+            "status": "skipped",
+            "reason": "insufficient_region_pixels",
+            "active_pixels": active_pixels,
+            "coverage": float(np.mean(active)) if active.size else 0.0,
+        }
+
+    deltas: list[np.ndarray] = []
+    horizontal_mask = active[:, 1:] & active[:, :-1]
+    if np.any(horizontal_mask):
+        deltas.append(np.abs(values[:, 1:] - values[:, :-1])[horizontal_mask])
+    vertical_mask = active[1:, :] & active[:-1, :]
+    if np.any(vertical_mask):
+        deltas.append(np.abs(values[1:, :] - values[:-1, :])[vertical_mask])
+    if not deltas:
+        return {
+            "status": "skipped",
+            "reason": "insufficient_adjacent_pixels",
+            "active_pixels": active_pixels,
+            "coverage": float(np.mean(active)),
+        }
+
+    adjacent = np.concatenate(deltas).astype(np.float32)
+    mean_delta = float(np.mean(adjacent))
+    p95_delta = float(np.percentile(adjacent, 95.0))
+    status = "ok"
+    if (
+        max_mean_adjacent_delta is not None
+        and mean_delta > max_mean_adjacent_delta
+    ):
+        status = "warning"
+    if (
+        min_mean_adjacent_delta is not None
+        and mean_delta < min_mean_adjacent_delta
+    ):
+        status = "warning"
+
+    return {
+        "status": status,
+        "active_pixels": active_pixels,
+        "coverage": float(np.mean(active)),
+        "mean_adjacent_delta": mean_delta,
+        "p95_adjacent_delta": p95_delta,
+    }

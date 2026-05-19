@@ -58,6 +58,7 @@ class SubjectMaskResult:
 class SurfaceIntentMasks:
     smooth_mask: np.ndarray
     crisp_mask: np.ndarray
+    emboss_mask: np.ndarray
     texture_mask: np.ndarray
     smoothing_mask: np.ndarray
     detail_weight_map: np.ndarray

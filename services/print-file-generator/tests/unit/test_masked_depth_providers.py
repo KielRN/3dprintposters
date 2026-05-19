@@ -7,6 +7,7 @@ from app.depth import (
     Heightmap,
     MaskedDepthDetailBlendProvider,
     SubjectMaskResult,
+    _apply_graphic_emboss_layer,
     _apply_portrait_face_pit_guard,
     _apply_portrait_surface_smoothing,
     _apply_surface_intent_smoothing,
@@ -315,14 +316,17 @@ def test_inferred_surface_intent_keeps_graphic_edges_crisp_and_smooths_body() ->
 
     plain_body = masks.smooth_mask[20:60, 12:30]
     logo_edge = masks.crisp_mask[27:53, 45:67]
+    logo_emboss = masks.emboss_mask[27:53, 45:67]
     detail_logo = masks.detail_weight_map[27:53, 45:67]
     detail_body = masks.detail_weight_map[20:60, 12:30]
 
     assert float(np.mean(plain_body)) > 0.55
     assert float(np.max(logo_edge)) > 0.65
+    assert float(np.max(logo_emboss)) > 0.50
     assert float(np.mean(detail_logo)) > float(np.mean(detail_body)) * 2.0
     assert float(np.max(masks.texture_mask)) == 0.0
     assert masks.metadata["texture_status"] == "disabled_unrequested"
+    assert masks.metadata["masks"]["emboss"]["coverage"] > 0.0
 
 
 def test_surface_intent_texture_mask_requires_explicit_request() -> None:
@@ -394,6 +398,55 @@ def test_surface_intent_smoothing_reduces_body_noise_but_preserves_graphic_edge(
 
     assert smoothed_roughness < original_roughness * 0.70
     assert smoothed_edge_step > original_edge_step * 0.78
+
+
+def test_graphic_emboss_layer_raises_logo_without_raising_plain_body() -> None:
+    width, height = 80, 80
+    source = np.full((height, width), 176, dtype=np.uint8)
+    source[28:52, 46:66] = 24
+    source[33:47, 51:61] = 230
+    image = Image.fromarray(source).convert("RGB")
+    subject_mask = np.ones((height, width), dtype=np.float32)
+    masks = _infer_surface_intent_masks(
+        image,
+        subject_mask=subject_mask,
+        portrait_regions=fake_no_face_regions(width, height),
+        surface_intent_policy=None,
+    )
+    relief_depth = np.full((height, width), 0.42, dtype=np.float32)
+
+    embossed = _apply_graphic_emboss_layer(relief_depth, surface_intent=masks)
+
+    logo_lift = float(np.mean(embossed[30:50, 48:64] - relief_depth[30:50, 48:64]))
+    body_lift = float(np.mean(embossed[20:60, 12:30] - relief_depth[20:60, 12:30]))
+
+    assert logo_lift > 0.012
+    assert body_lift < logo_lift * 0.35
+
+
+def test_surface_roughness_metrics_flag_noisy_smooth_regions() -> None:
+    width, height = 80, 80
+    source = np.full((height, width), 176, dtype=np.uint8)
+    image = Image.fromarray(source).convert("RGB")
+    subject_mask = np.ones((height, width), dtype=np.float32)
+    masks = _infer_surface_intent_masks(
+        image,
+        subject_mask=subject_mask,
+        portrait_regions=fake_no_face_regions(width, height),
+        surface_intent_policy=None,
+    )
+    relief_depth = np.full((height, width), 0.42, dtype=np.float32)
+    relief_depth += ((np.indices((height, width)).sum(axis=0) % 2) * 0.12).astype(
+        np.float32
+    )
+
+    from app.depth import _surface_roughness_metrics
+
+    metrics = _surface_roughness_metrics(relief_depth, surface_intent=masks)
+
+    assert metrics["version"] == "region-roughness-v1"
+    assert "smooth_subject_roughness_high" in metrics["warnings"]
+    assert metrics["regions"]["smooth_subject"]["status"] == "warning"
 
 
 def test_portrait_region_boxes_create_soft_face_eye_and_mouth_masks() -> None:

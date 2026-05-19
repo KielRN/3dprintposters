@@ -50,7 +50,7 @@ Shared baseline artifacts:
 - `heightmap.png`
 - `preview.glb`, with image-derived vertex colors for browser review.
 - `metadata.json`
-- `debug/*.png`, local/developer relief-stage images for diagnosing depth, mask, detail, and final heightmap quality.
+- `debug/*.png`, local/developer relief-stage images for diagnosing depth, mask, graphic emboss, detail, and final heightmap quality.
 
 Full-color print partner artifacts:
 
@@ -76,17 +76,17 @@ Filament painting artifacts:
 4. Crop or pad to the 5:7 image-window composition twice: a 768px-wide geometry-analysis image for depth/segmentation/detail and a 400px-wide mesh/color output image for final artifacts.
 5. Choose the requested server-side height provider. The product default is `masked_depth_detail_blend` with `lithophane_baseline` detail source.
 6. Generate local/server-side face-region status with OpenCV Haar face boxes. When faces are detected, build soft face-oval, central-face, eye, nose, and mouth masks for relief tuning only; defer external face APIs until local misses are proven in product-flow review.
-7. Generate or infer a surface-intent map. V1 can combine style metadata, subject mask, portrait masks, and image cues, but the policy should be explicit: smooth by default; preserve sharp/raised detail only for intentional text, logos, emblems, panel lines, hair, fabric, or other approved texture classes.
+7. Generate or infer a surface-intent map. V1 can combine style metadata, subject mask, portrait masks, and image cues, but the policy should be explicit: smooth by default; use a separate graphic emboss mask for intentional text, logos, emblems, and panel lines; preserve shallow texture only for approved hair, fabric, or material texture classes.
 8. Generate a contour-smoothed subject mask, then build a geometry-only proof-cleanup image that suppresses subject halos, faceted backgrounds, and noisy skin/scalp/neck/shirt/background texture without changing the approved color proof used for texture output.
 9. Generate a normalized float heightmap from the selected provider at geometry-analysis resolution.
-10. Apply optional tone controls, post-heightmap smoothing, quantization, softened edge detail, edge-aware subject-surface smoothing, reduced face-aware detail blending, broader face/head/neck/body smoothing, face/forehead pit guarding, surface-intent detail gating, resampling to the 400px mesh output, and an image-window edge fade so relief settles before the shaped frame.
+10. Apply optional tone controls, post-heightmap smoothing, quantization, softened edge detail, graphic emboss, edge-aware subject-surface smoothing, reduced face-aware detail blending, broader face/head/neck/body smoothing, face/forehead pit guarding, surface-intent detail gating, resampling to the 400px mesh output, and an image-window edge fade so relief settles before the shaped frame.
 11. Convert height values into closed relief geometry with a 5in x 7in image window, shaped 1/4in border/frame, top surface, bottom base plane, sidewalls, consistent winding, and controlled relief depth.
 12. Add a poster base plate with minimum thickness.
 13. Export baseline STL for geometry validation workflows.
 14. Generate a color browser preview mesh.
 15. Generate a full-color package for the selected print partner.
 16. Generate filament painting palette and layer swap support files.
-17. Run printability, package readiness, and region roughness checks.
+17. Run printability, package readiness, and region roughness checks, including smooth-subject/background noise and crisp-graphic flatness metrics.
 18. Store artifacts and return a manifest to the orchestrating backend.
 
 ## Full-Color Relief Track
@@ -161,7 +161,7 @@ The accepted extraction plan is now partially implemented:
 - Use a 768px geometry-analysis image and 400px mesh/color output by default. The hybrid provider builds depth, segmentation, detail, and geometry-only proof cleanup at analysis resolution, then resamples the finished heightmap to the output mesh resolution before STL/GLB/package generation.
 - Use contour-smoothed subject masks and geometry-only proof cleanup in the production hybrid path to reduce blocky silhouette/shirt boundaries, white subject-outline ridges, faceted background relief, and rough shirt/background texture.
 - Adopt the Super Dad generated proof as the north-star MVP style. The proof-generation path now uses the `super-dad-north-star-v1` style contract to ask for controlled poster art: smooth stylized skin and body forms, simple backgrounds, crisp raised text/logos, and intentionally limited material texture.
-- Use the print-file generator's v1 inferred surface-intent masks in the default hybrid path. The default for unmarked surfaces is smooth, especially scalp/top-of-head, neck, ears, hands, simple clothing, and background regions. Detail is retained where inferred masks identify crisp text, logos, graphic edges, or panel lines. Hair, fabric, and material texture stay shallow and are enabled only when proof-generation or human override metadata explicitly requests texture. The current request schema and `metadata.json` use `smooth-default-v1`, and `metadata.json` also records `surface_intent_status`.
+- Use the print-file generator's v1 inferred surface-intent masks in the default hybrid path. The default for unmarked surfaces is smooth, especially scalp/top-of-head, neck, ears, hands, simple clothing, and background regions. A cleaned `emboss_mask` applies deliberate raised treatment to text, logos, emblems, graphic edges, and panel lines. Hair, fabric, and material texture stay shallow and are enabled only when proof-generation or human override metadata explicitly requests texture. The current request schema and `metadata.json` use `smooth-default-v1`, and `metadata.json` records `surface_intent_status`, including `roughness_metrics`.
 - Capture inferred `surface_intent_status` in the print-file audit. Full proof/style metadata threading from job creation through paid order audit remains a follow-up so each paid order preserves the exact style contract and smoothing/detail policy used at checkout.
 - Write height-provider policy fields into `metadata.json` so deterministic brightness-to-height providers are marked fallback-only and current quality candidates are distinguishable from the safety net.
 - Write `provider_audit`, `segmentation_status`, `face_analysis_status`, `surface_intent_status`, `geometry_analysis_width_px`, and `geometry_analysis_height_px` into `metadata.json`; Functions copies the same audit fields into the job document and `jobs/{jobId}/audit/printFileGeneration`.
@@ -183,7 +183,7 @@ Then improve:
 - Deploy the print-file generator as a Cloud Run service and point `PRINT_FILE_GENERATOR_URL` at that endpoint.
 - Move long-running print generation behind Cloud Tasks or Pub/Sub.
 - Improve edge-preserving smoothing and subject-aware depth based on human product-flow test results.
-- Tune the Super Dad surface-intent path from fresh browser and Blender review, with scalp/top-of-head, neck, shirt/collar, text/logo crispness, request-gated texture, and unintended roughness called out explicitly.
+- Tune the Super Dad surface-intent path from fresh browser and Blender review after the 2026-05-18 graphic emboss/smooth-suppression pass, with face mid-form readability, scalp/top-of-head, neck, shirt/collar, text/logo crispness, request-gated texture, and unintended roughness called out explicitly.
 - Review whether the 400px mesh output is enough for the intended print partner after Blender/app inspection; future increases should account for STL/package size, browser preview performance, and partner upload limits.
 - Validate the generated color-package formats with the chosen print partner.
 - Add partner-specific package tuning once accepted format, units, texture/color handling, and review workflow are confirmed.

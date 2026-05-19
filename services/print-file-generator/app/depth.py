@@ -86,12 +86,15 @@ from .segmentation_masks import (
     _smooth_subject_mask_contour,
 )
 from .surface_intent import (
+    _apply_graphic_emboss_layer,
     _apply_surface_intent_smoothing,
     _compose_surface_detail_weight_map,
+    _graphic_emboss_mask,
     _infer_surface_intent_masks,
     _portrait_surface_intent_mask,
     _soft_rect_mask,
     _surface_mask_summary,
     _surface_policy_id,
     _surface_policy_requests_texture,
+    _surface_roughness_metrics,
 )

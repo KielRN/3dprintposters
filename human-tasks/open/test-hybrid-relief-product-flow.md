@@ -32,6 +32,9 @@ Human eyes needed. Blender view tells us if poster relief looks good enough.
 - 2026-05-17 implementation follow-up: proof generation now uses the `super-dad-north-star-v1` style contract, and print-file `metadata.json` now records the `smooth-default-v1` surface-intent policy.
 - 2026-05-17 implementation follow-up: the print-file generator now infers v1 surface-intent masks, gates deterministic detail through smooth/crisp/texture intent, smooths scalp/neck/ear/body/background regions beyond the old face masks, writes `surface_intent_status`, and emits `debug/surface-intent-*.png` artifacts.
 - The next useful validation is a fresh product-flow regeneration in the browser, then Blender inspection of the newly mirrored `.tmp/print-files/{uid}/{jobId}` bundle.
+- 2026-05-18 Super Dad screenshot review: the color proof/GLB direction reads like the right product, but the gray relief still loses the character of the face and carries scratchy edge/noise artifacts across the banner, body, and background. Text/logo areas are directionally good but should become more intentionally raised and cleaner, while smooth areas should become quieter and less etched.
+- 2026-05-18 suggested next fix target: treat the next pass as a sculpting-policy pass, not a provider-search pass. Separate raised graphic layers, portrait mid-form shaping, smooth default surfaces, and artifact cleanup into visible debug stages so the product can be judged region by region.
+- 2026-05-18 implementation follow-up: the print-file generator now separates a cleaned `emboss_mask` from the general crisp/detail map, applies a graphic emboss layer for inferred text/logos/emblems, increases smoothing on smooth subject/background regions, reduces default subject detail leakage, writes `debug/surface-intent-emboss-mask.png`, and stores `surface_intent_status.roughness_metrics` for smooth subject, flat background, and crisp graphic regions.
 
 ## Checklist
 
@@ -41,7 +44,8 @@ Human eyes needed. Blender view tells us if poster relief looks good enough.
 - [ ] Confirm `metadata.json` provider settings show `detail_weight: 0.12`, `portrait_nose_boost: disabled`, `face_pit_guard: enabled`, and `debug_artifacts: enabled`.
 - [ ] Confirm `metadata.json` includes `proof_style_contract.contract_id: super-dad-north-star-v1` and `surface_intent_policy.policy_id: smooth-default-v1`.
 - [ ] Confirm `metadata.json` includes `surface_intent_status.version: inferred-v1`, `default_treatment: smooth`, and `texture_status: disabled_unrequested` unless texture was explicitly requested.
-- [ ] Open the mirrored `debug/` folder and compare `geometry-input.png`, `surface-intent-smooth-mask.png`, `surface-intent-crisp-mask.png`, `surface-intent-detail-weight-map.png`, `detail-layer.png`, `relief-depth.png`, and `final-heightmap.png` if the face/body still looks wrong.
+- [ ] Confirm `metadata.json` includes `surface_intent_status.roughness_metrics.version: region-roughness-v1` and review any roughness warnings.
+- [ ] Open the mirrored `debug/` folder and compare `geometry-input.png`, `surface-intent-smooth-mask.png`, `surface-intent-crisp-mask.png`, `surface-intent-emboss-mask.png`, `surface-intent-detail-weight-map.png`, `detail-layer.png`, `relief-depth.png`, and `final-heightmap.png` if the face/body/text still looks wrong.
 - [ ] Compare the generated proof and 3D output against the Super Dad north star: smooth stylized skin, smooth scalp/top-of-head, smooth neck, clean body volumes, crisp raised text/logos, and simple backgrounds.
 - [ ] Open latest `model.stl` in Blender.
 - [ ] Look at face from low side angle.
@@ -51,6 +55,8 @@ Human eyes needed. Blender view tells us if poster relief looks good enough.
 - [ ] Check top-of-head/scalp, ears, and neck. These should be smooth by default and should not show rough photo/proof texture unless a future style explicitly asks for it.
 - [ ] Check shirt and background. Should not steal attention from face.
 - [ ] Check text, logos, emblems, and graphic panel lines if present. These should remain crisp and intentionally raised, not blurred away by smooth-surface tuning.
+- [ ] Check whether text/logos feel deliberately embossed enough from a shallow side angle, especially the `SUPER DAD` banner and chest emblem.
+- [ ] Check whether thin random scratches/noise are appearing in smooth background/body areas and note whether they are present in `detail-layer.png`, `surface-intent-detail-weight-map.png`, or only the final rendered mesh.
 - [ ] Check head, ear, neck, and shirt boundaries in the app preview. Edges should look less jagged than the previous 280px output.
 - [ ] Take screenshot if something looks bad.
 - [ ] Write short note: what looks wrong, where on face/body, and whether it is dent, block, ridge, or noise.

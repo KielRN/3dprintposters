@@ -250,6 +250,10 @@ def test_local_generation_writes_default_hybrid_relief_bundle(
     assert surface_intent_status["default_treatment"] == "smooth"
     assert surface_intent_status["texture_status"] == "disabled_unrequested"
     assert surface_intent_status["masks"]["smooth"]["coverage"] > 0
+    assert surface_intent_status["masks"]["emboss"]["coverage"] >= 0
+    assert surface_intent_status["roughness_metrics"]["version"] == (
+        "region-roughness-v1"
+    )
     assert "raised_logo" in surface_intent_status["classes"]["crisp"]
     assert metadata["provider_settings"] == {
         "detail_source": "lithophane_baseline",
@@ -258,11 +262,13 @@ def test_local_generation_writes_default_hybrid_relief_bundle(
         "face_pit_guard": "enabled",
         "geometry_input": "subject_aware_cleanup",
         "geometry_analysis_width_px": 64,
+        "graphic_emboss_layer": "enabled",
         "mesh_target_width_px": 40,
         "portrait_nose_boost": "disabled",
         "portrait_surface_smoothing": "expanded_face_oval",
         "surface_intent_detail_gating": "enabled",
         "surface_intent_masks": "inferred_v1",
+        "surface_intent_roughness_metrics": "enabled",
         "surface_intent_texture": "request_gated",
     }
     assert response.artifact_paths.debug_artifacts["geometry-input.png"].endswith(
@@ -274,6 +280,9 @@ def test_local_generation_writes_default_hybrid_relief_bundle(
     assert response.artifact_paths.debug_artifacts[
         "surface-intent-detail-weight-map.png"
     ].endswith("/debug/surface-intent-detail-weight-map.png")
+    assert response.artifact_paths.debug_artifacts[
+        "surface-intent-emboss-mask.png"
+    ].endswith("/debug/surface-intent-emboss-mask.png")
     assert metadata["normalized_width_px"] == 40
     assert metadata["geometry_analysis_width_px"] == 64
     assert metadata["full_color_package"]["formats"] == ["3mf", "obj", "vrml", "ply"]
@@ -467,6 +476,9 @@ def test_local_generation_can_run_masked_depth_detail_blend(
     surface_intent_status = metadata["surface_intent_status"]
     assert surface_intent_status["version"] == "inferred-v1"
     assert surface_intent_status["texture_status"] == "disabled_unrequested"
+    assert surface_intent_status["roughness_metrics"]["version"] == (
+        "region-roughness-v1"
+    )
     assert metadata["provider_settings"] == {
         "detail_source": "posterized_luminance",
         "detail_weight": 0.3,
@@ -474,11 +486,13 @@ def test_local_generation_can_run_masked_depth_detail_blend(
         "face_pit_guard": "enabled",
         "geometry_input": "subject_aware_cleanup",
         "geometry_analysis_width_px": 16,
+        "graphic_emboss_layer": "enabled",
         "mesh_target_width_px": 8,
         "portrait_nose_boost": "disabled",
         "portrait_surface_smoothing": "expanded_face_oval",
         "surface_intent_detail_gating": "enabled",
         "surface_intent_masks": "inferred_v1",
+        "surface_intent_roughness_metrics": "enabled",
         "surface_intent_texture": "request_gated",
     }
     assert not any(
