@@ -50,6 +50,7 @@ All notable project changes will be documented in this file.
 
 ### Changed
 
+- Changed the default hybrid relief path to lean back toward HueForge/lithophane behavior: `lithophane_baseline` now contributes to the subject height signal, default `detail_weight` is `0.38`, bas-relief compression is less aggressive, and final subject/portrait smoothing is reduced so facial/body/graphic detail is not flattened away.
 - Updated roadmap, checklist, README, architecture, workflow, service, and developer notes to make deterministic closed-relief generation the next print-file implementation slice.
 - Wired the print-file generator `/v1/generate` route to produce real baseline artifacts when the selected image is readable from local filesystem or GCS storage.
 - Raised the print-file generator's default decoded source-image limit to 4,000,000 pixels so normal AI proof images can be resized into relief artifacts.

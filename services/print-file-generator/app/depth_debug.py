@@ -14,6 +14,8 @@ def _hybrid_debug_artifacts(
     portrait_regions: PortraitRegionMasks,
     surface_intent: SurfaceIntentMasks,
     semantic_base: np.ndarray,
+    lithophane_base: np.ndarray,
+    lithophane_blend_weight_map: np.ndarray,
     detail_layer: np.ndarray,
     detail_weight_map: np.ndarray,
     blended: np.ndarray,
@@ -53,6 +55,10 @@ def _hybrid_debug_artifacts(
             detail_weight_map
         ),
         "semantic-base.png": _debug_unit_array_png_bytes(semantic_base),
+        "lithophane-base.png": _debug_unit_array_png_bytes(lithophane_base),
+        "lithophane-blend-weight-map.png": _debug_unit_array_png_bytes(
+            lithophane_blend_weight_map
+        ),
         "detail-layer.png": _debug_signed_array_png_bytes(detail_layer),
         "blended-depth.png": _debug_unit_array_png_bytes(blended),
         "relief-depth.png": _debug_unit_array_png_bytes(relief_depth),

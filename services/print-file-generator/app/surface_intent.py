@@ -380,8 +380,8 @@ def _apply_surface_intent_smoothing(
     relief_depth: np.ndarray,
     *,
     surface_intent: SurfaceIntentMasks,
-    radius_px: float = 2.8,
-    background_radius_px: float = 6.0,
+    radius_px: float = 1.8,
+    background_radius_px: float = 4.0,
 ) -> np.ndarray:
     if relief_depth.size == 0 or surface_intent.smoothing_mask.shape != relief_depth.shape:
         return relief_depth.astype(np.float32)
@@ -405,17 +405,17 @@ def _apply_surface_intent_smoothing(
         surface_intent.smoothing_mask
         * (1.0 - edge_protection)
         * (1.0 - 0.94 * crisp_protection)
-    ).clip(0.0, 0.94)
+    ).clip(0.0, 0.76)
 
     blended = (
         relief_depth.astype(np.float32) * (1.0 - smoothing_mask)
         + smoothed.astype(np.float32) * smoothing_mask
     )
     background_mask = (
-        0.82
+        0.68
         * surface_intent.background_mask
         * (1.0 - 0.94 * surface_intent.emboss_mask)
-    ).clip(0.0, 0.82)
+    ).clip(0.0, 0.68)
     return (
         blended.astype(np.float32) * (1.0 - background_mask)
         + broad_smoothed.astype(np.float32) * background_mask

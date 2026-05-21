@@ -360,13 +360,13 @@ class MaskedDepthDetailBlendProvider:
             "lithophane_baseline",
             "posterized_luminance",
         ] = "lithophane_baseline",
-        detail_weight: float = 0.12,
+        detail_weight: float = 0.38,
         detail_radius_px: int = 9,
         detail_clip: float = 0.14,
         subject_boost: float = 1.0,
         background_scale: float = 0.22,
         mask_blur_radius_px: float = 5.0,
-        compression_strength: float = 0.75,
+        compression_strength: float = 0.62,
         surface_intent_policy: dict[str, object] | None = None,
     ) -> Heightmap:
         subject_mask_result = _generate_subject_mask_result(
@@ -399,7 +399,7 @@ class MaskedDepthDetailBlendProvider:
         )
         semantic_base = _normalize_unit_array(semantic_base)
 
-        detail_unit = _deterministic_detail_unit(
+        lithophane_unit = _deterministic_detail_unit(
             geometry_image,
             source=detail_source,
             contrast=contrast,
@@ -415,12 +415,12 @@ class MaskedDepthDetailBlendProvider:
             surface_intent.crisp_mask,
             surface_intent.texture_mask,
         )
-        detail_unit = (
-            detail_unit * (1.0 - intent_detail_source_mask)
+        lithophane_unit = (
+            lithophane_unit * (1.0 - intent_detail_source_mask)
             + crisp_detail_unit * intent_detail_source_mask
         ).clip(0.0, 1.0).astype(np.float32)
         detail_layer = _extract_subject_detail_layer(
-            detail_unit,
+            lithophane_unit,
             radius=detail_radius_px,
             clip=detail_clip,
         )
@@ -433,12 +433,22 @@ class MaskedDepthDetailBlendProvider:
             surface_intent=surface_intent,
             portrait_detail_weight_map=portrait_detail_weight_map,
         )
+        lithophane_blend_weight_map = _compose_lithophane_blend_weight_map(
+            subject_mask=subject_mask,
+            surface_intent=surface_intent,
+            detail_weight=detail_weight,
+        )
 
+        height_guided_base = (
+            semantic_base * (1.0 - lithophane_blend_weight_map)
+            + lithophane_unit * lithophane_blend_weight_map
+        )
+        local_detail_strength = 0.10 + 0.32 * float(np.clip(detail_weight, 0.0, 1.0))
         blended = (
-            semantic_base
-            + detail_weight * detail_weight_map * detail_layer
-            + 0.018 * surface_intent.crisp_mask
-            + 0.038 * surface_intent.emboss_mask
+            height_guided_base
+            + local_detail_strength * detail_weight_map * detail_layer
+            + 0.024 * surface_intent.crisp_mask
+            + 0.046 * surface_intent.emboss_mask
         )
         blended = blended.clip(0.0, 1.0).astype(np.float32)
 
@@ -493,6 +503,8 @@ class MaskedDepthDetailBlendProvider:
                 portrait_regions=portrait_regions,
                 surface_intent=surface_intent,
                 semantic_base=semantic_base,
+                lithophane_base=lithophane_unit,
+                lithophane_blend_weight_map=lithophane_blend_weight_map,
                 detail_layer=detail_layer,
                 detail_weight_map=detail_weight_map,
                 blended=blended,
@@ -548,6 +560,42 @@ def _extract_subject_detail_layer(
         return high_frequency.astype(np.float32)
 
     return (np.clip(high_frequency, -clip, clip) / clip).astype(np.float32)
+
+def _compose_lithophane_blend_weight_map(
+    *,
+    subject_mask: np.ndarray,
+    surface_intent: Any,
+    detail_weight: float,
+) -> np.ndarray:
+    """Weight how much deterministic lithophane height drives the hybrid.
+
+    The old hybrid treated lithophane data as a small high-frequency garnish.
+    For the HueForge-like product direction, luminance should drive much more
+    of the printable height while semantic depth still controls broad subject
+    separation and keeps backgrounds quieter.
+    """
+    subject = subject_mask.astype(np.float32).clip(0.0, 1.0)
+    weight = float(np.clip(detail_weight, 0.0, 1.0))
+    subject_weight = subject * (0.24 + 0.44 * weight)
+
+    smooth_penalty = (0.30 * surface_intent.smooth_mask).clip(0.0, 0.30)
+    subject_weight = subject_weight * (1.0 - smooth_penalty)
+
+    graphic_weight = np.maximum(
+        0.90 * surface_intent.crisp_mask,
+        0.94 * surface_intent.emboss_mask,
+    )
+    texture_weight = 0.68 * surface_intent.texture_mask
+    background_weight = 0.10 * (1.0 - subject) * (1.0 - surface_intent.emboss_mask)
+
+    return np.maximum.reduce(
+        (
+            subject_weight,
+            graphic_weight,
+            texture_weight,
+            background_weight,
+        )
+    ).clip(0.0, 0.96).astype(np.float32)
 
 
 def _provider_audit_map(**audits: ProviderAudit | None) -> dict[str, dict[str, object]]:

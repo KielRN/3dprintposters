@@ -224,6 +224,62 @@ def test_masked_depth_detail_blend_detail_source_changes_subject_output(
     assert subject_diff > background_diff
 
 
+def test_masked_depth_detail_blend_uses_lithophane_as_subject_height_signal(
+    monkeypatch,
+) -> None:
+    source = np.full((32, 32), 220, dtype=np.uint8)
+    source[:, :16] = 40
+    image = Image.fromarray(source).convert("RGB")
+
+    def fake_infer_depth_result(img: Image.Image) -> DepthInferenceResult:
+        return DepthInferenceResult(
+            depth=np.full((img.height, img.width), 0.5, dtype=np.float32)
+        )
+
+    def fake_generate_mask_result(
+        img: Image.Image,
+        *,
+        blur_radius_px: float = 5.0,
+        full_image_threshold: float = 0.90,
+    ) -> SubjectMaskResult:
+        return fake_subject_mask_result(
+            img.width,
+            img.height,
+            y_start=0,
+            y_end=img.height,
+            x_start=0,
+            x_end=img.width,
+        )
+
+    monkeypatch.setattr(
+        "app.depth_providers._infer_depth_anything_v2_small_result",
+        fake_infer_depth_result,
+    )
+    monkeypatch.setattr(
+        "app.depth_providers._generate_subject_mask_result",
+        fake_generate_mask_result,
+    )
+    monkeypatch.setattr(
+        "app.depth_providers.analyze_portrait_regions",
+        lambda img: fake_no_face_regions(img.width, img.height),
+    )
+
+    heightmap = MaskedDepthDetailBlendProvider().generate(
+        image,
+        base_thickness_mm=1.2,
+        min_relief_mm=0.4,
+        max_relief_mm=3.0,
+        post_smooth_radius_px=0,
+        detail_weight=0.38,
+        compression_strength=0.0,
+    )
+
+    dark_side = float(np.mean(heightmap.values[:, 2:14]))
+    light_side = float(np.mean(heightmap.values[:, 18:30]))
+
+    assert dark_side > light_side + 0.35
+
+
 def test_image_window_edge_fade_settles_relief_at_boundary() -> None:
     values = np.full((12, 10), 4.2, dtype=np.float32)
     values[5:7, 4:6] = 1.6

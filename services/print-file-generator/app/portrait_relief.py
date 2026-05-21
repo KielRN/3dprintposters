@@ -52,7 +52,7 @@ def _apply_portrait_surface_smoothing(
     relief_depth: np.ndarray,
     *,
     portrait_regions: PortraitRegionMasks,
-    radius_px: float = 3.4,
+    radius_px: float = 2.1,
 ) -> np.ndarray:
     if portrait_regions.face_count == 0:
         return relief_depth.astype(np.float32)
@@ -61,13 +61,13 @@ def _apply_portrait_surface_smoothing(
 
     smoothed = _smooth_unit_array(relief_depth, radius_px)
     face_mask = np.maximum(
-        0.74 * portrait_regions.face_oval,
-        0.82 * portrait_regions.central_face,
+        0.46 * portrait_regions.face_oval,
+        0.54 * portrait_regions.central_face,
     )
-    face_mask = np.maximum(face_mask, 0.88 * portrait_regions.eyes)
-    face_mask = np.maximum(face_mask, 0.72 * portrait_regions.nose)
-    face_mask = np.maximum(face_mask, 0.84 * portrait_regions.mouth)
-    face_mask = face_mask.clip(0.0, 0.90).astype(np.float32)
+    face_mask = np.maximum(face_mask, 0.62 * portrait_regions.eyes)
+    face_mask = np.maximum(face_mask, 0.48 * portrait_regions.nose)
+    face_mask = np.maximum(face_mask, 0.58 * portrait_regions.mouth)
+    face_mask = face_mask.clip(0.0, 0.64).astype(np.float32)
 
     return (
         relief_depth.astype(np.float32) * (1.0 - face_mask)

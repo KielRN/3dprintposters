@@ -109,6 +109,7 @@
 - [x] Extend portrait/body smoothing beyond the current face masks to address rough top-of-head, scalp, neck, ear, hand, collar, and shoulder zones.
 - [x] Add a graphic emboss layer and debug mask so inferred text/logos/emblems get a deliberate raised treatment separate from smooth-surface texture suppression.
 - [x] Add region-aware roughness debug metrics so smooth subject/background areas warn when high-frequency geometry exceeds the allowed threshold, and crisp graphic regions warn when they are too flat.
+- [x] Rebalance the hybrid provider toward HueForge/lithophane behavior by making `lithophane_baseline` a subject height signal, raising default detail weight, reducing bas-relief compression, and lowering final smoothing.
 - [ ] Run human product-flow review on the Super Dad north-star proof-to-print path in the browser and Blender, with special attention to scalp/top-of-head, neck, shirt/collar, text/logo crispness, and whether texture appears only where intended.
 - [ ] Tune color GLB preview lighting/material so the job page shows relief depth and image color clearly enough for human quality review.
 - [ ] Add a content-hash cache for provider responses in Firebase Storage using role, provider id, model version, and image hash.

@@ -66,7 +66,7 @@ class ReliefSettings(BaseModel):
     detail_source: Literal["lithophane_baseline", "posterized_luminance"] = (
         "lithophane_baseline"
     )
-    detail_weight: float = Field(default=0.12, ge=0, le=1)
+    detail_weight: float = Field(default=0.38, ge=0, le=1)
 
     @model_validator(mode="after")
     def validate_relief_range(self) -> "ReliefSettings":

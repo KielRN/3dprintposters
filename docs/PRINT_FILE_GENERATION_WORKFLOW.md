@@ -74,12 +74,12 @@ Filament painting artifacts:
 2. Validate size, MIME type, dimensions, and safety metadata.
 3. Normalize image orientation and resolution.
 4. Crop or pad to the 5:7 image-window composition twice: a 768px-wide geometry-analysis image for depth/segmentation/detail and a 400px-wide mesh/color output image for final artifacts.
-5. Choose the requested server-side height provider. The product default is `masked_depth_detail_blend` with `lithophane_baseline` detail source.
+5. Choose the requested server-side height provider. The product default is `masked_depth_detail_blend` with `lithophane_baseline` as a HueForge-like subject height signal.
 6. Generate local/server-side face-region status with OpenCV Haar face boxes. When faces are detected, build soft face-oval, central-face, eye, nose, and mouth masks for relief tuning only; defer external face APIs until local misses are proven in product-flow review.
 7. Generate or infer a surface-intent map. V1 can combine style metadata, subject mask, portrait masks, and image cues, but the policy should be explicit: smooth by default; use a separate graphic emboss mask for intentional text, logos, emblems, and panel lines; preserve shallow texture only for approved hair, fabric, or material texture classes.
 8. Generate a contour-smoothed subject mask, then build a geometry-only proof-cleanup image that suppresses subject halos, faceted backgrounds, and noisy skin/scalp/neck/shirt/background texture without changing the approved color proof used for texture output.
 9. Generate a normalized float heightmap from the selected provider at geometry-analysis resolution.
-10. Apply optional tone controls, post-heightmap smoothing, quantization, softened edge detail, graphic emboss, edge-aware subject-surface smoothing, reduced face-aware detail blending, broader face/head/neck/body smoothing, face/forehead pit guarding, surface-intent detail gating, resampling to the 400px mesh output, and an image-window edge fade so relief settles before the shaped frame.
+10. Apply optional tone controls, post-heightmap smoothing, quantization, HueForge-like lithophane subject height blending, softened edge detail, graphic emboss, reduced edge-aware subject-surface smoothing, reduced face-aware smoothing, face/forehead pit guarding, surface-intent detail gating, resampling to the 400px mesh output, and an image-window edge fade so relief settles before the shaped frame.
 11. Convert height values into closed relief geometry with a 5in x 7in image window, shaped 1/4in border/frame, top surface, bottom base plane, sidewalls, consistent winding, and controlled relief depth.
 12. Add a poster base plate with minimum thickness.
 13. Export baseline STL for geometry validation workflows.
@@ -169,7 +169,7 @@ The accepted extraction plan is now partially implemented:
 - Run hybrid comparisons with `--provider masked_depth_detail_blend`; outputs stay under ignored `.tmp/experiments/hybrid` unless an explicit `--output-root` is provided.
 - For future heightmap experiments, run both canonical local inputs from `.tmp/input_image`: `Gemini_Generated_Image_lzneejlzneejlzne.png` and `Profile-Pic-HIMSS.jpg`.
 - Call the print-file generator from `approveGeneratedImage` after proof approval.
-- Pass the production dimensions and relief settings from `approveGeneratedImage`: 139.7mm x 190.5mm physical object, 127mm x 177.8mm image window, 6.35mm border, `height_provider: masked_depth_detail_blend`, `detail_source: lithophane_baseline`, `detail_weight: 0.12`, `target_width_px: 400`, `geometry_analysis_width_px: 768`, `max_triangle_count: 1000000`, and `max_binary_stl_bytes: 50000000`.
+- Pass the production dimensions and relief settings from `approveGeneratedImage`: 139.7mm x 190.5mm physical object, 127mm x 177.8mm image window, 6.35mm border, `height_provider: masked_depth_detail_blend`, `detail_source: lithophane_baseline`, `detail_weight: 0.38`, `target_width_px: 400`, `geometry_analysis_width_px: 768`, `max_triangle_count: 1000000`, and `max_binary_stl_bytes: 50000000`.
 - Store artifact paths and printability output on `jobs/{jobId}`.
 - Render the approved proof and generated `heightmap.png` in a comparison row on `/jobs/{jobId}`, with the color `preview.glb` in a larger full-width inspection panel below with interactive zoom/orbit controls and without customer-facing artifact download links.
 - During local Functions emulator runs, mirror generated print-file artifacts, including `debug/` relief-stage PNGs, to `.tmp/print-files/{uid}/{jobId}` so the full bundle is available on disk for inspection and future printer-owner handoff.

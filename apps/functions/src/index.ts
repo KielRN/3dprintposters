@@ -40,7 +40,7 @@ const approveGeneratedImageSchema = z.object({
 const defaultReliefSettings = {
   height_provider: "masked_depth_detail_blend",
   detail_source: "lithophane_baseline",
-  detail_weight: 0.12,
+  detail_weight: 0.38,
   target_width_px: 400,
   geometry_analysis_width_px: 768,
   max_triangle_count: 1_000_000,

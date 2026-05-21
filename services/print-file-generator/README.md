@@ -111,7 +111,7 @@ Semantic depth reference provider:
 
 The product hybrid provider:
 
-- `masked_depth_detail_blend`: semantic depth for low-frequency shape, contour-smoothed subject masking for background suppression, geometry-only proof cleanup for halos/faceted backgrounds/rough clothing texture, inferred surface-intent masks for smooth skin/scalp/neck/ears/hands/simple clothing/backgrounds, crisp text/logos/graphic edges, and request-gated shallow texture, reduced deterministic detail blending, surface-intent smoothing, OpenCV face-region masks for eye/nose/mouth/skin detail damping, broader head/neck/body smoothing, face/forehead pit guarding, guided-filter bas-relief compression, image-window edge fade, and the existing closed STL/GLB generator. It defaults to `lithophane_baseline` as the detail source at `detail_weight: 0.12`.
+- `masked_depth_detail_blend`: semantic depth for broad shape and background control, contour-smoothed subject masking for background suppression, geometry-only proof cleanup for halos/faceted backgrounds/rough clothing texture, a HueForge-like `lithophane_baseline` subject height blend, inferred surface-intent masks for smooth skin/scalp/neck/ears/hands/simple clothing/backgrounds, crisp text/logos/graphic edges, and request-gated shallow texture, reduced final smoothing, OpenCV face-region masks for eye/nose/mouth/skin detail damping, face/forehead pit guarding, guided-filter bas-relief compression, image-window edge fade, and the existing closed STL/GLB generator. It defaults to `lithophane_baseline` at `detail_weight: 0.38`.
 
 Local provider comparison:
 

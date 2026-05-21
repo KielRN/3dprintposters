@@ -35,17 +35,18 @@ Human eyes needed. Blender view tells us if poster relief looks good enough.
 - 2026-05-18 Super Dad screenshot review: the color proof/GLB direction reads like the right product, but the gray relief still loses the character of the face and carries scratchy edge/noise artifacts across the banner, body, and background. Text/logo areas are directionally good but should become more intentionally raised and cleaner, while smooth areas should become quieter and less etched.
 - 2026-05-18 suggested next fix target: treat the next pass as a sculpting-policy pass, not a provider-search pass. Separate raised graphic layers, portrait mid-form shaping, smooth default surfaces, and artifact cleanup into visible debug stages so the product can be judged region by region.
 - 2026-05-18 implementation follow-up: the print-file generator now separates a cleaned `emboss_mask` from the general crisp/detail map, applies a graphic emboss layer for inferred text/logos/emblems, increases smoothing on smooth subject/background regions, reduces default subject detail leakage, writes `debug/surface-intent-emboss-mask.png`, and stores `surface_intent_status.roughness_metrics` for smooth subject, flat background, and crisp graphic regions.
+- 2026-05-21 implementation follow-up: the hybrid generator was rebalanced toward the old HueForge-like `E:\PROJECTS\print-file-generator` behavior. `lithophane_baseline` now contributes to subject height, default `detail_weight` is `0.38`, bas-relief compression is less aggressive, final surface/portrait smoothing is reduced, and debug output includes `lithophane-base.png` plus `lithophane-blend-weight-map.png`.
 
 ## Checklist
 
-- [ ] Regenerate 3D preview for the approved proof so the job uses the latest 400px/768px relief path without the nose boost.
+- [ ] Regenerate 3D preview for the approved proof so the job uses the latest HueForge-leaning 400px/768px relief path without the nose boost.
 - [ ] Restart the Functions emulator after the timeout fix, then retry approval or **Retry 3D generation** for the affected job.
 - [ ] Confirm `metadata.json` shows `target_width_px`/`mesh_target_width_px` behavior through `normalized_width_px: 400` and `geometry_analysis_width_px: 768`.
-- [ ] Confirm `metadata.json` provider settings show `detail_weight: 0.12`, `portrait_nose_boost: disabled`, `face_pit_guard: enabled`, and `debug_artifacts: enabled`.
+- [ ] Confirm `metadata.json` provider settings show `detail_weight: 0.38`, `hueforge_lithophane_blend: primary_subject_height_signal`, `semantic_depth_role: shape_guidance_and_background_control`, `portrait_nose_boost: disabled`, `face_pit_guard: enabled`, and `debug_artifacts: enabled`.
 - [ ] Confirm `metadata.json` includes `proof_style_contract.contract_id: super-dad-north-star-v1` and `surface_intent_policy.policy_id: smooth-default-v1`.
 - [ ] Confirm `metadata.json` includes `surface_intent_status.version: inferred-v1`, `default_treatment: smooth`, and `texture_status: disabled_unrequested` unless texture was explicitly requested.
 - [ ] Confirm `metadata.json` includes `surface_intent_status.roughness_metrics.version: region-roughness-v1` and review any roughness warnings.
-- [ ] Open the mirrored `debug/` folder and compare `geometry-input.png`, `surface-intent-smooth-mask.png`, `surface-intent-crisp-mask.png`, `surface-intent-emboss-mask.png`, `surface-intent-detail-weight-map.png`, `detail-layer.png`, `relief-depth.png`, and `final-heightmap.png` if the face/body/text still looks wrong.
+- [ ] Open the mirrored `debug/` folder and compare `geometry-input.png`, `lithophane-base.png`, `lithophane-blend-weight-map.png`, `surface-intent-smooth-mask.png`, `surface-intent-crisp-mask.png`, `surface-intent-emboss-mask.png`, `surface-intent-detail-weight-map.png`, `detail-layer.png`, `relief-depth.png`, and `final-heightmap.png` if the face/body/text still looks wrong.
 - [ ] Compare the generated proof and 3D output against the Super Dad north star: smooth stylized skin, smooth scalp/top-of-head, smooth neck, clean body volumes, crisp raised text/logos, and simple backgrounds.
 - [ ] Open latest `model.stl` in Blender.
 - [ ] Look at face from low side angle.

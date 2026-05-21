@@ -41,6 +41,7 @@ from .depth_providers import (
     MaskedDepthDetailBlendProvider,
     SegformerMaskedDepthProvider,
     TripoSRSidecarProvider,
+    _compose_lithophane_blend_weight_map,
     _deterministic_detail_unit,
     _extract_subject_detail_layer,
     _provider_audit_map,

@@ -93,7 +93,7 @@ def test_request_defaults_include_both_output_modes() -> None:
     assert request.dimensions.border_mm == 6.35
     assert request.relief.height_provider == "masked_depth_detail_blend"
     assert request.relief.detail_source == "lithophane_baseline"
-    assert request.relief.detail_weight == 0.12
+    assert request.relief.detail_weight == 0.38
     assert request.relief.target_width_px == 400
     assert request.relief.geometry_analysis_width_px == 768
     assert request.relief.max_triangle_count == 1_000_000
@@ -257,15 +257,17 @@ def test_local_generation_writes_default_hybrid_relief_bundle(
     assert "raised_logo" in surface_intent_status["classes"]["crisp"]
     assert metadata["provider_settings"] == {
         "detail_source": "lithophane_baseline",
-        "detail_weight": 0.12,
+        "detail_weight": 0.38,
         "debug_artifacts": "enabled",
         "face_pit_guard": "enabled",
         "geometry_input": "subject_aware_cleanup",
         "geometry_analysis_width_px": 64,
         "graphic_emboss_layer": "enabled",
+        "hueforge_lithophane_blend": "primary_subject_height_signal",
         "mesh_target_width_px": 40,
         "portrait_nose_boost": "disabled",
-        "portrait_surface_smoothing": "expanded_face_oval",
+        "portrait_surface_smoothing": "reduced_detail_preserving",
+        "semantic_depth_role": "shape_guidance_and_background_control",
         "surface_intent_detail_gating": "enabled",
         "surface_intent_masks": "inferred_v1",
         "surface_intent_roughness_metrics": "enabled",
@@ -277,6 +279,12 @@ def test_local_generation_writes_default_hybrid_relief_bundle(
     assert response.artifact_paths.debug_artifacts["final-heightmap.png"].endswith(
         "/debug/final-heightmap.png"
     )
+    assert response.artifact_paths.debug_artifacts["lithophane-base.png"].endswith(
+        "/debug/lithophane-base.png"
+    )
+    assert response.artifact_paths.debug_artifacts[
+        "lithophane-blend-weight-map.png"
+    ].endswith("/debug/lithophane-blend-weight-map.png")
     assert response.artifact_paths.debug_artifacts[
         "surface-intent-detail-weight-map.png"
     ].endswith("/debug/surface-intent-detail-weight-map.png")
@@ -487,9 +495,11 @@ def test_local_generation_can_run_masked_depth_detail_blend(
         "geometry_input": "subject_aware_cleanup",
         "geometry_analysis_width_px": 16,
         "graphic_emboss_layer": "enabled",
+        "hueforge_lithophane_blend": "primary_subject_height_signal",
         "mesh_target_width_px": 8,
         "portrait_nose_boost": "disabled",
-        "portrait_surface_smoothing": "expanded_face_oval",
+        "portrait_surface_smoothing": "reduced_detail_preserving",
+        "semantic_depth_role": "shape_guidance_and_background_control",
         "surface_intent_detail_gating": "enabled",
         "surface_intent_masks": "inferred_v1",
         "surface_intent_roughness_metrics": "enabled",

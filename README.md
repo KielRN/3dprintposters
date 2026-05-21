@@ -13,8 +13,8 @@ Working now:
 - Browser upload to Firebase Storage
 - Firebase callable Functions for job creation, proof approval, print-file generation orchestration, and checkout
 - Direct Vertex/Gemini proof-generation adapter in `apps/functions`
-- Python print-file generator service for 400px mesh-output STL, 768px geometry-analysis depth/mask/detail work, geometry-only proof cleanup, contour-smoothed subject edges, surface-intent smoothing, graphic emboss for text/logos, face-aware texture damping, face/forehead pit guarding, image-colored GLB preview, heightmap, metadata, full-color packages, filament painting guides, debug artifacts, region roughness metrics, and printability output
-- Current relief-quality direction: surface-intent aware generation where skin, scalp, neck, simple clothing, and backgrounds are smooth by default, while text, logos, emblems, panel lines, and approved material textures stay deliberate and inspectable
+- Python print-file generator service for 400px mesh-output STL, 768px geometry-analysis depth/mask/detail work, geometry-only proof cleanup, contour-smoothed subject edges, HueForge-like lithophane subject height blending, reduced surface-intent smoothing, graphic emboss for text/logos, face-aware texture damping, face/forehead pit guarding, image-colored GLB preview, heightmap, metadata, full-color packages, filament painting guides, debug artifacts, region roughness metrics, and printability output
+- Current relief-quality direction: surface-intent aware generation where `lithophane_baseline` drives more of the subject height signal, semantic depth controls broad shape/background separation, skin/scalp/neck/simple clothing/backgrounds stay controlled instead of over-smoothed, and text/logos/emblems/panel lines remain deliberate and inspectable
 - Job-page proof, heightmap, 3D GLB inspection view, and local `.tmp` print-package mirroring after proof approval
 - Firestore and Storage security rules for the dev Firebase project
 - Stripe Checkout session creation boundary
