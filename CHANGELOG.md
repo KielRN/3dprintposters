@@ -47,6 +47,8 @@ All notable project changes will be documented in this file.
 - Added `surfaceIntentStatus` capture to the Functions print-file audit when `metadata.json` includes inferred surface-intent status.
 - Added a graphic emboss mask/layer for the hybrid relief path so inferred text, logos, emblems, and graphic edges can be deliberately raised without allowing random proof texture into smooth regions.
 - Added `surface-intent-emboss-mask.png` debug output and `surface_intent_status.roughness_metrics` for smooth-subject, flat-background, and crisp-graphic region review.
+- Added approved-relief training protocols for working backward from human-approved production STLs into gold-master heightmaps, masks, QA renders, deterministic-generator tuning, and future LoRA/ControlNet datasets.
+- Added a Blender MCP setup handoff task for the next chat so gold-master STL review can begin with an MCP-controlled Blender session.
 
 ### Changed
 

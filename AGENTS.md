@@ -36,7 +36,7 @@ This file is the first place Codex or another coding agent should read before wo
 3. Web calls `createGenerationJob`.
 4. Functions call Vertex/Gemini through the internal provider adapter and store proof output under `generated/{uid}/{jobId}/preview.{png|jpg|webp}`.
 5. User approves a proof on `/jobs/{jobId}`.
-6. `approveGeneratedImage` calls `PRINT_FILE_GENERATOR_URL` with `masked_depth_detail_blend`, `lithophane_baseline` detail source at `detail_weight: 0.12`, 400px mesh output width, 768px geometry-analysis width, the 5in x 7in image-window / 5.5in x 7.5in physical dimensions, and the production relief settings.
+6. `approveGeneratedImage` calls `PRINT_FILE_GENERATOR_URL` with `masked_depth_detail_blend`, `lithophane_baseline` detail source at `detail_weight: 0.38`, 400px mesh output width, 768px geometry-analysis width, the 5in x 7in image-window / 5.5in x 7.5in physical dimensions, and the production relief settings.
 7. The print-file generator writes artifacts under `print-files/{uid}/{jobId}`:
    - `model.stl`
    - `preview.glb`
@@ -97,7 +97,7 @@ JDK 21+ is installed on this machine, so the full Firebase emulator suite can ru
 
 ## Relief Quality Direction
 
-- The chosen production relief provider is `masked_depth_detail_blend` with `lithophane_baseline` detail source at `detail_weight: 0.12`.
+- The chosen production relief provider is `masked_depth_detail_blend` with `lithophane_baseline` detail source at `detail_weight: 0.38`.
 - The Super Dad generated proof is the MVP north star for the HueForge-like product direction: controlled printable art, smooth stylized human surfaces, clean body volumes, crisp raised text/logos, simple backgrounds, and intentional texture only.
 - The customer photo is identity/reference input. The approved generated proof plus style/surface policy should be the manufacturing input.
 - Current Phase 3 focus is product geometry and quality tuning: 5in x 7in image relief window, 1/4in border on all sides, intentional frame geometry, edge fade, geometry-analysis cleanup, contour-smoothed subject edges, face smoothing/pit guarding without a nose-specific boost, higher mesh resolution, better GLB preview lighting/material, and surface-intent-aware smoothing/detail gating.

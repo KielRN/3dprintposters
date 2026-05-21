@@ -110,6 +110,13 @@
 - [x] Add a graphic emboss layer and debug mask so inferred text/logos/emblems get a deliberate raised treatment separate from smooth-surface texture suppression.
 - [x] Add region-aware roughness debug metrics so smooth subject/background areas warn when high-frequency geometry exceeds the allowed threshold, and crisp graphic regions warn when they are too flat.
 - [x] Rebalance the hybrid provider toward HueForge/lithophane behavior by making `lithophane_baseline` a subject height signal, raising default detail weight, reducing bas-relief compression, and lowering final smoothing.
+- [x] Document the approved-relief gold-master workflow for working backward from human-approved production STLs into extracted heightmaps, masks, LoRA style data, and ControlNet-style supervision.
+- [ ] Set up Blender MCP for gold-master STL review, fixed-camera QA renders, and map extraction from approved production files.
+- [ ] Create the first approved-relief example bundle under `.tmp/approved-relief-examples/{example_id}` with baseline artifacts, Blender-approved STL, extracted maps, manifest, and review notes.
+- [ ] Tune the deterministic print-file generator against approved gold-master heightmaps before starting model training.
+- [ ] Collect 30 approved-relief examples before starting LoRA or ControlNet-style training.
+- [ ] Train and evaluate a product-style LoRA for controlled printable proof art after the approved dataset reaches the 30-example threshold.
+- [ ] Train and evaluate a ControlNet-style heightmap/relief adapter after approved examples include aligned proof, baseline heightmap, masks, and approved heightmap targets.
 - [ ] Run human product-flow review on the Super Dad north-star proof-to-print path in the browser and Blender, with special attention to scalp/top-of-head, neck, shirt/collar, text/logo crispness, and whether texture appears only where intended.
 - [ ] Tune color GLB preview lighting/material so the job page shows relief depth and image color clearly enough for human quality review.
 - [ ] Add a content-hash cache for provider responses in Firebase Storage using role, provider id, model version, and image hash.

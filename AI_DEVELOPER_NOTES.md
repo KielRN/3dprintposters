@@ -16,6 +16,8 @@ Do not let this file become a second copy of those sources. Keep only durable pr
 
 Development posture: build toward the intended final product behavior first. Once a product direction is reviewed and chosen, wire it into the real user workflow instead of leaving it as opt-in experiment code. Prefer loud failures during testing over quiet lower-quality substitute behavior; when human testing finds a failure, fix that production path directly.
 
+2026-05-21 experiment direction: work backward from human-approved production STLs before training. Each approved STL becomes a gold master only after Blender/human review, then yields extracted supervision artifacts: approved 16-bit heightmap, normal/depth renders, smooth-region mask, raised-graphic mask, fixed QA renders, manifest, and notes under ignored `.tmp/approved-relief-examples/{example_id}`. Use those examples to tune the deterministic generator first. Start LoRA or ControlNet-style training only after at least 30 approved examples exist. LoRA should learn the controlled printable proof style; ControlNet/adapters should learn intermediate maps such as approved heightmaps or masks. Final STL/GLB/package construction remains deterministic server-side.
+
 Use `STL`, not `SLT`.
 
 ## Current Implementation
@@ -55,6 +57,7 @@ Phase 3 is now about product relief geometry and quality, not more provider rese
 3. Run fresh product-flow regeneration after the 2026-05-18 graphic emboss and stronger smooth-region suppression pass. Compare `surface-intent-emboss-mask.png`, `surface-intent-detail-weight-map.png`, `relief-depth.png`, `final-heightmap.png`, and `surface_intent_status.roughness_metrics`.
 4. Tune color GLB preview lighting/material and performance so browser review reflects actual relief and color quality.
 5. Continue relief quality tuning from generated artifacts and `debug/*.png`, especially face mid-form readability, blockiness, unintended roughness, and photo/proof texture becoming geometry.
+6. Set up Blender MCP or an equivalent Blender Python workflow for gold-master STL review and approved-example artifact extraction.
 
 Current human-test handoff: `human-tasks/open/test-hybrid-relief-product-flow.md`.
 
