@@ -1,6 +1,6 @@
 # 3DPrintPosters - AI Developer Notes
 
-Last updated: 2026-05-18
+Last updated: 2026-05-23
 
 ## Purpose
 
@@ -10,13 +10,15 @@ Do not let this file become a second copy of those sources. Keep only durable pr
 
 ## Product Direction
 
-3DPrintPosters lets a user upload a personal photo, generate a controlled stylized proof image, convert the approved proof into a 3D-printable poster relief, inspect the generated artifacts, and eventually send the paid order to a full-color 3D print partner.
+3DPrintPosters is pivoting from "perfect the 5x7 poster relief first" to "prove customer demand for personalized AI print products first." The active MVP direction is now a PrintU-like figurine workflow: user uploads a photo, chooses a figurine style and posture, approves a 2D proof, reviews a generated 3D figurine preview, and either checks out or joins a manual/preorder funnel.
 
-2026-05-17 product direction: use the "Super Dad" generated proof as the north-star style for the MVP relief product. The customer photo is identity/reference input, not a command to preserve every source-photo texture. The generated proof should be printable-friendly art with smooth stylized skin, clean toy-like or poster-like forms, crisp raised text/graphics, and only intentional material texture. The print-file generator should move toward a surface-intent/material policy where surfaces are smooth by default unless the proof/style metadata explicitly marks a region as text, logo, panel line, fabric grain, hair texture, or another printable texture class.
+2026-05-23 product direction: customer acquisition and business-model proof outrank more relief tuning. Do not fight the experiments: full image-to-3D models failed for poster relief because they produce standalone objects, but that same strength is exactly what a personalized figurine product needs. Meshy.ai is the first serious provider candidate because its current Image to 3D API supports Meshy-6, GLB/STL/OBJ/FBX/USDZ/3MF outputs, and multi-color printing workflows. MakerWorld PrintU is the UX reference: upload image, choose Bobblehead/Chibi/Cartoon/Emoji-style output, choose Natural/Image/T-pose, generate 2D proof, then generate/edit/export the 3D figurine.
+
+2026-05-17 relief direction is now parked R&D, not the launch blocker: the "Super Dad" generated proof remains the north-star if the poster-relief line resumes. The customer photo is identity/reference input, not a command to preserve every source-photo texture. The generated proof should be printable-friendly art with smooth stylized skin, clean toy-like or poster-like forms, crisp raised text/graphics, and only intentional material texture.
 
 Development posture: build toward the intended final product behavior first. Once a product direction is reviewed and chosen, wire it into the real user workflow instead of leaving it as opt-in experiment code. Prefer loud failures during testing over quiet lower-quality substitute behavior; when human testing finds a failure, fix that production path directly.
 
-2026-05-21 experiment direction: work backward from human-approved production STLs before training. Each approved STL becomes a gold master only after Blender/human review, then yields extracted supervision artifacts: approved 16-bit heightmap, normal/depth renders, smooth-region mask, raised-graphic mask, fixed QA renders, manifest, and notes under ignored `.tmp/approved-relief-examples/{example_id}`. Use those examples to tune the deterministic generator first. Start LoRA or ControlNet-style training only after at least 30 approved examples exist. LoRA should learn the controlled printable proof style; ControlNet/adapters should learn intermediate maps such as approved heightmaps or masks. Final STL/GLB/package construction remains deterministic server-side.
+2026-05-21 relief experiment direction is paused unless the relief product is reactivated: work backward from human-approved production STLs before training. Each approved STL becomes a gold master only after Blender/human review, then yields extracted supervision artifacts. Do not collect the 30-example relief dataset ahead of the figurine demand proof.
 
 Use `STL`, not `SLT`.
 
@@ -26,9 +28,10 @@ Use `STL`, not `SLT`.
 - Backend orchestration: `apps/functions`, Firebase Cloud Functions 2nd gen on Node.js 22.
 - Print-file generator: `services/print-file-generator`, FastAPI service intended for Cloud Run.
 - Dev Firebase/GCP project: `gen-lang-client-0675309660`.
-- Product domain: `3dprintposters.com`.
+- Product domains: `3dprintyou.com` is the better-fit candidate for the figurine/customer-acquisition pivot; `3dprintposters.com` remains the existing domain and may fit the parked poster-relief line.
 - Current proof generation: direct Vertex/Gemini through `apps/functions/src/aiProvider.ts`, with generated proofs stored under `generated/{uid}/{jobId}/`.
 - Current proof style contract: `super-dad-north-star-v1` in `apps/functions/src/styleContracts.ts`, which steers generated proofs toward smooth printable poster art and stores contract metadata instead of raw prompt text.
+- Figurine provider integration is not implemented yet. The research target is a server-side provider boundary that can call Meshy first, then store returned GLB/STL/3MF/model thumbnails under user/job-scoped Storage paths before checkout.
 - Current print-file generation: `approveGeneratedImage` calls the FastAPI generator with `masked_depth_detail_blend`, `lithophane_baseline` detail source, `detail_weight: 0.38`, `target_width_px: 400`, `geometry_analysis_width_px: 768`, and explicit dimensions for a 5in x 7in image window inside a 5.5in x 7.5in physical object.
 - Print-file relief/depth code is split by responsibility under `services/print-file-generator/app`: `depth.py` is a compatibility facade; focused modules now own provider orchestration (`depth_providers.py`), shared types (`depth_types.py`), array/depth math (`depth_filters.py`), heightmap operations (`heightmap_ops.py`), geometry-input cleanup (`geometry_input.py`), subject masks (`segmentation_masks.py`), surface intent (`surface_intent.py`), portrait relief shaping (`portrait_relief.py`), debug artifacts (`depth_debug.py`), provider-chain shims (`depth_inference.py`), and rejected/experimental TripoSR sidecar code (`experimental/triposr_sidecar.py`).
 - Current print-file artifacts: `model.stl`, image-colored `preview.glb`, `heightmap.png`, `metadata.json`, deterministic full-color package files (`3MF`, `OBJ`/`MTL`/texture, `VRML`, `PLY`), filament painting files (`palette.json`, `layer-swaps.txt`, `print-settings.json`, `preview.png`), and `debug/*.png` relief-stage images. The physical object is now 5.5in x 7.5in with a 5in x 7in image relief window and shaped 1/4in border/frame, and the job page uses an interactive GLB inspection viewer with zoom, orbit, and reset controls. The generator request schema now includes `smooth-default-v1` surface-intent metadata; `metadata.json` records the selected style, proof style contract, surface-intent policy, inferred `surface_intent_status`, graphic emboss status, and region roughness metrics.
@@ -37,31 +40,32 @@ Use `STL`, not `SLT`.
 
 ## Durable Decisions
 
-- Keep print-file generation server-side. Do not move geometry generation, texture packaging, or fulfillment logic into the browser.
+- Keep print-file/model generation server-side. Do not move geometry generation, provider API keys, texture packaging, or fulfillment logic into the browser.
 - Keep `services/print-file-generator` as the production print-file boundary. Do not vendor the standalone `E:\PROJECTS\print-file-generator` Flask routes, SQLite state, browser session handling, local CLI flow, TD1 hardware code, or old open-surface mesh topology.
 - Direct Vertex/Gemini remains the MVP proof-generation path. Cloudflare AI Gateway is deferred until provider comparison, centralized observability, rate limits, or retries matter.
-- The five-experiment heightmap cycle is complete. Full image-to-3D reconstruction providers such as TripoSR, Stable Fast 3D, TRELLIS, SAM 3D Objects, and TriplaneGaussian are rejected for poster relief because they reconstruct standalone objects rather than image-plane depth.
+- The five-experiment heightmap cycle is complete. Full image-to-3D reconstruction providers such as TripoSR, Stable Fast 3D, TRELLIS, SAM 3D Objects, TriplaneGaussian, and Meshy-style providers are rejected only for poster relief because they reconstruct standalone objects rather than image-plane depth. They are now valid candidates for the standalone figurine product direction.
+- Meshy.ai is the first provider to evaluate for the figurine direction. Keep it behind a replaceable server-side adapter, download provider assets into our Storage quickly because non-enterprise API retention may be short, and record provider/model/version/credits/cost metadata without storing secrets.
 - Deterministic brightness-to-height providers (`posterized_luminance`, `continuous_luminance`, `lithophane_baseline`) are reference providers, not the default checkout path.
 - The chosen relief provider is `masked_depth_detail_blend`: 768px geometry-analysis cleanup, Depth Anything V2 semantic depth for broad shape/background control, contour-smoothed SegFormer subject masking, a HueForge-leaning `lithophane_baseline` subject height blend, guided-filter bas-relief compression, reduced detail-preserving face smoothing, face/forehead pit guarding, and the existing closed STL/GLB generator.
 - Portrait relief tuning is currently face-aware inside server-side print-file generation. Local OpenCV Haar face boxes build soft face-oval, central-face, eye, nose, and mouth masks for relief tuning and debug visibility only; defer an external face API fallback until local detection misses real product-flow cases. Do not reintroduce the removed nose-specific height boost unless human review explicitly reverses that decision.
 - Current relief-quality direction is surface-intent aware generation: the hybrid provider now infers v1 smooth/crisp/emboss/texture masks so skin, scalp, neck, ears, hands, simple clothing, and backgrounds remain smooth by default, crisp text/logos/graphic edges get a separate raised emboss treatment, and shallow material texture is enabled only from explicit proof-generation or human override metadata. `surface_intent_status.roughness_metrics` reports whether smooth subject/background regions are still too noisy or graphic regions are too flat.
-- The recommended production maturity path is API-backed AI for proof generation, monocular depth, subject segmentation, and optional proof cleanup/depth-friendly preprocessing, while final heightmap blending, STL/GLB construction, texture packaging, and fulfillment artifacts remain deterministic server-side generation in `services/print-file-generator`.
+- The recommended maturity path now has two tracks: (1) customer-facing figurine demand proof using API-backed image-to-3D providers, starting with Meshy; (2) parked poster-relief R&D using API-backed proof generation, monocular depth, subject segmentation, and deterministic server-side print-file generation.
 - The current job page is the first quality-control surface: approved proof, generated heightmap, interactive GLB preview, printability status, and warnings. Local Functions emulator runs mirror the full print-file bundle under `.tmp/print-files/{uid}/{jobId}` instead of exposing customer-facing artifact download links.
 
 ## Active Product Focus
 
-Phase 3 is now about product relief geometry and quality, not more provider research:
+Phase 3 is now about business-model proof and customer acquisition:
 
-1. Thread the "Super Dad" style/surface-intent metadata through the full approval audit path so each generated job and paid order preserves the exact contract and smoothing policy used.
-2. Run fresh human product-flow review on the inferred surface-intent relief path, especially scalp/top-of-head, ears, neck, hands, shirt/collar, text/logo crispness, and whether texture appears only where intended.
-3. Run fresh product-flow regeneration after the 2026-05-18 graphic emboss and stronger smooth-region suppression pass. Compare `surface-intent-emboss-mask.png`, `surface-intent-detail-weight-map.png`, `relief-depth.png`, `final-heightmap.png`, and `surface_intent_status.roughness_metrics`.
-4. Tune color GLB preview lighting/material and performance so browser review reflects actual relief and color quality.
-5. Continue relief quality tuning from generated artifacts and `debug/*.png`, especially face mid-form readability, blockiness, unintended roughness, and photo/proof texture becoming geometry.
-6. Set up Blender MCP or an equivalent Blender Python workflow for gold-master STL review and approved-example artifact extraction.
+1. Reframe the web MVP around a PrintU-like figurine creation flow: photo upload, style selector, posture selector, generated 2D proof, 3D figurine preview, and purchase-intent capture.
+2. Evaluate Meshy manually first, then through a server-side adapter if commercial/API terms and test outputs look viable.
+3. Store generated provider assets (`model.glb`, `model.stl`, optional `model.3mf`, thumbnails, metadata, warnings) under user/job-scoped Storage paths and show the GLB in the job page.
+4. Decide whether the first public proof is a paid preorder/manual fulfillment funnel or a fully automated checkout path.
+5. Add analytics for upload, style/posture selection, proof approval, 3D generation success, preview engagement, checkout/preorder intent, and abandonment.
+6. Keep the relief generator documented and available as a later product path, but do not make more relief tuning the next customer-acquisition milestone.
 
-Current human-test handoff: `human-tasks/open/test-hybrid-relief-product-flow.md`.
+Current human-test handoff: `human-tasks/open/2026-05-23-evaluate-meshy-figurine-flow.md`.
 
-Latest human review notes:
+Paused relief review notes:
 
 - Gray relief screenshots are Blender views of generated print files.
 - Print files still look blocky in Blender.
@@ -79,6 +83,11 @@ Latest human review notes:
 
 ## Open Risks
 
+- The repo name still says "posters"; the preferred customer-facing domain for the pivot is `3dprintyou.com`, but Cloudflare/DNS and staging/production hostnames still need verification.
+- Meshy/API provider economics, commercial-use terms, data retention, likeness/privacy handling, and moderation must be verified before public checkout.
+- Provider-generated figurines may look good on screen but fail slicing, require supports/manual cleanup, or disappoint customers physically; real slicer and physical-print validation are mandatory.
+- Meshy and similar providers are external dependencies. Keep provider calls server-side, store returned assets immediately, record audit metadata, and avoid a UI that assumes one provider forever.
+- Customer likeness, celebrity/IP, fan art, and minors/consent policies need explicit product rules before public traffic.
 - Local Depth Anything V2 now uses normal service dependencies (`torch`, `transformers`), so Cloud Run image size, cold start, memory, and CPU behavior need production validation.
 - HF SegFormer requires a provider credential in the service runtime. Do not print or move secret values.
 - Provider failures should surface clearly in testing instead of silently producing lower-quality reliefs.

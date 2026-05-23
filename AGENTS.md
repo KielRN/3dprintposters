@@ -21,15 +21,37 @@ This file is the first place Codex or another coding agent should read before wo
 - PM handoffs should summarize open human tasks and create or update them when the next action belongs to the human.
 - After an AI developer implements and verifies a meaningful PM/checklist task, create or update a human-test task for Elliot when the next useful validation is the whole product workflow in the browser. Human testing should exercise the app as a final product, not just isolated technical checks.
 
+## Cloudflare Skill
+
+- Use the repo-scoped `$cloudflare-3dprintyou` skill for Cloudflare account, zone, DNS, Workers, routes, custom-domain, AI Gateway, and webhook work for `3dprintyou.com` or `3dprintposters.com`.
+- The skill lives at `.agents/skills/cloudflare-3dprintyou/SKILL.md` and includes the account-scoped token verification pattern, known project zone IDs, and safe commands that do not print secrets.
+- Prefer read-only Cloudflare inspection before mutating live DNS or Worker configuration. State the intended external change before applying it, and ask first if it could disrupt live traffic.
+
 ## Project Shape
 
 - Web app: `apps/web`, Next.js PWA.
 - Backend orchestration: `apps/functions`, Firebase Cloud Functions 2nd gen on Node.js 22.
 - Print-file generator: `services/print-file-generator`, FastAPI service intended for Cloud Run.
 - Dev Firebase/GCP project: `gen-lang-client-0675309660`.
-- Product domain: `3dprintposters.com`.
+- Product domains: `3dprintyou.com` is the preferred candidate for the figurine/customer-acquisition pivot; `3dprintposters.com` remains available for the parked poster-relief line.
 
-## Current Flow
+## Current Business Priority
+
+As of 2026-05-23, the active priority is customer acquisition and business-model proof, not more poster-relief tuning. Build toward a PrintU-like personalized figurine workflow first:
+
+1. User uploads a photo.
+2. User chooses figurine style, with MakerWorld PrintU as UX reference: Bobblehead, Chibi, Cartoon, Emoji, or provider-backed equivalents.
+3. User chooses posture: Natural pose, Image pose, T-pose, or provider-backed equivalent.
+4. Backend generates a 2D figurine proof.
+5. User approves the proof.
+6. Backend generates or imports a standalone 3D figurine through a server-side provider boundary.
+7. Meshy.ai is the first provider candidate to evaluate because its current API and MakerWorld integration are designed for image-to-3D, STL/GLB/3MF, and multicolor print workflows.
+8. Job page shows the standalone figurine GLB and readiness/warning state.
+9. Checkout, preorder, or lead capture is allowed only after the provider output and fulfillment path are honestly represented.
+
+The old image-to-3D rejection applies only to poster relief. Full 3D reconstruction was wrong for image-plane depth, but may be right for standalone figurines.
+
+## Existing Relief Flow
 
 1. User signs in or continues as guest.
 2. User uploads one JPG/PNG source image to `uploads/{uid}/{jobId}/source.{jpg|png}`.
@@ -44,6 +66,8 @@ This file is the first place Codex or another coding agent should read before wo
    - `metadata.json`
 8. The job page renders the generated `preview.glb`.
 9. Checkout is allowed only after the proof is approved and print-file artifacts are generated.
+
+This relief flow is implemented R&D and may remain useful later, but it is not the current customer-acquisition blocker.
 
 ## Local End-To-End Testing
 
@@ -97,6 +121,8 @@ JDK 21+ is installed on this machine, so the full Firebase emulator suite can ru
 
 ## Relief Quality Direction
 
+Current status: parked R&D while the PrintU-like figurine path is validated.
+
 - The chosen production relief provider is `masked_depth_detail_blend` with `lithophane_baseline` detail source at `detail_weight: 0.38`.
 - The Super Dad generated proof is the MVP north star for the HueForge-like product direction: controlled printable art, smooth stylized human surfaces, clean body volumes, crisp raised text/logos, simple backgrounds, and intentional texture only.
 - The customer photo is identity/reference input. The approved generated proof plus style/surface policy should be the manufacturing input.
@@ -105,7 +131,7 @@ JDK 21+ is installed on this machine, so the full Firebase emulator suite can ru
 - Run future experiments as sidecar scripts until reviewed, then promote the chosen path into the real checkout workflow instead of leaving it opt-in.
 - Use canonical local inputs from `.tmp/input_image` for future relief comparisons when relevant: `Gemini_Generated_Image_lzneejlzneejlzne.png` and `Profile-Pic-HIMSS.jpg`.
 - Keep experiment outputs under ignored local paths such as `.tmp/experiments/{provider}/{jobId}`.
-- Full image-to-3D reconstruction providers such as TripoSR, Stable Fast 3D, TRELLIS, SAM 3D Objects, and TriplaneGaussian are rejected for poster relief because they reconstruct standalone objects rather than image-plane depth.
+- Full image-to-3D reconstruction providers such as TripoSR, Stable Fast 3D, TRELLIS, SAM 3D Objects, TriplaneGaussian, and Meshy-style providers are rejected for poster relief because they reconstruct standalone objects rather than image-plane depth. They are now valid candidates for the standalone figurine product.
 - Nano Banana / Gemini 2.5 Flash Image belongs in proof cleanup and depth-friendly preprocessing, not final STL/GLB geometry generation.
 
 ## Security And Secrets

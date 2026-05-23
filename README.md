@@ -1,6 +1,8 @@
 # 3D Print Posters
 
-3D Print Posters is a mobile-first web app for turning a user photo into controlled stylized art, then into a 3D-printable poster relief with a 5in x 7in image window inside a 5.5in x 7.5in physical object. The Super Dad proof is the MVP north star: smooth stylized human surfaces, clean poster-like volumes, crisp raised text/logos, simple backgrounds, and intentional texture only. The current MVP lets a user sign in, upload a photo, choose a style, ask the backend to generate a proof image, approve that proof, and start Stripe Checkout.
+3D Print Posters is a mobile-first web app for personalized AI print products. As of 2026-05-23, the active business priority is no longer perfecting the 5x7 poster-relief generator first; it is proving demand with a PrintU-like customer flow for personalized figurines. The target MVP lets a user upload a photo, choose a figurine style and posture, approve a 2D proof, review a generated 3D figurine, and either check out or enter a preorder/manual-fulfillment funnel.
+
+The existing poster-relief path still works as R&D: it turns controlled stylized art into a 5in x 7in relief window inside a 5.5in x 7.5in physical object. The Super Dad proof remains the north star if that line resumes, but relief quality is not the next customer-acquisition blocker. `3dprintyou.com` is the better-fit public domain candidate for the figurine pivot; `3dprintposters.com` can stay attached to the parked poster-relief line or become a redirect later.
 
 This project is still in local MVP development. It is not production-ready yet.
 
@@ -13,6 +15,8 @@ Working now:
 - Browser upload to Firebase Storage
 - Firebase callable Functions for job creation, proof approval, print-file generation orchestration, and checkout
 - Direct Vertex/Gemini proof-generation adapter in `apps/functions`
+- New product direction documented in `research/FIGURINE_PROVIDER_RESEARCH.md`: PrintU-like figurine workflow first, Meshy.ai as the first image-to-3D provider candidate, relief parked as R&D
+- Local root `.env` has `MESHY_API_KEY` for a paid Meshy account; never print or commit the value
 - Python print-file generator service for 400px mesh-output STL, 768px geometry-analysis depth/mask/detail work, geometry-only proof cleanup, contour-smoothed subject edges, HueForge-like lithophane subject height blending, reduced surface-intent smoothing, graphic emboss for text/logos, face-aware texture damping, face/forehead pit guarding, image-colored GLB preview, heightmap, metadata, full-color packages, filament painting guides, debug artifacts, region roughness metrics, and printability output
 - Current relief-quality direction: surface-intent aware generation where `lithophane_baseline` drives more of the subject height signal, semantic depth controls broad shape/background separation, skin/scalp/neck/simple clothing/backgrounds stay controlled instead of over-smoothed, and text/logos/emblems/panel lines remain deliberate and inspectable
 - Job-page proof, heightmap, 3D GLB inspection view, and local `.tmp` print-package mirroring after proof approval
@@ -25,6 +29,11 @@ Working now:
 
 Not done yet:
 
+- Customer-facing figurine style/posture flow
+- Meshy or alternate generated-3D provider adapter
+- Figurine GLB/STL/3MF artifact storage and review flow
+- Meshy webhook creation in the Meshy API settings dashboard after a Cloudflare-backed HTTPS receiver exists
+- Slicer and physical-print validation for provider-generated figurines
 - Deployed Cloud Run print-file generator endpoint
 - Fulfillment partner integration
 - Production Firebase projects
@@ -33,11 +42,12 @@ Not done yet:
 
 ## The Big Picture
 
-Think of this app as three cooperating pieces:
+Think of this app as four cooperating pieces:
 
 - The web app is what the customer sees and clicks.
 - Firebase Functions are the trusted backend. They check ownership, call AI, create jobs, orchestrate print-file generation, and talk to Stripe.
-- The print-file generator is a Python service that turns an approved image into printable artifacts like STL, heightmap, image-colored preview GLB, metadata, full-color packages, and filament painting guides.
+- The generated-3D provider layer will call Meshy or another image-to-3D service for standalone figurines and store returned GLB/STL/3MF assets.
+- The print-file generator is a Python service that turns an approved image into poster-relief artifacts like STL, heightmap, image-colored preview GLB, metadata, full-color packages, and filament painting guides.
 
 ```mermaid
 flowchart LR
@@ -48,6 +58,7 @@ flowchart LR
   Firestore["Firestore<br/>jobs and orders"]
   Functions["Firebase Functions<br/>apps/functions"]
   AI["Vertex/Gemini<br/>proof image generation"]
+  Provider["Future figurine model provider<br/>Meshy first candidate"]
   Stripe["Stripe Checkout"]
   Print["Cloud Run print-file generator<br/>services/print-file-generator"]
   Fulfillment["Future print partner"]
@@ -59,15 +70,17 @@ flowchart LR
   Functions --> Firestore
   Functions --> Storage
   Functions --> AI
+  Functions --> Provider
   Functions --> Stripe
   Functions --> Print
+  Provider --> Storage
   Print --> Storage
   Functions -.-> Fulfillment
 ```
 
 ## Customer Flow
 
-This is the intended happy path for one poster order.
+This is the new target happy path for one figurine order or preorder.
 
 ```mermaid
 sequenceDiagram
@@ -76,33 +89,36 @@ sequenceDiagram
   participant Storage as Firebase Storage
   participant Fn as Firebase Functions
   participant AI as Vertex/Gemini
+  participant Model as 3D Model Provider
   participant DB as Firestore
   participant Stripe as Stripe Checkout
-  participant Print as Print File Service
 
   Customer->>Web: Sign in or continue as guest
-  Customer->>Web: Choose JPG/PNG and style
+  Customer->>Web: Choose JPG/PNG, figurine style, and posture
   Web->>Storage: Upload source photo
   Web->>Fn: createGenerationJob(jobId, path, style)
   Fn->>DB: Create jobs/{jobId} as generating
-  Fn->>AI: Generate poster proof
+  Fn->>AI: Generate 2D figurine proof
   AI-->>Fn: Return generated image
   Fn->>Storage: Save generated proof
   Fn->>DB: Mark job preview_ready
   Customer->>Web: Review and approve proof
   Web->>Fn: approveGeneratedImage
   Fn->>DB: Mark job approved
-  Fn->>Print: Generate STL, color GLB preview, color packages, and filament guides
-  Print->>Storage: Store print-files/{uid}/{jobId}
-  Fn->>DB: Save print file artifacts and printability
-  Web->>Storage: Load proof, heightmap.png, and preview.glb
-  Customer->>Web: Start checkout
+  Fn->>Model: Generate standalone 3D figurine
+  Model-->>Fn: Return GLB/STL/optional 3MF and thumbnails
+  Fn->>Storage: Store generated-models/{uid}/{jobId}
+  Fn->>DB: Save provider artifacts, audit, warnings
+  Web->>Storage: Load proof and model.glb
+  Customer->>Web: Start checkout or preorder
   Web->>Fn: createCheckoutSession
   Fn->>Stripe: Create Checkout Session
   Stripe-->>Customer: Collect payment
 ```
 
-The home-page 3D panel is still a visual preview shell. The job page shows the approved proof, generated `heightmap.png`, and real color `preview.glb` side by side after the user approves the proof and the print-file generator finishes. It also exposes the generated 3MF, OBJ/MTL/texture, VRML, PLY, palette, layer-swap, and print-settings files for inspection.
+The currently implemented app still follows the older poster-relief approval path after proof approval. The next UI/product slice should replace that customer promise with the figurine flow while preserving the existing backend ownership, Storage, Firestore, and checkout boundaries.
+
+The home-page 3D panel is still a visual preview shell. In the existing relief path, the job page shows the approved proof, generated `heightmap.png`, and real color `preview.glb` after the user approves the proof and the print-file generator finishes. In the new figurine path, that page should review the standalone `model.glb`, provider thumbnails, generation warnings, and fulfillment/readiness state.
 
 ## Why There Is A Dev Server And A Functions Emulator
 
@@ -150,11 +166,26 @@ Start with these files when you feel lost:
 - `docs/ARCHITECTURE.md`: deeper system design
 - `docs/DEPLOYMENT.md`: hosting, Firebase, Cloudflare, and secret notes
 - `docs/PRINT_FILE_GENERATION_WORKFLOW.md`: current print-file generator contract and product direction
-- `research/HEIGHTMAP_AND_3D_WORKFLOW_RESEARCH.md`: AI depth and image-to-3D research behind that plan
+- `research/FIGURINE_PROVIDER_RESEARCH.md`: current PrintU/Meshy pivot and provider research
+- `research/HEIGHTMAP_AND_3D_WORKFLOW_RESEARCH.md`: historical AI depth and image-to-3D research behind the relief plan
 
-## Print-File Generator Direction
+## Figurine Direction
 
-The next major implementation slice is the print-file generator. We accepted the extraction path:
+The next major implementation slice is the PrintU-like figurine customer flow:
+
+- Keep the web-first PWA and Firebase backend.
+- Let the customer upload a photo, choose a figurine style, and choose posture.
+- Generate a 2D proof before spending credits on a 3D model.
+- Evaluate Meshy.ai manually first, then implement a server-side provider adapter if output quality, terms, and cost are acceptable.
+- Store generated GLB/STL/optional 3MF assets under user/job scoped Storage paths.
+- Show the generated figurine in the job page before checkout or preorder.
+- Validate slicer/print behavior before promising automated fulfillment.
+
+See `research/FIGURINE_PROVIDER_RESEARCH.md` and `docs/ROADMAP.md` for the current phased direction.
+
+## Parked Print-File Generator Direction
+
+The poster-relief generator is implemented R&D and can resume later. The accepted extraction path remains:
 
 - Keep `services/print-file-generator` as the FastAPI/Cloud Run service boundary.
 - Selectively port core image, heightmap, STL, metadata, color, and test ideas from `E:\PROJECTS\print-file-generator`.
@@ -163,7 +194,7 @@ The next major implementation slice is the print-file generator. We accepted the
 - Treat the Super Dad generated proof as the near-term style target. The customer photo provides identity/reference, but the approved proof and a surface-intent policy should control manufacturing geometry. Smooth is the default unless a region is explicitly intended to be raised text, logo, panel line, hair, fabric, or another printable texture. The current hybrid path separates a cleaned graphic emboss mask from the general detail map and records region roughness metrics in `metadata.json`.
 - Add Depth Anything V2 Small, Depth Pro, MoGe, or other AI depth providers only after the deterministic relief pipeline works.
 
-See `docs/PRINT_FILE_GENERATION_WORKFLOW.md` and `docs/ROADMAP.md` for the current phased direction.
+See `docs/PRINT_FILE_GENERATION_WORKFLOW.md` for the parked poster-relief service contract.
 
 ## Setup
 
@@ -213,6 +244,9 @@ STRIPE_POSTER_PRICE_ID=
 PUBLIC_APP_URL=http://localhost:3000
 APP_STORAGE_BUCKET=gen-lang-client-0675309660.firebasestorage.app
 PRINT_FILE_GENERATOR_URL=http://127.0.0.1:8089
+MESHY_API_KEY=
+MESHY_WEBHOOK_URL=
+MESHY_WEBHOOK_SECRET=
 ```
 
 Do not commit real `.env` files or secrets.
@@ -302,7 +336,7 @@ This mode requires JDK 21+. On this machine, Microsoft OpenJDK 21 is installed, 
 
 ## Basic Manual Test Checklist
 
-Use this checklist when testing the app as a beginner.
+Use this checklist when testing the currently implemented relief app as a beginner. The new figurine path will need a separate checklist after the UI/provider adapter lands.
 
 - [ ] Run `npm install` if dependencies are missing.
 - [ ] Confirm `apps/web/.env.local` exists.
@@ -406,9 +440,10 @@ Use Stripe test mode until payment, webhook, and fulfillment state transitions a
 - [ ] Create Firebase App Hosting backend for `apps/web` staging.
 - [ ] Create Firebase App Hosting backend for `apps/web` production.
 - [ ] Configure public Firebase web env values for each App Hosting backend.
-- [ ] Point `staging.3dprintposters.com` to staging App Hosting.
-- [ ] Point `www.3dprintposters.com` to production App Hosting.
-- [ ] Configure apex `3dprintposters.com` redirect or flattening.
+- [ ] Point a staging hostname such as `staging.3dprintyou.com` to staging App Hosting.
+- [ ] Point `www.3dprintyou.com` to production App Hosting.
+- [ ] Configure apex `3dprintyou.com` redirect or flattening.
+- [ ] Decide whether `3dprintposters.com` remains a separate poster-relief domain or redirects into the new offer.
 
 ### Backend and AI
 
@@ -476,6 +511,6 @@ Use Stripe test mode until payment, webhook, and fulfillment state transitions a
 
 ## Current MVP Boundary
 
-The current project proves the customer-facing order shape, live Vertex/Gemini proof generation, server-side print-file generation, GLB preview, and checkout gating on generated artifacts.
+The current codebase proves the customer-facing order shape, live Vertex/Gemini proof generation, server-side poster-relief print-file generation, GLB preview, and checkout gating on generated artifacts.
 
-The next major unlock is productionizing that path: deploy the print-file generator to Cloud Run, add queueing/retries, create full-color partner packages, and connect a fulfillment workflow.
+The next major unlock is not more relief tuning. It is proving the figurine business model: ship a PrintU-like UI, validate Meshy or another image-to-3D provider, show provider-generated figurine assets in the job page, and choose checkout versus preorder/manual fulfillment based on real output quality.

@@ -2,7 +2,9 @@
 
 ## Product Shape
 
-3D Print Posters starts as a mobile-first web app/PWA. Users upload a photo, choose a style, approve controlled generated art, preview a 5in x 7in 3D relief, pay for a physical poster, and track fulfillment. The "Super Dad" generated proof is the MVP north star: the uploaded photo provides identity/reference, while the approved proof and surface policy provide printable-friendly manufacturing input.
+3D Print Posters is pivoting to a mobile-first web/PWA flow for proving personalized AI figurine demand. Users upload a photo, choose a figurine style and posture, approve a 2D proof, preview a standalone generated 3D figurine, and either check out or enter a preorder/manual-fulfillment funnel.
+
+The poster-relief product remains implemented R&D. If that line resumes, users upload a photo, choose a style, approve controlled generated art, preview a 5in x 7in 3D relief, pay for a physical poster, and track fulfillment. The "Super Dad" generated proof remains the parked relief north star.
 
 The native app path stays open because the product boundaries are server-centered. A future iOS or Android app can reuse the same Firebase Auth, Firestore records, Storage artifacts, Stripe order state, and print file generation service.
 
@@ -21,6 +23,8 @@ Location: `apps/web`
 - Three.js/React Three Fiber for relief preview.
 - Stripe Checkout for physical poster payment.
 
+For the figurine pivot, the same app should present a PrintU-like style/posture flow and standalone figurine GLB review instead of assuming every job has a heightmap/relief preview.
+
 ### Firebase Functions
 
 Location: `apps/functions`
@@ -31,11 +35,27 @@ Responsibilities:
 - Validate user quota, upload ownership, and upload metadata.
 - Trigger selected AI provider generation through the internal provider adapter. Direct Vertex/Gemini image generation is the default MVP route; Cloudflare AI Gateway can be added later behind the same adapter.
 - Record approved generated proofs and block checkout until approval exists.
+- Dispatch generated 3D model provider work for standalone figurines through a server-side provider adapter, with Meshy.ai as the first candidate after terms/cost/output review.
 - Dispatch print file generation work.
 - Create Stripe Checkout sessions.
 - Receive Stripe webhooks.
 - Receive fulfillment callbacks.
 - Own Firestore status transitions that users cannot write directly.
+
+### Generated 3D Model Provider
+
+Initial candidate: Meshy.ai.
+
+Responsibilities:
+
+- Generate standalone figurine or character/object assets from an approved proof or source image.
+- Keep provider API keys server-side only.
+- Support asynchronous task creation, polling, and later webhook updates.
+- Store returned assets under user/job scoped Storage paths before external provider retention expires.
+- Preserve GLB for browser preview, STL for geometry validation or single-color printing, and 3MF when multicolor/Bambu-style workflows are in scope.
+- Record provider audit metadata such as provider id, model version, task id, requested formats, status, warnings, consumed credits/cost, and source artifact paths without storing secrets.
+
+Meshy webhook setup note: official Meshy docs currently direct users to create webhooks in the Meshy web app API settings page. Webhooks require HTTPS URLs. For this project, prefer a Cloudflare-backed receiver such as `https://api.3dprintyou.com/webhooks/meshy` over a temporary webhook proxy.
 
 ### Print File Generator Service
 
@@ -45,7 +65,7 @@ Runtime target: Python on Cloud Run.
 
 Architecture decision: keep this as the production FastAPI/Cloud Run boundary and selectively extract core image, heightmap, STL, metadata, color, and test concepts from `E:\PROJECTS\print-file-generator`. Do not vendor that standalone project's Flask web app, SQLite local project database, browser session state, CLI control plane, or TD1 hardware code into this service.
 
-Responsibilities:
+Parked poster-relief responsibilities:
 
 - Read selected generated image from Cloud Storage.
 - Interpret style and surface-intent metadata when available, with smooth surfaces as the default unless text, logos, panel lines, fabric, hair, or other printable texture classes are explicitly requested.
@@ -87,7 +107,9 @@ Initial objects:
 
 ### Fulfillment
 
-Target provider: a business that can print on a Mimaki 3DUJ-2207 or comparable full-color UV-curable inkjet 3D printer. Sculpteo API work is on hold until we confirm whether it fits the 5x7 full-color relief product.
+For the active figurine pivot, fulfillment is undecided. Evaluate the simplest path that can ship acceptable standalone figurines: local/Bambu-class FDM, a nearby print partner, manual quoting, or a later automated provider. Do not promise automated fulfillment until Meshy/provider outputs pass slicer and physical-print validation.
+
+For the parked relief path, the target provider remains a business that can print on a Mimaki 3DUJ-2207 or comparable full-color UV-curable inkjet 3D printer. Sculpteo API work is on hold until we confirm whether it fits the 5x7 full-color relief product.
 
 The first implementation should isolate provider logic behind a small interface:
 
@@ -99,20 +121,24 @@ The first implementation should isolate provider logic behind a small interface:
 
 ## Data Flow
 
+Active figurine target flow:
+
 1. User signs in with email/password or an anonymous guest session.
 2. Web app creates a job id and uploads a source JPG or PNG to `uploads/{uid}/{jobId}/source.{jpg|png}`.
-3. Web app calls `createGenerationJob` with `jobId`, `sourceImagePath`, and `selectedStyle`.
+3. Web app calls `createGenerationJob` with `jobId`, `sourceImagePath`, selected figurine style, and selected posture.
 4. Function verifies the signed-in user owns the upload path and creates `jobs/{jobId}` with `status: "generating"`.
-5. Function calls the internal AI provider adapter, stores the generated proof under `generated/{uid}/{jobId}/preview.{png|jpg|webp}`, stores non-secret `aiGeneration` metadata, and marks the job `preview_ready` or `failed`. For controlled styles such as the Super Dad path, the generation metadata should eventually include or imply surface intent for print generation.
+5. Function calls the internal AI provider adapter, stores the generated 2D proof under `generated/{uid}/{jobId}/preview.{png|jpg|webp}`, stores non-secret `aiGeneration` metadata, and marks the job `preview_ready` or `failed`.
 6. Job `generatedImages` lists the generated proof Storage path so the approval and checkout flow use the real AI output.
 7. User approves one proof through `approveGeneratedImage`; the Function records `approvedImagePath` and sets `status: "approved"`.
-8. Backend dispatches `services/print-file-generator` with the approved image path.
-9. Print file service writes `model.stl`, color package artifacts, filament painting support files, optional preview mesh, and printability metadata.
-10. User reviews preview and starts checkout.
-11. Function requires an approved proof, then creates a Stripe Checkout Session and deterministic `orders/{jobId}` document for the one-order-per-job MVP path.
-12. Stripe webhook confirms payment.
-13. Function sends the locked print file manifest and shipping data to fulfillment.
+8. Backend dispatches the generated 3D model provider, starting with Meshy if validation passes.
+9. Backend downloads returned model assets into Storage under a path such as `generated-models/{uid}/{jobId}/`.
+10. Job stores `generatedModelArtifacts`, provider audit, task id, status, warnings, consumed credits/cost, and preview path.
+11. User reviews the standalone figurine GLB and starts checkout, preorder, or lead capture.
+12. Stripe webhook confirms payment if checkout is enabled.
+13. Function sends the locked model manifest and shipping data to manual or automated fulfillment only after the selected fulfillment path is validated.
 14. Fulfillment events update the order record.
+
+Parked poster-relief flow: after proof approval, backend dispatches `services/print-file-generator`; the service writes `model.stl`, color package artifacts, filament painting support files, `heightmap.png`, `preview.glb`, and printability metadata; checkout is gated on generated print-file artifacts.
 
 ## Firestore Collections
 
@@ -135,6 +161,10 @@ The first implementation should isolate provider logic behind a small interface:
 - `aiGeneration`
 - `approvedImagePath`
 - `approvedAt`
+- `selectedPosture`
+- `generatedModelOutputPrefix`
+- `generatedModelArtifacts`
+- `generatedModelAudit`
 - `printFileOutputPrefix`
 - `printFileArtifacts`
 - `previewMeshPath`
@@ -151,6 +181,8 @@ Suggested statuses:
 - `generating`
 - `awaiting_selection`
 - `approved`
+- `model_generation_queued`
+- `model_generation_processing`
 - `print_files_queued`
 - `print_files_processing`
 - `ready_for_checkout`
@@ -197,13 +229,17 @@ Cloudflare owns DNS. Firebase App Hosting is the selected first public web host 
 
 Initial deployment shape:
 
-- `staging.3dprintposters.com` points to the staging Firebase App Hosting backend domain.
-- `www.3dprintposters.com` points to the production Firebase App Hosting backend domain.
-- `3dprintposters.com` redirects to `www` or uses Cloudflare flattening according to Firebase's final custom-domain guidance.
+- `3dprintyou.com` is the preferred customer-facing domain candidate for the figurine pivot.
+- `staging.3dprintyou.com` or another chosen staging hostname points to the staging Firebase App Hosting backend domain.
+- `www.3dprintyou.com` points to the production App Hosting backend domain after the production backend exists.
+- `3dprintposters.com` remains available for the parked poster-relief line or redirect strategy.
 
 ## Open Decisions
 
 - Exact Mimaki 3DUJ-2207 print partner and whether it supports API order creation or requires manual quoting/file review.
+- Whether `3dprintyou.com` is staged and launched as the primary domain or shares traffic with `3dprintposters.com`.
+- Whether Meshy output is strong enough for the first figurine MVP and whether the first release uses polling, webhooks, or both.
+- Whether the first figurine fulfillment path is paid preorder/manual review, local printing, or an automated print partner.
 - Exact v1 surface-intent mask implementation and how much should be inferred by the print-file generator versus emitted by proof generation.
 - Which AI provider/model should generate the final controlled artwork for each style family, and whether AI should also help produce depth maps or region/material masks.
 - Whether filament painting should stay as support files first or eventually produce slicer-specific projects.

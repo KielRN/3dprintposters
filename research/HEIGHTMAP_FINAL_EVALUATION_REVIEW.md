@@ -4,6 +4,8 @@ Date: 2026-05-09
 Reviewer: second-pass review against on-disk artifacts
 Source under review: [HEIGHTMAP_EXPERIMENTS_FINAL_EVALUATION.md](HEIGHTMAP_EXPERIMENTS_FINAL_EVALUATION.md)
 
+2026-05-23 status update: this review remains valid for poster relief, but the active product priority is now a PrintU-like standalone figurine flow. Full image-to-3D remains rejected for poster relief, not for figurines.
+
 ## Summary
 
 I agree with the strategic direction in the final evaluation:

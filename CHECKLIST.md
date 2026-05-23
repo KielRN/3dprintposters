@@ -18,6 +18,30 @@
 - [x] Defer Cloudflare AI Gateway creation until provider comparison, centralized AI observability, rate limits, or retries are needed.
 - [x] Defer Workers AI evaluation until after the direct Vertex/Gemini MVP path proves the product workflow.
 
+## Phase 0A - Customer Acquisition / Figurine Pivot
+
+- [x] Decide to prioritize business-model proof and customer acquisition over further poster-relief quality tuning.
+- [x] Reinterpret the image-to-3D experiment result: full 3D reconstruction is wrong for 5x7 poster relief, but may be right for standalone personalized figurines.
+- [x] Research MakerWorld PrintU as the customer-facing UX reference: upload image, choose figurine style, choose posture, generate 2D proof, then generate/edit/export a 3D figurine.
+- [x] Research Meshy.ai as the first provider candidate for image-to-3D figurines, including API outputs, Meshy-6 support, GLB/STL/3MF formats, multicolor print workflow, pricing/credits, retention, and backend-only API constraints.
+- [x] Choose `3dprintyou.com` as the better-fit public domain candidate for the figurine/customer-acquisition pivot, while keeping `3dprintposters.com` available for the parked poster-relief line.
+- [ ] Refresh or replace the local `CLOUDFLARE_API_TOKEN`; the current token is present but fails Cloudflare token verification.
+- [ ] Verify Cloudflare/DNS access for `3dprintyou.com` and decide staging/production hostnames.
+- [ ] Reframe the home/upload flow around a PrintU-like figurine product instead of a poster-relief product.
+- [ ] Add customer-facing style choices for the figurine path: Bobblehead, Chibi, Cartoon, Emoji, or provider-backed equivalents.
+- [ ] Add posture choices for the figurine path: Natural pose, Image pose, T-pose, or provider-backed equivalents.
+- [ ] Add a 2D figurine proof review step before 3D generation.
+- [ ] Add a 3D model provider abstraction for generated figurine artifacts, keeping provider keys and model generation server-side.
+- [ ] Evaluate Meshy manually with canonical local inputs and user-provided PrintU screenshots as UX reference before building the adapter.
+- [ ] Implement Meshy as the first 3D model provider only after terms, credentials, cost, and test output quality are accepted.
+- [ ] Create a Cloudflare-backed Meshy webhook receiver, preferably `https://api.3dprintyou.com/webhooks/meshy`, before configuring the Meshy dashboard webhook.
+- [ ] Create a Meshy webhook in the Meshy API settings dashboard after the Cloudflare HTTPS receiver exists; Meshy does not document a REST endpoint for webhook creation.
+- [ ] Store provider-generated `model.glb`, `model.stl`, optional `model.3mf`, thumbnails, and provider audit metadata under user/job scoped Storage paths.
+- [ ] Update the job page so it can review a standalone figurine GLB, not only a poster-relief GLB/heightmap.
+- [ ] Decide whether the first public validation path is checkout, paid preorder/manual fulfillment, or lead capture with human follow-up.
+- [ ] Add analytics events for upload, style/posture choice, proof approval, 3D generation success/failure, preview engagement, checkout/preorder intent, and abandonment.
+- [ ] Create content, likeness, consent, celebrity/IP, minors, and moderation rules for personalized figurine generation.
+
 ## Phase 1 - Web MVP
 
 - [x] Scaffold mobile-first Next.js app shell.
@@ -55,6 +79,8 @@
 - [ ] Add user quotas and abuse controls.
 
 ## Phase 3 - Print File Generation And Relief Quality
+
+Current status: parked R&D while Phase 0A proves the PrintU-like figurine business model. Do not make additional relief tuning the next customer-acquisition blocker unless the user explicitly reactivates the poster-relief line.
 
 - [x] Create Python Cloud Run service contract for STL generation.
 - [x] Create broader print file generator service contract.
@@ -136,6 +162,9 @@
 - [x] Create checkout sessions for physical poster orders.
 - [x] Persist Stripe Checkout Session IDs on order records.
 - [ ] Persist Stripe customer ids.
+- [ ] Decide whether the first figurine offer uses paid preorder/manual fulfillment, automated checkout, or lead capture until print validation is complete.
+- [ ] Validate Meshy/MakerWorld-generated figurine files in slicer and, if possible, with at least one physical test print before promising automated fulfillment.
+- [ ] Identify the first fulfillment path for figurines: in-house/local Bambu-class FDM, a print partner, or manual quoting.
 - [ ] Find a print partner with Mimaki 3DUJ-2207 or comparable full-color 3D printing.
 - [ ] Confirm partner file formats, material profile, 5x7 constraints, quote process, and order workflow.
 - [ ] Create fulfillment quote flow.

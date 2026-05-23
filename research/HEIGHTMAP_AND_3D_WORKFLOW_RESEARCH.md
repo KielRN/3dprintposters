@@ -2,6 +2,8 @@
 
 Date: 2026-05-09
 
+2026-05-23 status update: this research remains valid for the parked 5x7 poster-relief product line. Its "full image-to-3D is rejected" conclusion applies to poster relief only. The business priority has shifted to proving a PrintU-like standalone figurine workflow, where image-to-3D providers such as Meshy.ai may be the right tool rather than the wrong one.
+
 ## Executive Summary
 
 The current heightmap problem is not surprising. The print-file generator is using a deliberately simple `posterized_luminance` provider: grayscale conversion, blur, autocontrast, 9 height bands, a small edge-detail pass, then direct heightfield meshing. That makes a valid printable relief, but it also explains the chunky gray regions and muddy face detail visible in the local screenshots.

@@ -2,6 +2,8 @@
 
 Date: 2026-05-09
 
+2026-05-23 status update: this evaluation is historical support for the parked poster-relief path. The rejection of full image-to-3D reconstruction applies to 5x7 bas-relief posters only. It should now be read as evidence that standalone figurine generation is a better fit for that model class.
+
 ## Provider Rename (2026-05-09)
 
 The Experiment 4 provider was renamed from `sam_masked_depth` to `segformer_masked_depth` to reflect the actual implementation (SegFormer/ADE20K via the HF Inference API, not SAM). All references in this document use the new name. Historical artifacts under `.tmp/experiments/experiment_4/sam_masked_depth/` retain the original name as a record of what was actually run, including baked-in `metadata.json` values.

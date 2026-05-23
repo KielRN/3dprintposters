@@ -4,19 +4,22 @@ This file tracks product direction and enhancement ideas that are not yet commit
 
 ## Near-Term MVP
 
-- Continue the web-first PWA flow from the now-wired sign-in, photo upload, style selection, job creation, generated proof approval, checkout, and single-order status path into real print preview artifacts, account-level order history, and fulfillment tracking.
-- Keep the first customer journey narrow: one uploaded photo, one selected style, one generated 5in x 7in printable poster, and one checkout path.
-- Use the "Super Dad" generated proof as the MVP relief north star: a HueForge-like controlled poster product where the uploaded photo supplies identity/reference, the generated proof supplies printable-friendly art, and the final relief uses smooth default surfaces with intentional raised graphics.
+- Pivot the near-term MVP toward customer acquisition and business-model proof before more poster-relief tuning.
+- Keep the first customer journey narrow: one uploaded photo, one selected figurine style, one selected posture, one generated 2D proof, one generated 3D figurine preview, and one purchase-intent path.
+- Use MakerWorld PrintU as the UX reference: upload image, choose Bobblehead/Chibi/Cartoon/Emoji-style output, choose Natural/Image/T-pose posture, approve a 2D preview, then generate or edit a 3D figurine.
+- Treat Meshy.ai as the first serious image-to-3D provider candidate because its current API and MakerWorld integration are aimed at the exact "photo to printable 3D model" gap.
+- Keep the "Super Dad" poster-relief path as parked R&D. It remains valuable if the product returns to 5x7 relief posters, but it is not the next customer-acquisition blocker.
 - Make every generated artifact traceable to a user, job, and order before fulfillment.
 - Replace remaining placeholder preview and local API scaffolds with the authenticated Firebase-backed workflow where needed.
-- Treat [Print File Generation Workflow](./PRINT_FILE_GENERATION_WORKFLOW.md) as the print-file service contract, and [Heightmap Final Evaluation Review](../research/HEIGHTMAP_FINAL_EVALUATION_REVIEW.md) as historical relief research that now feeds the Super Dad surface-intent direction.
+- Treat [Figurine Provider And PrintU Workflow Research](../research/FIGURINE_PROVIDER_RESEARCH.md) as the current product pivot source, [Print File Generation Workflow](./PRINT_FILE_GENERATION_WORKFLOW.md) as the parked poster-relief service contract, and [Heightmap Final Evaluation Review](../research/HEIGHTMAP_FINAL_EVALUATION_REVIEW.md) as historical relief research.
 
 ## Cloudflare/Deployment
 
-- Use `3dprintposters.com` as the product domain.
+- Use `3dprintyou.com` as the preferred public domain candidate for the figurine/customer-acquisition pivot.
+- Keep `3dprintposters.com` available for the parked poster-relief product line or future redirect strategy.
 - Use Firebase App Hosting as the first public web hosting target for `apps/web`.
-- Create staging first, then point `staging.3dprintposters.com` at the Firebase-generated App Hosting backend domain.
-- Point `www.3dprintposters.com` at the production App Hosting backend domain after the production backend exists.
+- Create staging first, then point a chosen staging hostname such as `staging.3dprintyou.com` at the Firebase-generated App Hosting backend domain.
+- Point `www.3dprintyou.com` at the production App Hosting backend domain after the production backend exists.
 - Current testing is still local at `http://localhost:3000` until the App Hosting backend is created.
 - Keep the function-only emulator path available for local customer-flow testing; the full emulator workflow is checked in and preflights JDK 21+ before startup.
 - Keep Cloudflare AI Gateway as a later traffic-management layer, not an MVP dependency.
@@ -27,16 +30,28 @@ This file tracks product direction and enhancement ideas that are not yet commit
 
 - Start with direct GCP Vertex/Gemini integration for MVP speed; the first proof-generation route uses `gemini-2.5-flash-image` through Vertex AI express mode unless overridden.
 - Production assumes API-based AI inference. Local model inference is dev/experiment territory only; offline operation is not a goal.
+- Add a separate 3D model provider role for standalone figurine generation. This role should be server-side, auditable, replaceable, and start with Meshy only after manual output, terms, cost, and retention checks are accepted.
+- The May 2026 image-to-3D rejection applies to poster relief only. Full 3D reconstruction was wrong for image-plane bas-relief because it produced standalone objects; standalone objects are now the desired output for the figurine path.
+- Store provider outputs immediately in Firebase Storage because external providers may expire generated assets quickly. Preserve GLB for preview, STL for geometry validation/single-color printing, and 3MF when multicolor/Bambu-style workflows are in scope.
 - The first production style family should generate controlled printable art, not photorealistic source-photo texture. For the Super Dad path, prompt/style policy should prefer smooth stylized skin, clean scalp/neck/body volumes, crisp typography, sharp logos/emblems, simple backgrounds, and only explicitly requested material texture.
 - AI proof generation now records a style contract and print generation has a `smooth-default-v1` surface-intent schema. The next step is to thread that metadata through approval and use it for inferred masks such as `smooth_skin`, `smooth_body`, `smooth_fabric`, `flat_background`, `raised_text`, `raised_logo`, `panel_line`, `hair_texture`, or other printable texture classes.
-- Each AI role that supports the poster-relief workflow (poster proof generation, monocular depth, subject segmentation, and optional proof cleanup/depth-friendly preprocessing) sits behind a typed provider interface modeled on `apps/functions/src/aiProvider.ts`, with a chain of API-backed implementations (Vertex AI, HF Inference, Cloudflare-gatewayed) selected by registry config. Image-to-3D providers stay rejected for the 5x7 relief product unless the product scope expands to standalone figurines or object sculptures.
-- Work backward from human-approved production STLs before training. Approved STLs become gold masters for extracted heightmaps, normal/depth renders, smooth masks, raised-graphic masks, and generator tuning. LoRA and ControlNet-style work should wait until at least 30 approved examples exist, as defined in [Approved Relief Training Protocols](./APPROVED_RELIEF_TRAINING_PROTOCOLS.md).
+- Each AI role should sit behind a typed provider interface modeled on `apps/functions/src/aiProvider.ts`. The active role to add is `figurine_model_generation`; poster-relief roles (monocular depth, subject segmentation, proof cleanup/depth-friendly preprocessing) are parked until the relief line is reactivated.
+- Work backward from human-approved production STLs only if the poster-relief line resumes. The approved-relief dataset milestone in [Approved Relief Training Protocols](./APPROVED_RELIEF_TRAINING_PROTOCOLS.md) is paused during the figurine demand proof.
 - Cloudflare AI Gateway is the unified observability/rate-limit/fallback pane for cross-provider routing, not an MVP-only afterthought. Wire roles through it as their gateway-served implementations land.
 - Start with a single generation path per role before adding style variations, prompt tuning, or batch generation.
 - Add moderation, quota checks, and cost caps before public traffic.
 - Save enough metadata for each generation — including which provider in the chain served the request, attempted fallbacks, and model version — to debug quality, cost, and fulfillment issues without storing secrets.
 
 ## Print Files/Preview
+
+- Active figurine track:
+
+- Add a provider-generated figurine artifact bundle under user/job scoped Storage paths, such as `generated-models/{uid}/{jobId}/model.glb`, `model.stl`, optional `model.3mf`, thumbnails, provider metadata, and warnings.
+- Show the standalone figurine GLB in the job page with controls suitable for inspecting a character/object from all sides.
+- Validate Meshy/MakerWorld-generated outputs in slicer and with at least one physical print before automated fulfillment depends on them.
+- Decide whether the MVP ships with checkout, paid preorder/manual fulfillment, or lead capture while physical print validation catches up.
+
+Parked poster-relief track:
 
 - Keep `services/print-file-generator` as the FastAPI/Cloud Run production boundary and selectively extract core image, heightmap, STL, color, and test concepts from `E:\PROJECTS\print-file-generator`.
 - Do not vendor the standalone Flask, SQLite, browser-session, CLI, or TD1 hardware app architecture into the production service.
@@ -72,6 +87,8 @@ This file tracks product direction and enhancement ideas that are not yet commit
 ## Payments/Fulfillment
 
 - Keep Stripe in test mode until payment, webhook, and order state transitions are proven end to end.
+- Decide whether the first figurine validation path is a paid preorder/manual fulfillment path or a fully automated checkout path. Do not imply automated fulfillment until generated figurine files pass slicer and physical-print validation.
+- For figurines, evaluate local/Bambu-class FDM or an accessible print partner before defaulting to the older Mimaki 3DUJ-2207 relief-partner assumption.
 - Find and qualify a business that can print on a Mimaki 3DUJ-2207 or comparable full-color UV-curable inkjet 3D printer.
 - Keep Sculpteo API access on hold until it is clear whether it fits the Mimaki-targeted workflow.
 - Require confirmed payment before sending any order to fulfillment.

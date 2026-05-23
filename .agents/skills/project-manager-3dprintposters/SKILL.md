@@ -19,6 +19,7 @@ Start with the most relevant of these files, depending on the request:
 - `CHANGELOG.md`: completed changes and chronology.
 - `README.md`: user-facing setup and project overview.
 - `docs/PRINT_FILE_GENERATION_WORKFLOW.md`: print-file flow and service contract.
+- `research/FIGURINE_PROVIDER_RESEARCH.md`: current 2026-05-23 customer-acquisition pivot, PrintU UX reference, Meshy provider research, and next validation steps.
 - `research/HEIGHTMAP_AND_3D_WORKFLOW_RESEARCH.md`: heightmap experiment status and decisions.
 - `human-tasks/README.md` and `human-tasks/open/*.md`: human-owned validation, decision, credential, partner, and external-action tasks.
 - `elliot_quick_dev_Startup.md`: local ignored startup and experiment runbook for Elliot's manual testing flow. Reference it when creating human testing tasks, but do not expose secrets or assume it is tracked.
@@ -38,8 +39,10 @@ Secret-bearing configuration is in scope; secret values are not. Agents may insp
 4. Preserve project constraints:
    - Web-first PWA architecture.
    - Backend orchestration in Firebase Functions.
-   - Server-side print-file generation in `services/print-file-generator`.
-   - Direct Vertex/Gemini route remains MVP default.
+   - Server-side print-file/model generation; provider credentials and geometry/model generation must stay out of the browser.
+   - Direct Vertex/Gemini route remains the current proof-generation path until a provider-specific proof route is intentionally chosen.
+   - Current priority is the 2026-05-23 PrintU-like figurine demand proof, with Meshy.ai as the first image-to-3D provider candidate.
+   - Poster-relief work remains documented R&D and should not be treated as the next customer-acquisition blocker unless the user explicitly reactivates that line.
    - Reviewed product decisions should be promoted into the real workflow instead of left as opt-in experiments.
    - No branch creation, commits, pushes, PRs, or exposure/movement of secret values unless explicitly requested and safe.
 5. Review human follow-ups:
@@ -145,10 +148,13 @@ Source: `[repo file, local runbook, or handoff context]`
 ## Gotchas
 
 - Use `STL`, not `SLT`.
-- The full Firebase emulator suite is blocked on this machine until JDK 21+ is installed; function-only emulator testing is the normal local path.
+- JDK 21+ is installed on this machine; function-only emulator testing remains useful for the hybrid shared-Firebase flow.
+- As of 2026-05-23, customer acquisition and a PrintU-like figurine flow outrank further poster-relief tuning.
+- `3dprintyou.com` is the preferred domain candidate for the figurine pivot; `3dprintposters.com` remains available for the parked poster-relief line.
 - Local `.env` files are ignored and may contain provider keys. It is okay to reason about required variable names and API surfaces; never quote secret values.
-- `masked_depth_detail_blend` with `lithophane_baseline` detail source is the current product relief path; `posterized_luminance` is only a reference provider.
-- `triposr_sidecar` was evaluated on 2026-05-09 and rejected for poster relief because it reconstructs standalone 3D objects instead of image-plane depth.
-- Do not let PM outputs imply checkout is ready unless proof approval and print-file artifacts are generated.
+- `masked_depth_detail_blend` with `lithophane_baseline` detail source is the current implemented poster-relief path, but relief is parked R&D until the figurine demand proof is addressed.
+- `triposr_sidecar` was evaluated on 2026-05-09 and rejected for poster relief because it reconstructs standalone 3D objects instead of image-plane depth. Do not read that as a global rejection of image-to-3D for standalone figurines.
+- Meshy.ai is the first provider to evaluate for the figurine path. Its API, pricing, retention, and commercial-use terms must be verified before public checkout.
+- Do not let PM outputs imply checkout is ready unless the active product path has its required artifacts: poster relief requires proof approval and print-file artifacts; figurine MVP requires proof approval, provider-generated 3D preview/assets, and human/provider validation of fulfillment readiness or an explicit preorder/manual-fulfillment decision.
 - Prefer exact dates for schedule/status claims. If a date is unknown, say `TBD`.
 - Human tasks are for human-only follow-ups, especially full product-flow browser tests after AI implementation and local verification. They are not a substitute for automated checks the agent can run locally.

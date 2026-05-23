@@ -6,6 +6,10 @@ All notable project changes will be documented in this file.
 
 ### Added
 
+- Added the 2026-05-23 customer-acquisition pivot: PrintU-like personalized figurines now outrank further poster-relief tuning until the business model is proven.
+- Added Meshy/PrintU provider research in `research/FIGURINE_PROVIDER_RESEARCH.md`, including Meshy API output formats, Meshy-6/MakerWorld fit, pricing/retention notes, and webhook setup constraints.
+- Added `MESHY_API_KEY`, `MESHY_WEBHOOK_URL`, and `MESHY_WEBHOOK_SECRET` placeholders to env examples without exposing local secret values.
+- Added a human follow-up task for Meshy figurine evaluation, slicer/printability review, and dashboard-based webhook setup.
 - Added AI 3D model generation research for the poster-relief pipeline.
 - Added a print-file generator architecture roadmap evaluation recommending selective core-module extraction from `E:\PROJECTS\print-file-generator`.
 - Added the first deterministic print-file generator pipeline with image normalization, luminance heightmaps, closed relief STL export, local/GCS storage adapters, artifact metadata, and regression tests.
@@ -52,6 +56,9 @@ All notable project changes will be documented in this file.
 
 ### Changed
 
+- Changed the active product priority from poster-relief quality tuning to proving a PrintU-like figurine funnel with `3dprintyou.com` as the better-fit public domain candidate.
+- Changed docs to clarify that image-to-3D providers were rejected for poster relief only, and are now valid candidates for standalone figurines.
+- Changed roadmap/checklist/architecture/README/PRD positioning so Meshy is the first generated-3D provider candidate and the existing relief path is parked R&D.
 - Changed the default hybrid relief path to lean back toward HueForge/lithophane behavior: `lithophane_baseline` now contributes to the subject height signal, default `detail_weight` is `0.38`, bas-relief compression is less aggressive, and final subject/portrait smoothing is reduced so facial/body/graphic detail is not flattened away.
 - Updated roadmap, checklist, README, architecture, workflow, service, and developer notes to make deterministic closed-relief generation the next print-file implementation slice.
 - Wired the print-file generator `/v1/generate` route to produce real baseline artifacts when the selected image is readable from local filesystem or GCS storage.

@@ -1,0 +1,4 @@
+interface:
+  display_name: "3DPrintYou Cloudflare"
+  short_description: "DNS, Workers, routes, webhooks"
+  default_prompt: "Use $cloudflare-3dprintyou to verify Cloudflare access, inspect zones and DNS, plan Worker routes, and set up webhook endpoints for 3dprintyou.com without exposing secrets."

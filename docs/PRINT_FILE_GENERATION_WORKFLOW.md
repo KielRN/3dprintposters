@@ -1,5 +1,7 @@
 # Print File Generation Workflow
 
+Status: parked poster-relief R&D as of 2026-05-23. The active customer-acquisition direction is a PrintU-like standalone figurine flow using generated 3D model providers, with Meshy.ai as the first candidate. Keep this document as the implemented poster-relief service contract and resume it only if/when the relief product line is reactivated.
+
 The print file generation pipeline turns the selected generated poster image into a job-scoped bundle of artifacts for preview, printability review, fulfillment, and future filament painting workflows.
 
 This workflow supersedes the narrower STL-only framing. STL remains useful as a baseline geometry artifact, but it is not the whole production package.

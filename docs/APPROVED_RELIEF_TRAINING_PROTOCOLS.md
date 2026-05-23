@@ -1,5 +1,7 @@
 # Approved Relief Training Protocols
 
+Status: paused as of 2026-05-23 while the product shifts to a PrintU-like standalone figurine demand proof. Resume these protocols only if/when the poster-relief product line is reactivated.
+
 These protocols define the new direction for improving 3DPrintPosters by working backward from human-approved production relief files.
 
 The goal is not to train from raw STL files directly. The goal is to use each approved production STL as a gold master, extract 2D supervision artifacts from it, and use those artifacts to tune the deterministic print-file generator first. Once there are at least 30 approved examples, the same dataset can support LoRA and ControlNet-style training.
