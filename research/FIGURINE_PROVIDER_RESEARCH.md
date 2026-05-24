@@ -43,8 +43,9 @@ Current useful facts from official Meshy docs and announcements:
 - Meshy's March 17, 2026 announcement says Meshy Image-to-3D is integrated into MakerWorld MakerLab, can generate print-ready models from a single image in the browser, and can export STL, 3MF, and GLB. It also says Meshy's multicolor workflow maps textures into Bambu AMS-compatible color zones and exports 3MF.
 - Local setup now includes `MESHY_API_KEY` in the ignored root `.env` for a paid monthly account. Do not print, copy, or commit the key.
 - Meshy webhook setup is currently dashboard-based: official docs direct users to the Meshy API settings page, Webhooks section, and "Create Webhook" button. No documented REST endpoint was found for creating a webhook by API as of 2026-05-23.
-- Meshy webhooks require HTTPS and send task status updates to each enabled webhook URL. For this project, prefer a Cloudflare-backed receiver such as `https://api.3dprintyou.com/webhooks/meshy`.
-- Local Cloudflare setup needs credential refresh before automation: `CLOUDFLARE_API_TOKEN` is present in root `.env`, but token verification returned `401` on 2026-05-23.
+- Meshy webhooks require HTTPS and send task status updates to each enabled webhook URL. The project receiver is deployed at `https://api.3dprintyou.com/webhooks/meshy`.
+- A real Meshy delivery on 2026-05-23 confirmed Meshy sends `x-meshy-api-webhook-secret-key` and `x-meshy-api-webhook-user-id`; the Worker enforces the secret header and logs only sanitized metadata.
+- Local Cloudflare setup is partially sufficient: `CLOUDFLARE_API_TOKEN` verifies and can deploy Workers, but still returns `403` for DNS record and Worker route reads.
 
 Sources:
 

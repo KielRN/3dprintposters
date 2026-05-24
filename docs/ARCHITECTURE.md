@@ -55,7 +55,7 @@ Responsibilities:
 - Preserve GLB for browser preview, STL for geometry validation or single-color printing, and 3MF when multicolor/Bambu-style workflows are in scope.
 - Record provider audit metadata such as provider id, model version, task id, requested formats, status, warnings, consumed credits/cost, and source artifact paths without storing secrets.
 
-Meshy webhook setup note: official Meshy docs currently direct users to create webhooks in the Meshy web app API settings page. Webhooks require HTTPS URLs. For this project, prefer a Cloudflare-backed receiver such as `https://api.3dprintyou.com/webhooks/meshy` over a temporary webhook proxy.
+Meshy webhook setup note: official Meshy docs currently direct users to create webhooks in the Meshy web app API settings page. Webhooks require HTTPS URLs. The Cloudflare Worker receiver is live as a Workers custom domain at `https://api.3dprintyou.com/webhooks/meshy`, with the default `workers.dev` trigger disabled.
 
 ### Print File Generator Service
 

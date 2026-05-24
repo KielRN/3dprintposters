@@ -8,6 +8,9 @@ All notable project changes will be documented in this file.
 
 - Added the 2026-05-23 customer-acquisition pivot: PrintU-like personalized figurines now outrank further poster-relief tuning until the business model is proven.
 - Added Meshy/PrintU provider research in `research/FIGURINE_PROVIDER_RESEARCH.md`, including Meshy API output formats, Meshy-6/MakerWorld fit, pricing/retention notes, and webhook setup constraints.
+- Added the Cloudflare Worker Meshy webhook receiver at `https://api.3dprintyou.com/webhooks/meshy`, with the default `workers.dev` trigger disabled and health/JSON POST smoke tests passing.
+- Added `MESHY_WEBHOOK_SECRET` to the deployed Meshy webhook Worker as an encrypted Cloudflare secret, with live health verification that the binding is configured.
+- Enforced Meshy webhook authentication using the real delivery header `x-meshy-api-webhook-secret-key`; unauthenticated POSTs now return `401`.
 - Added `MESHY_API_KEY`, `MESHY_WEBHOOK_URL`, and `MESHY_WEBHOOK_SECRET` placeholders to env examples without exposing local secret values.
 - Added a human follow-up task for Meshy figurine evaluation, slicer/printability review, and dashboard-based webhook setup.
 - Added AI 3D model generation research for the poster-relief pipeline.

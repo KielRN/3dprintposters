@@ -7,7 +7,7 @@ Source: `research/FIGURINE_PROVIDER_RESEARCH.md`, Meshy webhook docs, user note 
 
 ## Why Human
 
-This needs Elliot's Meshy account, dashboard access, visual judgment, and a public HTTPS webhook URL. Meshy webhook creation is documented as a dashboard action in the Meshy API settings page, not a REST API call. Use Cloudflare for the receiver rather than a temporary webhook proxy.
+This still needs Elliot's Meshy account, dashboard access, and visual/printability judgment. The Cloudflare HTTPS receiver and Meshy dashboard webhook are created; the remaining human work is to judge whether real Meshy/MakerWorld PrintU-style outputs are good enough for the first figurine MVP.
 
 ## Steps
 
@@ -20,10 +20,10 @@ This needs Elliot's Meshy account, dashboard access, visual judgment, and a publ
 4. Test the PrintU-like choices that matter for our UI: Bobblehead, Chibi, Cartoon, Emoji, Natural pose, Image pose, and T-pose when available.
 5. For each useful generation, capture safe notes: style, posture, time, credits/cost, output formats available, whether GLB/STL/3MF download works, and whether the model looks sellable.
 6. Open the generated STL/3MF in Bambu Studio, OrcaSlicer, or another slicer and note printability issues: scale, supports, fragile parts, color mapping, warnings, and estimated print time/material.
-7. Refresh or replace the local Cloudflare API token. The current root `.env` token is present but returned `401` from Cloudflare token verification on 2026-05-23.
-8. Create a Cloudflare-backed HTTPS receiver for Meshy, preferably `https://api.3dprintyou.com/webhooks/meshy`.
-9. In Meshy API settings, find **Webhooks**, click **Create Webhook**, and enter the Cloudflare receiver URL.
-10. Enable the webhook and trigger a low-risk Meshy task if you want to confirm delivery. Do not spend credits on extra generations unless the result is useful for provider evaluation.
+7. Cloudflare-backed HTTPS receiver is created and smoke-tested. Use payload URL `https://api.3dprintyou.com/webhooks/meshy`.
+8. `MESHY_WEBHOOK_SECRET` is present in local `.env` and uploaded as an encrypted Cloudflare Worker secret. A real Meshy delivery confirmed the secret arrives in `x-meshy-api-webhook-secret-key`, and the Worker now rejects webhook POSTs without the matching secret.
+9. Meshy API settings webhook is active and delivered real `PENDING` and `FAILED` events to the Worker.
+10. For future Cloudflare automation, expand or replace the local Cloudflare API token. On 2026-05-23 the current root `.env` token verified successfully and could see both project zones, but returned `403` for DNS record and Worker route reads.
 
 ## Done When
 
@@ -41,6 +41,7 @@ This needs Elliot's Meshy account, dashboard access, visual judgment, and a publ
 - Credit/cost notes without exposing payment details.
 - Slicer warnings and print-time/material estimates.
 - Webhook proxy/deployed URL only if it is safe and intended to be used by the app.
+- Test task `019e562e-06ea-7e78-b3e6-98651023fae2` delivered `PENDING` and `FAILED` webhook events, failed at 15% progress, and reported `0` consumed credits. It was useful for webhook/header verification, not output-quality evaluation.
 
 ## Related Files
 

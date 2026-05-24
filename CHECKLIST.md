@@ -25,8 +25,8 @@
 - [x] Research MakerWorld PrintU as the customer-facing UX reference: upload image, choose figurine style, choose posture, generate 2D proof, then generate/edit/export a 3D figurine.
 - [x] Research Meshy.ai as the first provider candidate for image-to-3D figurines, including API outputs, Meshy-6 support, GLB/STL/3MF formats, multicolor print workflow, pricing/credits, retention, and backend-only API constraints.
 - [x] Choose `3dprintyou.com` as the better-fit public domain candidate for the figurine/customer-acquisition pivot, while keeping `3dprintposters.com` available for the parked poster-relief line.
-- [ ] Refresh or replace the local `CLOUDFLARE_API_TOKEN`; the current token is present but fails Cloudflare token verification.
-- [ ] Verify Cloudflare/DNS access for `3dprintyou.com` and decide staging/production hostnames.
+- [ ] Expand or replace the local `CLOUDFLARE_API_TOKEN`; on 2026-05-23 it verified successfully for the account but returned `403` for zone DNS and Worker route reads.
+- [ ] Verify Cloudflare DNS/Worker route access for `3dprintyou.com` and decide staging/production hostnames.
 - [ ] Reframe the home/upload flow around a PrintU-like figurine product instead of a poster-relief product.
 - [ ] Add customer-facing style choices for the figurine path: Bobblehead, Chibi, Cartoon, Emoji, or provider-backed equivalents.
 - [ ] Add posture choices for the figurine path: Natural pose, Image pose, T-pose, or provider-backed equivalents.
@@ -34,8 +34,8 @@
 - [ ] Add a 3D model provider abstraction for generated figurine artifacts, keeping provider keys and model generation server-side.
 - [ ] Evaluate Meshy manually with canonical local inputs and user-provided PrintU screenshots as UX reference before building the adapter.
 - [ ] Implement Meshy as the first 3D model provider only after terms, credentials, cost, and test output quality are accepted.
-- [ ] Create a Cloudflare-backed Meshy webhook receiver, preferably `https://api.3dprintyou.com/webhooks/meshy`, before configuring the Meshy dashboard webhook.
-- [ ] Create a Meshy webhook in the Meshy API settings dashboard after the Cloudflare HTTPS receiver exists; Meshy does not document a REST endpoint for webhook creation.
+- [x] Create a Cloudflare-backed Meshy webhook receiver at `https://api.3dprintyou.com/webhooks/meshy`, with the default `workers.dev` trigger disabled.
+- [x] Create and activate the Meshy webhook in the Meshy API settings dashboard; a real delivery confirmed `x-meshy-api-webhook-secret-key`, and the Worker now rejects webhook POSTs without the matching secret.
 - [ ] Store provider-generated `model.glb`, `model.stl`, optional `model.3mf`, thumbnails, and provider audit metadata under user/job scoped Storage paths.
 - [ ] Update the job page so it can review a standalone figurine GLB, not only a poster-relief GLB/heightmap.
 - [ ] Decide whether the first public validation path is checkout, paid preorder/manual fulfillment, or lead capture with human follow-up.
