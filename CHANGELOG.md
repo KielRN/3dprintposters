@@ -13,6 +13,8 @@ All notable project changes will be documented in this file.
 - Enforced Meshy webhook authentication using the real delivery header `x-meshy-api-webhook-secret-key`; unauthenticated POSTs now return `401`.
 - Replaced the broad historical `CHECKLIST.md` with a short active Meshy-service checklist and archived the previous implementation checklist under `docs/archive/`.
 - Added `docs/MESHY_FIGURINE_UI_WORKFLOW.md`, mapping the PrintU screenshot sequence into the target Meshy-backed figurine UI and required backend services.
+- Added a local Meshy Image to 3D runner and a living Meshy service implementation plan for API findings, run results, and backend backlog.
+- Clarified that the immediate Meshy implementation target is the UI workflow from `docs/MESHY_FIGURINE_UI_WORKFLOW.md`, starting with Image to Emoji/avatar-style figurine using Natural pose.
 - Added `MESHY_API_KEY`, `MESHY_WEBHOOK_URL`, and `MESHY_WEBHOOK_SECRET` placeholders to env examples without exposing local secret values.
 - Added a human follow-up task for Meshy figurine evaluation, slicer/printability review, and dashboard-based webhook setup.
 - Added AI 3D model generation research for the poster-relief pipeline.
@@ -104,6 +106,8 @@ All notable project changes will be documented in this file.
 
 ### Verified
 
+- Verified a live Meshy Image to 3D task succeeded from `.tmp/Profile-Pic-HIMSS.jpg`, downloaded GLB/STL/3MF artifacts under `.tmp/print-files`, and exposed slicer-readiness risks for the first raw-photo output.
+- Recorded Elliot's Blender review that the first Meshy GLB is viewable but not the intended product style.
 - Verified `services/print-file-generator` tests pass.
 - Verified Firebase Functions build after print-file audit persistence changes.
 - Verified the reorganized print-file generator test suite still collects and passes all 62 tests.

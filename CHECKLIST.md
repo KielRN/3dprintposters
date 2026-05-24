@@ -14,9 +14,10 @@ Prove whether Meshy can power the first customer-facing figurine workflow:
 2. Customer chooses style and posture.
 3. Backend creates a 2D proof.
 4. Backend sends the approved proof/source to Meshy.
-5. App stores generated GLB/STL/3MF artifacts.
-6. Job page shows an honest 3D preview and readiness/warning state.
-7. Product chooses lead capture, preorder/manual fulfillment, or checkout based on real output quality.
+5. First target workflow uses Emoji/avatar style with Natural pose.
+6. App stores generated GLB/STL/3MF artifacts.
+7. Job page shows an honest 3D preview and readiness/warning state.
+8. Product chooses lead capture, preorder/manual fulfillment, or checkout based on real output quality.
 
 ## Done
 
@@ -30,28 +31,25 @@ Prove whether Meshy can power the first customer-facing figurine workflow:
 - [x] Confirm real Meshy webhook delivery headers: `x-meshy-api-webhook-secret-key` and `x-meshy-api-webhook-user-id`.
 - [x] Enforce Meshy webhook authentication with `x-meshy-api-webhook-secret-key`.
 - [x] Run a real Meshy webhook delivery test. Task `019e562e-06ea-7e78-b3e6-98651023fae2` delivered `PENDING` and `FAILED` events with `0` consumed credits, proving delivery/security but not output quality.
+- [x] Generate the first successful Meshy Image to 3D output and download GLB/STL/3MF artifacts. Details live in `research/MESHY_SERVICE_IMPLEMENTATION_PLAN.md`.
 
 ## Next
 
-- [ ] Generate at least one successful Meshy figurine output from a customer-like image.
-- [ ] Download and inspect the generated GLB/STL/3MF in slicer software.
+- [ ] Inspect the downloaded Meshy GLB/STL/3MF in slicer software.
+- [ ] Generate or select an Emoji/avatar Natural pose 2D concept proof as the next Meshy input.
+- [ ] Run the next Meshy job from that Emoji/avatar Natural pose input and compare it with the raw-photo run.
 - [ ] Classify Meshy output quality as promising, weak, or not viable for the first figurine MVP.
-- [ ] Decide first supported style/posture set from actual outputs, not provider marketing.
-- [ ] Create the figurine workflow service contract from `docs/MESHY_FIGURINE_UI_WORKFLOW.md`: source upload validation, style/posture metadata, 2D concept history, selected concept, 3D model history, readiness state, base/sign config, and checkout eligibility.
-- [ ] Implement the Functions-side figurine orchestration service: create/validate figurine jobs, generate 2D concepts, approve/select a concept, submit 3D model generation, and expose job/model status to the web app.
-- [ ] Implement a server-side generated-3D provider boundary with Meshy as the first provider after output quality is accepted for customer-facing use. Scaffolding can land earlier, but public checkout must stay gated.
-- [ ] Persist Meshy task audit metadata without secrets: provider id, task id, model/version, status, requested formats, warnings, credits/cost, webhook state, polling state, and source artifact paths.
-- [ ] Implement the Meshy asset-ingestion service: download accepted GLB/STL/3MF/thumbnails into user/job-scoped Firebase Storage before Meshy retention expires.
-- [ ] Connect Meshy polling and/or webhook events to Firestore job state, model history, warnings, and readiness status.
-- [ ] Create a figurine artifact/readiness service that reports preview-ready, needs-review, printability-warning, print-ready, or blocked states.
-- [ ] Update the job page to review standalone figurine GLB assets instead of only poster-relief GLB/heightmap artifacts.
-- [ ] Add customer-facing figurine controls: style, posture, 2D proof review/history, 3D generation state/history, color mode, base, and sign text.
+- [ ] Decide whether Emoji/avatar + Natural pose is good enough to become the first supported style/posture set.
+- [ ] Implement the Meshy service slice from `research/MESHY_SERVICE_IMPLEMENTATION_PLAN.md`: provider adapter, task tracking, asset ingestion, readiness, and idempotency.
+- [ ] Update the job page and creation flow for standalone figurine preview, style/posture, 2D proof approval, 3D generation history, and readiness/warning state.
 - [ ] Add preorder/lead-capture/checkout gating so the user can proceed only after the active model's fulfillment status is clear.
 - [ ] Decide whether the first public validation path is lead capture, paid preorder/manual fulfillment, or checkout.
 
 ## Blockers And Risks
 
-- Meshy output quality is still unvalidated because the first API delivery test failed before model generation.
+- Meshy API output is now technically validated once, but product quality is not accepted yet. The first raw-photo run produced a recognizable bust/torso with truncated arms and no lower body.
+- Elliot confirmed the first GLB opens in Blender, but it is not the intended style at all. Future evaluation should focus on Emoji/avatar + Natural pose proof-driven runs.
+- The first successful Meshy mesh is not watertight in a basic `trimesh` check, so slicer repair/validation is still required before any fulfillment promise.
 - Slicer and physical-print validation are still required before promising automated fulfillment.
 - Cloudflare token access remains partial: Worker deploy and domain listing work, but DNS record and Worker route reads return `403`.
 - Likeness, celebrity/IP, minors/consent, and moderation rules need explicit product decisions before public traffic.
@@ -64,6 +62,7 @@ Prove whether Meshy can power the first customer-facing figurine workflow:
 ## References
 
 - [docs/MESHY_FIGURINE_UI_WORKFLOW.md](docs/MESHY_FIGURINE_UI_WORKFLOW.md)
+- [research/MESHY_SERVICE_IMPLEMENTATION_PLAN.md](research/MESHY_SERVICE_IMPLEMENTATION_PLAN.md)
 - [research/FIGURINE_PROVIDER_RESEARCH.md](research/FIGURINE_PROVIDER_RESEARCH.md)
 - [infra/cloudflare/meshy-webhook-receiver/README.md](infra/cloudflare/meshy-webhook-receiver/README.md)
 - [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)

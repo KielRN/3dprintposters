@@ -18,12 +18,13 @@ This still needs Elliot's Meshy account, dashboard access, and visual/printabili
    - `.tmp/input_image/Gemini_Generated_Image_lzneejlzneejlzne.png`
    - Any customer-like photo Elliot is comfortable using for this test.
 4. Test the PrintU-like choices that matter for our UI: Bobblehead, Chibi, Cartoon, Emoji, Natural pose, Image pose, and T-pose when available.
-5. For each useful generation, capture safe notes: style, posture, time, credits/cost, output formats available, whether GLB/STL/3MF download works, and whether the model looks sellable.
-6. Open the generated STL/3MF in Bambu Studio, OrcaSlicer, or another slicer and note printability issues: scale, supports, fragile parts, color mapping, warnings, and estimated print time/material.
-7. Cloudflare-backed HTTPS receiver is created and smoke-tested. Use payload URL `https://api.3dprintyou.com/webhooks/meshy`.
-8. `MESHY_WEBHOOK_SECRET` is present in local `.env` and uploaded as an encrypted Cloudflare Worker secret. A real Meshy delivery confirmed the secret arrives in `x-meshy-api-webhook-secret-key`, and the Worker now rejects webhook POSTs without the matching secret.
-9. Meshy API settings webhook is active and delivered real `PENDING` and `FAILED` events to the Worker.
-10. For future Cloudflare automation, expand or replace the local Cloudflare API token. On 2026-05-23 the current root `.env` token verified successfully and could see both project zones, but returned `403` for DNS record and Worker route reads.
+5. Prioritize the first intended app workflow: Image to Emoji/avatar-style figurine with Natural pose.
+6. For each useful generation, capture safe notes: style, posture, time, credits/cost, output formats available, whether GLB/STL/3MF download works, and whether the model looks sellable.
+7. Open the generated STL/3MF in Bambu Studio, OrcaSlicer, or another slicer and note printability issues: scale, supports, fragile parts, color mapping, warnings, and estimated print time/material.
+8. Cloudflare-backed HTTPS receiver is created and smoke-tested. Use payload URL `https://api.3dprintyou.com/webhooks/meshy`.
+9. `MESHY_WEBHOOK_SECRET` is present in local `.env` and uploaded as an encrypted Cloudflare Worker secret. A real Meshy delivery confirmed the secret arrives in `x-meshy-api-webhook-secret-key`, and the Worker now rejects webhook POSTs without the matching secret.
+10. Meshy API settings webhook is active and delivered real `PENDING` and `FAILED` events to the Worker.
+11. For future Cloudflare automation, expand or replace the local Cloudflare API token. On 2026-05-23 the current root `.env` token verified successfully and could see both project zones, but returned `403` for DNS record and Worker route reads.
 
 ## Done When
 
@@ -42,11 +43,17 @@ This still needs Elliot's Meshy account, dashboard access, and visual/printabili
 - Slicer warnings and print-time/material estimates.
 - Webhook proxy/deployed URL only if it is safe and intended to be used by the app.
 - Test task `019e562e-06ea-7e78-b3e6-98651023fae2` delivered `PENDING` and `FAILED` webhook events, failed at 15% progress, and reported `0` consumed credits. It was useful for webhook/header verification, not output-quality evaluation.
+- AI run on 2026-05-24 created successful Meshy task `019e5b9a-97a2-7788-8174-5cbc9913766f` from `.tmp/Profile-Pic-HIMSS.jpg`, consumed 30 credits, and downloaded artifacts to `.tmp/print-files/meshy/2026-05-24T20-08-40-270Z-019e5b9a-97a2-7788-8174-5cbc9913766f`.
+- First-run downloaded files include `model.glb`, `model.stl`, `model.3mf`, `model.pre-remeshed.glb`, `thumbnail.png`, and base-color/normal texture maps.
+- Basic local inspection found the 3MF has millimeter units and about `58.9mm x 28.8mm x 75.0mm` extents, but `trimesh` reported the mesh as not watertight. Open `model.3mf` and `model.stl` in Bambu Studio, OrcaSlicer, or equivalent and capture repair warnings, supports, print time, material estimate, and whether the output is commercially acceptable.
+- Visual thumbnail review: recognizable bust/torso, but arms are truncated, hands are missing, and there is no lower body. Treat this as a provider pipeline success, not yet a viable complete figurine sample.
+- Elliot opened the downloaded GLB in Blender and confirmed it is viewable, but it is not the intended style. Do not judge the first product workflow from this raw-photo output; prioritize Emoji/avatar + Natural pose proof-driven runs next.
 
 ## Related Files
 
 - `docs/MESHY_FIGURINE_UI_WORKFLOW.md`
 - `research/FIGURINE_PROVIDER_RESEARCH.md`
+- `research/MESHY_SERVICE_IMPLEMENTATION_PLAN.md`
 - `CHECKLIST.md`
 - `docs/DEPLOYMENT.md`
 - `elliot_quick_dev_Startup.md`

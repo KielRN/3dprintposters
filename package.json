@@ -20,6 +20,7 @@
     "firebase:deploy:storage-cors:dev": "gcloud storage buckets update gs://gen-lang-client-0675309660.firebasestorage.app --cors-file=infra/firebase/storage.cors.json",
     "firebase:deploy:rules:dev": "firebase deploy --only firestore:rules,storage --project dev",
     "firebase:deploy:rules:dry-run": "firebase deploy --only firestore:rules,storage --project dev --dry-run",
+    "meshy:first-job": "node scripts/meshy/create-image-to-3d-job.mjs --input .tmp/Profile-Pic-HIMSS.jpg --output-root .tmp/print-files",
     "stripe:create-poster-product": "node scripts/stripe/create-poster-product.mjs",
     "typecheck": "npm --workspaces --if-present run typecheck",
     "format": "prettier --write ."

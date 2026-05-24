@@ -47,6 +47,7 @@ Current useful facts from official Meshy docs and announcements:
 - Meshy webhooks require HTTPS and send task status updates to each enabled webhook URL. The project receiver is deployed at `https://api.3dprintyou.com/webhooks/meshy`.
 - A real Meshy delivery on 2026-05-23 confirmed Meshy sends `x-meshy-api-webhook-secret-key` and `x-meshy-api-webhook-user-id`; the Worker enforces the secret header and logs only sanitized metadata.
 - Test task `019e562e-06ea-7e78-b3e6-98651023fae2` delivered real `PENDING` and `FAILED` webhook events, failed at 15% progress, and reported `0` consumed credits. This proves webhook delivery/security, not provider output quality.
+- First successful Meshy Image to 3D task `019e5b9a-97a2-7788-8174-5cbc9913766f` ran on 2026-05-24 from `.tmp/Profile-Pic-HIMSS.jpg`, consumed 30 credits, returned GLB/STL/3MF/pre-remesh GLB plus texture maps, and was downloaded under `.tmp/print-files/meshy/2026-05-24T20-08-40-270Z-019e5b9a-97a2-7788-8174-5cbc9913766f`. The result validates API/download plumbing but not final product quality: Elliot confirmed the GLB opens in Blender, but the raw-photo output is not the intended style; the thumbnail is a bust/torso with truncated arms and no lower body, and basic `trimesh` inspection reported the mesh as not watertight.
 - Local Cloudflare setup is partially sufficient: `CLOUDFLARE_API_TOKEN` verifies and can deploy Workers, but still returns `403` for DNS record and Worker route reads.
 
 Sources:
@@ -128,8 +129,8 @@ Do not let older docs that say "image-to-3D is rejected" be read globally. It is
 
 ## Next Actions
 
-1. Run successful Meshy or MakerWorld PrintU-style generations with canonical and customer-like inputs, then classify output quality as promising, weak, or not viable.
-2. Download GLB/STL/3MF outputs from successful tasks and inspect them in Bambu Studio, OrcaSlicer, or equivalent for scale, supports, fragile parts, color handling, and print-time/material estimates.
+1. Inspect the first successful Meshy GLB/STL/3MF output in Bambu Studio, OrcaSlicer, or equivalent for scale, supports, fragile parts, color handling, repair warnings, and print-time/material estimates.
+2. Run additional Meshy or MakerWorld PrintU-style generations with fuller body inputs or approved figurine-friendly 2D proofs, then classify output quality as promising, weak, or not viable.
 3. Decide which style/posture options belong in the first customer-facing UI based on actual Meshy/PrintU outputs, not only provider marketing.
 4. Create the backend services required by the PrintU-like workflow: figurine job orchestration, source-image validation, 2D concept history/approval, 3D model generation history, readiness, editor configuration, and checkout/preorder eligibility.
 5. Add a customer-facing figurine creation UI: style selector, posture selector, 2D proof generation, proof approval, and 3D preview state.

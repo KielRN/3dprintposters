@@ -6,6 +6,8 @@ Source screenshots: `human-tasks/printu-1.png` through `human-tasks/printu-15 - 
 
 This document maps the desired customer-facing workflow for the new standalone figurine product. The UI reference is MakerWorld PrintU; the implementation target is 3DPrintPosters / 3DPrintYou with Meshy behind a server-side provider boundary. Meshy should remain an implementation detail in the customer UI except where we need honest warnings about provider status, printability, file formats, or manual fulfillment.
 
+Immediate implementation target: first recreate the Image to Emoji/avatar-style figurine workflow with `Natural pose`. Other styles and posture modes should be evaluated after this path works end to end.
+
 ## Product Goal
 
 The user should be able to start with one photo, choose a figurine style and posture, approve a 2D concept proof, generate a standalone 3D figurine, inspect it, optionally tune print-facing presentation settings, and then continue into preorder, checkout, or lead capture only after the output is honestly represented.
@@ -89,7 +91,7 @@ Expected UI elements:
 
 Recommended defaults:
 
-- Style: `Chibi` or `Bobblehead`, depending on the first commercial positioning.
+- Style: `Emoji / avatar` for the first Meshy validation workflow. Public default can change after output validation.
 - Posture: `Natural pose`.
 - Project title: `My Figurine`, editable.
 
@@ -107,12 +109,12 @@ PrintU opens a large modal with four style choices: Bobblehead, Chibi, Cartoon, 
 
 Our equivalent should use the same mental model but phrase the options around outcomes Meshy can plausibly support. The first MVP choices should be limited to the styles we can test and fulfill honestly.
 
-Recommended MVP style options:
+MVP style options to evaluate:
 
 - Bobblehead: oversized head, toy-like proportions, strong likeness emphasis.
 - Chibi: small body, cute stylized proportions, soft features.
 - Cartoon: more natural body proportions with simplified facial features.
-- Emoji / avatar: simplified full-body character with expressive face.
+- Emoji / avatar: simplified full-body character with expressive face. This is the first implementation target.
 
 Expected UI elements:
 
@@ -556,7 +558,7 @@ Track the funnel at these points:
 
 ## Open Product Decisions
 
-- Which style should be the default: Bobblehead, Chibi, Cartoon, or Emoji/avatar.
+- Whether Emoji/avatar should remain the public default after the first Meshy validation workflow, or whether Bobblehead, Chibi, or Cartoon performs better.
 - Whether public MVP sells single-color only, multi-color preorder, full-color partner fulfillment, or manual review first.
 - Whether customers should be allowed to export model files.
 - Whether post-generation posture editing is in MVP or deferred.
