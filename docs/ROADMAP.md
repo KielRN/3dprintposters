@@ -1,6 +1,6 @@
 # Roadmap
 
-This file tracks product direction and enhancement ideas that are not yet committed execution work. Use `CHECKLIST.md` for concrete implementation tasks and `CHANGELOG.md` for completed progress.
+This file tracks product direction and enhancement ideas that are not yet committed execution work. Use `CHECKLIST.md` for the active Meshy-service task list and `CHANGELOG.md` for completed progress.
 
 ## Near-Term MVP
 
@@ -11,7 +11,7 @@ This file tracks product direction and enhancement ideas that are not yet commit
 - Keep the "Super Dad" poster-relief path as parked R&D. It remains valuable if the product returns to 5x7 relief posters, but it is not the next customer-acquisition blocker.
 - Make every generated artifact traceable to a user, job, and order before fulfillment.
 - Replace remaining placeholder preview and local API scaffolds with the authenticated Firebase-backed workflow where needed.
-- Treat [Figurine Provider And PrintU Workflow Research](../research/FIGURINE_PROVIDER_RESEARCH.md) as the current product pivot source, [Print File Generation Workflow](./PRINT_FILE_GENERATION_WORKFLOW.md) as the parked poster-relief service contract, and [Heightmap Final Evaluation Review](../research/HEIGHTMAP_FINAL_EVALUATION_REVIEW.md) as historical relief research.
+- Treat [Meshy Figurine UI Workflow](./MESHY_FIGURINE_UI_WORKFLOW.md) as the target customer-flow/service map, [Figurine Provider And PrintU Workflow Research](../research/FIGURINE_PROVIDER_RESEARCH.md) as the current product pivot source, [Print File Generation Workflow](./PRINT_FILE_GENERATION_WORKFLOW.md) as the parked poster-relief service contract, and [Heightmap Final Evaluation Review](../research/HEIGHTMAP_FINAL_EVALUATION_REVIEW.md) as historical relief research.
 
 ## Cloudflare/Deployment
 
@@ -42,11 +42,22 @@ This file tracks product direction and enhancement ideas that are not yet commit
 - Add moderation, quota checks, and cost caps before public traffic.
 - Save enough metadata for each generation — including which provider in the chain served the request, attempted fallbacks, and model version — to debug quality, cost, and fulfillment issues without storing secrets.
 
+## Figurine Workflow Services
+
+- Add a Functions-side figurine job orchestration service that owns source validation, style/posture metadata, concept/model selection, job status, model readiness, and checkout eligibility.
+- Add a 2D concept service on top of the existing AI provider adapter. It should create concept history, store selected concept IDs, and avoid spending generated-3D credits until a concept is selected/approved.
+- Add a generated-3D provider service with a replaceable interface and Meshy as the first implementation after output quality, terms, and economics are accepted for the customer-facing experience.
+- Add a Meshy task service that handles task submission, polling, webhook correlation, sanitized audit metadata, retry/failure state, and consumed credit/cost reporting.
+- Add an asset-ingestion service that downloads GLB, STL, optional 3MF, thumbnails, and metadata into user/job-scoped Firebase Storage before external retention expires.
+- Add a model-readiness service that reports preview-ready, needs-review, printability-warning, print-ready, or blocked states for the job page and checkout gate.
+- Add an editor-config persistence service for color mode, base shape/texture/color, sign text/style, print-separately flags, and any supported posture/transform revisions.
+- Add a purchase-intent gate that can route to lead capture, paid preorder/manual fulfillment, or checkout only after the selected model's fulfillment path is represented honestly.
+
 ## Print Files/Preview
 
 - Active figurine track:
 
-- Add a provider-generated figurine artifact bundle under user/job scoped Storage paths, such as `generated-models/{uid}/{jobId}/model.glb`, `model.stl`, optional `model.3mf`, thumbnails, provider metadata, and warnings.
+- Add a provider-generated figurine artifact bundle under user/job scoped Storage paths, such as `generated-models/{uid}/{jobId}/{modelId}/model.glb`, `model.stl`, optional `model.3mf`, thumbnails, provider metadata, and warnings.
 - Show the standalone figurine GLB in the job page with controls suitable for inspecting a character/object from all sides.
 - Validate Meshy/MakerWorld-generated outputs in slicer and with at least one physical print before automated fulfillment depends on them.
 - Decide whether the MVP ships with checkout, paid preorder/manual fulfillment, or lead capture while physical print validation catches up.

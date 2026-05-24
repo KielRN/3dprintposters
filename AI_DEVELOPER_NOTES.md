@@ -1,10 +1,10 @@
 # 3DPrintPosters - AI Developer Notes
 
-Last updated: 2026-05-23
+Last updated: 2026-05-24
 
 ## Purpose
 
-This file is compact project memory for future AI developers. Keep operating rules, local commands, security rules, and verification commands in `AGENTS.md`. Keep active task tracking in `CHECKLIST.md`, chronology in `CHANGELOG.md`, and detailed service contracts in `docs/`.
+This file is compact project memory for future AI developers. Keep operating rules, local commands, security rules, and verification commands in `AGENTS.md`. Keep active Meshy-service task tracking in `CHECKLIST.md`, chronology in `CHANGELOG.md`, and detailed service contracts in `docs/`.
 
 Do not let this file become a second copy of those sources. Keep only durable product decisions, current implementation facts, active direction, and risks that would materially change future development.
 
@@ -31,8 +31,10 @@ Use `STL`, not `SLT`.
 - Product domains: `3dprintyou.com` is the better-fit candidate for the figurine/customer-acquisition pivot; `3dprintposters.com` remains the existing domain and may fit the parked poster-relief line.
 - Current proof generation: direct Vertex/Gemini through `apps/functions/src/aiProvider.ts`, with generated proofs stored under `generated/{uid}/{jobId}/`.
 - Current proof style contract: `super-dad-north-star-v1` in `apps/functions/src/styleContracts.ts`, which steers generated proofs toward smooth printable poster art and stores contract metadata instead of raw prompt text.
-- Figurine provider integration is not implemented yet. The research target is a server-side provider boundary that can call Meshy first, then store returned GLB/STL/3MF/model thumbnails under user/job-scoped Storage paths before checkout.
+- Figurine workflow services are not implemented yet. The next backend slice needs Functions-side orchestration for source validation, style/posture metadata, 2D concept history, selected concept approval, 3D model generation status/history, readiness, base/sign configuration, and checkout eligibility.
+- Figurine provider integration is not implemented yet. The target is a server-side generated-3D provider boundary that can call Meshy first, then store returned GLB/STL/3MF/model thumbnails under user/job-scoped Storage paths before checkout.
 - Meshy webhook receiver is deployed at `https://api.3dprintyou.com/webhooks/meshy` through Cloudflare Workers custom domains. A real Meshy delivery confirmed the secret header is `x-meshy-api-webhook-secret-key`; the Worker enforces the encrypted `MESHY_WEBHOOK_SECRET` binding. Test task `019e562e-06ea-7e78-b3e6-98651023fae2` delivered webhook events but failed before output generation with `0` consumed credits, so output quality is still unvalidated. Next PM focus is successful Meshy/PrintU output generation, slicer inspection, and a provider-viability decision.
+- Detailed target UI/service mapping now lives in `docs/MESHY_FIGURINE_UI_WORKFLOW.md`; keep the active execution checklist in `CHECKLIST.md`.
 - Current print-file generation: `approveGeneratedImage` calls the FastAPI generator with `masked_depth_detail_blend`, `lithophane_baseline` detail source, `detail_weight: 0.38`, `target_width_px: 400`, `geometry_analysis_width_px: 768`, and explicit dimensions for a 5in x 7in image window inside a 5.5in x 7.5in physical object.
 - Print-file relief/depth code is split by responsibility under `services/print-file-generator/app`: `depth.py` is a compatibility facade; focused modules now own provider orchestration (`depth_providers.py`), shared types (`depth_types.py`), array/depth math (`depth_filters.py`), heightmap operations (`heightmap_ops.py`), geometry-input cleanup (`geometry_input.py`), subject masks (`segmentation_masks.py`), surface intent (`surface_intent.py`), portrait relief shaping (`portrait_relief.py`), debug artifacts (`depth_debug.py`), provider-chain shims (`depth_inference.py`), and rejected/experimental TripoSR sidecar code (`experimental/triposr_sidecar.py`).
 - Current print-file artifacts: `model.stl`, image-colored `preview.glb`, `heightmap.png`, `metadata.json`, deterministic full-color package files (`3MF`, `OBJ`/`MTL`/texture, `VRML`, `PLY`), filament painting files (`palette.json`, `layer-swaps.txt`, `print-settings.json`, `preview.png`), and `debug/*.png` relief-stage images. The physical object is now 5.5in x 7.5in with a 5in x 7in image relief window and shaped 1/4in border/frame, and the job page uses an interactive GLB inspection viewer with zoom, orbit, and reset controls. The generator request schema now includes `smooth-default-v1` surface-intent metadata; `metadata.json` records the selected style, proof style contract, surface-intent policy, inferred `surface_intent_status`, graphic emboss status, and region roughness metrics.
@@ -58,11 +60,12 @@ Use `STL`, not `SLT`.
 Phase 3 is now about business-model proof and customer acquisition:
 
 1. Reframe the web MVP around a PrintU-like figurine creation flow: photo upload, style selector, posture selector, generated 2D proof, 3D figurine preview, and purchase-intent capture.
-2. Evaluate Meshy manually first, then through a server-side adapter if commercial/API terms and test outputs look viable.
-3. Store generated provider assets (`model.glb`, `model.stl`, optional `model.3mf`, thumbnails, metadata, warnings) under user/job-scoped Storage paths and show the GLB in the job page.
-4. Decide whether the first public proof is a paid preorder/manual fulfillment funnel or a fully automated checkout path.
-5. Add analytics for upload, style/posture selection, proof approval, 3D generation success, preview engagement, checkout/preorder intent, and abandonment.
-6. Keep the relief generator documented and available as a later product path, but do not make more relief tuning the next customer-acquisition milestone.
+2. Create the backend services required by that workflow: figurine job orchestration, source-image validation, 2D concept history/approval, generated-3D provider submission, Meshy task tracking, asset ingestion, readiness, editor-config persistence, and checkout/preorder gating.
+3. Evaluate Meshy manually first, then through a server-side adapter if commercial/API terms and test outputs look viable for the public experience.
+4. Store generated provider assets (`model.glb`, `model.stl`, optional `model.3mf`, thumbnails, metadata, warnings) under user/job-scoped Storage paths and show the GLB in the job page.
+5. Decide whether the first public proof is a paid preorder/manual fulfillment funnel or a fully automated checkout path.
+6. Add analytics for upload, style/posture selection, proof approval, 3D generation success, preview engagement, checkout/preorder intent, and abandonment.
+7. Keep the relief generator documented and available as a later product path, but do not make more relief tuning the next customer-acquisition milestone.
 
 Current human-test handoff: `human-tasks/open/2026-05-23-evaluate-meshy-figurine-flow.md`.
 

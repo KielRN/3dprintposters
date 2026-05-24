@@ -11,6 +11,8 @@ All notable project changes will be documented in this file.
 - Added the Cloudflare Worker Meshy webhook receiver at `https://api.3dprintyou.com/webhooks/meshy`, with the default `workers.dev` trigger disabled and health/JSON POST smoke tests passing.
 - Added `MESHY_WEBHOOK_SECRET` to the deployed Meshy webhook Worker as an encrypted Cloudflare secret, with live health verification that the binding is configured.
 - Enforced Meshy webhook authentication using the real delivery header `x-meshy-api-webhook-secret-key`; unauthenticated POSTs now return `401`.
+- Replaced the broad historical `CHECKLIST.md` with a short active Meshy-service checklist and archived the previous implementation checklist under `docs/archive/`.
+- Added `docs/MESHY_FIGURINE_UI_WORKFLOW.md`, mapping the PrintU screenshot sequence into the target Meshy-backed figurine UI and required backend services.
 - Added `MESHY_API_KEY`, `MESHY_WEBHOOK_URL`, and `MESHY_WEBHOOK_SECRET` placeholders to env examples without exposing local secret values.
 - Added a human follow-up task for Meshy figurine evaluation, slicer/printability review, and dashboard-based webhook setup.
 - Added AI 3D model generation research for the poster-relief pipeline.
@@ -62,6 +64,7 @@ All notable project changes will be documented in this file.
 - Changed the active product priority from poster-relief quality tuning to proving a PrintU-like figurine funnel with `3dprintyou.com` as the better-fit public domain candidate.
 - Changed docs to clarify that image-to-3D providers were rejected for poster relief only, and are now valid candidates for standalone figurines.
 - Changed roadmap/checklist/architecture/README/PRD positioning so Meshy is the first generated-3D provider candidate and the existing relief path is parked R&D.
+- Changed PM and architecture docs to make the next implementation slice explicit: create figurine workflow services for source validation, 2D concept history, Meshy task tracking, asset ingestion, readiness, editor configuration, and checkout/preorder gating.
 - Changed the default hybrid relief path to lean back toward HueForge/lithophane behavior: `lithophane_baseline` now contributes to the subject height signal, default `detail_weight` is `0.38`, bas-relief compression is less aggressive, and final subject/portrait smoothing is reduced so facial/body/graphic detail is not flattened away.
 - Updated roadmap, checklist, README, architecture, workflow, service, and developer notes to make deterministic closed-relief generation the next print-file implementation slice.
 - Wired the print-file generator `/v1/generate` route to produce real baseline artifacts when the selected image is readable from local filesystem or GCS storage.

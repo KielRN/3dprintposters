@@ -131,8 +131,10 @@ Do not let older docs that say "image-to-3D is rejected" be read globally. It is
 1. Run successful Meshy or MakerWorld PrintU-style generations with canonical and customer-like inputs, then classify output quality as promising, weak, or not viable.
 2. Download GLB/STL/3MF outputs from successful tasks and inspect them in Bambu Studio, OrcaSlicer, or equivalent for scale, supports, fragile parts, color handling, and print-time/material estimates.
 3. Decide which style/posture options belong in the first customer-facing UI based on actual Meshy/PrintU outputs, not only provider marketing.
-4. Add a customer-facing figurine creation UI: style selector, posture selector, 2D proof generation, proof approval, and 3D preview state.
-5. Add a server-side generated-3D provider abstraction, with Meshy as the first implementation only if output quality, terms, and economics are accepted.
-6. Extend the Cloudflare/Firebase webhook path so accepted Meshy events update Firestore jobs and download provider assets into user/job-scoped Storage before Meshy retention expires.
-7. Decide whether launch should be a paid preorder/manual fulfillment path, lead capture, or fully automated checkout.
-8. Expand the Cloudflare token permissions enough for DNS record and Worker route reads, or document that dashboard/Wrangler deploy is the supported route-management path.
+4. Create the backend services required by the PrintU-like workflow: figurine job orchestration, source-image validation, 2D concept history/approval, 3D model generation history, readiness, editor configuration, and checkout/preorder eligibility.
+5. Add a customer-facing figurine creation UI: style selector, posture selector, 2D proof generation, proof approval, and 3D preview state.
+6. Add a server-side generated-3D provider abstraction, with Meshy as the first implementation only if output quality, terms, and economics are accepted.
+7. Extend the Cloudflare/Firebase webhook path so accepted Meshy events update Firestore jobs and download provider assets into user/job-scoped Storage before Meshy retention expires.
+8. Add an asset-ingestion/readiness path that stores GLB/STL/optional 3MF, thumbnails, provider warnings, and printability status under each job before checkout is allowed.
+9. Decide whether launch should be a paid preorder/manual fulfillment path, lead capture, or fully automated checkout.
+10. Expand the Cloudflare token permissions enough for DNS record and Worker route reads, or document that dashboard/Wrangler deploy is the supported route-management path.

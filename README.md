@@ -30,9 +30,10 @@ Working now:
 Not done yet:
 
 - Customer-facing figurine style/posture flow
+- Figurine workflow backend services for upload validation, style/posture state, 2D concept history, concept approval, 3D model history, readiness, base/sign configuration, and checkout eligibility
 - Meshy or alternate generated-3D provider adapter
+- Meshy polling/webhook-to-Firestore bridge and asset-ingestion service
 - Figurine GLB/STL/3MF artifact storage and review flow
-- Meshy webhook creation in the Meshy API settings dashboard after a Cloudflare-backed HTTPS receiver exists
 - Slicer and physical-print validation for provider-generated figurines
 - Deployed Cloud Run print-file generator endpoint
 - Fulfillment partner integration
@@ -46,6 +47,7 @@ Think of this app as four cooperating pieces:
 
 - The web app is what the customer sees and clicks.
 - Firebase Functions are the trusted backend. They check ownership, call AI, create jobs, orchestrate print-file generation, and talk to Stripe.
+- The figurine workflow service layer will validate uploads, track style/posture, manage 2D concept history, submit selected concepts to generated-3D providers, ingest returned assets, and expose readiness/checkout state.
 - The generated-3D provider layer will call Meshy or another image-to-3D service for standalone figurines and store returned GLB/STL/3MF assets.
 - The print-file generator is a Python service that turns an approved image into poster-relief artifacts like STL, heightmap, image-colored preview GLB, metadata, full-color packages, and filament painting guides.
 
@@ -58,6 +60,7 @@ flowchart LR
   Firestore["Firestore<br/>jobs and orders"]
   Functions["Firebase Functions<br/>apps/functions"]
   AI["Vertex/Gemini<br/>proof image generation"]
+  FigurineSvc["Figurine workflow services<br/>concepts, models, readiness"]
   Provider["Future figurine model provider<br/>Meshy first candidate"]
   Stripe["Stripe Checkout"]
   Print["Cloud Run print-file generator<br/>services/print-file-generator"]
@@ -70,7 +73,10 @@ flowchart LR
   Functions --> Firestore
   Functions --> Storage
   Functions --> AI
-  Functions --> Provider
+  Functions --> FigurineSvc
+  FigurineSvc --> Firestore
+  FigurineSvc --> Storage
+  FigurineSvc --> Provider
   Functions --> Stripe
   Functions --> Print
   Provider --> Storage
@@ -161,7 +167,7 @@ scripts                     Helper scripts
 Start with these files when you feel lost:
 
 - `README.md`: practical beginner map
-- `CHECKLIST.md`: implementation checklist
+- `CHECKLIST.md`: active Meshy-service checklist
 - `CHANGELOG.md`: what changed recently
 - `docs/ARCHITECTURE.md`: deeper system design
 - `docs/DEPLOYMENT.md`: hosting, Firebase, Cloudflare, and secret notes
@@ -176,12 +182,13 @@ The next major implementation slice is the PrintU-like figurine customer flow:
 - Keep the web-first PWA and Firebase backend.
 - Let the customer upload a photo, choose a figurine style, and choose posture.
 - Generate a 2D proof before spending credits on a 3D model.
+- Create the service layer for the workflow: source validation, style/posture persistence, concept history/selection, model generation status/history, asset ingestion, readiness, editor options, and purchase-intent gating.
 - Evaluate Meshy.ai manually first, then implement a server-side provider adapter if output quality, terms, and cost are acceptable.
 - Store generated GLB/STL/optional 3MF assets under user/job scoped Storage paths.
 - Show the generated figurine in the job page before checkout or preorder.
 - Validate slicer/print behavior before promising automated fulfillment.
 
-See `research/FIGURINE_PROVIDER_RESEARCH.md` and `docs/ROADMAP.md` for the current phased direction.
+See `docs/MESHY_FIGURINE_UI_WORKFLOW.md`, `research/FIGURINE_PROVIDER_RESEARCH.md`, and `docs/ROADMAP.md` for the current phased direction.
 
 ## Parked Print-File Generator Direction
 
@@ -336,7 +343,7 @@ This mode requires JDK 21+. On this machine, Microsoft OpenJDK 21 is installed, 
 
 ## Basic Manual Test Checklist
 
-Use this checklist when testing the currently implemented relief app as a beginner. The new figurine path will need a separate checklist after the UI/provider adapter lands.
+Use this checklist when testing the currently implemented relief app as a beginner. The active project checklist is now focused on the Meshy figurine service; this manual relief checklist remains here only for the existing implemented flow.
 
 - [ ] Run `npm install` if dependencies are missing.
 - [ ] Confirm `apps/web/.env.local` exists.

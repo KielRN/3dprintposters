@@ -45,6 +45,7 @@ This still needs Elliot's Meshy account, dashboard access, and visual/printabili
 
 ## Related Files
 
+- `docs/MESHY_FIGURINE_UI_WORKFLOW.md`
 - `research/FIGURINE_PROVIDER_RESEARCH.md`
 - `CHECKLIST.md`
 - `docs/DEPLOYMENT.md`

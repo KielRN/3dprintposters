@@ -35,6 +35,7 @@ Responsibilities:
 - Validate user quota, upload ownership, and upload metadata.
 - Trigger selected AI provider generation through the internal provider adapter. Direct Vertex/Gemini image generation is the default MVP route; Cloudflare AI Gateway can be added later behind the same adapter.
 - Record approved generated proofs and block checkout until approval exists.
+- Own the new figurine workflow service layer: source validation, style/posture persistence, concept history, selected concept/model IDs, generated model status, readiness, editor configuration, and checkout/preorder eligibility.
 - Dispatch generated 3D model provider work for standalone figurines through a server-side provider adapter, with Meshy.ai as the first candidate after terms/cost/output review.
 - Dispatch print file generation work.
 - Create Stripe Checkout sessions.
@@ -56,6 +57,19 @@ Responsibilities:
 - Record provider audit metadata such as provider id, model version, task id, requested formats, status, warnings, consumed credits/cost, and source artifact paths without storing secrets.
 
 Meshy webhook setup note: official Meshy docs currently direct users to create webhooks in the Meshy web app API settings page. Webhooks require HTTPS URLs. The Cloudflare Worker receiver is live as a Workers custom domain at `https://api.3dprintyou.com/webhooks/meshy`, with the default `workers.dev` trigger disabled.
+
+### Figurine Workflow Services To Add
+
+These services are required for the PrintU-like UI in `docs/MESHY_FIGURINE_UI_WORKFLOW.md`:
+
+- Figurine job orchestration: create/validate figurine jobs, persist style and posture, track selected concept/model IDs, and expose status to the web app.
+- Source-image validation: verify upload ownership, MIME type, size, decode, minimum dimensions, and basic person/face suitability before provider credits are spent.
+- 2D concept generation/history: create concept proofs through the AI provider adapter, store multiple concept attempts, and approve/select one concept for 3D generation.
+- Meshy provider adapter: submit approved proof/source images to Meshy through a replaceable generated-3D provider interface.
+- Meshy task tracking: correlate task submission, polling, webhook events, sanitized audit data, retry/failure states, and consumed credit/cost metadata.
+- Asset ingestion: copy returned GLB, STL, optional 3MF, thumbnails, textures, and metadata into user/job-scoped Storage before Meshy retention expires.
+- Readiness and gating: summarize model availability, printability warnings, manual-review needs, and checkout/preorder/lead-capture eligibility.
+- Editor configuration persistence: save color mode, base style, base texture, base color, sign text/style, print-separately flags, and any supported pose/transform revisions as structured job metadata.
 
 ### Print File Generator Service
 
@@ -129,14 +143,15 @@ Active figurine target flow:
 4. Function verifies the signed-in user owns the upload path and creates `jobs/{jobId}` with `status: "generating"`.
 5. Function calls the internal AI provider adapter, stores the generated 2D proof under `generated/{uid}/{jobId}/preview.{png|jpg|webp}`, stores non-secret `aiGeneration` metadata, and marks the job `preview_ready` or `failed`.
 6. Job `generatedImages` lists the generated proof Storage path so the approval and checkout flow use the real AI output.
-7. User approves one proof through `approveGeneratedImage`; the Function records `approvedImagePath` and sets `status: "approved"`.
-8. Backend dispatches the generated 3D model provider, starting with Meshy if validation passes.
-9. Backend downloads returned model assets into Storage under a path such as `generated-models/{uid}/{jobId}/`.
-10. Job stores `generatedModelArtifacts`, provider audit, task id, status, warnings, consumed credits/cost, and preview path.
-11. User reviews the standalone figurine GLB and starts checkout, preorder, or lead capture.
-12. Stripe webhook confirms payment if checkout is enabled.
-13. Function sends the locked model manifest and shipping data to manual or automated fulfillment only after the selected fulfillment path is validated.
-14. Fulfillment events update the order record.
+7. User selects/approves one concept; the Function records `selectedConceptId`, `approvedImagePath`, and concept approval metadata.
+8. Backend dispatches the generated 3D model provider through the figurine workflow service, starting with Meshy if validation passes.
+9. Backend tracks task submission, polling/webhook events, and provider status.
+10. Backend downloads returned model assets into Storage under a path such as `generated-models/{uid}/{jobId}/{modelId}/`.
+11. Job stores model history, selected model ID, provider audit, task id, status, warnings, consumed credits/cost, preview path, and readiness.
+12. User reviews the standalone figurine GLB, optionally edits supported color/base/sign settings, and starts checkout, preorder, or lead capture.
+13. Stripe webhook confirms payment if checkout is enabled.
+14. Function sends the locked model manifest and shipping data to manual or automated fulfillment only after the selected fulfillment path is validated.
+15. Fulfillment events update the order record.
 
 Parked poster-relief flow: after proof approval, backend dispatches `services/print-file-generator`; the service writes `model.stl`, color package artifacts, filament painting support files, `heightmap.png`, `preview.glb`, and printability metadata; checkout is gated on generated print-file artifacts.
 
@@ -155,16 +170,25 @@ Parked poster-relief flow: after proof approval, backend dispatches `services/pr
 
 - `uid`
 - `status`
+- `productType`
 - `selectedStyle`
+- `selectedPosture`
 - `sourceImagePath`
+- `sourceValidation`
 - `generatedImages`
+- `concepts`
+- `selectedConceptId`
 - `aiGeneration`
 - `approvedImagePath`
 - `approvedAt`
-- `selectedPosture`
 - `generatedModelOutputPrefix`
 - `generatedModelArtifacts`
+- `models`
+- `selectedModelId`
 - `generatedModelAudit`
+- `readinessStatus`
+- `checkoutEligibility`
+- `editorConfig`
 - `printFileOutputPrefix`
 - `printFileArtifacts`
 - `previewMeshPath`
@@ -183,9 +207,13 @@ Suggested statuses:
 - `approved`
 - `model_generation_queued`
 - `model_generation_processing`
+- `model_preview_ready`
+- `needs_review`
+- `printability_warning`
 - `print_files_queued`
 - `print_files_processing`
 - `ready_for_checkout`
+- `blocked`
 - `failed`
 
 ### `orders/{orderId}`
