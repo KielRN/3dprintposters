@@ -1,9 +1,9 @@
-# Evaluate Meshy Figurine Flow And Create Webhook
+# Evaluate Meshy Figurine Output And Printability
 
 Status: open
 Owner: Human
 Created: 2026-05-23
-Source: `research/FIGURINE_PROVIDER_RESEARCH.md`, Meshy webhook docs, user note that local `.env` contains `MESHY_API_KEY`
+Source: `research/FIGURINE_PROVIDER_RESEARCH.md`, Meshy webhook docs, verified Cloudflare receiver at `https://api.3dprintyou.com/webhooks/meshy`
 
 ## Why Human
 
@@ -30,7 +30,7 @@ This still needs Elliot's Meshy account, dashboard access, and visual/printabili
 - Meshy output quality is classified as promising, weak, or not viable for the first figurine MVP.
 - We know which style/posture combinations should appear in the app first.
 - We know whether GLB/STL/3MF files are downloadable and usable in slicer.
-- We know whether a Meshy webhook is configured, or what blocked setup.
+- The Meshy webhook remains configured and secret-enforced.
 - The next AI developer can implement either polling-only Meshy integration or webhook receiver work with clear constraints.
 
 ## Evidence To Capture

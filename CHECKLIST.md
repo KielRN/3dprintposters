@@ -36,6 +36,7 @@
 - [ ] Implement Meshy as the first 3D model provider only after terms, credentials, cost, and test output quality are accepted.
 - [x] Create a Cloudflare-backed Meshy webhook receiver at `https://api.3dprintyou.com/webhooks/meshy`, with the default `workers.dev` trigger disabled.
 - [x] Create and activate the Meshy webhook in the Meshy API settings dashboard; a real delivery confirmed `x-meshy-api-webhook-secret-key`, and the Worker now rejects webhook POSTs without the matching secret.
+- [x] Run a real Meshy webhook delivery test; task `019e562e-06ea-7e78-b3e6-98651023fae2` delivered `PENDING` and `FAILED` events with `0` consumed credits, proving delivery/security but not output quality.
 - [ ] Store provider-generated `model.glb`, `model.stl`, optional `model.3mf`, thumbnails, and provider audit metadata under user/job scoped Storage paths.
 - [ ] Update the job page so it can review a standalone figurine GLB, not only a poster-relief GLB/heightmap.
 - [ ] Decide whether the first public validation path is checkout, paid preorder/manual fulfillment, or lead capture with human follow-up.

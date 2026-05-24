@@ -1,6 +1,7 @@
 # Figurine Provider And PrintU Workflow Research
 
 Date: 2026-05-23
+Last updated: 2026-05-24
 
 ## Executive Decision
 
@@ -45,6 +46,7 @@ Current useful facts from official Meshy docs and announcements:
 - Meshy webhook setup is currently dashboard-based: official docs direct users to the Meshy API settings page, Webhooks section, and "Create Webhook" button. No documented REST endpoint was found for creating a webhook by API as of 2026-05-23.
 - Meshy webhooks require HTTPS and send task status updates to each enabled webhook URL. The project receiver is deployed at `https://api.3dprintyou.com/webhooks/meshy`.
 - A real Meshy delivery on 2026-05-23 confirmed Meshy sends `x-meshy-api-webhook-secret-key` and `x-meshy-api-webhook-user-id`; the Worker enforces the secret header and logs only sanitized metadata.
+- Test task `019e562e-06ea-7e78-b3e6-98651023fae2` delivered real `PENDING` and `FAILED` webhook events, failed at 15% progress, and reported `0` consumed credits. This proves webhook delivery/security, not provider output quality.
 - Local Cloudflare setup is partially sufficient: `CLOUDFLARE_API_TOKEN` verifies and can deploy Workers, but still returns `403` for DNS record and Worker route reads.
 
 Sources:
@@ -101,6 +103,14 @@ Evaluate Meshy and any alternative provider against:
 - Whether assets can be retained long enough by downloading them into our Storage immediately.
 - Whether provider output is good enough without manual Blender cleanup for the first paid product.
 
+## Verified Webhook State
+
+- Payload URL: `https://api.3dprintyou.com/webhooks/meshy`.
+- Hosting: Cloudflare Workers custom domain on `api.3dprintyou.com`; the default `workers.dev` trigger is disabled.
+- Authentication: Meshy sends `x-meshy-api-webhook-secret-key`; the Worker compares it with encrypted `MESHY_WEBHOOK_SECRET` and rejects unauthenticated POSTs with `401`.
+- Observability: the Worker logs sanitized task summaries and signature-header presence only. It must not log secret values, provider asset URLs, or account/user identifiers.
+- Current limitation: the receiver only acknowledges and logs events. It does not yet update Firestore jobs or download Meshy assets into Storage.
+
 ## Important Reinterpretation Of Earlier Research
 
 The May 2026 TripoSR/Tripo experiment was rejected for poster relief because full image-to-3D reconstruction created standalone objects instead of image-plane bas-relief depth. That result now becomes a signal in the opposite direction: standalone object reconstruction is exactly the class of model to test for a figurine product.
@@ -118,11 +128,11 @@ Do not let older docs that say "image-to-3D is rejected" be read globally. It is
 
 ## Next Actions
 
-1. Update the product docs and checklist around the figurine-first proof.
-2. Create a human validation task for Elliot to test Meshy/MakerWorld with canonical source images and capture cost, quality, formats, and printability notes.
-3. Add a customer-facing figurine creation UI: style modal, posture selector, proof generation, and 3D preview state.
-4. Add a server-side provider abstraction for generated 3D model artifacts, with Meshy as the first implementation after credentials and terms are accepted.
-5. Decide whether launch should be a paid preorder/manual fulfillment path or a fully automated checkout path.
-6. Refresh local Cloudflare API credentials, then create a Cloudflare-backed Meshy webhook receiver such as `https://api.3dprintyou.com/webhooks/meshy`.
-7. Create a Meshy webhook manually in the Meshy API settings page once the Cloudflare HTTPS receiver exists.
-8. Verify Cloudflare/DNS access for `3dprintyou.com` before public staging.
+1. Run successful Meshy or MakerWorld PrintU-style generations with canonical and customer-like inputs, then classify output quality as promising, weak, or not viable.
+2. Download GLB/STL/3MF outputs from successful tasks and inspect them in Bambu Studio, OrcaSlicer, or equivalent for scale, supports, fragile parts, color handling, and print-time/material estimates.
+3. Decide which style/posture options belong in the first customer-facing UI based on actual Meshy/PrintU outputs, not only provider marketing.
+4. Add a customer-facing figurine creation UI: style selector, posture selector, 2D proof generation, proof approval, and 3D preview state.
+5. Add a server-side generated-3D provider abstraction, with Meshy as the first implementation only if output quality, terms, and economics are accepted.
+6. Extend the Cloudflare/Firebase webhook path so accepted Meshy events update Firestore jobs and download provider assets into user/job-scoped Storage before Meshy retention expires.
+7. Decide whether launch should be a paid preorder/manual fulfillment path, lead capture, or fully automated checkout.
+8. Expand the Cloudflare token permissions enough for DNS record and Worker route reads, or document that dashboard/Wrangler deploy is the supported route-management path.
