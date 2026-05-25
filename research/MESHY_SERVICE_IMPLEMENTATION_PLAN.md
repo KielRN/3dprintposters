@@ -123,19 +123,46 @@ Terminal statuses observed or handled by the local runner:
 - `CANCELED`
 - `EXPIRED`
 
+### Create Analyze Printability Task
+
+Endpoint:
+
+```text
+POST https://api.meshy.ai/openapi/v1/print/analyze
+GET https://api.meshy.ai/openapi/v1/print/analyze/{taskId}
+```
+
+Confirmed working request shape:
+
+```json
+{
+  "input_task_id": "<succeeded-meshy-6-image-to-3d-task-id>"
+}
+```
+
+Notes:
+
+- This avoids re-uploading a downloaded model because Meshy can analyze a succeeded task we own.
+- The 2026-05-24 Emoji/avatar run consumed `0` credits for printability analysis.
+- The result should feed our readiness gate, not checkout directly. A visually promising model can still be `error` for printability.
+
 ## Local Runner
 
-Script:
+Scripts:
 
 - `scripts/meshy/create-image-to-3d-job.mjs`
+- `scripts/meshy/run-emoji-natural-experiment.mjs`
+- `scripts/meshy/analyze-printability-task.mjs`
 
 Package command:
 
 ```powershell
 npm run meshy:first-job
+npm run meshy:emoji-natural-experiment
+npm run meshy:analyze-printability -- 019e5c65-7b2b-7641-abd6-ed04fb4e3d2e .tmp/experiments/meshy/emoji-natural-2026-05-24T23-50-06-305Z/meshy/2026-05-24T23-50-17-997Z-019e5c65-7b2b-7641-abd6-ed04fb4e3d2e
 ```
 
-Warning: this creates a new paid Meshy task and consumes credits when Meshy accepts the request.
+Warning: `meshy:first-job` and `meshy:emoji-natural-experiment` create new paid Meshy tasks and consume credits when Meshy accepts the request. `meshy:analyze-printability` only analyzes an existing task.
 
 What it does:
 
@@ -144,6 +171,8 @@ What it does:
 - Polls until a terminal task status.
 - Downloads returned models, thumbnails, and textures under `.tmp/print-files/meshy/{timestamp}-{taskId}/`.
 - Writes sanitized metadata only. It redacts base64 payloads and does not store provider asset URLs in tracked files.
+- The Emoji/Natural experiment script first uses `VERTEX_API_KEY` to create a full-body Emoji/avatar 2D concept, then sends that concept through the existing Meshy image-to-3D runner.
+- The printability script creates a Meshy print-analysis task for an existing succeeded Meshy task and writes sanitized printability output next to the model artifacts.
 
 Default local input:
 
@@ -224,6 +253,68 @@ Next test implication:
 - Use a full-body source or an approved full-body, figurine-friendly 2D proof before judging Meshy as a product provider.
 - Do not use the raw-photo output as a visual target. It is an off-style pipeline artifact.
 - Slicer inspection is still required for repair warnings, supports, print time, material estimate, and printability.
+
+### 2026-05-24 Emoji/avatar Natural Pose Proof-Driven Output
+
+Task:
+
+- Image-to-3D: `019e5c65-7b2b-7641-abd6-ed04fb4e3d2e`
+- Printability analysis: `019e5c69-3d55-76ec-aecf-7cd728e6ed38`
+
+Input:
+
+- Source photo: `.tmp/Profile-Pic-HIMSS.jpg`
+- Generated concept: `.tmp/experiments/meshy/emoji-natural-2026-05-24T23-50-06-305Z/concept.png`
+
+Output bundle:
+
+- `.tmp/experiments/meshy/emoji-natural-2026-05-24T23-50-06-305Z/meshy/2026-05-24T23-50-17-997Z-019e5c65-7b2b-7641-abd6-ed04fb4e3d2e`
+
+Provider result:
+
+- Status: `SUCCEEDED`
+- Consumed credits: `30`
+- Created: `2026-05-24T23:50:17.516Z`
+- Finished: `2026-05-24T23:51:55.717Z`
+- Provider asset expiration: `2026-05-27T23:51:55.717Z`
+- Returned formats: `glb`, `stl`, `3mf`, `pre_remeshed_glb`
+
+Downloaded files:
+
+- `model.glb`: 8,854,544 bytes
+- `model.stl`: 5,036,984 bytes
+- `model.3mf`: 1,242,274 bytes
+- `model.pre-remeshed.glb`: 4,237,796 bytes
+- `thumbnail.png`: 72,570 bytes
+- `textures/texture-0-base_color.png`: 5,298,032 bytes
+- `textures/texture-0-normal.png`: 3,319,123 bytes
+
+Basic local inspection:
+
+- `trimesh` loaded the 3MF as one scene mesh with approximate extents `45.6mm x 23.0mm x 75.0mm`.
+- The STL/3MF/GLB have `100,738` faces after remesh.
+- Local `trimesh` inspection reported the mesh as not watertight.
+
+Meshy printability result:
+
+- Status: `error`
+- Issues: `3`
+- Errors: `2`
+- Warnings: `1`
+- Metrics: `is_watertight: false`, `non_manifold_edges: 125`, `degenerate_faces: 112`, `holes: 0`, `volume: 0.35887301414325945`
+- Consumed credits: `0`
+
+Visual/product finding:
+
+- The generated 2D concept successfully followed the intended full-body Emoji/avatar Natural pose direction.
+- Meshy's thumbnail preserved a complete stylized full-body figure, including head, torso, arms, legs, and feet. This is a clear improvement over the raw-photo bust/torso run.
+- The model still is not automatically print-ready. It needs repair/slicer validation before any checkout promise.
+
+Next test implication:
+
+- Treat Emoji/avatar + Natural pose as visually promising but not fulfillment-ready.
+- Run Meshy Repair Printability or slicer repair on this exact task/output before judging fulfillment viability.
+- Human slicer review should compare this proof-driven output against the raw-photo output and record repair warnings, supports, stability, scale, and print time.
 
 ## Service Contract To Implement
 
@@ -352,8 +443,8 @@ Next integration step:
 ## Coding Backlog
 
 1. Add or extend the 2D concept style contract for `emoji_avatar` with Natural pose assumptions.
-2. Generate an Emoji/avatar 2D proof from `.tmp/Profile-Pic-HIMSS.jpg` or another customer-like source and save it as the next Meshy input.
-3. Run Meshy Image to 3D on the approved Emoji/avatar proof and compare against the raw-photo run.
+2. Promote the local Emoji/avatar Natural pose experiment prompt into a server-side concept style contract if human review accepts the direction.
+3. Run Meshy Repair Printability or slicer repair against the 2026-05-24 Emoji/avatar output before any checkout/preorder claim.
 4. Add generated-3D provider types and Meshy provider client in `apps/functions`.
 5. Add secret loading for `MESHY_API_KEY` through Functions secrets or Secret Manager in deployed runtimes.
 6. Add model-generation Firestore schema and status transitions.

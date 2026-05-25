@@ -32,12 +32,14 @@ Prove whether Meshy can power the first customer-facing figurine workflow:
 - [x] Enforce Meshy webhook authentication with `x-meshy-api-webhook-secret-key`.
 - [x] Run a real Meshy webhook delivery test. Task `019e562e-06ea-7e78-b3e6-98651023fae2` delivered `PENDING` and `FAILED` events with `0` consumed credits, proving delivery/security but not output quality.
 - [x] Generate the first successful Meshy Image to 3D output and download GLB/STL/3MF artifacts. Details live in `research/MESHY_SERVICE_IMPLEMENTATION_PLAN.md`.
+- [x] Generate a full-body Emoji/avatar Natural pose 2D concept and run it through Meshy Image to 3D. Task `019e5c65-7b2b-7641-abd6-ed04fb4e3d2e` succeeded, consumed `30` credits, and downloaded GLB/STL/3MF artifacts under `.tmp/experiments/meshy/emoji-natural-2026-05-24T23-50-06-305Z`.
+- [x] Run Meshy printability analysis on the Emoji/avatar output. Analysis task `019e5c69-3d55-76ec-aecf-7cd728e6ed38` consumed `0` credits and returned `error`, with `is_watertight: false`, `125` non-manifold edges, and `112` degenerate faces.
 
 ## Next
 
 - [ ] Inspect the downloaded Meshy GLB/STL/3MF in slicer software.
-- [ ] Generate or select an Emoji/avatar Natural pose 2D concept proof as the next Meshy input.
-- [ ] Run the next Meshy job from that Emoji/avatar Natural pose input and compare it with the raw-photo run.
+- [ ] Inspect the downloaded Emoji/avatar Meshy GLB/STL/3MF in slicer software.
+- [ ] Run Meshy Repair Printability or slicer repair on the Emoji/avatar output and compare the repaired result with the original.
 - [ ] Classify Meshy output quality as promising, weak, or not viable for the first figurine MVP.
 - [ ] Decide whether Emoji/avatar + Natural pose is good enough to become the first supported style/posture set.
 - [ ] Implement the Meshy service slice from `research/MESHY_SERVICE_IMPLEMENTATION_PLAN.md`: provider adapter, task tracking, asset ingestion, readiness, and idempotency.
@@ -48,8 +50,9 @@ Prove whether Meshy can power the first customer-facing figurine workflow:
 ## Blockers And Risks
 
 - Meshy API output is now technically validated once, but product quality is not accepted yet. The first raw-photo run produced a recognizable bust/torso with truncated arms and no lower body.
-- Elliot confirmed the first GLB opens in Blender, but it is not the intended style at all. Future evaluation should focus on Emoji/avatar + Natural pose proof-driven runs.
+- Elliot confirmed the first raw-photo GLB opens in Blender, but it is not the intended style at all. The first proof-driven Emoji/avatar run is visually much closer because it preserves a complete stylized full body.
 - The first successful Meshy mesh is not watertight in a basic `trimesh` check, so slicer repair/validation is still required before any fulfillment promise.
+- The first Emoji/avatar Meshy output is also not watertight. Meshy's own printability analysis returned `error`, so the path is visually promising but not checkout-ready.
 - Slicer and physical-print validation are still required before promising automated fulfillment.
 - Cloudflare token access remains partial: Worker deploy and domain listing work, but DNS record and Worker route reads return `403`.
 - Likeness, celebrity/IP, minors/consent, and moderation rules need explicit product decisions before public traffic.

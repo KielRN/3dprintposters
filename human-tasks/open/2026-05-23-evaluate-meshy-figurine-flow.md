@@ -48,6 +48,9 @@ This still needs Elliot's Meshy account, dashboard access, and visual/printabili
 - Basic local inspection found the 3MF has millimeter units and about `58.9mm x 28.8mm x 75.0mm` extents, but `trimesh` reported the mesh as not watertight. Open `model.3mf` and `model.stl` in Bambu Studio, OrcaSlicer, or equivalent and capture repair warnings, supports, print time, material estimate, and whether the output is commercially acceptable.
 - Visual thumbnail review: recognizable bust/torso, but arms are truncated, hands are missing, and there is no lower body. Treat this as a provider pipeline success, not yet a viable complete figurine sample.
 - Elliot opened the downloaded GLB in Blender and confirmed it is viewable, but it is not the intended style. Do not judge the first product workflow from this raw-photo output; prioritize Emoji/avatar + Natural pose proof-driven runs next.
+- AI run on 2026-05-24 generated an Emoji/avatar Natural pose 2D concept at `.tmp/experiments/meshy/emoji-natural-2026-05-24T23-50-06-305Z/concept.png`, then created successful Meshy task `019e5c65-7b2b-7641-abd6-ed04fb4e3d2e`, consumed `30` credits, and downloaded GLB/STL/3MF artifacts under `.tmp/experiments/meshy/emoji-natural-2026-05-24T23-50-06-305Z/meshy/2026-05-24T23-50-17-997Z-019e5c65-7b2b-7641-abd6-ed04fb4e3d2e`.
+- The Emoji/avatar thumbnail preserved a complete stylized full-body figure and is much closer to the intended product style than the raw-photo run.
+- Meshy printability analysis task `019e5c69-3d55-76ec-aecf-7cd728e6ed38` consumed `0` credits and returned `error`: not watertight, `125` non-manifold edges, `112` degenerate faces, `0` holes. Open this output in Bambu Studio, OrcaSlicer, or equivalent and capture whether automatic repair makes it printable.
 
 ## Related Files
 

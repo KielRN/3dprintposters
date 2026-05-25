@@ -14,6 +14,7 @@ All notable project changes will be documented in this file.
 - Replaced the broad historical `CHECKLIST.md` with a short active Meshy-service checklist and archived the previous implementation checklist under `docs/archive/`.
 - Added `docs/MESHY_FIGURINE_UI_WORKFLOW.md`, mapping the PrintU screenshot sequence into the target Meshy-backed figurine UI and required backend services.
 - Added a local Meshy Image to 3D runner and a living Meshy service implementation plan for API findings, run results, and backend backlog.
+- Added repeatable Meshy experiment scripts for the Emoji/avatar Natural pose workflow: `scripts/meshy/run-emoji-natural-experiment.mjs` generates a Vertex/Gemini 2D concept and submits it to Meshy, and `scripts/meshy/analyze-printability-task.mjs` records Meshy printability results for a completed task.
 - Clarified that the immediate Meshy implementation target is the UI workflow from `docs/MESHY_FIGURINE_UI_WORKFLOW.md`, starting with Image to Emoji/avatar-style figurine using Natural pose.
 - Added `MESHY_API_KEY`, `MESHY_WEBHOOK_URL`, and `MESHY_WEBHOOK_SECRET` placeholders to env examples without exposing local secret values.
 - Added a human follow-up task for Meshy figurine evaluation, slicer/printability review, and dashboard-based webhook setup.
@@ -107,6 +108,8 @@ All notable project changes will be documented in this file.
 ### Verified
 
 - Verified a live Meshy Image to 3D task succeeded from `.tmp/Profile-Pic-HIMSS.jpg`, downloaded GLB/STL/3MF artifacts under `.tmp/print-files`, and exposed slicer-readiness risks for the first raw-photo output.
+- Verified the first proof-driven Emoji/avatar Natural pose Meshy task `019e5c65-7b2b-7641-abd6-ed04fb4e3d2e` succeeded from a generated full-body concept, consumed `30` credits, downloaded GLB/STL/3MF artifacts under `.tmp/experiments/meshy/emoji-natural-2026-05-24T23-50-06-305Z`, and produced a visually complete stylized figurine.
+- Verified Meshy printability analysis task `019e5c69-3d55-76ec-aecf-7cd728e6ed38` consumed `0` credits and returned `error` because the model is not watertight and has non-manifold/degenerate geometry.
 - Recorded Elliot's Blender review that the first Meshy GLB is viewable but not the intended product style.
 - Verified `services/print-file-generator` tests pass.
 - Verified Firebase Functions build after print-file audit persistence changes.
