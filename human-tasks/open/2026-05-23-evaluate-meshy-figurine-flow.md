@@ -51,6 +51,7 @@ This still needs Elliot's Meshy account, dashboard access, and visual/printabili
 - AI run on 2026-05-24 generated an Emoji/avatar Natural pose 2D concept at `.tmp/experiments/meshy/emoji-natural-2026-05-24T23-50-06-305Z/concept.png`, then created successful Meshy task `019e5c65-7b2b-7641-abd6-ed04fb4e3d2e`, consumed `30` credits, and downloaded GLB/STL/3MF artifacts under `.tmp/experiments/meshy/emoji-natural-2026-05-24T23-50-06-305Z/meshy/2026-05-24T23-50-17-997Z-019e5c65-7b2b-7641-abd6-ed04fb4e3d2e`.
 - The Emoji/avatar thumbnail preserved a complete stylized full-body figure and is much closer to the intended product style than the raw-photo run.
 - Meshy printability analysis task `019e5c69-3d55-76ec-aecf-7cd728e6ed38` consumed `0` credits and returned `error`: not watertight, `125` non-manifold edges, `112` degenerate faces, `0` holes. Open this output in Bambu Studio, OrcaSlicer, or equivalent and capture whether automatic repair makes it printable.
+- Experiment 002 is prepared for the start of the next chat as `npm run meshy:exp-002-multiview`. It will create paid Meshy Image-to-Image multi-view and Multi-Image-to-3D tasks, download local artifacts, and run Meshy printability analysis. Elliot will close the loop in chat when the experiment finishes and provide visual/printability judgment.
 
 ## Related Files
 

@@ -1,6 +1,6 @@
 # Active Checklist
 
-Last updated: 2026-05-24
+Last updated: 2026-05-25
 
 This is the short working checklist for the current product focus: the Meshy-backed personalized figurine service on `3dprintyou.com`.
 
@@ -34,9 +34,11 @@ Prove whether Meshy can power the first customer-facing figurine workflow:
 - [x] Generate the first successful Meshy Image to 3D output and download GLB/STL/3MF artifacts. Details live in `research/MESHY_SERVICE_IMPLEMENTATION_PLAN.md`.
 - [x] Generate a full-body Emoji/avatar Natural pose 2D concept and run it through Meshy Image to 3D. Task `019e5c65-7b2b-7641-abd6-ed04fb4e3d2e` succeeded, consumed `30` credits, and downloaded GLB/STL/3MF artifacts under `.tmp/experiments/meshy/emoji-natural-2026-05-24T23-50-06-305Z`.
 - [x] Run Meshy printability analysis on the Emoji/avatar output. Analysis task `019e5c69-3d55-76ec-aecf-7cd728e6ed38` consumed `0` credits and returned `error`, with `is_watertight: false`, `125` non-manifold edges, and `112` degenerate faces.
+- [x] Prepare Experiment 002 as a named repeatable runner: `npm run meshy:exp-002-multiview`. The script is documented as Meshy Experiment 002 and will create a Meshy Image-to-Image multi-view task, pass it to Meshy Multi-Image-to-3D, download assets, and run Meshy printability analysis.
 
 ## Next
 
+- [ ] At the start of the next chat, run Experiment 002 with `npm run meshy:exp-002-multiview`. This creates paid Meshy tasks. Elliot will close the loop in chat when the experiment is done.
 - [ ] Inspect the downloaded Meshy GLB/STL/3MF in slicer software.
 - [ ] Inspect the downloaded Emoji/avatar Meshy GLB/STL/3MF in slicer software.
 - [ ] Run Meshy Repair Printability or slicer repair on the Emoji/avatar output and compare the repaired result with the original.

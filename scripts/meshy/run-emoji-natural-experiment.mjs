@@ -1,5 +1,17 @@
 #!/usr/bin/env node
 
+/**
+ * Meshy Experiment 001: Emoji/avatar Natural pose, single generated concept.
+ *
+ * Sequence:
+ *   source photo -> Vertex/Gemini 2D concept -> Meshy Image to 3D -> local assets.
+ *
+ * Result on 2026-05-24:
+ *   Meshy task 019e5c65-7b2b-7641-abd6-ed04fb4e3d2e produced a visually
+ *   promising full-body figurine, but printability analysis reported non-watertight
+ *   geometry. Keep this file as the baseline single-concept experiment.
+ */
+
 import { spawn } from "node:child_process";
 import { createWriteStream } from "node:fs";
 import { promises as fs } from "node:fs";

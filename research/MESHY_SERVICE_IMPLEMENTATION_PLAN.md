@@ -1,7 +1,7 @@
 # Meshy Service Implementation Plan
 
 Status: living implementation plan
-Last updated: 2026-05-24
+Last updated: 2026-05-25
 
 ## Purpose
 
@@ -146,12 +146,72 @@ Notes:
 - The 2026-05-24 Emoji/avatar run consumed `0` credits for printability analysis.
 - The result should feed our readiness gate, not checkout directly. A visually promising model can still be `error` for printability.
 
+### Create Image To Image Multi-View Task
+
+Endpoint:
+
+```text
+POST https://api.meshy.ai/openapi/v1/image-to-image
+GET https://api.meshy.ai/openapi/v1/image-to-image/{taskId}
+```
+
+Prepared Experiment 002 request shape:
+
+```json
+{
+  "ai_model": "gpt-image-2",
+  "prompt": "<emoji-avatar-natural-multiview-prompt>",
+  "reference_image_urls": ["data:image/jpeg;base64,<redacted>"],
+  "generate_multi_view": true
+}
+```
+
+Notes:
+
+- Meshy Image to Image accepts `1` to `5` reference images.
+- `generate_multi_view: true` asks Meshy to create a multi-view image set for the same character.
+- Experiment 002 uses this as the next style/proportion control step instead of asking Vertex/Gemini for one front-facing concept only.
+
+### Create Multi-Image To 3D Task
+
+Endpoint:
+
+```text
+POST https://api.meshy.ai/openapi/v1/multi-image-to-3d
+GET https://api.meshy.ai/openapi/v1/multi-image-to-3d/{taskId}
+```
+
+Prepared Experiment 002 request shape:
+
+```json
+{
+  "input_task_id": "<succeeded-image-to-image-multiview-task-id>",
+  "ai_model": "meshy-6",
+  "should_texture": true,
+  "enable_pbr": false,
+  "should_remesh": true,
+  "target_polycount": 100000,
+  "save_pre_remeshed_model": true,
+  "image_enhancement": true,
+  "remove_lighting": true,
+  "moderation": true,
+  "target_formats": ["glb", "stl", "3mf"]
+}
+```
+
+Notes:
+
+- Meshy Multi-Image to 3D accepts either a succeeded API image-generation task id or `1` to `4` direct image URLs/data URIs.
+- Experiment 002 uses `input_task_id` so the generated multi-view images stay linked to the 3D task.
+- Analyze Printability supports succeeded Multi-Image to 3D task ids, so the runner analyzes the model task after assets are downloaded.
+
 ## Local Runner
 
 Scripts:
 
 - `scripts/meshy/create-image-to-3d-job.mjs`
 - `scripts/meshy/run-emoji-natural-experiment.mjs`
+- `scripts/meshy/run-emoji-natural-multiview-experiment.mjs`
 - `scripts/meshy/analyze-printability-task.mjs`
 
 Package command:
@@ -159,10 +219,11 @@ Package command:
 ```powershell
 npm run meshy:first-job
 npm run meshy:emoji-natural-experiment
+npm run meshy:exp-002-multiview
 npm run meshy:analyze-printability -- 019e5c65-7b2b-7641-abd6-ed04fb4e3d2e .tmp/experiments/meshy/emoji-natural-2026-05-24T23-50-06-305Z/meshy/2026-05-24T23-50-17-997Z-019e5c65-7b2b-7641-abd6-ed04fb4e3d2e
 ```
 
-Warning: `meshy:first-job` and `meshy:emoji-natural-experiment` create new paid Meshy tasks and consume credits when Meshy accepts the request. `meshy:analyze-printability` only analyzes an existing task.
+Warning: `meshy:first-job`, `meshy:emoji-natural-experiment`, and `meshy:exp-002-multiview` create new paid Meshy tasks and consume credits when Meshy accepts the request. `meshy:analyze-printability` only analyzes an existing task.
 
 What it does:
 
@@ -172,6 +233,7 @@ What it does:
 - Downloads returned models, thumbnails, and textures under `.tmp/print-files/meshy/{timestamp}-{taskId}/`.
 - Writes sanitized metadata only. It redacts base64 payloads and does not store provider asset URLs in tracked files.
 - The Emoji/Natural experiment script first uses `VERTEX_API_KEY` to create a full-body Emoji/avatar 2D concept, then sends that concept through the existing Meshy image-to-3D runner.
+- The Experiment 002 multi-view script creates a Meshy Image-to-Image task with `generate_multi_view: true`, submits the succeeded image task to Meshy Multi-Image-to-3D, downloads GLB/STL/3MF assets, and runs Meshy Analyze Printability.
 - The printability script creates a Meshy print-analysis task for an existing succeeded Meshy task and writes sanitized printability output next to the model artifacts.
 
 Default local input:
@@ -316,6 +378,31 @@ Next test implication:
 - Run Meshy Repair Printability or slicer repair on this exact task/output before judging fulfillment viability.
 - Human slicer review should compare this proof-driven output against the raw-photo output and record repair warnings, supports, stability, scale, and print time.
 
+### Experiment 002 Prepared: Emoji/avatar Natural Pose Multi-View
+
+Status:
+
+- Prepared, not run yet.
+
+Runner:
+
+- `scripts/meshy/run-emoji-natural-multiview-experiment.mjs`
+- Package command: `npm run meshy:exp-002-multiview`
+
+Planned sequence:
+
+1. Use `.tmp/Profile-Pic-HIMSS.jpg` as the default reference image unless Elliot provides additional references.
+2. Create a Meshy Image-to-Image task with `generate_multi_view: true`.
+3. Download the generated multi-view reference images under `.tmp/experiments/meshy/exp-002-emoji-natural-multiview-*`.
+4. Submit the succeeded image task id to Meshy Multi-Image-to-3D.
+5. Download GLB/STL/3MF/pre-remesh/thumbnail/texture assets.
+6. Run Meshy Analyze Printability on the Multi-Image-to-3D task.
+7. Elliot will close the loop in the next chat after the experiment finishes.
+
+Experiment question:
+
+- Does Meshy's own multi-view prep improve full-body consistency and printability compared with Experiment 001's single front-facing concept?
+
 ## Service Contract To Implement
 
 ### First Workflow Contract
@@ -444,17 +531,18 @@ Next integration step:
 
 1. Add or extend the 2D concept style contract for `emoji_avatar` with Natural pose assumptions.
 2. Promote the local Emoji/avatar Natural pose experiment prompt into a server-side concept style contract if human review accepts the direction.
-3. Run Meshy Repair Printability or slicer repair against the 2026-05-24 Emoji/avatar output before any checkout/preorder claim.
-4. Add generated-3D provider types and Meshy provider client in `apps/functions`.
-5. Add secret loading for `MESHY_API_KEY` through Functions secrets or Secret Manager in deployed runtimes.
-6. Add model-generation Firestore schema and status transitions.
-7. Add asset ingestion that downloads GLB/STL/3MF/thumbnails/textures into Firebase Storage.
-8. Add sanitized provider audit metadata capture.
-9. Add basic model readiness checks: required GLB present, print candidate present, file sizes nonzero, status/warnings recorded.
-10. Add local emulator artifact mirroring under `.tmp/print-files` for figurine outputs.
-11. Connect job page to standalone figurine GLB assets and readiness/warning state.
-12. Add slicer/human review outcome fields before allowing checkout.
-13. Add retries/idempotency so repeated submissions do not create accidental duplicate paid Meshy tasks.
+3. Run Experiment 002 at the start of the next chat, then compare visual quality and printability against Experiment 001.
+4. Run Meshy Repair Printability or slicer repair against the 2026-05-24 Emoji/avatar output before any checkout/preorder claim.
+5. Add generated-3D provider types and Meshy provider client in `apps/functions`.
+6. Add secret loading for `MESHY_API_KEY` through Functions secrets or Secret Manager in deployed runtimes.
+7. Add model-generation Firestore schema and status transitions.
+8. Add asset ingestion that downloads GLB/STL/3MF/thumbnails/textures into Firebase Storage.
+9. Add sanitized provider audit metadata capture.
+10. Add basic model readiness checks: required GLB present, print candidate present, file sizes nonzero, status/warnings recorded.
+11. Add local emulator artifact mirroring under `.tmp/print-files` for figurine outputs.
+12. Connect job page to standalone figurine GLB assets and readiness/warning state.
+13. Add slicer/human review outcome fields before allowing checkout.
+14. Add retries/idempotency so repeated submissions do not create accidental duplicate paid Meshy tasks.
 
 ## Known Risks
 
@@ -478,4 +566,7 @@ Next integration step:
 ## Sources
 
 - [Meshy Image to 3D API](https://docs.meshy.ai/en/api/image-to-3d)
+- [Meshy Image to Image API](https://docs.meshy.ai/en/api/image-to-image)
+- [Meshy Multi-Image to 3D API](https://docs.meshy.ai/en/api/multi-image-to-3d)
+- [Meshy Analyze Printability API](https://docs.meshy.ai/en/api/analyze-printability)
 - [Meshy Asset Retention](https://docs.meshy.ai/en/api/asset-retention)
