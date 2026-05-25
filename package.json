@@ -24,6 +24,7 @@
     "meshy:exp-002b-base": "node scripts/meshy/run-emoji-natural-multiview-experiment.mjs --input .tmp/Profile-Pic-HIMSS.jpg --base-reference \"human-tasks/printu-15 - Base.png\" --base-label Elliott --experiment-slug exp-002b-emoji-natural-base",
     "meshy:exp-002-multiview": "node scripts/meshy/run-emoji-natural-multiview-experiment.mjs --input .tmp/Profile-Pic-HIMSS.jpg",
     "meshy:exp-003-deterministic-base": "node scripts/meshy/run-emoji-natural-multiview-experiment.mjs --input .tmp/Profile-Pic-HIMSS.jpg --experiment-slug exp-003-deterministic-printu-star-base --deterministic-base printu-star",
+    "meshy:exp-004-normalize-glb": "node scripts/meshy/run-emoji-natural-multiview-experiment.mjs --input .tmp/Profile-Pic-HIMSS.jpg --experiment-slug exp-004-normalize-glb --normalize-artifact glb",
     "meshy:first-job": "node scripts/meshy/create-image-to-3d-job.mjs --input .tmp/Profile-Pic-HIMSS.jpg --output-root .tmp/print-files",
     "meshy:emoji-natural-experiment": "node scripts/meshy/run-emoji-natural-experiment.mjs --input .tmp/Profile-Pic-HIMSS.jpg",
     "stripe:create-poster-product": "node scripts/stripe/create-poster-product.mjs",

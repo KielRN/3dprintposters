@@ -421,6 +421,8 @@ Experiment question:
 Initial answer:
 
 - Printability did improve on non-manifold edge count compared with Experiment 001 (`57` versus `125`), but degenerate faces increased (`127` versus `112`), and the model still failed Meshy's own printability gate.
+- Blender/3MF scale inspection on 2026-05-25 found that `model.stl` imports at about `837.6 x 497.1 x 1911.6` Blender units while `model.glb` imports at `0.8376 x 0.4971 x 1.9116`; this is a 1000x STL-vs-GLB unit split, not a large STL byte-size problem.
+- The Meshy `model.3mf` is explicitly `millimeter` units and contains the same remeshed topology at a sane print scale of about `32.9mm x 19.5mm x 75.0mm`. Use the 3MF or an explicit target height as the print-scale source of truth, not the raw STL coordinates opened directly in Blender.
 - Human visual and slicer review are still required before judging whether the multi-view path is product-promising.
 
 ### Experiment 002 B Run: Emoji/avatar Natural Pose Multi-View With Base
@@ -465,6 +467,7 @@ Visual/product finding:
 Printability comparison:
 
 - Compared with Experiment 002, Experiment 002 B worsened non-manifold edges (`70` versus `57`) but improved degenerate faces (`84` versus `127`).
+- Blender/3MF scale inspection on 2026-05-25 found the same unit split as Experiment 002: `model.stl` imports around `1037.4 x 1047.3 x 1911.0` Blender units, `model.glb` imports around `1.037 x 1.047 x 1.911`, and Meshy's `model.3mf` is millimeter-scaled at about `40.7mm x 41.1mm x 75.0mm`.
 - The core fulfillment blocker remains unchanged: Meshy's own printability analysis still returns `error`.
 
 ### Experiment 002 Closure
@@ -479,11 +482,11 @@ Conclusion:
 - Meshy's final 3D task should not be trusted to preserve precise product text or decorative base details.
 - Continue with deterministic post-Meshy base geometry rather than more prompt-only base/nameplate attempts.
 
-### Experiment 003 Prepared: Deterministic PrintU-Star Base After Meshy
+### Experiment 003: Deterministic PrintU-Star Base After Meshy
 
 Status:
 
-- Prepared, not run yet.
+- Ran on 2026-05-25.
 
 Runner:
 
@@ -491,7 +494,7 @@ Runner:
 - `scripts/meshy/add_printu_star_base.py`
 - Package command: `npm run meshy:exp-003-deterministic-base`
 
-Planned sequence:
+Sequence:
 
 1. Use `.tmp/Profile-Pic-HIMSS.jpg` as the default reference image.
 2. Create the same Meshy Image-to-Image multi-view task as Experiment 002, without asking Meshy to generate a base.
@@ -522,6 +525,90 @@ Setup verification:
 - `python -m py_compile scripts/meshy/add_printu_star_base.py`
 - Local no-credit smoke test against the Experiment 002 STL exported STL/GLB/3MF under `.tmp/experiments/meshy/exp-003-setup-smoke/postprocessed/printu-star/`.
 - Smoke test finding: the base-only mesh is watertight; the combined mesh still inherits the original Meshy body's non-watertight status.
+
+Run results:
+
+- Run directory: `.tmp/experiments/meshy/exp-003-deterministic-printu-star-base-2026-05-25T16-10-02-213Z`
+- Image task: `019e5fe6-81d9-7f24-9add-bbd37e6ff6f4`, succeeded, consumed `12` credits.
+- Model task: `019e5fe7-81fc-742c-ab8a-8516bd549134`, succeeded, consumed `30` credits.
+- Printability task: `019e5fe9-c09e-7093-a81d-847899b14db9`, consumed `0` credits and returned `error`.
+- Printability metrics: `is_watertight: false`, `75` non-manifold edges, `79` degenerate faces, `0` holes.
+- Postprocessed exports:
+  - `postprocessed/printu-star/model-with-printu-star-base.stl`
+  - `postprocessed/printu-star/model-with-printu-star-base.glb`
+  - `postprocessed/printu-star/model-with-printu-star-base.3mf`
+  - `postprocessed/printu-star/printu-star-base-only.stl`
+- Local `trimesh` metadata reports the deterministic base mesh and star mesh are watertight. The combined mesh is not watertight because it intentionally does not repair the Meshy body.
+- Blender/3MF scale inspection on 2026-05-25 found that the original Meshy `model.3mf` is correctly millimeter-scaled at about `31.0mm x 31.0mm x 75.0mm`, but the deterministic postprocess used Meshy's raw STL coordinates, producing `model-with-printu-star-base.3mf` at about `1135.4mm x 1135.4mm x 2120.7mm`.
+- The postprocessed GLB also imports into Blender with the long axis on Y rather than Z (`1135.4 x 2120.7 x 1135.4`), so the deterministic exporter needs explicit scale/orientation normalization before it can be used as a product preview or print package.
+
+Correction after run:
+
+- Experiment 003 is useful run data, but it is not the intended saved-base product workflow.
+- The target pipeline is: Vertex/Gemini creates the figurine/body proof; Meshy creates the figurine/body 3D object; `services/print-file-generator` applies a saved reusable base STL, deterministic customer-name geometry, and deterministic body/base assembly.
+- Do not ask Vertex/Gemini or Meshy to preserve product-owned base details, star geometry, or customer text. Those belong to deterministic manufacturing code.
+- The approved reusable base STL does not exist yet. Create/select it before implementing name-on-base or body/base composition services.
+
+### Corrected Deterministic Base Pipeline
+
+Prerequisite asset:
+
+- `base.stl`: approved reusable figurine base mesh.
+- `base.manifest.json`: version, units, dimensions, orientation, top plane, foot-placement zone, front text zone, text constraints, checksum, and storage/tracking policy.
+
+Server-side services to add under `services/print-file-generator`:
+
+1. Base naming service: load the approved base STL and deterministically add raised or engraved customer-name geometry.
+2. Body/base composer: load Meshy's figurine/body output and the named base, scale/orient/position the body, attach or overlap it according to slicer-tested rules, and export final STL/GLB/3MF plus metadata.
+3. Printability/readiness audit: report inherited Meshy body defects separately from base/text/assembly defects.
+
+Scale/orientation requirement:
+
+- Do not derive manufacturing dimensions directly from Meshy's raw `model.stl`; in Blender it opens at roughly 1000x the GLB coordinate scale and around 1.9m tall if treated as millimeters.
+- Prefer Meshy's `model.3mf` millimeter extents, or normalize the Meshy body to an explicit target height before deterministic base/text composition.
+- Export GLB previews with a verified up-axis and size check, then re-import in Blender or a web viewer before wiring the output into the app.
+
+Functions orchestration:
+
+- `apps/functions` should coordinate proof approval, Meshy body generation, asset ingestion, and the print-file-generator composition call. Provider credentials and geometry generation remain server-side only.
+
+### Experiment 004: Normalize Meshy Artifacts Before Composition
+
+Status:
+
+- Prepared on 2026-05-25 and smoke-tested against existing Experiment 002 artifacts without creating new paid Meshy tasks.
+
+Runner:
+
+- Existing runner: `scripts/meshy/run-emoji-natural-multiview-experiment.mjs`
+- New package command: `npm run meshy:exp-004-normalize-glb`
+- Command behavior: runs the normal Meshy Image-to-Image multi-view -> Multi-Image-to-3D -> printability flow, then passes the downloaded GLB through the local normalizer with `--normalize-artifact glb`.
+- Warning: the package command creates new paid Meshy tasks. For no-credit testing, call the Python normalizer directly on an existing run directory.
+
+Normalizer:
+
+- Script: `services/print-file-generator/scripts/normalize_meshy_artifact.py`
+- Default scale source: downloaded `model.3mf` height in millimeters.
+- Geometry source: any downloaded Meshy model asset; Experiment 004 starts with `model.glb`.
+- Output: `model.normalized.stl`, `model.normalized.3mf`, `model.normalized.glb`, and `normalization.metadata.json`.
+- GLB handling: treats source GLB as Y-up, converts to print Z-up for STL/3MF, then exports preview GLB in glTF Y-up so Blender and web importers show the same print dimensions.
+
+No-credit smoke test against Experiment 002:
+
+- Source run: `.tmp/experiments/meshy/exp-002-emoji-natural-multiview-2026-05-25T11-50-24-757Z`
+- GLB-source output: `postprocessed/normalized-glb-exp004-smoke/`
+- STL-source comparison output: `postprocessed/normalized-stl-exp004-smoke/`
+- Reference height from Meshy's `model.3mf`: `75.0mm`.
+- Normalized GLB-source dimensions verified in Blender: about `32.86mm x 19.50mm x 75.00mm`.
+- Normalized STL-source dimensions verified in Blender: about `32.86mm x 19.50mm x 75.00mm`.
+- Normalized GLB-source topology remained not watertight and seam-heavy: about `26,043` non-manifold edges after cleanup.
+- Normalized STL-source topology preserved Meshy's better remeshed print topology: `57` non-manifold edges after cleanup.
+
+Experiment 004 implication:
+
+- The normalization service works for scale and orientation.
+- The visually nice GLB is not automatically the best print-geometry source; for Experiment 002, normalized raw STL is a better starting print candidate than GLB because it has far fewer open seam edges.
+- Keep GLB as preview-friendly, but compare normalized STL and normalized GLB in slicer before choosing the production geometry source.
 
 ## Service Contract To Implement
 
@@ -651,19 +738,20 @@ Next integration step:
 
 1. Add or extend the 2D concept style contract for `emoji_avatar` with Natural pose assumptions.
 2. Promote the local Emoji/avatar Natural pose experiment prompt into a server-side concept style contract if human review accepts the direction.
-3. Run Experiment 003 at the start of the next chat, then compare deterministic base/star behavior against Experiment 002 B's Meshy-generated base.
-4. Run Meshy Repair Printability or slicer repair against the 2026-05-24 Emoji/avatar output, the 2026-05-25 Experiment 002 output, the 2026-05-25 Experiment 002 B output, and the future Experiment 003 output before any checkout/preorder claim.
-5. Prototype deterministic nameplate text as a second post-processing step after deterministic base/star geometry is validated.
-6. Add generated-3D provider types and Meshy provider client in `apps/functions`.
-7. Add secret loading for `MESHY_API_KEY` through Functions secrets or Secret Manager in deployed runtimes.
-8. Add model-generation Firestore schema and status transitions.
-9. Add asset ingestion that downloads GLB/STL/3MF/thumbnails/textures into Firebase Storage.
-10. Add sanitized provider audit metadata capture.
-11. Add basic model readiness checks: required GLB present, print candidate present, file sizes nonzero, status/warnings recorded.
-12. Add local emulator artifact mirroring under `.tmp/print-files` for figurine outputs.
-13. Connect job page to standalone figurine GLB assets and readiness/warning state.
-14. Add slicer/human review outcome fields before allowing checkout.
-15. Add retries/idempotency so repeated submissions do not create accidental duplicate paid Meshy tasks.
+3. Create or select the approved reusable base STL asset and capture its manifest metadata.
+4. Build deterministic name-on-base service after the base STL exists.
+5. Build deterministic Meshy-body-to-named-base composition service after base naming works.
+6. Run Meshy Repair Printability or slicer repair against the 2026-05-24 Emoji/avatar output, the 2026-05-25 Experiment 002 output, the 2026-05-25 Experiment 002 B output, and the 2026-05-25 Experiment 003 output before any checkout/preorder claim.
+7. Add generated-3D provider types and Meshy provider client in `apps/functions`.
+8. Add secret loading for `MESHY_API_KEY` through Functions secrets or Secret Manager in deployed runtimes.
+9. Add model-generation Firestore schema and status transitions.
+10. Add asset ingestion that downloads GLB/STL/3MF/thumbnails/textures into Firebase Storage.
+11. Add sanitized provider audit metadata capture.
+12. Add basic model readiness checks: required GLB present, print candidate present, file sizes nonzero, status/warnings recorded.
+13. Add local emulator artifact mirroring under `.tmp/print-files` for figurine outputs.
+14. Connect job page to standalone figurine GLB assets and readiness/warning state.
+15. Add slicer/human review outcome fields before allowing checkout.
+16. Add retries/idempotency so repeated submissions do not create accidental duplicate paid Meshy tasks.
 
 ## Known Risks
 

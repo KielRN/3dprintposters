@@ -39,13 +39,22 @@ Prove whether Meshy can power the first customer-facing figurine workflow:
 - [x] Run Experiment 002 B with the PrintU-style round base reference and front base label `Elliott`. Image task `019e5f1f-d682-77d3-b332-0808a10a1d34` consumed `12` credits, model task `019e5f20-db96-79f3-9169-943c310121cd` consumed `30` credits, downloaded GLB/STL/3MF artifacts under `.tmp/experiments/meshy/exp-002b-emoji-natural-base-2026-05-25T12-33-03-165Z`, and printability task `019e5f23-4277-7abb-b7fc-9a4396b0d3e5` returned `error`.
 - [x] Close Experiment 002/002 B as the Meshy-generated-base/text cycle. Use Experiment 003 for deterministic base geometry after Meshy instead of asking Meshy to preserve the base star or customer text.
 - [x] Prepare Experiment 003 as a named repeatable runner: `npm run meshy:exp-003-deterministic-base`. The script will run the same Meshy multi-view -> Multi-Image-to-3D flow, then locally add a deterministic PrintU-style round base with a raised center star after Meshy asset download.
+- [x] Run Experiment 003 with deterministic post-Meshy base geometry. Image task `019e5fe6-81d9-7f24-9add-bbd37e6ff6f4` consumed `12` credits, model task `019e5fe7-81fc-742c-ab8a-8516bd549134` consumed `30` credits, downloaded assets under `.tmp/experiments/meshy/exp-003-deterministic-printu-star-base-2026-05-25T16-10-02-213Z`, and printability task `019e5fe9-c09e-7093-a81d-847899b14db9` returned `error`.
+- [x] Analyze Experiment 002, 002 B, and 003 Meshy artifacts in Blender plus direct 3MF inspection. Meshy's `model.3mf` files are millimeter-scaled at `75mm` tall, while raw `model.stl` opens in Blender around `1911` units tall and raw `model.glb` around `1.91` units tall.
+- [x] Clarify the deterministic base architecture: Vertex/Gemini and Meshy should produce the figurine/body object; the product base, star, customer name, and final body/base assembly should be deterministic server-side manufacturing steps using a saved base STL asset.
+- [x] Prepare Experiment 004 as a normalizer mode on the existing Meshy runner: `npm run meshy:exp-004-normalize-glb`. It runs the usual Meshy flow, then normalizes the downloaded GLB using Meshy's 3MF millimeter height as the scale reference.
+- [x] Smoke-test the normalizer without new paid Meshy tasks against Experiment 002. Normalized GLB and normalized STL outputs both import in Blender at about `32.86mm x 19.50mm x 75.00mm`; normalized GLB remains seam-heavy (`~26k` non-manifold edges), while normalized STL preserves Meshy's lower `57` non-manifold edge count.
 
 ## Next
 
-- [ ] At the start of the next chat, run Experiment 003 with `npm run meshy:exp-003-deterministic-base`. This creates paid Meshy tasks, then runs local deterministic post-processing.
+- [ ] Create or select the approved reusable figurine base STL asset. This is the blocker for the deterministic base workflow and should be done before building the name-on-base or body/base assembly services.
+- [ ] Define the base asset manifest: base version, units, dimensions, top plane, foot-placement zone, customer-name text zone, preferred font/text constraints, checksum, and storage location.
+- [ ] Build the deterministic name-on-base service in `services/print-file-generator` after the base STL exists.
+- [ ] Build the deterministic Meshy-body-to-named-base assembly service in `services/print-file-generator` after the base naming path is working.
+- [ ] Inspect the Experiment 004 smoke outputs in slicer software: normalized GLB-source package and normalized STL-source package under the Experiment 002 run directory.
 - [ ] Inspect the downloaded Meshy GLB/STL/3MF in slicer software.
 - [ ] Inspect the downloaded Emoji/avatar Meshy GLB/STL/3MF in slicer software.
-- [ ] Inspect the Experiment 003 postprocessed STL/GLB/3MF in slicer software. Specifically check whether the deterministic base is printable, whether the star is preserved, and whether the model stands/supports cleanly.
+- [ ] Treat Experiment 003 as a generated-base learning run, not the target saved-base workflow. Inspect it only if useful for body/base placement, scale, and inherited Meshy body defects.
 - [ ] Run Meshy Repair Printability or slicer repair on the Emoji/avatar output and compare the repaired result with the original.
 - [ ] Classify Meshy output quality as promising, weak, or not viable for the first figurine MVP.
 - [ ] Decide whether Emoji/avatar + Natural pose is good enough to become the first supported style/posture set.
@@ -63,7 +72,11 @@ Prove whether Meshy can power the first customer-facing figurine workflow:
 - Experiment 002 produced full local GLB/STL/3MF assets, but Meshy's printability analysis still returned `error`: not watertight, `57` non-manifold edges, `127` degenerate faces, and `0` holes.
 - Experiment 002 B proved Meshy Image-to-Image can generate a visually strong round base/nameplate in the multi-view references, but the final 3D thumbnail appears to garble the `Elliott` text. Treat user-custom text as likely needing deterministic geometry or post-processing instead of relying on Meshy to preserve lettering.
 - Experiment 002 B printability still returned `error`: not watertight, `70` non-manifold edges, `84` degenerate faces, and `0` holes.
-- Experiment 003 should separate provider generation from product base control: Meshy creates the body, then local deterministic geometry adds the round base and center star. The setup smoke test exported local STL/GLB/3MF files from an existing Meshy STL, and the base-only mesh was watertight.
+- Experiment 003 used locally generated base/star geometry and did not use the intended saved base STL asset. Keep its run data, but do not treat it as the target product workflow.
+- Experiment 003 printability still returned `error` on the original Meshy body: not watertight, `75` non-manifold edges, `79` degenerate faces, and `0` holes. Local postprocessing exported deterministic generated-base/star assets; the generated base and star meshes are watertight, while the combined mesh remains non-watertight because it inherits the Meshy body defects.
+- Meshy's print-oriented `model.3mf` outputs for Experiments 002, 002 B, and 003 are already at sensible millimeter scale (`75mm` tall). The oversized Blender STL view is a raw STL unit-scale issue; the Experiment 003 local postprocessed 3MF is genuinely oversized because it used raw STL dimensions without normalizing to Meshy's 3MF or an explicit target height.
+- Experiment 004 proves scale/orientation normalization is straightforward, but it also shows GLB-to-STL is not automatically cleaner for print: Meshy's GLB carries many open seam edges after conversion, while the normalized raw STL has much lower non-manifold edge count.
+- No approved saved base STL exists yet. The deterministic manufacturing path is blocked until that base asset is created or selected, versioned, and documented.
 - Slicer and physical-print validation are still required before promising automated fulfillment.
 - Cloudflare token access remains partial: Worker deploy and domain listing work, but DNS record and Worker route reads return `403`.
 - Likeness, celebrity/IP, minors/consent, and moderation rules need explicit product decisions before public traffic.
@@ -72,6 +85,7 @@ Prove whether Meshy can power the first customer-facing figurine workflow:
 ## Human Validation
 
 - [human-tasks/open/2026-05-23-evaluate-meshy-figurine-flow.md](human-tasks/open/2026-05-23-evaluate-meshy-figurine-flow.md)
+- [human-tasks/open/2026-05-25-create-figurine-base-stl.md](human-tasks/open/2026-05-25-create-figurine-base-stl.md)
 
 ## References
 

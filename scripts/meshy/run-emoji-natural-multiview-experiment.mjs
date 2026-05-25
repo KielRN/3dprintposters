@@ -46,7 +46,10 @@ Options:
   --base-label <text>        Add a round base with this exact front label.
   --experiment-slug <slug>   Output folder suffix. Default: exp-002-emoji-natural-multiview.
   --deterministic-base <id>  Add local deterministic geometry after Meshy. Supported: printu-star.
-  --postprocess-python <cmd> Python command for deterministic postprocess. Default: python.
+  --normalize-artifact <id>  Normalize a downloaded Meshy artifact after generation. Supported: glb,stl,3mf,pre-remeshed-glb.
+  --normalization-target-height-mm <n>
+                              Target normalized height. Default: use downloaded model.3mf height.
+  --postprocess-python <cmd> Python command for local postprocess steps. Default: python.
   --output-root <path>       Output root. Default: .tmp/experiments/meshy.
   --image-model <id>         Meshy image model. Default: gpt-image-2.
   --skip-image-task-id <id>  Use an existing succeeded Meshy image-to-image multi-view task.
@@ -383,6 +386,61 @@ async function runDeterministicPostprocess(runDir, args) {
   return metadata;
 }
 
+function normalizedArtifactFilename(value) {
+  const key = value.trim().toLowerCase();
+  const supported = {
+    glb: "model.glb",
+    stl: "model.stl",
+    "3mf": "model.3mf",
+    "pre-remeshed-glb": "model.pre-remeshed.glb",
+    pre_remeshed_glb: "model.pre-remeshed.glb",
+  };
+  const filename = supported[key];
+  if (!filename) {
+    throw new Error(`Unsupported --normalize-artifact value: ${value}`);
+  }
+  return { key: key.replaceAll("_", "-"), filename };
+}
+
+async function runArtifactNormalizationPostprocess(runDir, args) {
+  if (!args.normalizeArtifact) {
+    return null;
+  }
+
+  const { key, filename } = normalizedArtifactFilename(args.normalizeArtifact);
+  const inputModelPath = path.join(runDir, filename);
+  const reference3mfPath = path.join(runDir, "model.3mf");
+  const outputDir = path.join(runDir, "postprocessed", `normalized-${key}`);
+  const scriptPath = path.join(
+    repoRoot,
+    "services",
+    "print-file-generator",
+    "scripts",
+    "normalize_meshy_artifact.py",
+  );
+  const pythonCommand = args.postprocessPython ?? "python";
+  const processArgs = [
+    scriptPath,
+    "--source",
+    inputModelPath,
+    "--reference-3mf",
+    reference3mfPath,
+    "--output-dir",
+    outputDir,
+  ];
+
+  if (args.normalizationTargetHeightMm !== undefined) {
+    processArgs.push("--target-height-mm", args.normalizationTargetHeightMm);
+  }
+
+  console.log(`Normalizing Meshy ${key} artifact after download...`);
+  await runProcess(pythonCommand, processArgs, outputDir, "normalization");
+
+  const metadata = await readJson(path.join(outputDir, "normalization.metadata.json"));
+  await writeJson(path.join(runDir, "artifact-normalization.sanitized.json"), metadata);
+  return metadata;
+}
+
 async function createImageTask(apiKey, referencePaths, args) {
   const request = {
     ai_model: args.imageModel ?? DEFAULT_IMAGE_MODEL,
@@ -589,6 +647,8 @@ async function main() {
     base_label: args.baseLabel,
     base_reference_path: args.baseReference ? resolveFromRoot(args.baseReference) : undefined,
     deterministic_base: args.deterministicBase,
+    normalize_artifact: args.normalizeArtifact,
+    normalization_target_height_mm: args.normalizationTargetHeightMm,
     status: "started",
     reference_paths: referencePaths,
     run_dir: runDir,
@@ -687,6 +747,7 @@ async function main() {
   );
 
   const deterministicPostprocess = await runDeterministicPostprocess(runDir, args);
+  const artifactNormalization = await runArtifactNormalizationPostprocess(runDir, args);
 
   await writeJson(path.join(runDir, "experiment.sanitized.json"), {
     completed_at: new Date().toISOString(),
@@ -695,6 +756,8 @@ async function main() {
     base_label: args.baseLabel,
     base_reference_path: args.baseReference ? resolveFromRoot(args.baseReference) : undefined,
     deterministic_base: args.deterministicBase,
+    normalize_artifact: args.normalizeArtifact,
+    normalization_target_height_mm: args.normalizationTargetHeightMm,
     deterministic_postprocess: deterministicPostprocess
       ? {
           postprocess_id: deterministicPostprocess.postprocess_id,
@@ -704,6 +767,17 @@ async function main() {
           ),
           exported_files: deterministicPostprocess.exported_files,
           combined_mesh: deterministicPostprocess.combined_mesh,
+        }
+      : null,
+    artifact_normalization: artifactNormalization
+      ? {
+          postprocess_id: artifactNormalization.postprocess_id,
+          output_dir: path.dirname(artifactNormalization.exported_files?.stl?.path ?? ""),
+          source_model: artifactNormalization.source_model,
+          target_height_mm: artifactNormalization.target_height_mm,
+          scale_factor: artifactNormalization.scale_factor,
+          exported_files: artifactNormalization.exported_files,
+          normalized_mesh: artifactNormalization.normalized_mesh,
         }
       : null,
     status: "completed",
@@ -722,6 +796,11 @@ async function main() {
   if (deterministicPostprocess) {
     console.log(
       `Postprocessed: ${deterministicPostprocess.exported_files?.stl?.path ?? "deterministic base generated"}`,
+    );
+  }
+  if (artifactNormalization) {
+    console.log(
+      `Normalized artifact: ${artifactNormalization.exported_files?.stl?.path ?? "artifact normalized"}`,
     );
   }
 }
