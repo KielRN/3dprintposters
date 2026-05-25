@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Meshy Experiment 001: Emoji/avatar Natural pose, single generated concept.
+ * Meshy Experiment 001: PIXAR-style Natural pose, single generated concept.
  *
  * Sequence:
  *   source photo -> Vertex/Gemini 2D concept -> Meshy Image to 3D -> local assets.
@@ -164,9 +164,9 @@ function buildVertexGenerateContentEndpoint(model, apiKey) {
 
 function buildEmojiNaturalPrompt() {
   return [
-    "Create one clean full-body 2D concept image for a personalized 3D printed emoji/avatar figurine.",
+    "Create one clean full-body 2D concept image for a personalized 3D printed PIXAR-style figurine.",
     "Use the uploaded photo only as the identity and outfit reference. Preserve recognizable facial likeness, broad hairstyle/head shape, glasses or facial hair if present, and the main clothing color impression.",
-    "Style: emoji avatar, toy figurine, smooth rounded forms, simplified expressive face, friendly proportions, clean silhouette, broad color regions, polished plastic or vinyl character surface.",
+    "Style: PIXAR-inspired animated character, toy figurine, smooth rounded forms, simplified expressive face, friendly proportions, clean silhouette, broad color regions, polished plastic or vinyl character surface.",
     "Pose: natural standing pose, front-facing or slight three-quarter view, head, torso, arms, hands, legs, and feet all visible. Keep arms slightly away from the torso and hands visible so the body can become a complete 3D figurine.",
     "Composition: single character centered, full body from head to feet, plain white or transparent-looking studio background, no environment, no props unless they are part of the person, no text, no watermark.",
     "Printability: avoid tiny dangling parts, fragile fingers, hair wisps, noisy textures, photorealistic pores, busy clothing detail, cropped limbs, bust-only framing, floating objects, or side-view-only body shapes.",

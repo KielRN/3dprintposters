@@ -378,7 +378,108 @@ Next test implication:
 - Run Meshy Repair Printability or slicer repair on this exact task/output before judging fulfillment viability.
 - Human slicer review should compare this proof-driven output against the raw-photo output and record repair warnings, supports, stability, scale, and print time.
 
-### Experiment 002 Prepared: Emoji/avatar Natural Pose Multi-View
+### Experiment 002 Run: Emoji/avatar Natural Pose Multi-View
+
+Status:
+
+- Completed on 2026-05-25.
+
+Runner:
+
+- `scripts/meshy/run-emoji-natural-multiview-experiment.mjs`
+- Package command: `npm run meshy:exp-002-multiview`
+
+Completed sequence:
+
+1. Use `.tmp/Profile-Pic-HIMSS.jpg` as the default reference image unless Elliot provides additional references.
+2. Create a Meshy Image-to-Image task with `generate_multi_view: true`.
+3. Download the generated multi-view reference images under `.tmp/experiments/meshy/exp-002-emoji-natural-multiview-*`.
+4. Submit the succeeded image task id to Meshy Multi-Image-to-3D.
+5. Download GLB/STL/3MF/pre-remesh/thumbnail/texture assets.
+6. Run Meshy Analyze Printability on the Multi-Image-to-3D task.
+
+Run output:
+
+- Run directory: `.tmp/experiments/meshy/exp-002-emoji-natural-multiview-2026-05-25T11-50-24-757Z`
+- Image task: `019e5ef8-cc6c-7540-9b86-f8d0f519bc9d`
+- Image task status: `SUCCEEDED`
+- Image task credits: `12`
+- Downloaded multi-view references: `multiview/view-1.png`, `multiview/view-2.png`, `multiview/view-3.png`
+- Model task: `019e5ef9-cc0d-758e-b1c2-f0a61932e3b6`
+- Model task status: `SUCCEEDED`
+- Model task credits: `30`
+- Downloaded model assets: `model.glb` (`8245860` bytes), `model.stl` (`5068634` bytes), `model.3mf` (`1232108` bytes), `model.pre-remeshed.glb` (`4124516` bytes), `thumbnail.png`, base-color texture, and normal texture.
+- Printability task: `019e5efc-09fc-7db6-a22a-a4eb50f9b338`
+- Printability task credits: `0`
+- Printability status: `error`
+- Printability metrics: `is_watertight: false`, `non_manifold_edges: 57`, `degenerate_faces: 127`, `holes: 0`, `volume: 0.2348952340067803`
+
+Experiment question:
+
+- Does Meshy's own multi-view prep improve full-body consistency and printability compared with Experiment 001's single front-facing concept?
+
+Initial answer:
+
+- Printability did improve on non-manifold edge count compared with Experiment 001 (`57` versus `125`), but degenerate faces increased (`127` versus `112`), and the model still failed Meshy's own printability gate.
+- Human visual and slicer review are still required before judging whether the multi-view path is product-promising.
+
+### Experiment 002 B Run: Emoji/avatar Natural Pose Multi-View With Base
+
+Status:
+
+- Completed on 2026-05-25.
+
+Runner:
+
+- `scripts/meshy/run-emoji-natural-multiview-experiment.mjs`
+- Package command: `npm run meshy:exp-002b-base`
+
+Prompt/control changes from Experiment 002:
+
+- Added `human-tasks/printu-15 - Base.png` as a second reference image.
+- Added `--base-label Elliott`.
+- Added `--experiment-slug exp-002b-emoji-natural-base`.
+- The prompt asked for a single round gray display pedestal, physically attached to the feet, with a centered front nameplate/sign reading exactly `Elliott`.
+
+Run output:
+
+- Run directory: `.tmp/experiments/meshy/exp-002b-emoji-natural-base-2026-05-25T12-33-03-165Z`
+- Image task: `019e5f1f-d682-77d3-b332-0808a10a1d34`
+- Image task status: `SUCCEEDED`
+- Image task credits: `12`
+- Downloaded multi-view references: `multiview/view-1.png`, `multiview/view-2.png`, `multiview/view-3.png`
+- Model task: `019e5f20-db96-79f3-9169-943c310121cd`
+- Model task status: `SUCCEEDED`
+- Model task credits: `30`
+- Downloaded model assets: `model.glb` (`9477328` bytes), `model.stl` (`5081734` bytes), `model.3mf` (`1236968` bytes), `model.pre-remeshed.glb` (`6353696` bytes), `thumbnail.png`, base-color texture, and normal texture.
+- Printability task: `019e5f23-4277-7abb-b7fc-9a4396b0d3e5`
+- Printability task credits: `0`
+- Printability status: `error`
+- Printability metrics: `is_watertight: false`, `non_manifold_edges: 70`, `degenerate_faces: 84`, `holes: 0`, `volume: 0.42722485756052014`
+
+Visual/product finding:
+
+- The Image-to-Image multi-view references handled the base request well. `view-1.png` shows a round gray base with a centered front plaque and legible `Elliott` text; the side/back views keep the pedestal consistent.
+- The final Meshy 3D thumbnail includes the base, but the `Elliott` lettering appears garbled. This suggests base geometry may be viable from Meshy, while precise customer text likely needs deterministic mesh/text post-processing after provider generation.
+
+Printability comparison:
+
+- Compared with Experiment 002, Experiment 002 B worsened non-manifold edges (`70` versus `57`) but improved degenerate faces (`84` versus `127`).
+- The core fulfillment blocker remains unchanged: Meshy's own printability analysis still returns `error`.
+
+### Experiment 002 Closure
+
+Status:
+
+- Closed on 2026-05-25.
+
+Conclusion:
+
+- Meshy's multi-view image generation can create an attractive base/nameplate reference.
+- Meshy's final 3D task should not be trusted to preserve precise product text or decorative base details.
+- Continue with deterministic post-Meshy base geometry rather than more prompt-only base/nameplate attempts.
+
+### Experiment 003 Prepared: Deterministic PrintU-Star Base After Meshy
 
 Status:
 
@@ -387,21 +488,40 @@ Status:
 Runner:
 
 - `scripts/meshy/run-emoji-natural-multiview-experiment.mjs`
-- Package command: `npm run meshy:exp-002-multiview`
+- `scripts/meshy/add_printu_star_base.py`
+- Package command: `npm run meshy:exp-003-deterministic-base`
 
 Planned sequence:
 
-1. Use `.tmp/Profile-Pic-HIMSS.jpg` as the default reference image unless Elliot provides additional references.
-2. Create a Meshy Image-to-Image task with `generate_multi_view: true`.
-3. Download the generated multi-view reference images under `.tmp/experiments/meshy/exp-002-emoji-natural-multiview-*`.
-4. Submit the succeeded image task id to Meshy Multi-Image-to-3D.
-5. Download GLB/STL/3MF/pre-remesh/thumbnail/texture assets.
-6. Run Meshy Analyze Printability on the Multi-Image-to-3D task.
-7. Elliot will close the loop in the next chat after the experiment finishes.
+1. Use `.tmp/Profile-Pic-HIMSS.jpg` as the default reference image.
+2. Create the same Meshy Image-to-Image multi-view task as Experiment 002, without asking Meshy to generate a base.
+3. Submit the succeeded image task id to Meshy Multi-Image-to-3D.
+4. Download Meshy's GLB/STL/3MF/pre-remesh/thumbnail/texture assets.
+5. Run Meshy Analyze Printability against Meshy's original Multi-Image-to-3D task.
+6. Locally load Meshy's downloaded `model.stl`.
+7. Center and lift the Meshy figure onto a deterministic round pedestal.
+8. Add a locally generated PrintU-style raised five-point star on the top center of the base.
+9. Export postprocessed assets under `postprocessed/printu-star/`:
+   - `model-with-printu-star-base.stl`
+   - `model-with-printu-star-base.glb`
+   - `model-with-printu-star-base.3mf`
+   - `printu-star-base-only.stl`
+   - `postprocess.metadata.json`
 
-Experiment question:
+Implementation notes:
 
-- Does Meshy's own multi-view prep improve full-body consistency and printability compared with Experiment 001's single front-facing concept?
+- The deterministic postprocessor uses `trimesh`, which is already installed locally and listed as the print-file generator's experiment dependency.
+- The base is a beveled round cylinder with deterministic dimensions derived from the Meshy figure's bounds.
+- The raised star is actual local mesh geometry, not texture or prompt-generated detail.
+- Experiment 003 does not add customer name text yet. It validates the deterministic base/star approach first.
+- The postprocessor intentionally does not repair Meshy's non-watertight body. Slicer review should distinguish provider mesh defects from deterministic base behavior.
+
+Setup verification:
+
+- `node --check scripts/meshy/run-emoji-natural-multiview-experiment.mjs`
+- `python -m py_compile scripts/meshy/add_printu_star_base.py`
+- Local no-credit smoke test against the Experiment 002 STL exported STL/GLB/3MF under `.tmp/experiments/meshy/exp-003-setup-smoke/postprocessed/printu-star/`.
+- Smoke test finding: the base-only mesh is watertight; the combined mesh still inherits the original Meshy body's non-watertight status.
 
 ## Service Contract To Implement
 
@@ -531,18 +651,19 @@ Next integration step:
 
 1. Add or extend the 2D concept style contract for `emoji_avatar` with Natural pose assumptions.
 2. Promote the local Emoji/avatar Natural pose experiment prompt into a server-side concept style contract if human review accepts the direction.
-3. Run Experiment 002 at the start of the next chat, then compare visual quality and printability against Experiment 001.
-4. Run Meshy Repair Printability or slicer repair against the 2026-05-24 Emoji/avatar output before any checkout/preorder claim.
-5. Add generated-3D provider types and Meshy provider client in `apps/functions`.
-6. Add secret loading for `MESHY_API_KEY` through Functions secrets or Secret Manager in deployed runtimes.
-7. Add model-generation Firestore schema and status transitions.
-8. Add asset ingestion that downloads GLB/STL/3MF/thumbnails/textures into Firebase Storage.
-9. Add sanitized provider audit metadata capture.
-10. Add basic model readiness checks: required GLB present, print candidate present, file sizes nonzero, status/warnings recorded.
-11. Add local emulator artifact mirroring under `.tmp/print-files` for figurine outputs.
-12. Connect job page to standalone figurine GLB assets and readiness/warning state.
-13. Add slicer/human review outcome fields before allowing checkout.
-14. Add retries/idempotency so repeated submissions do not create accidental duplicate paid Meshy tasks.
+3. Run Experiment 003 at the start of the next chat, then compare deterministic base/star behavior against Experiment 002 B's Meshy-generated base.
+4. Run Meshy Repair Printability or slicer repair against the 2026-05-24 Emoji/avatar output, the 2026-05-25 Experiment 002 output, the 2026-05-25 Experiment 002 B output, and the future Experiment 003 output before any checkout/preorder claim.
+5. Prototype deterministic nameplate text as a second post-processing step after deterministic base/star geometry is validated.
+6. Add generated-3D provider types and Meshy provider client in `apps/functions`.
+7. Add secret loading for `MESHY_API_KEY` through Functions secrets or Secret Manager in deployed runtimes.
+8. Add model-generation Firestore schema and status transitions.
+9. Add asset ingestion that downloads GLB/STL/3MF/thumbnails/textures into Firebase Storage.
+10. Add sanitized provider audit metadata capture.
+11. Add basic model readiness checks: required GLB present, print candidate present, file sizes nonzero, status/warnings recorded.
+12. Add local emulator artifact mirroring under `.tmp/print-files` for figurine outputs.
+13. Connect job page to standalone figurine GLB assets and readiness/warning state.
+14. Add slicer/human review outcome fields before allowing checkout.
+15. Add retries/idempotency so repeated submissions do not create accidental duplicate paid Meshy tasks.
 
 ## Known Risks
 

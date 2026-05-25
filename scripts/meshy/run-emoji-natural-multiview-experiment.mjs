@@ -17,11 +17,12 @@
  *   before generating the 3D model.
  *
  * Status:
- *   Prepared for the next chat. Running this script will create paid Meshy tasks.
+ *   Running this script will create paid Meshy tasks.
  */
 
 import { createWriteStream } from "node:fs";
 import { promises as fs } from "node:fs";
+import { spawn } from "node:child_process";
 import path from "node:path";
 import { pipeline } from "node:stream/promises";
 import { fileURLToPath } from "node:url";
@@ -41,6 +42,11 @@ function usage() {
 Options:
   --input <path>             Primary local JPG/PNG source image. Default: .tmp/Profile-Pic-HIMSS.jpg.
   --reference <path>         Extra local JPG/PNG reference image. Can be repeated, max 4 extras.
+  --base-reference <path>    Local JPG/PNG base style reference image.
+  --base-label <text>        Add a round base with this exact front label.
+  --experiment-slug <slug>   Output folder suffix. Default: exp-002-emoji-natural-multiview.
+  --deterministic-base <id>  Add local deterministic geometry after Meshy. Supported: printu-star.
+  --postprocess-python <cmd> Python command for deterministic postprocess. Default: python.
   --output-root <path>       Output root. Default: .tmp/experiments/meshy.
   --image-model <id>         Meshy image model. Default: gpt-image-2.
   --skip-image-task-id <id>  Use an existing succeeded Meshy image-to-image multi-view task.
@@ -172,6 +178,10 @@ async function appendJsonLine(filePath, value) {
   await fs.appendFile(filePath, `${JSON.stringify(value)}\n`);
 }
 
+async function readJson(filePath) {
+  return JSON.parse(await fs.readFile(filePath, "utf8"));
+}
+
 async function fileToDataUri(filePath) {
   const image = await fs.readFile(filePath);
   return `data:${contentTypeFor(filePath)};base64,${image.toString("base64")}`;
@@ -209,16 +219,28 @@ async function meshyJson(apiKey, endpoint, init = {}) {
   return data;
 }
 
-function buildMultiviewPrompt() {
-  return [
+function buildMultiviewPrompt(args) {
+  const lines = [
     "Create a clean multi-view character sheet for a personalized 3D printed emoji/avatar figurine.",
     "Use the reference image(s) for identity, head shape, glasses or facial hair if present, and the main outfit color impression.",
     "Style: emoji avatar, toy figurine, smooth rounded vinyl/plastic surfaces, simple expressive face, broad color regions, friendly proportions.",
     "Pose: natural standing pose with feet planted, arms slightly away from the torso, hands visible, and a balanced body that can be made into a printable figurine.",
-    "Views: generate consistent front, side, and back views of the same character. Keep the body proportions, outfit colors, head shape, and accessories consistent across views.",
+  ];
+
+  if (args.baseLabel) {
+    lines.push(
+      `Base: include a single round gray display pedestal under the feet, inspired by the supplied base reference image if present. Add an engraved or raised front nameplate/sign on the base that reads exactly "${args.baseLabel}". The text must appear only on the front of the base, be centered, large, clean, and legible.`,
+      "Keep the base physically attached to the feet and make it sturdy for 3D printing. Avoid extra props, extra labels, duplicate text, or floating decorations.",
+    );
+  }
+
+  lines.push(
+    "Views: generate consistent front, side, and back views of the same character. Keep the body proportions, outfit colors, head shape, accessories, and base consistent across views.",
     "Background: plain white studio background, one centered character per view, no text, no watermark, no scene, no extra props.",
     "Printability: avoid fragile fingers, floating parts, cropped limbs, hair wisps, photorealistic skin texture, busy fabric detail, or side-only silhouettes.",
-  ].join("\n");
+  );
+
+  return lines.join("\n");
 }
 
 function sanitizeImageTask(task, downloadedImages = []) {
@@ -289,10 +311,82 @@ async function downloadFile(url, destination) {
   return stats.size;
 }
 
+async function runProcess(command, args, outputDir, filenamePrefix) {
+  await fs.mkdir(outputDir, { recursive: true });
+  const stdoutPath = path.join(outputDir, `${filenamePrefix}.stdout.log`);
+  const stderrPath = path.join(outputDir, `${filenamePrefix}.stderr.log`);
+
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, {
+      cwd: repoRoot,
+      shell: process.platform === "win32",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    const stdoutChunks = [];
+    const stderrChunks = [];
+
+    child.stdout.on("data", (chunk) => {
+      stdoutChunks.push(Buffer.from(chunk));
+    });
+    child.stderr.on("data", (chunk) => {
+      stderrChunks.push(Buffer.from(chunk));
+    });
+    child.on("error", reject);
+    child.on("close", async (code) => {
+      const stdout = Buffer.concat(stdoutChunks).toString("utf8");
+      const stderr = Buffer.concat(stderrChunks).toString("utf8");
+      await fs.writeFile(stdoutPath, stdout);
+      await fs.writeFile(stderrPath, stderr);
+
+      if (code !== 0) {
+        reject(new Error(`${command} ${args.join(" ")} failed with exit code ${code}: ${stderr || stdout}`));
+        return;
+      }
+
+      resolve({ stdoutPath, stderrPath });
+    });
+  });
+}
+
+async function runDeterministicPostprocess(runDir, args) {
+  if (!args.deterministicBase) {
+    return null;
+  }
+
+  if (args.deterministicBase !== "printu-star") {
+    throw new Error(`Unsupported deterministic base: ${args.deterministicBase}`);
+  }
+
+  const inputModelPath = path.join(runDir, "model.stl");
+  const outputDir = path.join(runDir, "postprocessed", args.deterministicBase);
+  const scriptPath = path.join(repoRoot, "scripts", "meshy", "add_printu_star_base.py");
+  const pythonCommand = args.postprocessPython ?? "python";
+
+  console.log(`Adding deterministic ${args.deterministicBase} base after Meshy...`);
+  await runProcess(
+    pythonCommand,
+    [
+      scriptPath,
+      "--input",
+      inputModelPath,
+      "--output-dir",
+      outputDir,
+      "--base-style",
+      args.deterministicBase,
+    ],
+    outputDir,
+    "postprocess",
+  );
+
+  const metadata = await readJson(path.join(outputDir, "postprocess.metadata.json"));
+  await writeJson(path.join(runDir, "deterministic-postprocess.sanitized.json"), metadata);
+  return metadata;
+}
+
 async function createImageTask(apiKey, referencePaths, args) {
   const request = {
     ai_model: args.imageModel ?? DEFAULT_IMAGE_MODEL,
-    prompt: buildMultiviewPrompt(),
+    prompt: buildMultiviewPrompt(args),
     reference_image_urls: await Promise.all(referencePaths.map(fileToDataUri)),
     generate_multi_view: true,
   };
@@ -471,12 +565,17 @@ async function main() {
   }
 
   const outputRoot = resolveFromRoot(args.outputRoot, path.join(".tmp", "experiments", "meshy"));
-  const runDir = path.join(outputRoot, `exp-002-emoji-natural-multiview-${timestampForPath()}`);
+  const experimentSlug = args.experimentSlug ?? "exp-002-emoji-natural-multiview";
+  if (!/^[a-z0-9][a-z0-9-]*$/i.test(experimentSlug)) {
+    throw new Error("--experiment-slug must contain only letters, numbers, and hyphens.");
+  }
+  const runDir = path.join(outputRoot, `${experimentSlug}-${timestampForPath()}`);
   await fs.mkdir(runDir, { recursive: true });
 
   const inputPath = resolveFromRoot(args.input, path.join(".tmp", "Profile-Pic-HIMSS.jpg"));
   const referencePaths = [
     inputPath,
+    ...(args.baseReference ? [resolveFromRoot(args.baseReference)] : []),
     ...(args.reference ?? []).map((reference) => resolveFromRoot(reference)),
   ];
   if (referencePaths.length > 5) {
@@ -486,6 +585,10 @@ async function main() {
   await writeJson(path.join(runDir, "experiment.sanitized.json"), {
     created_at: new Date().toISOString(),
     experiment_id: "meshy-exp-002-emoji-natural-multiview",
+    experiment_slug: experimentSlug,
+    base_label: args.baseLabel,
+    base_reference_path: args.baseReference ? resolveFromRoot(args.baseReference) : undefined,
+    deterministic_base: args.deterministicBase,
     status: "started",
     reference_paths: referencePaths,
     run_dir: runDir,
@@ -583,9 +686,26 @@ async function main() {
     sanitizePrintabilityTask(printabilityTask),
   );
 
+  const deterministicPostprocess = await runDeterministicPostprocess(runDir, args);
+
   await writeJson(path.join(runDir, "experiment.sanitized.json"), {
     completed_at: new Date().toISOString(),
     experiment_id: "meshy-exp-002-emoji-natural-multiview",
+    experiment_slug: experimentSlug,
+    base_label: args.baseLabel,
+    base_reference_path: args.baseReference ? resolveFromRoot(args.baseReference) : undefined,
+    deterministic_base: args.deterministicBase,
+    deterministic_postprocess: deterministicPostprocess
+      ? {
+          postprocess_id: deterministicPostprocess.postprocess_id,
+          output_dir: path.dirname(
+            deterministicPostprocess.exported_files?.stl?.path ??
+              path.join(runDir, "postprocessed", args.deterministicBase),
+          ),
+          exported_files: deterministicPostprocess.exported_files,
+          combined_mesh: deterministicPostprocess.combined_mesh,
+        }
+      : null,
     status: "completed",
     reference_paths: referencePaths,
     image_task_id: imageTaskId,
@@ -599,6 +719,11 @@ async function main() {
   console.log(`Image task: ${imageTaskId}`);
   console.log(`Model task: ${modelCreated.taskId}`);
   console.log(`Printability: ${printabilityTask.printability?.status ?? "unknown"}`);
+  if (deterministicPostprocess) {
+    console.log(
+      `Postprocessed: ${deterministicPostprocess.exported_files?.stl?.path ?? "deterministic base generated"}`,
+    );
+  }
 }
 
 main().catch((error) => {
