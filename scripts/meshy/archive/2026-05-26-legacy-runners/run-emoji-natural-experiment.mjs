@@ -22,7 +22,7 @@ const VERTEX_EXPRESS_BASE_URL = "https://aiplatform.googleapis.com/v1";
 const DEFAULT_VERTEX_IMAGE_MODEL = "gemini-2.5-flash-image";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(scriptDir, "..", "..");
+const repoRoot = path.resolve(scriptDir, "..", "..", "..", "..");
 
 function usage() {
   console.log(`Usage:
@@ -169,6 +169,7 @@ function buildEmojiNaturalPrompt() {
     "Style: PIXAR-inspired animated character, toy figurine, smooth rounded forms, simplified expressive face, friendly proportions, clean silhouette, broad color regions, polished plastic or vinyl character surface.",
     "Pose: natural standing pose, front-facing or slight three-quarter view, head, torso, arms, hands, legs, and feet all visible. Keep arms slightly away from the torso and hands visible so the body can become a complete 3D figurine.",
     "Composition: single body-only character centered, full body from head to feet, plain white or transparent-looking studio background, no environment, no props unless they are part of the person, no text, no watermark.",
+    "No base, pedestal, platform, stand, plaque, nameplate, sign, ground disk, scenery, or support prop.",
     "Show shoes or feet clearly, flat on an invisible ground plane, with enough contact area for later deterministic base attachment.",
     "Printability: avoid tiny dangling parts, fragile fingers, hair wisps, noisy textures, photorealistic pores, busy clothing detail, cropped limbs, bust-only framing, floating objects, display bases, or side-view-only body shapes.",
     "Output only the concept image.",

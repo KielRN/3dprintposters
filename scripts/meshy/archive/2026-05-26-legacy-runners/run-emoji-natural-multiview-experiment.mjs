@@ -33,7 +33,7 @@ const DEFAULT_FORMATS = ["glb", "stl", "3mf"];
 const DEFAULT_IMAGE_MODEL = "gpt-image-2";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(scriptDir, "..", "..");
+const repoRoot = path.resolve(scriptDir, "..", "..", "..", "..");
 
 function usage() {
   console.log(`Usage:
@@ -235,10 +235,19 @@ function buildMultiviewPrompt(args) {
       `Base: include a single round gray display pedestal under the feet, inspired by the supplied base reference image if present. Add an engraved or raised front nameplate/sign on the base that reads exactly "${args.baseLabel}". The text must appear only on the front of the base, be centered, large, clean, and legible.`,
       "Keep the base physically attached to the feet and make it sturdy for 3D printing. Avoid extra props, extra labels, duplicate text, or floating decorations.",
     );
+  } else {
+    lines.push(
+      "Body-only output: do not include a base, pedestal, platform, stand, plaque, nameplate, sign, ground disk, scenery, or support prop. If any reference image already contains a base or pedestal, ignore it and remove it from the generated views.",
+      "Show the shoes or feet clearly, flat on an invisible ground plane, with enough contact area for later deterministic base attachment.",
+    );
   }
 
+  const consistencyTarget = args.baseLabel
+    ? "body proportions, outfit colors, head shape, accessories, and base"
+    : "body proportions, outfit colors, head shape, accessories, shoes or feet, and no-base body-only silhouette";
+
   lines.push(
-    "Views: generate consistent front, side, and back views of the same character. Keep the body proportions, outfit colors, head shape, accessories, and base consistent across views.",
+    `Views: generate consistent front, side, and back views of the same character. Keep the ${consistencyTarget} consistent across views.`,
     "Background: plain white studio background, one centered character per view, no text, no watermark, no scene, no extra props.",
     "Printability: avoid fragile fingers, floating parts, cropped limbs, hair wisps, photorealistic skin texture, busy fabric detail, or side-only silhouettes.",
   );

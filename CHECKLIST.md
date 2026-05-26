@@ -44,6 +44,10 @@ Prove whether Meshy can power the first customer-facing figurine workflow:
 - [x] Clarify the deterministic base architecture: Vertex/Gemini and Meshy should produce the figurine/body object; the product base, star, customer name, and final body/base assembly should be deterministic server-side manufacturing steps using a saved base STL asset.
 - [x] Prepare Experiment 004 as a normalizer mode on the existing Meshy runner: `npm run meshy:exp-004-normalize-glb`. It runs the usual Meshy flow, then normalizes the downloaded GLB using Meshy's 3MF millimeter height as the scale reference.
 - [x] Smoke-test the normalizer without new paid Meshy tasks against Experiment 002. Normalized GLB and normalized STL outputs both import in Blender at about `32.86mm x 19.50mm x 75.00mm`; normalized GLB remains seam-heavy (`~26k` non-manifold edges), while normalized STL preserves Meshy's lower `57` non-manifold edge count.
+- [x] Run paid Experiment 004 with `npm run meshy:exp-004-normalize-glb`. Image task `019e619e-53d7-7c77-b65b-1aa28c788d97` and model task `019e619f-2529-7cb4-8d0c-1aaf57442e5e` succeeded, assets downloaded under `.tmp/experiments/meshy/exp-004-normalize-glb-2026-05-26T00-10-26-648Z`, normalized GLB-source outputs exported at `28.86mm x 28.86mm x 75mm`, and printability task `019e61a1-3a10-7302-8c37-b75b33732da6` still returned `error`.
+- [x] Fix the local Vertex/Gemini concept prompt and Meshy multi-view prompt so body-generation runs explicitly request no base/pedestal/platform/nameplate; Meshy also ignores/removes an upstream reference base unless a base experiment deliberately passes `--base-label`.
+- [x] Standardize future Meshy experiments on one end-to-end runner: `npm run meshy:experiment -- -- --experiment-slug <slug>`, implemented in `scripts/meshy/run-standard-figurine-experiment.mjs`.
+- [x] Archive legacy Meshy experiment runners under `scripts/meshy/archive/2026-05-26-legacy-runners/` and remove old npm aliases so the active command list exposes one experiment protocol.
 
 ## Next
 
@@ -51,7 +55,8 @@ Prove whether Meshy can power the first customer-facing figurine workflow:
 - [ ] Define the base asset manifest: base version, units, dimensions, top plane, foot-placement zone, customer-name text zone, preferred font/text constraints, checksum, and storage location.
 - [ ] Build the deterministic name-on-base service in `services/print-file-generator` after the base STL exists.
 - [ ] Build the deterministic Meshy-body-to-named-base assembly service in `services/print-file-generator` after the base naming path is working.
-- [ ] Inspect the Experiment 004 smoke outputs in slicer software: normalized GLB-source package and normalized STL-source package under the Experiment 002 run directory.
+- [ ] Run the next paid standardized experiment with `npm run meshy:exp-005-standard` after confirming the new body-only prompt is ready.
+- [ ] Inspect Experiment 004 outputs in slicer software: the new paid normalized GLB-source package under `.tmp/experiments/meshy/exp-004-normalize-glb-2026-05-26T00-10-26-648Z/postprocessed/normalized-glb/`, plus the earlier Experiment 002 normalized GLB-source and STL-source smoke packages for source-format comparison.
 - [ ] Inspect the downloaded Meshy GLB/STL/3MF in slicer software.
 - [ ] Inspect the downloaded Emoji/avatar Meshy GLB/STL/3MF in slicer software.
 - [ ] Treat Experiment 003 as a generated-base learning run, not the target saved-base workflow. Inspect it only if useful for body/base placement, scale, and inherited Meshy body defects.
@@ -75,7 +80,8 @@ Prove whether Meshy can power the first customer-facing figurine workflow:
 - Experiment 003 used locally generated base/star geometry and did not use the intended saved base STL asset. Keep its run data, but do not treat it as the target product workflow.
 - Experiment 003 printability still returned `error` on the original Meshy body: not watertight, `75` non-manifold edges, `79` degenerate faces, and `0` holes. Local postprocessing exported deterministic generated-base/star assets; the generated base and star meshes are watertight, while the combined mesh remains non-watertight because it inherits the Meshy body defects.
 - Meshy's print-oriented `model.3mf` outputs for Experiments 002, 002 B, and 003 are already at sensible millimeter scale (`75mm` tall). The oversized Blender STL view is a raw STL unit-scale issue; the Experiment 003 local postprocessed 3MF is genuinely oversized because it used raw STL dimensions without normalizing to Meshy's 3MF or an explicit target height.
-- Experiment 004 proves scale/orientation normalization is straightforward, but it also shows GLB-to-STL is not automatically cleaner for print: Meshy's GLB carries many open seam edges after conversion, while the normalized raw STL has much lower non-manifold edge count.
+- Experiment 004 proves scale/orientation normalization is straightforward, but it also shows GLB-to-STL is not automatically cleaner for print: Meshy's GLB carries many open seam edges after conversion, while the normalized raw STL smoke output had much lower non-manifold edge count. The paid Experiment 004 normalized GLB-source output is correctly sized but still not watertight.
+- The paid Experiment 004 thumbnail includes a base because the upstream 2D/reference image path allowed a base and the Meshy runner did not yet reject one. Treat that base as provider-followed input, not the target architecture; future Vertex/Gemini and Meshy body-generation runs now explicitly request no base.
 - No approved saved base STL exists yet. The deterministic manufacturing path is blocked until that base asset is created or selected, versioned, and documented.
 - Slicer and physical-print validation are still required before promising automated fulfillment.
 - Cloudflare token access remains partial: Worker deploy and domain listing work, but DNS record and Worker route reads return `403`.

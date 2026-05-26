@@ -51,6 +51,29 @@ As of 2026-05-23, the active priority is customer acquisition and business-model
 
 The old image-to-3D rejection applies only to poster relief. Full 3D reconstruction was wrong for image-plane depth, but may be right for standalone figurines.
 
+## Standard Figurine Experiment Protocol
+
+Use one runner for future Meshy figurine experiments:
+
+```powershell
+npm run meshy:experiment -- -- --experiment-slug exp-00N-short-name
+```
+
+The runner is `scripts/meshy/run-standard-figurine-experiment.mjs`. It owns the full experiment path in one file:
+
+1. Source photo.
+2. Vertex/Gemini body-only 2D concept.
+3. Meshy Image-to-Image multi-view references.
+4. Meshy Multi-Image-to-3D.
+5. Meshy printability analysis.
+6. Local scale/orientation normalization through `services/print-file-generator/scripts/normalize_meshy_artifact.py`.
+
+Outputs land under `.tmp/experiments/meshy/standard/{experimentSlug}-{timestamp}` with stable `input/`, `vertex/`, `meshy/`, and `normalized/` subfolders. The latest run summary is also written to `.tmp/experiments/meshy/standard/latest.sanitized.json`.
+
+Build future experiments by adding or removing stages, flags, or prompt policy inside this standard runner. Do not create another parallel Meshy runner unless the user explicitly asks for a one-off external prototype. Historical runners live under `scripts/meshy/archive/2026-05-26-legacy-runners/` for reproducing old results only; they are not the active experiment protocol.
+
+The provider-generated body should be body-only. Do not ask Vertex/Gemini or Meshy to create the reusable product base, star details, customer name text, pedestal, platform, or nameplate. The base, text, and final body/base assembly belong in a separate deterministic service inside `services/print-file-generator`.
+
 ## Existing Relief Flow
 
 1. User signs in or continues as guest.
@@ -103,9 +126,17 @@ Required print-file generator values belong in the print-file generator process 
 HUGGINGFACE_API_KEY=...
 ```
 
+Required Meshy experiment values belong in the local root `.env` or process environment:
+
+```text
+MESHY_API_KEY=...
+```
+
 The hybrid relief path uses the print-file generator's normal Python dependencies for local Depth Anything V2.
 
 Required web values belong in `apps/web/.env.local`. Keep `NEXT_PUBLIC_USE_FIREBASE_FUNCTIONS_EMULATOR=true` for the hybrid local flow.
+
+The standard Meshy figurine experiment uses live Vertex/Gemini and Meshy by default and can consume paid provider credits. Do not switch it to stubbed generation unless the user asks.
 
 JDK 21+ is installed on this machine, so the full Firebase emulator suite can run locally. Function-only emulator testing remains available for the hybrid shared-Firebase flow.
 

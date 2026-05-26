@@ -209,24 +209,24 @@ Notes:
 
 Scripts:
 
-- `scripts/meshy/create-image-to-3d-job.mjs`
-- `scripts/meshy/run-emoji-natural-experiment.mjs`
-- `scripts/meshy/run-emoji-natural-multiview-experiment.mjs`
+- `scripts/meshy/run-standard-figurine-experiment.mjs` (active standard runner for future experiment increments)
 - `scripts/meshy/analyze-printability-task.mjs`
+- `scripts/meshy/archive/2026-05-26-legacy-runners/` contains historical runners for reproducing Experiments 001 through 004 only.
 
 Package command:
 
 ```powershell
-npm run meshy:first-job
-npm run meshy:emoji-natural-experiment
-npm run meshy:exp-002-multiview
+npm run meshy:experiment -- -- --experiment-slug exp-005-standard-body-only-normalized
+npm run meshy:exp-005-standard
 npm run meshy:analyze-printability -- 019e5c65-7b2b-7641-abd6-ed04fb4e3d2e .tmp/experiments/meshy/emoji-natural-2026-05-24T23-50-06-305Z/meshy/2026-05-24T23-50-17-997Z-019e5c65-7b2b-7641-abd6-ed04fb4e3d2e
 ```
 
-Warning: `meshy:first-job`, `meshy:emoji-natural-experiment`, and `meshy:exp-002-multiview` create new paid Meshy tasks and consume credits when Meshy accepts the request. `meshy:analyze-printability` only analyzes an existing task.
+Warning: `meshy:experiment` and `meshy:exp-005-standard` create paid provider tasks and consume credits when providers accept the request. `meshy:experiment` also calls Vertex/Gemini unless `--skip-concept` is provided. `meshy:analyze-printability` only analyzes an existing task.
 
 What it does:
 
+- The active standard runner performs the full experiment protocol in one file: source photo -> Vertex/Gemini body-only concept -> Meshy Image-to-Image multi-view -> Meshy Multi-Image-to-3D -> Meshy Analyze Printability -> local normalized STL/3MF/GLB outputs.
+- Standard runner outputs live under `.tmp/experiments/meshy/standard/{experimentSlug}-{timestamp}` with `input/`, `vertex/`, `meshy/`, and `normalized/` subfolders. The latest run summary is also written to `.tmp/experiments/meshy/standard/latest.sanitized.json`.
 - Loads `MESHY_API_KEY` from the process environment or ignored local `.env`.
 - Sends the local image as a base64 data URI.
 - Polls until a terminal task status.
@@ -242,7 +242,8 @@ Default local input:
 
 Default local output root:
 
-- `E:\PROJECTS\3DPrintPosters\.tmp\print-files`
+- Standard runner: `E:\PROJECTS\3DPrintPosters\.tmp\experiments\meshy\standard`
+- Legacy first-job runner: `E:\PROJECTS\3DPrintPosters\.tmp\print-files`
 
 ## Run Findings
 
@@ -577,6 +578,7 @@ Functions orchestration:
 Status:
 
 - Prepared on 2026-05-25 and smoke-tested against existing Experiment 002 artifacts without creating new paid Meshy tasks.
+- Paid run completed on 2026-05-25 local time / 2026-05-26 UTC with `npm run meshy:exp-004-normalize-glb`.
 
 Runner:
 
@@ -604,10 +606,23 @@ No-credit smoke test against Experiment 002:
 - Normalized GLB-source topology remained not watertight and seam-heavy: about `26,043` non-manifold edges after cleanup.
 - Normalized STL-source topology preserved Meshy's better remeshed print topology: `57` non-manifold edges after cleanup.
 
+Paid Experiment 004 run:
+
+- Run directory: `.tmp/experiments/meshy/exp-004-normalize-glb-2026-05-26T00-10-26-648Z`
+- Meshy Image-to-Image task: `019e619e-53d7-7c77-b65b-1aa28c788d97`, succeeded, `12` credits.
+- Meshy Multi-Image-to-3D task: `019e619f-2529-7cb4-8d0c-1aaf57442e5e`, succeeded, `30` credits.
+- Meshy printability task: `019e61a1-3a10-7302-8c37-b75b33732da6`, returned `error` with `is_watertight: false`, `82` non-manifold edges, `104` degenerate faces, and `0` holes.
+- Normalized GLB-source outputs: `postprocessed/normalized-glb/model.normalized.stl`, `model.normalized.3mf`, and `model.normalized.glb`.
+- Normalized GLB-source dimensions from metadata: about `28.86mm x 28.86mm x 75.00mm`.
+- Normalized GLB-source topology after cleanup: not watertight, `27,701` non-manifold edges, `0` degenerate faces.
+- Visual note: the generated thumbnail includes a base. That base came from the upstream 2D/reference image path allowing a base, which Meshy then preserved. It is not the target product architecture.
+
 Experiment 004 implication:
 
 - The normalization service works for scale and orientation.
 - The visually nice GLB is not automatically the best print-geometry source; for Experiment 002, normalized raw STL is a better starting print candidate than GLB because it has far fewer open seam edges.
+- The paid Experiment 004 run confirms that normalization can produce correctly scaled 75mm packages from a fresh Meshy GLB, but it does not solve inherited GLB seam topology or Meshy's non-watertight printability result.
+- Future body-generation runs should stay body-only from the first concept image through Meshy. The local Vertex/Gemini concept prompt now explicitly rejects bases, and the Meshy runner requests no base, pedestal, platform, plaque, nameplate, sign, ground disk, scenery, or support prop; it also asks Meshy to ignore/remove an upstream base unless a historical/base test deliberately passes `--base-label`.
 - Keep GLB as preview-friendly, but compare normalized STL and normalized GLB in slicer before choosing the production geometry source.
 
 ## Service Contract To Implement
@@ -736,8 +751,8 @@ Next integration step:
 
 ## Coding Backlog
 
-1. Add or extend the 2D concept style contract for `emoji_avatar` with Natural pose assumptions.
-2. Promote the local Emoji/avatar Natural pose experiment prompt into a server-side concept style contract if human review accepts the direction.
+1. Add or extend the 2D concept style contract for `emoji_avatar` with Natural pose assumptions and an explicit body-only/no-base policy.
+2. Promote the local Emoji/avatar Natural pose experiment prompt into a server-side concept style contract if human review accepts the direction, preserving the no-base/pedestal/platform constraint.
 3. Create or select the approved reusable base STL asset and capture its manifest metadata.
 4. Build deterministic name-on-base service after the base STL exists.
 5. Build deterministic Meshy-body-to-named-base composition service after base naming works.

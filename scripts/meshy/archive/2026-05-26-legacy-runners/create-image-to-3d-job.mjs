@@ -11,7 +11,7 @@ const TERMINAL_STATUSES = new Set(["SUCCEEDED", "FAILED", "CANCELED", "EXPIRED"]
 const DEFAULT_FORMATS = ["glb", "stl", "3mf"];
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(scriptDir, "..", "..");
+const repoRoot = path.resolve(scriptDir, "..", "..", "..", "..");
 
 function usage() {
   console.log(`Usage:
