@@ -48,11 +48,12 @@ Prove whether Meshy can power the first customer-facing figurine workflow:
 - [x] Fix the local Vertex/Gemini concept prompt and Meshy multi-view prompt so body-generation runs explicitly request no base/pedestal/platform/nameplate; Meshy also ignores/removes an upstream reference base unless a base experiment deliberately passes `--base-label`.
 - [x] Standardize future Meshy experiments on one end-to-end runner: `npm run meshy:experiment -- -- --experiment-slug <slug>`, implemented in `scripts/meshy/run-standard-figurine-experiment.mjs`.
 - [x] Archive legacy Meshy experiment runners under `scripts/meshy/archive/2026-05-26-legacy-runners/` and remove old npm aliases so the active command list exposes one experiment protocol.
+- [x] Create a first candidate reusable base asset at `services/print-file-generator/assets/figurine-bases/printu-round-v1/`. The exported `base.stl` is a single-body sliced-round beveled pedestal with a flat front name face, locally verified watertight with consistent winding at about `70.0mm x 61.5mm x 16.0mm`; the `base.manifest.json` records placement zones and checksum.
+- [x] Approve `printu-round-v1` as the reusable figurine base. The clean `base.stl` remains unpersonalized, while `previews/elliott/` records the accepted raised-text placement: smaller, lower, centered in the flat front rectangle, and partially embedded into the structure.
+- [x] Define the base asset manifest: base version, units, dimensions, top plane, foot-placement zone, customer-name text zone, default raised-text style, checksum, and storage location.
 
 ## Next
 
-- [ ] Create or select the approved reusable figurine base STL asset. This is the blocker for the deterministic base workflow and should be done before building the name-on-base or body/base assembly services.
-- [ ] Define the base asset manifest: base version, units, dimensions, top plane, foot-placement zone, customer-name text zone, preferred font/text constraints, checksum, and storage location.
 - [ ] Build the deterministic name-on-base service in `services/print-file-generator` after the base STL exists.
 - [ ] Build the deterministic Meshy-body-to-named-base assembly service in `services/print-file-generator` after the base naming path is working.
 - [ ] Run the next paid standardized experiment with `npm run meshy:exp-005-standard` after confirming the new body-only prompt is ready.
@@ -82,7 +83,7 @@ Prove whether Meshy can power the first customer-facing figurine workflow:
 - Meshy's print-oriented `model.3mf` outputs for Experiments 002, 002 B, and 003 are already at sensible millimeter scale (`75mm` tall). The oversized Blender STL view is a raw STL unit-scale issue; the Experiment 003 local postprocessed 3MF is genuinely oversized because it used raw STL dimensions without normalizing to Meshy's 3MF or an explicit target height.
 - Experiment 004 proves scale/orientation normalization is straightforward, but it also shows GLB-to-STL is not automatically cleaner for print: Meshy's GLB carries many open seam edges after conversion, while the normalized raw STL smoke output had much lower non-manifold edge count. The paid Experiment 004 normalized GLB-source output is correctly sized but still not watertight.
 - The paid Experiment 004 thumbnail includes a base because the upstream 2D/reference image path allowed a base and the Meshy runner did not yet reject one. Treat that base as provider-followed input, not the target architecture; future Vertex/Gemini and Meshy body-generation runs now explicitly request no base.
-- No approved saved base STL exists yet. The deterministic manufacturing path is blocked until that base asset is created or selected, versioned, and documented.
+- The approved saved base STL now exists, but deterministic name geometry and body/base assembly services are not implemented yet.
 - Slicer and physical-print validation are still required before promising automated fulfillment.
 - Cloudflare token access remains partial: Worker deploy and domain listing work, but DNS record and Worker route reads return `403`.
 - Likeness, celebrity/IP, minors/consent, and moderation rules need explicit product decisions before public traffic.
@@ -91,7 +92,6 @@ Prove whether Meshy can power the first customer-facing figurine workflow:
 ## Human Validation
 
 - [human-tasks/open/2026-05-23-evaluate-meshy-figurine-flow.md](human-tasks/open/2026-05-23-evaluate-meshy-figurine-flow.md)
-- [human-tasks/open/2026-05-25-create-figurine-base-stl.md](human-tasks/open/2026-05-25-create-figurine-base-stl.md)
 
 ## References
 

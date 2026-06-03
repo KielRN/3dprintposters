@@ -28,6 +28,8 @@ All notable project changes will be documented in this file.
 - Added `scripts/meshy/run-standard-figurine-experiment.mjs` as the active end-to-end experiment runner: source photo -> Vertex/Gemini body-only concept -> Meshy multi-view -> Meshy 3D -> printability -> normalized STL/3MF/GLB outputs under `.tmp/experiments/meshy/standard`.
 - Archived the legacy Meshy experiment runners under `scripts/meshy/archive/2026-05-26-legacy-runners/` and removed their npm aliases so future experiments use the standard runner.
 - Clarified that the immediate Meshy implementation target is the UI workflow from `docs/MESHY_FIGURINE_UI_WORKFLOW.md`, starting with Image to Emoji/avatar-style figurine using Natural pose.
+- Added the first candidate reusable figurine base asset under `services/print-file-generator/assets/figurine-bases/printu-round-v1/`, including `base.stl`, `base.blend`, `base-review.png`, and `base.manifest.json`. The STL is a single-body sliced-round beveled pedestal with a flat front name face, locally verified watertight with consistent winding; product/slicer approval is still pending.
+- Approved `printu-round-v1` as the reusable figurine base after Blender review of the centered `Elliott` raised-text preview. The clean base remains unpersonalized, and `previews/elliott/preview.metadata.json` now captures the accepted default text placement and sizing for deterministic name geometry.
 - Added `MESHY_API_KEY`, `MESHY_WEBHOOK_URL`, and `MESHY_WEBHOOK_SECRET` placeholders to env examples without exposing local secret values.
 - Added a human follow-up task for Meshy figurine evaluation, slicer/printability review, and dashboard-based webhook setup.
 - Added AI 3D model generation research for the poster-relief pipeline.

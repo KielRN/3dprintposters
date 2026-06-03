@@ -1,0 +1,88 @@
+{
+  "baseId": "printu-round-v1",
+  "assetVersion": "1.1.0",
+  "created": "2026-06-02",
+  "status": "approved",
+  "approved": {
+    "date": "2026-06-03",
+    "by": "Elliot",
+    "basis": "Visual Blender review of sliced-front base with Elliott name preview"
+  },
+  "units": "millimeter",
+  "coordinateSystem": {
+    "zAxis": "up",
+    "origin": "center-bottom",
+    "front": "negative-y"
+  },
+  "files": {
+    "stl": "base.stl",
+    "blend": "base.blend",
+    "reviewImage": "base-review.png"
+  },
+  "dimensionsMm": {
+    "widthX": 69.997,
+    "depthY": 61.5,
+    "heightZ": 16.0
+  },
+  "geometry": {
+    "style": "single-body round beveled pedestal with sliced flat front name face",
+    "arcSegments": 160,
+    "flatFrontWidthMm": 45.727,
+    "flatFrontYMm": -26.5,
+    "watertightByBlenderEdgeCount": true,
+    "nonmanifoldEdgeCountByFaceUse": 0,
+    "boundaryEdgeCount": 0,
+    "decorations": "none baked into v1; customer name text should be deterministic add-on geometry on the flat front face"
+  },
+  "placementZones": {
+    "topPlaneZMm": 16.0,
+    "footPlacementZone": {
+      "type": "circle",
+      "centerMm": [
+        0,
+        0
+      ],
+      "radiusMm": 18.0,
+      "zMm": 16.0
+    },
+    "nameTextZone": {
+      "front": "negative-y",
+      "surface": "flat sliced front face",
+      "boundsMm": {
+        "xMin": -19.864,
+        "xMax": 19.864,
+        "yMm": -26.5,
+        "zMin": 2.35,
+        "zMax": 10.55
+      },
+      "defaultTextCenterMm": [
+        0,
+        -26.5,
+        6.45
+      ],
+      "recommendedMaxCharacters": 12,
+      "textPolicy": "deterministic raised geometry added later",
+      "approvedPreview": "previews/elliott/base-with-elliott-preview.png",
+      "approvedPreviewMetadata": "previews/elliott/preview.metadata.json",
+      "defaultRaisedTextStyle": {
+        "sampleName": "Elliott",
+        "font": "Blender default Bfont",
+        "sizeMm": 7.35,
+        "extrudeMm": 0.52,
+        "bevelMm": 0.025,
+        "raisedProudOfFaceMm": 0.965,
+        "embeddedBehindFaceMm": 0.125,
+        "verticalAlignment": "centered in flat front rectangle"
+      }
+    }
+  },
+  "checksum": {
+    "sha256": "da3c93cc0363369eb9fc5c05b11eb5125efa490188f8152ed3767c5ee326f3a1"
+  },
+  "notes": [
+    "The base uses a flat sliced front face so customer lettering has a real planar target instead of a floating box or curved wrap problem.",
+    "Customer name text is intentionally not baked into this base asset.",
+    "The Elliott preview establishes the approved default raised-text placement and style for future deterministic name geometry.",
+    "Meshy/Vertex should generate the figurine body only; this asset is for deterministic server-side assembly."
+  ]
+}

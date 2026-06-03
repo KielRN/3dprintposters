@@ -1,0 +1,43 @@
+{
+  "previewOnly": true,
+  "name": "Elliott",
+  "baseAsset": "E:\\PROJECTS\\3DPrintPosters\\services\\print-file-generator\\assets\\figurine-bases\\printu-round-v1\\base.stl",
+  "files": {
+    "blend": "base-with-elliott-preview.blend",
+    "stl": "base-with-elliott-preview.stl",
+    "image": "base-with-elliott-preview.png"
+  },
+  "lettering": {
+    "surface": "flat sliced front face",
+    "style": "smaller partially embedded raised mesh preview, vertically centered in front rectangle",
+    "font": "Blender default Bfont",
+    "sizeMm": 7.35,
+    "extrudeMm": 0.52,
+    "bevelMm": 0.025,
+    "raisedProudOfFaceMm": 0.965,
+    "embeddedBehindFaceMm": 0.125,
+    "targetRectangleZMm": {
+      "zMin": 2.35,
+      "zMax": 10.55,
+      "center": 6.45
+    },
+    "worldBoundsMm": {
+      "xMin": -8.202,
+      "xMax": 8.746,
+      "yMin": -27.465,
+      "yMax": -26.375,
+      "zMin": 3.886,
+      "zMax": 9.014
+    },
+    "worldExtentsMm": {
+      "x": 16.948,
+      "y": 1.09,
+      "z": 5.129
+    }
+  },
+  "notes": [
+    "This preview does not modify base.stl or base.manifest.json.",
+    "Text was moved down to center in the visible front rectangular face.",
+    "Production code should boolean/merge or otherwise validate text geometry before fulfillment."
+  ]
+}
