@@ -96,6 +96,7 @@ All notable project changes will be documented in this file.
 - Added `scripts/compose_named_base.py` CLI for local named-base composition; sample outputs for `Elliott`, `Sophie-Jay`, and `Maximilliana` live under `.tmp/experiments/named-base/`.
 - Added the `POST /v1/figurine/named-base` print-file-generator endpoint, returning named-base artifact paths, lettering metadata, and composed-mesh stats, with `422` responses for invalid sign names.
 - Added the `updateFigurineBaseConfig` Firebase callable: validates job ownership and figurine product type, persists `baseConfig` (shape, baseId, sign enabled/text) on the job, calls the named-base endpoint when the sign is enabled, stores `figurineNamedBase` artifact metadata, and mirrors named-base artifacts to `.tmp` like the preview pipeline.
+- Added the base name sign panel to the figurine job page: once the Meshy Creative Lab GLB preview is displayed, the customer can toggle a name sign, enter a name (client-side validation mirroring the server's 12-character/character-set rules), and call `updateFigurineBaseConfig` to generate the deterministic named square base. The panel shows the persisted `baseConfig`/`figurineNamedBase` state, generation warnings, and an orbitable preview of the generated `named-base-preview.glb`.
 
 ### Changed
 

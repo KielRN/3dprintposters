@@ -2,11 +2,13 @@
 
 import { Canvas, useFrame, useLoader, useThree } from "@react-three/fiber";
 import {
+  AlertCircle,
   Box,
   CheckCircle2,
   Loader2,
   Palette,
   RotateCcw,
+  Tag,
   TriangleAlert,
   ZoomIn,
   ZoomOut,
@@ -18,6 +20,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type FormEvent,
 } from "react";
 import { Box3, Vector3, type Group } from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
@@ -43,6 +46,22 @@ type PrintFileStatusPanelProps = {
   status?: string;
   errorMessage?: string;
 };
+
+type FigurineBaseSignPanelProps = {
+  signEnabled: boolean;
+  signText: string;
+  namedBaseStatus?: string;
+  normalizedName?: string;
+  warnings?: string[];
+  basePreviewUrl?: string;
+  busy: boolean;
+  error?: string;
+  notice?: string;
+  onSave: (input: { signEnabled: boolean; signText: string }) => void;
+};
+
+const SIGN_NAME_MAX_CHARACTERS = 12;
+const SIGN_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9 .'-]*$/;
 
 const CAMERA_TARGET = new Vector3(0, 0, 0);
 const RELIEF_CAMERA_POSITION = new Vector3(0, 0.08, 6.4);
@@ -168,9 +187,11 @@ function ReliefViewerCamera({
 function GlbViewer({
   previewUrl,
   variant,
+  compact = false,
 }: {
   previewUrl: string;
   variant: "relief" | "auto";
+  compact?: boolean;
 }) {
   const [viewerZoom, setViewerZoom] = useState(1);
   const [viewerResetSignal, setViewerResetSignal] = useState(0);
@@ -200,7 +221,13 @@ function GlbViewer({
   };
 
   return (
-    <div className="relative h-[min(76vh,760px)] min-h-[520px] bg-[linear-gradient(145deg,#181c21,#303139)] sm:min-h-[620px]">
+    <div
+      className={
+        compact
+          ? "relative h-[min(48vh,420px)] min-h-[320px] bg-[linear-gradient(145deg,#181c21,#303139)]"
+          : "relative h-[min(76vh,760px)] min-h-[520px] bg-[linear-gradient(145deg,#181c21,#303139)] sm:min-h-[620px]"
+      }
+    >
       <Canvas
         camera={{
           position: [cameraPosition.x, cameraPosition.y, cameraPosition.z],
@@ -351,6 +378,191 @@ export function FigurineModelPreview({
           ))}
         </div>
       </div>
+    </section>
+  );
+}
+
+export function FigurineBaseSignPanel({
+  signEnabled,
+  signText,
+  namedBaseStatus,
+  normalizedName,
+  warnings = [],
+  basePreviewUrl,
+  busy,
+  error,
+  notice,
+  onSave,
+}: FigurineBaseSignPanelProps) {
+  const [enabled, setEnabled] = useState(signEnabled);
+  const [text, setText] = useState(signText);
+  const [validationError, setValidationError] = useState("");
+
+  useEffect(() => {
+    setEnabled(signEnabled);
+  }, [signEnabled]);
+
+  useEffect(() => {
+    setText(signText);
+  }, [signText]);
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!enabled) {
+      setValidationError("");
+      onSave({ signEnabled: false, signText: "" });
+      return;
+    }
+
+    const collapsed = text.trim().replace(/\s+/g, " ");
+    if (!collapsed) {
+      setValidationError("Enter a name for the base sign.");
+      return;
+    }
+    if (collapsed.length > SIGN_NAME_MAX_CHARACTERS) {
+      setValidationError(
+        `Sign name must be ${SIGN_NAME_MAX_CHARACTERS} characters or fewer.`,
+      );
+      return;
+    }
+    if (!SIGN_NAME_PATTERN.test(collapsed)) {
+      setValidationError(
+        "Use letters, numbers, spaces, hyphens, apostrophes, and periods, starting with a letter or number.",
+      );
+      return;
+    }
+
+    setValidationError("");
+    onSave({ signEnabled: true, signText: collapsed });
+  }
+
+  const visibleError = validationError || error || "";
+
+  return (
+    <section className="mt-8 overflow-hidden rounded-lg border border-black/10 bg-white">
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-black/10 p-4">
+        <div>
+          <p className="text-sm font-bold text-[var(--teal)]">Base name sign</p>
+          <h2 className="mt-1 text-xl font-semibold">Personalize the base</h2>
+        </div>
+        <span className="inline-flex min-h-8 items-center gap-2 rounded-lg bg-[var(--gold)] px-3 text-sm font-bold text-[var(--ink)]">
+          <Tag size={15} aria-hidden="true" />
+          Square base
+        </span>
+      </div>
+
+      <form className="grid gap-4 p-4" onSubmit={handleSubmit}>
+        <label className="flex items-center gap-3 text-sm font-semibold">
+          <input
+            checked={enabled}
+            className="h-4 w-4 accent-[var(--teal)]"
+            disabled={busy}
+            onChange={(event) => setEnabled(event.target.checked)}
+            type="checkbox"
+          />
+          Add a name to the front of the base
+        </label>
+
+        {enabled ? (
+          <div className="grid gap-2">
+            <label
+              className="text-sm font-semibold text-[var(--muted)]"
+              htmlFor="base-sign-name"
+            >
+              Name on the base
+            </label>
+            <input
+              className="min-h-11 rounded-lg border border-black/15 px-3 text-base focus:outline-none focus:ring-2 focus:ring-[var(--teal)]/60"
+              disabled={busy}
+              id="base-sign-name"
+              maxLength={SIGN_NAME_MAX_CHARACTERS}
+              onChange={(event) => setText(event.target.value)}
+              placeholder="Elliott"
+              type="text"
+              value={text}
+            />
+            <p className="text-sm text-[var(--muted)]">
+              Up to {SIGN_NAME_MAX_CHARACTERS} characters: letters, numbers,
+              spaces, hyphens, apostrophes, and periods.
+            </p>
+          </div>
+        ) : null}
+
+        {visibleError ? (
+          <p className="flex items-start gap-2 rounded-lg border border-[var(--coral)]/30 bg-[var(--coral)]/10 px-3 py-2 text-sm font-semibold text-[var(--coral)]">
+            <AlertCircle
+              className="mt-0.5 shrink-0"
+              size={16}
+              aria-hidden="true"
+            />
+            {visibleError}
+          </p>
+        ) : null}
+
+        {notice && !visibleError ? (
+          <p className="flex items-start gap-2 rounded-lg border border-[var(--teal)]/30 bg-[var(--teal)]/10 px-3 py-2 text-sm font-semibold text-[var(--teal)]">
+            <CheckCircle2
+              className="mt-0.5 shrink-0"
+              size={16}
+              aria-hidden="true"
+            />
+            {notice}
+          </p>
+        ) : null}
+
+        <button className="primary-button" disabled={busy} type="submit">
+          {busy ? (
+            <Loader2 className="animate-spin" size={18} aria-hidden="true" />
+          ) : (
+            <Tag size={18} aria-hidden="true" />
+          )}
+          {busy
+            ? "Generating base sign"
+            : enabled
+              ? "Save name and generate base"
+              : "Save base without a name"}
+        </button>
+      </form>
+
+      {namedBaseStatus ? (
+        <div className="grid gap-3 border-t border-black/10 p-4 text-sm sm:grid-cols-3">
+          <div>
+            <p className="text-[var(--muted)]">Base sign</p>
+            <strong>{labelizeStatus(namedBaseStatus, "Pending")}</strong>
+          </div>
+          <div>
+            <p className="text-[var(--muted)]">Name on base</p>
+            <strong>{normalizedName ?? "None"}</strong>
+          </div>
+          <div>
+            <p className="text-[var(--muted)]">Artifact</p>
+            <strong>named-base.stl</strong>
+          </div>
+          {warnings.length > 0 ? (
+            <div className="grid gap-2 sm:col-span-3">
+              {warnings.map((warning) => (
+                <p
+                  className="rounded-lg border border-[var(--gold)]/30 bg-[var(--gold)]/10 px-3 py-2 font-semibold text-[var(--ink)]"
+                  key={warning}
+                >
+                  {warning}
+                </p>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {basePreviewUrl ? (
+        <div className="border-t border-black/10">
+          <div className="flex min-h-12 items-center justify-between gap-3 border-b border-black/10 px-4 text-sm">
+            <strong>Named base preview</strong>
+            <span className="text-[var(--muted)]">orbit</span>
+          </div>
+          <GlbViewer compact previewUrl={basePreviewUrl} variant="auto" />
+        </div>
+      ) : null}
     </section>
   );
 }

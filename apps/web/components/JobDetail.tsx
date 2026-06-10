@@ -17,6 +17,7 @@ import { doc, onSnapshot } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { getDownloadURL, ref } from "firebase/storage";
 import {
+  FigurineBaseSignPanel,
   FigurineModelPreview,
   PrintFilePreview,
   PrintFileStatusPanel,
@@ -39,11 +40,54 @@ type JobDocument = {
   generatedImages?: GeneratedImage[];
   approvedImagePath?: string | null;
   figurinePreview?: FigurinePreview | null;
+  baseConfig?: FigurineBaseConfig | null;
+  figurineNamedBase?: FigurineNamedBase | null;
   printFileStatus?: string;
   printFileArtifacts?: PrintFileArtifacts | null;
   printability?: PrintabilitySummary | null;
   printFileError?: {
     message?: string;
+  } | null;
+};
+
+type FigurineBaseConfig = {
+  shape?: string;
+  baseId?: string;
+  sign?: {
+    enabled?: boolean;
+    text?: string | null;
+  } | null;
+};
+
+type FigurineNamedBase = {
+  status?: string;
+  baseId?: string;
+  normalizedName?: string;
+  artifacts?: Record<string, string>;
+  warnings?: string[];
+};
+
+type UpdateFigurineBaseConfigRequest = {
+  jobId: string;
+  baseShape: "square";
+  baseId: "figurine-square-v1";
+  signEnabled: boolean;
+  signText?: string;
+};
+
+type UpdateFigurineBaseConfigResult = {
+  jobId: string;
+  status: string;
+  baseConfig: {
+    shape: string;
+    baseId: string;
+    sign: { enabled: boolean; text: string | null };
+  };
+  namedBase: {
+    baseId: string;
+    normalizedName: string;
+    outputPrefix: string;
+    artifacts: Record<string, string>;
   } | null;
 };
 
@@ -101,6 +145,7 @@ type PrintabilitySummary = {
 };
 
 const PRINT_FILE_GENERATION_TIMEOUT_MS = 540_000;
+const BASE_SIGN_GENERATION_TIMEOUT_MS = 300_000;
 
 const styleLabels: Record<string, string> = {
   "gallery-relief": "Gallery Relief",
@@ -188,6 +233,9 @@ export function JobDetail({ jobId }: { jobId: string }) {
   const [artifactUrls, setArtifactUrls] = useState<Record<string, string>>({});
   const [approvalBusyPath, setApprovalBusyPath] = useState("");
   const [checkoutBusy, setCheckoutBusy] = useState(false);
+  const [baseSignBusy, setBaseSignBusy] = useState(false);
+  const [baseSignNotice, setBaseSignNotice] = useState("");
+  const [baseSignError, setBaseSignError] = useState("");
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
 
@@ -217,6 +265,10 @@ export function JobDetail({ jobId }: { jobId: string }) {
   const figurinePreviewPath = job?.figurinePreview?.previewGlb;
   const figurinePreviewUrl = figurinePreviewPath
     ? artifactUrls[figurinePreviewPath] ?? ""
+    : "";
+  const namedBasePreviewPath = job?.figurineNamedBase?.artifacts?.previewGlb;
+  const namedBasePreviewUrl = namedBasePreviewPath
+    ? artifactUrls[namedBasePreviewPath] ?? ""
     : "";
 
   useEffect(() => {
@@ -318,16 +370,20 @@ export function JobDetail({ jobId }: { jobId: string }) {
   useEffect(() => {
     const artifacts = job?.printFileArtifacts;
     const figurinePath = job?.figurinePreview?.previewGlb;
-    if (!firebaseClients || (!artifacts && !figurinePath)) {
+    const namedBasePath = job?.figurineNamedBase?.artifacts?.previewGlb;
+    if (!firebaseClients || (!artifacts && !figurinePath && !namedBasePath)) {
       setArtifactUrls({});
       return;
     }
 
     const paths = Array.from(
       new Set(
-        [artifacts?.previewGlb, artifacts?.heightmapPng, figurinePath].filter(
-          (path): path is string => Boolean(path),
-        ),
+        [
+          artifacts?.previewGlb,
+          artifacts?.heightmapPng,
+          figurinePath,
+          namedBasePath,
+        ].filter((path): path is string => Boolean(path)),
       ),
     );
 
@@ -361,7 +417,12 @@ export function JobDetail({ jobId }: { jobId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [firebaseClients, job?.figurinePreview?.previewGlb, job?.printFileArtifacts]);
+  }, [
+    firebaseClients,
+    job?.figurineNamedBase?.artifacts?.previewGlb,
+    job?.figurinePreview?.previewGlb,
+    job?.printFileArtifacts,
+  ]);
 
   async function approveImage(imagePath: string) {
     if (!firebaseClients) {
@@ -393,6 +454,50 @@ export function JobDetail({ jobId }: { jobId: string }) {
       );
     } finally {
       setApprovalBusyPath("");
+    }
+  }
+
+  async function saveBaseSign(input: {
+    signEnabled: boolean;
+    signText: string;
+  }) {
+    if (!firebaseClients) {
+      setBaseSignError("Firebase Functions are not configured yet.");
+      return;
+    }
+
+    setBaseSignBusy(true);
+    setBaseSignError("");
+    setBaseSignNotice("");
+
+    try {
+      const updateFigurineBaseConfig = httpsCallable<
+        UpdateFigurineBaseConfigRequest,
+        UpdateFigurineBaseConfigResult
+      >(firebaseClients.functions, "updateFigurineBaseConfig", {
+        timeout: BASE_SIGN_GENERATION_TIMEOUT_MS,
+      });
+      const result = await updateFigurineBaseConfig({
+        jobId,
+        baseShape: "square",
+        baseId: "figurine-square-v1",
+        signEnabled: input.signEnabled,
+        signText: input.signEnabled ? input.signText : undefined,
+      });
+
+      setBaseSignNotice(
+        result.data.status === "generated" && result.data.namedBase
+          ? `Base sign "${result.data.namedBase.normalizedName}" was generated.`
+          : "Base saved without a name sign.",
+      );
+    } catch (baseSignSaveError) {
+      setBaseSignError(
+        baseSignSaveError instanceof Error
+          ? baseSignSaveError.message
+          : "Saving the base sign failed.",
+      );
+    } finally {
+      setBaseSignBusy(false);
     }
   }
 
@@ -519,12 +624,26 @@ export function JobDetail({ jobId }: { jobId: string }) {
       </div>
 
       {isFigurineJob && figurinePreviewUrl ? (
-        <FigurineModelPreview
-          previewUrl={figurinePreviewUrl}
-          status={job?.figurinePreview?.status}
-          printReadiness={job?.figurinePreview?.printReadiness}
-          warnings={job?.figurinePreview?.warnings}
-        />
+        <>
+          <FigurineModelPreview
+            previewUrl={figurinePreviewUrl}
+            status={job?.figurinePreview?.status}
+            printReadiness={job?.figurinePreview?.printReadiness}
+            warnings={job?.figurinePreview?.warnings}
+          />
+          <FigurineBaseSignPanel
+            signEnabled={job?.baseConfig?.sign?.enabled ?? false}
+            signText={job?.baseConfig?.sign?.text ?? ""}
+            namedBaseStatus={job?.figurineNamedBase?.status}
+            normalizedName={job?.figurineNamedBase?.normalizedName}
+            warnings={job?.figurineNamedBase?.warnings}
+            basePreviewUrl={namedBasePreviewUrl}
+            busy={baseSignBusy}
+            error={baseSignError}
+            notice={baseSignNotice}
+            onSave={saveBaseSign}
+          />
+        </>
       ) : isFigurineJob ? (
         <section className="mt-8 rounded-lg border border-black/10 bg-white p-5">
           <div className="flex items-center gap-3 text-sm font-bold text-[var(--muted)]">
