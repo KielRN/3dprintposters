@@ -13,11 +13,17 @@ import Stripe from "stripe";
 import { z } from "zod";
 
 import { createPosterAiProvider } from "./aiProvider.js";
+import {
+  figurinePreviewWarnings,
+  isFigurineStyle,
+} from "./figurineWorkflow.js";
+import { generateCreativeLabFigurinePreview } from "./meshyFigurineProvider.js";
 
 initializeApp();
 
 const db = getFirestore();
 const vertexApiKey = defineSecret("VERTEX_API_KEY");
+const meshyApiKey = defineSecret("MESHY_API_KEY");
 const stripeSecretKey = defineSecret("STRIPE_SECRET_KEY");
 const stripeWebhookSecret = defineSecret("STRIPE_WEBHOOK_SECRET");
 const jobIdSchema = z.string().regex(/^[a-zA-Z0-9_-]{8,80}$/);
@@ -26,6 +32,7 @@ const createJobSchema = z.object({
   jobId: jobIdSchema,
   sourceImagePath: z.string().min(1),
   selectedStyle: z.string().min(1),
+  productType: z.enum(["poster", "figurine"]).optional(),
 });
 
 const checkoutSchema = z.object({
@@ -125,9 +132,7 @@ const printFileMetadataAuditSchema = z
     height_provider_fallback_only: z.boolean().optional(),
     height_provider_target_quality_path: z.boolean().optional(),
     height_provider_checkout_default_allowed: z.boolean().optional(),
-    provider_audit: z
-      .record(z.string(), providerAuditEntrySchema)
-      .optional(),
+    provider_audit: z.record(z.string(), providerAuditEntrySchema).optional(),
     segmentation_status: segmentationStatusSchema.optional(),
     face_analysis_status: z.record(z.string(), z.unknown()).optional(),
     surface_intent_status: z.record(z.string(), z.unknown()).optional(),
@@ -170,7 +175,10 @@ type PrintFileAudit =
       normalizedHeightPx: number | null;
       geometryAnalysisWidthPx: number | null;
       geometryAnalysisHeightPx: number | null;
-      providerAudit: Record<string, z.infer<typeof providerAuditEntrySchema>> | null;
+      providerAudit: Record<
+        string,
+        z.infer<typeof providerAuditEntrySchema>
+      > | null;
       segmentationStatus: z.infer<typeof segmentationStatusSchema> | null;
       faceAnalysisStatus: Record<string, unknown> | null;
       surfaceIntentStatus: Record<string, unknown> | null;
@@ -201,6 +209,16 @@ type PrintFileLocalMirror =
       reason: string;
     };
 
+type ExistingFigurinePreviewAsset = {
+  previewGlb: string;
+  thumbnailPath: string | null;
+  metadataPath: string;
+  prototypeTaskId: string;
+  buildTaskId: string;
+  availableFormats: string[];
+  consumedCredits: number | null;
+};
+
 function buildGenerationError(error: unknown) {
   return {
     message:
@@ -218,6 +236,16 @@ function buildPrintFileError(error: unknown) {
         ? error.message
         : "3D print file generation did not complete.",
     stage: "print_file_generation",
+  };
+}
+
+function buildFigurineGenerationError(error: unknown) {
+  return {
+    message:
+      error instanceof Error
+        ? error.message
+        : "Figurine preview generation did not complete.",
+    stage: "figurine_preview_generation",
   };
 }
 
@@ -271,7 +299,10 @@ function normalizePrintFileArtifacts(
       bucketName,
       artifactPaths.full_color_texture_png,
     ),
-    fullColorVrml: gcsUriToStoragePath(bucketName, artifactPaths.full_color_vrml),
+    fullColorVrml: gcsUriToStoragePath(
+      bucketName,
+      artifactPaths.full_color_vrml,
+    ),
     fullColorPly: gcsUriToStoragePath(bucketName, artifactPaths.full_color_ply),
     filamentPaletteJson: gcsUriToStoragePath(
       bucketName,
@@ -290,10 +321,12 @@ function normalizePrintFileArtifacts(
       artifactPaths.filament_preview_png,
     ),
     debugArtifacts: Object.fromEntries(
-      Object.entries(artifactPaths.debug_artifacts).map(([name, artifactPath]) => [
-        name,
-        gcsUriToStoragePath(bucketName, artifactPath),
-      ]),
+      Object.entries(artifactPaths.debug_artifacts).map(
+        ([name, artifactPath]) => [
+          name,
+          gcsUriToStoragePath(bucketName, artifactPath),
+        ],
+      ),
     ),
   };
 }
@@ -316,6 +349,16 @@ function listPrintFileArtifactPaths(artifacts: PrintFileArtifacts): string[] {
     artifacts.filamentPreviewPng,
     ...Object.values(artifacts.debugArtifacts),
   ];
+}
+
+function listFigurinePreviewArtifactPaths(input: {
+  previewGlb: string;
+  metadataPath: string;
+  thumbnailPath: string | null;
+}): string[] {
+  return [input.previewGlb, input.metadataPath, input.thumbnailPath].filter(
+    (artifactPath): artifactPath is string => Boolean(artifactPath),
+  );
 }
 
 function localMirrorIsEnabled(): boolean {
@@ -400,9 +443,9 @@ async function resolveLocalMirrorRoot(): Promise<{
   };
 }
 
-async function mirrorPrintFileArtifactsToLocalTmp(input: {
+async function mirrorStoragePathsToLocalTmp(input: {
   bucketName: string;
-  artifacts: PrintFileArtifacts;
+  storagePaths: string[];
 }): Promise<PrintFileLocalMirror> {
   if (!localMirrorIsEnabled()) {
     return {
@@ -413,10 +456,9 @@ async function mirrorPrintFileArtifactsToLocalTmp(input: {
 
   const mirrorRoot = await resolveLocalMirrorRoot();
   const bucket = getStorage().bucket(input.bucketName);
-  const artifactPaths = listPrintFileArtifactPaths(input.artifacts);
   const mirroredArtifacts: MirroredArtifact[] = [];
 
-  for (const storagePath of artifactPaths) {
+  for (const storagePath of input.storagePaths) {
     const safeSegments = safeStoragePathSegments(storagePath);
     const [artifactBytes] = await bucket.file(storagePath).download();
     const localPath = path.join(mirrorRoot.absoluteRoot, ...safeSegments);
@@ -438,6 +480,30 @@ async function mirrorPrintFileArtifactsToLocalTmp(input: {
     artifacts: mirroredArtifacts,
     completedAt: FieldValue.serverTimestamp(),
   };
+}
+
+async function mirrorPrintFileArtifactsToLocalTmp(input: {
+  bucketName: string;
+  artifacts: PrintFileArtifacts;
+}): Promise<PrintFileLocalMirror> {
+  return mirrorStoragePathsToLocalTmp({
+    bucketName: input.bucketName,
+    storagePaths: listPrintFileArtifactPaths(input.artifacts),
+  });
+}
+
+async function mirrorFigurinePreviewToLocalTmp(input: {
+  bucketName: string;
+  generation: {
+    previewGlb: string;
+    metadataPath: string;
+    thumbnailPath: string | null;
+  };
+}): Promise<PrintFileLocalMirror> {
+  return mirrorStoragePathsToLocalTmp({
+    bucketName: input.bucketName,
+    storagePaths: listFigurinePreviewArtifactPaths(input.generation),
+  });
 }
 
 async function readPrintFileAudit(input: {
@@ -582,10 +648,10 @@ async function generatePrintFilesForApprovedJob(input: {
     },
     { merge: true },
   );
-  await input.jobRef.collection("audit").doc("printFileGeneration").set(
-    printFileAudit,
-    { merge: true },
-  );
+  await input.jobRef
+    .collection("audit")
+    .doc("printFileGeneration")
+    .set(printFileAudit, { merge: true });
 
   console.info("print-file job marked generated", {
     jobId: input.jobId,
@@ -626,6 +692,285 @@ async function generatePrintFilesForApprovedJob(input: {
   return artifacts;
 }
 
+async function tryReadExistingFigurinePreviewAsset(input: {
+  bucketName: string;
+  outputPrefix: string;
+}): Promise<ExistingFigurinePreviewAsset | null> {
+  const bucket = getStorage().bucket(input.bucketName);
+  const previewGlb = `${input.outputPrefix}/model.glb`;
+  const metadataPath = `${input.outputPrefix}/metadata.json`;
+  const [glbExists] = await bucket.file(previewGlb).exists();
+  const [metadataExists] = await bucket.file(metadataPath).exists();
+
+  if (!glbExists || !metadataExists) {
+    return null;
+  }
+
+  try {
+    const [metadataBytes] = await bucket.file(metadataPath).download();
+    const metadata = JSON.parse(metadataBytes.toString("utf8")) as {
+      thumbnailPath?: unknown;
+      prototypeTask?: { id?: unknown; consumed_credits?: unknown };
+      buildTask?: { id?: unknown; consumed_credits?: unknown };
+      availableFormats?: unknown;
+    };
+    const availableFormats = Array.isArray(metadata.availableFormats)
+      ? metadata.availableFormats.filter(
+          (format): format is string => typeof format === "string",
+        )
+      : ["glb"];
+    const prototypeCredits =
+      typeof metadata.prototypeTask?.consumed_credits === "number"
+        ? metadata.prototypeTask.consumed_credits
+        : 0;
+    const buildCredits =
+      typeof metadata.buildTask?.consumed_credits === "number"
+        ? metadata.buildTask.consumed_credits
+        : 0;
+
+    return {
+      previewGlb,
+      thumbnailPath:
+        typeof metadata.thumbnailPath === "string"
+          ? metadata.thumbnailPath
+          : null,
+      metadataPath,
+      prototypeTaskId:
+        typeof metadata.prototypeTask?.id === "string"
+          ? metadata.prototypeTask.id
+          : "recovered-existing-prototype",
+      buildTaskId:
+        typeof metadata.buildTask?.id === "string"
+          ? metadata.buildTask.id
+          : "recovered-existing-build",
+      availableFormats,
+      consumedCredits:
+        prototypeCredits || buildCredits
+          ? prototypeCredits + buildCredits
+          : null,
+    };
+  } catch (error) {
+    console.warn("existing figurine preview metadata could not be read", {
+      outputPrefix: input.outputPrefix,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return {
+      previewGlb,
+      thumbnailPath: null,
+      metadataPath,
+      prototypeTaskId: "recovered-existing-prototype",
+      buildTaskId: "recovered-existing-build",
+      availableFormats: ["glb"],
+      consumedCredits: null,
+    };
+  }
+}
+
+function resolveMeshyApiKeyForFigurine(): string {
+  if (process.env.MESHY_FIGURINE_PROVIDER_MODE === "fixture") {
+    return process.env.MESHY_API_KEY ?? "fixture";
+  }
+
+  const value = meshyApiKey.value()?.trim();
+  if (!value) {
+    throw new Error(
+      "MESHY_API_KEY is required for figurine preview generation.",
+    );
+  }
+
+  return value;
+}
+
+async function generateFigurinePreviewForApprovedJob(input: {
+  jobRef: DocumentReference;
+  jobId: string;
+  uid: string;
+  selectedImagePath: string;
+}): Promise<Awaited<ReturnType<typeof generateCreativeLabFigurinePreview>>> {
+  const startedAt = Date.now();
+  const modelId = "creative-lab-original";
+  const outputPrefix = `print-files/${input.uid}/${input.jobId}/figurine/${modelId}`;
+  const bucketName = resolveRequiredEnv("APP_STORAGE_BUCKET");
+
+  console.info("figurine preview generation request started", {
+    jobId: input.jobId,
+    outputPrefix,
+  });
+
+  await input.jobRef.set(
+    {
+      productType: "figurine",
+      figurinePreview: {
+        status: "generating",
+        previewGlb: null,
+        printReadiness: "needs_review",
+        warnings: figurinePreviewWarnings,
+      },
+      figurineGeneration: {
+        provider: "meshy",
+        workflow: "creative_lab_figure",
+        modelId,
+        outputPrefix,
+        status: "generating",
+        startedAt: FieldValue.serverTimestamp(),
+      },
+      printFileStatus: "not_applicable",
+      printFileArtifacts: null,
+      printability: null,
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
+
+  const existingAsset = await tryReadExistingFigurinePreviewAsset({
+    bucketName,
+    outputPrefix,
+  });
+  const generation = existingAsset
+    ? {
+        provider: "meshy" as const,
+        workflow: "creative_lab_figure" as const,
+        modelId,
+        previewGlb: existingAsset.previewGlb,
+        thumbnailPath: existingAsset.thumbnailPath,
+        metadataPath: existingAsset.metadataPath,
+        prototypeTaskId: existingAsset.prototypeTaskId,
+        buildTaskId: existingAsset.buildTaskId,
+        availableFormats: existingAsset.availableFormats,
+        consumedCredits: existingAsset.consumedCredits,
+        status: "preview_ready" as const,
+      }
+    : await generateCreativeLabFigurinePreview({
+        jobId: input.jobId,
+        uid: input.uid,
+        sourceImagePath: input.selectedImagePath,
+        outputPrefix,
+        modelId,
+        apiKey: resolveMeshyApiKeyForFigurine(),
+      });
+
+  await input.jobRef.set(
+    {
+      status: "approved",
+      productType: "figurine",
+      figurineStyle: "creative_lab_figure",
+      postureMode: "natural",
+      conceptSource: "approved_2d_proof",
+      generated3dProvider: generation.provider,
+      generated3dWorkflow: generation.workflow,
+      canonicalUpstreamAsset: "model.glb",
+      selectedModelId: generation.modelId,
+      readinessStatus: "preview_ready",
+      checkoutEligibility: {
+        eligible: false,
+        reason:
+          "Figurine checkout is locked until printability and slicer review are complete.",
+      },
+      models: [
+        {
+          modelId: generation.modelId,
+          provider: generation.provider,
+          providerTaskId: generation.buildTaskId,
+          prototypeTaskId: generation.prototypeTaskId,
+          status: "preview_ready",
+          requestedFormats: ["glb"],
+          availableFormats: generation.availableFormats,
+          storagePaths: {
+            previewGlb: generation.previewGlb,
+            thumbnail: generation.thumbnailPath,
+            metadataJson: generation.metadataPath,
+          },
+          warnings: figurinePreviewWarnings,
+          consumedCredits: generation.consumedCredits,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+      ],
+      figurinePreview: {
+        status: "preview_ready",
+        previewGlb: generation.previewGlb,
+        printReadiness: "needs_review",
+        warnings: figurinePreviewWarnings,
+        provider: generation.provider,
+        workflow: generation.workflow,
+        modelId: generation.modelId,
+        metadataJson: generation.metadataPath,
+        thumbnail: generation.thumbnailPath,
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      figurineGeneration: {
+        provider: generation.provider,
+        workflow: generation.workflow,
+        modelId: generation.modelId,
+        status: existingAsset
+          ? "recovered_existing_preview"
+          : generation.status,
+        outputPrefix,
+        prototypeTaskId: generation.prototypeTaskId,
+        buildTaskId: generation.buildTaskId,
+        availableFormats: generation.availableFormats,
+        consumedCredits: generation.consumedCredits,
+        completedAt: FieldValue.serverTimestamp(),
+      },
+      printFileStatus: "not_applicable",
+      printFileArtifacts: null,
+      printability: {
+        status: "needs_review",
+        checks: ["Creative Lab original textured GLB stored for preview only."],
+        warnings: figurinePreviewWarnings,
+      },
+      printFileError: null,
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
+
+  try {
+    const figurinePreviewLocalMirror = await mirrorFigurinePreviewToLocalTmp({
+      bucketName,
+      generation,
+    });
+    await input.jobRef.set(
+      {
+        figurinePreviewLocalMirror,
+        figurineGeneration: {
+          localMirror: figurinePreviewLocalMirror,
+        },
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+    console.info("figurine preview local mirror completed", {
+      jobId: input.jobId,
+      status: figurinePreviewLocalMirror.status,
+      elapsedMs: Date.now() - startedAt,
+    });
+  } catch (error) {
+    const figurinePreviewLocalMirror = buildLocalMirrorError(error);
+    await input.jobRef.set(
+      {
+        figurinePreviewLocalMirror,
+        figurineGeneration: {
+          localMirror: figurinePreviewLocalMirror,
+        },
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+    console.warn("figurine preview local mirror failed", {
+      jobId: input.jobId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  console.info("figurine preview generation marked preview_ready", {
+    jobId: input.jobId,
+    elapsedMs: Date.now() - startedAt,
+  });
+
+  return generation;
+}
+
 export const createGenerationJob = onCall(
   {
     secrets: [vertexApiKey],
@@ -660,6 +1005,11 @@ export const createGenerationJob = onCall(
       );
     }
 
+    const productType =
+      parsed.data.productType === "figurine" ||
+      isFigurineStyle(parsed.data.selectedStyle)
+        ? "figurine"
+        : "poster";
     const jobRef = db.collection("jobs").doc(parsed.data.jobId);
     const existingJob = await jobRef.get();
     if (existingJob.exists) {
@@ -667,7 +1017,8 @@ export const createGenerationJob = onCall(
       const isSameUpload =
         existingJobData?.uid === request.auth.uid &&
         existingJobData.sourceImagePath === parsed.data.sourceImagePath &&
-        existingJobData.selectedStyle === parsed.data.selectedStyle;
+        existingJobData.selectedStyle === parsed.data.selectedStyle &&
+        (existingJobData.productType ?? "poster") === productType;
 
       if (isSameUpload) {
         return {
@@ -685,9 +1036,30 @@ export const createGenerationJob = onCall(
 
     await jobRef.set({
       uid: request.auth.uid,
+      productType,
       status: "generating",
       sourceImagePath: parsed.data.sourceImagePath,
       selectedStyle: parsed.data.selectedStyle,
+      ...(productType === "figurine"
+        ? {
+            figurineStyle: "creative_lab_figure",
+            postureMode: "natural",
+            conceptSource: "generated_2d_proof",
+            generated3dProvider: "meshy",
+            generated3dWorkflow: "creative_lab_figure",
+            readinessStatus: "concept_generating",
+            checkoutEligibility: {
+              eligible: false,
+              reason: "Figurine preview is not generated yet.",
+            },
+            figurinePreview: {
+              status: "not_started",
+              previewGlb: null,
+              printReadiness: "needs_review",
+              warnings: figurinePreviewWarnings,
+            },
+          }
+        : {}),
       generatedImages: [],
       approvedImagePath: null,
       printFileStatus: "not_started",
@@ -728,7 +1100,9 @@ export const createGenerationJob = onCall(
               label:
                 generation.status === "stubbed"
                   ? "Source photo proof"
-                  : "Generated poster proof",
+                  : productType === "figurine"
+                    ? "Generated figurine proof"
+                    : "Generated poster proof",
               storagePath: proofStoragePath,
               status: "ready",
               isPlaceholder: generation.status === "stubbed",
@@ -741,6 +1115,16 @@ export const createGenerationJob = onCall(
             metadata: generation.metadata,
             completedAt: FieldValue.serverTimestamp(),
           },
+          ...(productType === "figurine"
+            ? {
+                readinessStatus: "concept_ready",
+                checkoutEligibility: {
+                  eligible: false,
+                  reason:
+                    "Approve the 2D proof before generating the figurine preview.",
+                },
+              }
+            : {}),
           updatedAt: FieldValue.serverTimestamp(),
         },
         { merge: true },
@@ -774,6 +1158,7 @@ export const createGenerationJob = onCall(
 
 export const approveGeneratedImage = onCall(
   {
+    secrets: [meshyApiKey],
     timeoutSeconds: printFileGenerationTimeoutSeconds,
   },
   async (request) => {
@@ -814,18 +1199,132 @@ export const approveGeneratedImage = onCall(
       );
     }
 
+    const isFigurineJob =
+      jobData.productType === "figurine" ||
+      (typeof jobData.selectedStyle === "string" &&
+        isFigurineStyle(jobData.selectedStyle));
+    const existingFigurinePreview = jobData.figurinePreview as
+      | {
+          status?: string;
+          previewGlb?: string;
+          metadataJson?: string;
+          thumbnail?: string | null;
+        }
+      | undefined;
+    if (
+      isFigurineJob &&
+      jobData.approvedImagePath === parsed.data.imagePath &&
+      existingFigurinePreview?.status === "preview_ready" &&
+      existingFigurinePreview.previewGlb
+    ) {
+      try {
+        const existingMirror = await mirrorFigurinePreviewToLocalTmp({
+          bucketName: resolveRequiredEnv("APP_STORAGE_BUCKET"),
+          generation: {
+            previewGlb: existingFigurinePreview.previewGlb,
+            metadataPath:
+              existingFigurinePreview.metadataJson ??
+              existingFigurinePreview.previewGlb.replace(
+                /\/model\.glb$/,
+                "/metadata.json",
+              ),
+            thumbnailPath: existingFigurinePreview.thumbnail ?? null,
+          },
+        });
+        await jobRef.set(
+          {
+            figurinePreviewLocalMirror: existingMirror,
+            figurineGeneration: {
+              localMirror: existingMirror,
+            },
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true },
+        );
+      } catch (error) {
+        const existingMirror = buildLocalMirrorError(error);
+        await jobRef.set(
+          {
+            figurinePreviewLocalMirror: existingMirror,
+            figurineGeneration: {
+              localMirror: existingMirror,
+            },
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true },
+        );
+      }
+
+      return {
+        jobId: jobRef.id,
+        status: "approved",
+        approvedImagePath: parsed.data.imagePath,
+        productType: "figurine",
+        figurinePreview: existingFigurinePreview,
+      };
+    }
+
     await jobRef.set(
       {
         status: "approved",
+        productType: isFigurineJob
+          ? "figurine"
+          : (jobData.productType ?? "poster"),
         approvedImagePath: parsed.data.imagePath,
         approvedAt: FieldValue.serverTimestamp(),
-        printFileStatus: "generating",
-        printFileOutputPrefix: `print-files/${request.auth.uid}/${parsed.data.jobId}`,
+        printFileStatus: isFigurineJob ? "not_applicable" : "generating",
+        printFileOutputPrefix: isFigurineJob
+          ? null
+          : `print-files/${request.auth.uid}/${parsed.data.jobId}`,
         printFileError: null,
         updatedAt: FieldValue.serverTimestamp(),
       },
       { merge: true },
     );
+
+    if (isFigurineJob) {
+      try {
+        const figurinePreview = await generateFigurinePreviewForApprovedJob({
+          jobRef,
+          jobId: jobRef.id,
+          uid: request.auth.uid,
+          selectedImagePath: parsed.data.imagePath,
+        });
+
+        return {
+          jobId: jobRef.id,
+          status: "approved",
+          approvedImagePath: parsed.data.imagePath,
+          productType: "figurine",
+          figurinePreview,
+        };
+      } catch (error) {
+        await jobRef.set(
+          {
+            figurinePreview: {
+              status: "failed",
+              previewGlb: null,
+              printReadiness: "needs_review",
+              warnings: figurinePreviewWarnings,
+            },
+            figurineGeneration: {
+              provider: "meshy",
+              workflow: "creative_lab_figure",
+              status: "failed",
+              failedAt: FieldValue.serverTimestamp(),
+            },
+            error: buildFigurineGenerationError(error),
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true },
+        );
+
+        throw new HttpsError(
+          "failed-precondition",
+          "Proof approved, but figurine preview generation failed. Check the Functions emulator logs before retrying.",
+        );
+      }
+    }
 
     let printFileArtifacts: PrintFileArtifacts;
     try {
@@ -835,7 +1334,9 @@ export const approveGeneratedImage = onCall(
         uid: request.auth.uid,
         selectedImagePath: parsed.data.imagePath,
         selectedStyle:
-          typeof jobData.selectedStyle === "string" ? jobData.selectedStyle : "",
+          typeof jobData.selectedStyle === "string"
+            ? jobData.selectedStyle
+            : "",
       });
     } catch (error) {
       await jobRef.set(
@@ -881,6 +1382,13 @@ export const createCheckoutSession = onCall(
     const jobData = jobSnap.data();
     if (!jobSnap.exists || jobData?.uid !== request.auth.uid) {
       throw new HttpsError("not-found", "Job not found.");
+    }
+
+    if (jobData.productType === "figurine") {
+      throw new HttpsError(
+        "failed-precondition",
+        "Figurine checkout is locked until print files are approved.",
+      );
     }
 
     if (jobData.status !== "approved" || !jobData.approvedImagePath) {

@@ -1,7 +1,7 @@
 # Meshy Service Implementation Plan
 
 Status: living implementation plan
-Last updated: 2026-05-25
+Last updated: 2026-06-08
 
 ## Purpose
 
@@ -226,6 +226,7 @@ Warning: `meshy:experiment` and `meshy:exp-005-standard` create paid provider ta
 What it does:
 
 - The active standard runner performs the full experiment protocol in one file: source photo -> Vertex/Gemini body-only concept -> Meshy Image-to-Image multi-view -> Meshy Multi-Image-to-3D -> Meshy Analyze Printability -> local normalized STL/3MF/GLB outputs.
+- It also supports the Creative Lab Figure workflow used by Experiment 009. As of 2026-06-05, Creative Lab Figure raw GLB generation is the approved upstream figure-generation step because it produced the smoothest no-base API outputs.
 - Standard runner outputs live under `.tmp/experiments/meshy/standard/{experimentSlug}-{timestamp}` with `input/`, `vertex/`, `meshy/`, and `normalized/` subfolders. The latest run summary is also written to `.tmp/experiments/meshy/standard/latest.sanitized.json`.
 - Loads `MESHY_API_KEY` from the process environment or ignored local `.env`.
 - Sends the local image as a base64 data URI.
@@ -625,29 +626,219 @@ Experiment 004 implication:
 - Future body-generation runs should stay body-only from the first concept image through Meshy. The local Vertex/Gemini concept prompt now explicitly rejects bases, and the Meshy runner requests no base, pedestal, platform, plaque, nameplate, sign, ground disk, scenery, or support prop; it also asks Meshy to ignore/remove an upstream base unless a historical/base test deliberately passes `--base-label`.
 - Keep GLB as preview-friendly, but compare normalized STL and normalized GLB in slicer before choosing the production geometry source.
 
-## Service Contract To Implement
+### Experiment 005: Standard Body-Only Run And Meshy Repair
 
-### First Workflow Contract
+Run:
 
-The first service slice should support only the narrow path needed to reproduce the UI workflow:
+- Command: `npm run meshy:exp-005-standard`
+- Run directory: `.tmp/experiments/meshy/standard/exp-005-standard-body-only-normalized-2026-06-03T22-59-59-472Z`
+- Meshy Image-to-Image task: `019e8fb7-537c-7253-8f0c-d21aa8bea901`, succeeded, `12` credits.
+- Meshy Multi-Image-to-3D task: `019e8fb8-2c15-712d-9947-e3063f1bf9d7`, succeeded, `30` credits.
+- Meshy printability task: `019e8fba-1fc7-72b7-bfc3-3740b7076250`, returned `error` with `is_watertight: false`, `103` non-manifold edges, `111` degenerate faces, and `0` holes.
+- Normalized GLB-source outputs exported at about `41.69mm x 22.02mm x 75mm`, but remained not watertight with about `26.8k` non-manifold edges.
+
+Repair:
+
+- Meshy Repair Printability task: `019e8fd3-522b-76e2-9a46-320663626dad`, succeeded, `10` credits.
+- Repaired local output: `.tmp/experiments/meshy/standard/exp-005-standard-body-only-normalized-2026-06-03T22-59-59-472Z/repair/input-task-glb/model.repaired.glb`
+- Follow-up Meshy Analyze Printability task: `019e8fd3-7df0-76e4-89a3-4f4a2d0c0fad`, returned `warning` with `is_watertight: true`, `0` non-manifold edges, `111` degenerate faces, and `0` holes.
+- Blender review object: `exp005-repaired-body-scaled-review`, scaled to about `41.69mm x 22.02mm x 75mm` and placed on the reusable base top plane.
+
+Implications:
+
+- The body-only prompt path works visually: no base/pedestal/platform appeared in the 2D concept, multi-view references, or final thumbnail.
+- Meshy's Repair Printability API can clear the hard topology blockers on this run, moving Meshy's own readiness result from `error` to `warning`.
+- Repair through `input_task_id` repairs the task GLB and returns GLB only; existing textures are removed during repair. A separate repaired-STL path should test `model_url` with an uploaded or data-URL STL if slicer review needs STL-specific repair output.
+- Slicer validation remains required before any checkout/preorder promise.
+
+Remesh:
+
+- Meshy Remesh task: `019e8fdb-5755-77fa-a508-195e3f672c92`, succeeded, `5` credits.
+- Input: original Experiment 005 `meshy/model.glb` submitted as a data URI.
+- Request: quad topology, `100000` target polycount, target formats `glb`, `stl`, and `3mf`.
+- Outputs: `.tmp/experiments/meshy/standard/exp-005-standard-body-only-normalized-2026-06-03T22-59-59-472Z/remesh/quad-100k-original-glb/model.remesh-quad-100k.glb`, `.stl`, and `.3mf`.
+- Follow-up Meshy Analyze Printability task: `019e8fdc-3187-7f21-a732-7576411301dd`, returned `error` with `is_watertight: false`, `4` non-manifold edges, `75` degenerate faces, and `1` hole.
+- Blender review object: `exp005-remesh-quad-100k-scaled-review`, scaled to about `41.73mm x 22.09mm x 75mm`; Blender reports `111123` vertices and `199400` faces.
+
+Remesh implication:
+
+- Quad/100k remesh may still be useful for visual comparison, but it is not a print-readiness replacement for Repair Printability on this run.
+- Compared with the original Meshy printability result, Remesh reduced non-manifold edges from `103` to `4` and degenerate faces from `111` to `75`, but it stayed non-watertight and introduced `1` hole.
+- The next paid Meshy topology experiment should be a small matrix only if visual review shows Remesh reduced artifacts enough to be worth more credits.
+
+### Experiment 009: Creative Lab Figure Raw GLB Milestone
+
+Experiment 009 ran three raw Creative Lab Figure API passes on 2026-06-05 with no local normalization:
+
+- `.tmp/experiments/meshy/standard/exp-009-creative-lab-raw-pass-1`
+- `.tmp/experiments/meshy/standard/exp-009-creative-lab-raw-pass-2`
+- `.tmp/experiments/meshy/standard/exp-009-creative-lab-raw-pass-3`
+
+Each pass returned `meshy/build/model.glb`, `model.obj`, `thumbnail.png`, and texture assets; `model.mtl` returned `403`, and Creative Lab did not return STL or 3MF. All three raw GLBs failed Meshy printability analysis, but visual/Blender review showed smooth chibi/vinyl-like figures without broad generated bases. The visible Blender imports `Mesh_0.003`, `Mesh_0.004`, and `Mesh_0.005` have bottom footprints consistent with feet/shoes rather than a pedestal.
+
+Product implication:
+
+- Creative Lab Figure API GLB generation is the approved upstream figure-generation milestone for the first product path.
+- Treat GLB as the canonical upstream asset for this workflow.
+- Treat STL/3MF as downstream print-tooling or local-conversion outputs unless Meshy adds them to Creative Lab build responses.
+- Do not return to Multi-Image-to-3D as the leading product path unless Creative Lab print conversion fails or business/API constraints block it.
+
+### Experiment 010: Print Tooling From Existing Experiment 009 GLBs
+
+Experiment 010 ran on 2026-06-07 with:
+
+```powershell
+npm run meshy:exp-010-print-tools
+```
+
+It used the standard runner's `existing-model-print-tools` workflow and did not create new Creative Lab or Multi-Image-to-3D figure-generation tasks. Inputs were the three existing Experiment 009 GLBs:
+
+```text
+.tmp/experiments/meshy/standard/exp-009-creative-lab-raw-pass-1/meshy/build/model.glb
+.tmp/experiments/meshy/standard/exp-009-creative-lab-raw-pass-2/meshy/build/model.glb
+.tmp/experiments/meshy/standard/exp-009-creative-lab-raw-pass-3/meshy/build/model.glb
+```
+
+Outputs:
+
+- Run folder: `.tmp/experiments/meshy/standard/exp-010-creative-lab-print-tools`
+- Comparison summary: `.tmp/experiments/meshy/standard/exp-010-creative-lab-print-tools/comparison.sanitized.json`
+- Per-pass artifacts under `meshy/pass-{1,2,3}/original`, `repair/model-url-glb`, and `remesh/quad-100000-model-url-glb`.
+
+Implementation notes:
+
+- The runner recovered live Creative Lab build GLB URLs and used `model_url` for Analyze Printability, Repair Printability, and Remesh. It has a local `data:application/octet-stream` fallback for expired asset URLs.
+- Remesh requested `glb`, `stl`, and `3mf` at quad topology and `100000` target polycount.
+- Meshy Analyze Printability accepts GLB/STL model URLs but not 3MF model URLs, so 3MF remains local/slicer-review only.
+
+Results:
+
+- Original GLBs still returned Meshy printability `error`: pass 1 `20` non-manifold edges / `3877` degenerate faces, pass 2 `6` / `4418`, pass 3 `3` / `4055`.
+- Meshy Repair Printability consumed `10` credits per pass and returned repaired GLBs. Follow-up analysis returned `warning` for all three: watertight `true`, `0` non-manifold edges, no holes, and remaining degenerate faces of `3869`, `4416`, and `4054`.
+- Meshy repair removed textures. Local analysis reports repaired GLBs as `ColorVisuals`, while original GLBs remain `TextureVisuals`.
+- Meshy Remesh consumed `5` credits per pass and exported GLB/STL/3MF. It returned texture URLs, but remeshed GLB/STL still returned Meshy printability `error`: pass 1 GLB/STL `56`/`40` non-manifold edges and `5` holes, pass 2 `12`/`9` and `2` holes, pass 3 `89`/`79` and `15`/`13` holes.
+- Local 75mm target-height analysis found all original/repaired/remeshed variants fit the `printu-round-v1` 18mm foot placement zone. Approximate scaled body widths are `39.2mm`, `36.5mm`, and `33.2mm`; bottom footprints remain feet-sized.
+
+Product implication:
+
+- Creative Lab GLB generation remains approved upstream.
+- Downstream print tooling is unresolved: Meshy Repair is the topology winner but loses texture; Meshy Remesh is the texture/format winner but remains non-watertight.
+- Human Blender/slicer review should decide whether the textureless repaired GLB is acceptable for the first fulfillment path, whether textured remesh outputs can be slicer-repaired, or whether a deterministic/local repair and conversion stage is required.
+
+## Official Preview Pipeline v1
+
+Status: validated in the normal browser workflow on 2026-06-07.
+
+The first official figurine pipeline is preview-only. It proves the customer-facing path from upload through a rendered color 3D preview, but it does not make the figurine print-ready and does not unlock checkout.
+
+Validated job:
+
+- `cfc9039a-d83c-48d7-9ed5-39f214fce6c6`
+
+Pipeline:
+
+1. User uploads a source photo in the normal app flow.
+2. User selects `Creative Lab Figure`.
+3. Firebase Functions creates a `productType: "figurine"` job.
+4. Vertex/Gemini generates a 2D figurine proof.
+5. User approves the proof.
+6. `approveGeneratedImage` branches server-side into the Meshy Creative Lab Figure provider adapter.
+7. Functions submits/polls Meshy Creative Lab Figure prototype/build tasks.
+8. Functions downloads the original textured Creative Lab `model.glb` into Firebase Storage under:
+
+```text
+print-files/{uid}/{jobId}/figurine/creative-lab-original/model.glb
+```
+
+9. Functions updates the job document with:
 
 ```json
 {
   "productType": "figurine",
-  "figurineStyle": "emoji_avatar",
+  "figurineStyle": "creative_lab_figure",
   "postureMode": "natural",
-  "conceptSource": "generated_2d_proof",
-  "generated3dProvider": "meshy"
+  "generated3dProvider": "meshy",
+  "generated3dWorkflow": "creative_lab_figure",
+  "canonicalUpstreamAsset": "model.glb",
+  "figurinePreview": {
+    "status": "preview_ready",
+    "previewGlb": "print-files/{uid}/{jobId}/figurine/creative-lab-original/model.glb",
+    "printReadiness": "needs_review"
+  }
 }
 ```
 
-Do not broaden this into every style/posture before the Emoji/Natural path works end to end.
+10. The job page renders the Storage-backed GLB in the color figurine preview viewer.
+11. Checkout remains disabled/rejected while `printReadiness` is `needs_review`.
+
+Customer preview asset:
+
+- Use only the original textured Creative Lab `model.glb`.
+- Do not use Experiment 010 repaired or remeshed outputs as customer preview assets.
+- Do not mark figurines print-ready from this pipeline.
+
+### First Workflow Contract
+
+The first service slice supports only the narrow path needed to reproduce the approved smooth no-base figurine workflow:
+
+```json
+{
+  "productType": "figurine",
+  "figurineStyle": "creative_lab_figure",
+  "postureMode": "natural",
+  "conceptSource": "source_photo_or_provider_prototype",
+  "generated3dProvider": "meshy",
+  "generated3dWorkflow": "creative_lab_figure",
+  "canonicalUpstreamAsset": "model.glb",
+  "previewAssetPolicy": "original_textured_creative_lab_glb_only",
+  "printReadiness": "needs_review",
+  "checkoutEligibility": {
+    "eligible": false,
+    "reason": "Figurine checkout is locked until printability and slicer review are complete."
+  },
+  "downstreamPrintTooling": ["analyze_printability", "repair_printability", "remesh"]
+}
+```
+
+Do not broaden this into every style/posture before the Creative Lab GLB -> print-tooling path works end to end.
+
+### Scale/Base Milestone: Job `f604d393-bfa2-4779-b05b-f6a2082604c9`
+
+On 2026-06-07, Blender review established the first clean scale contract between a real Creative Lab job output and a reusable square base.
+
+Source assets:
+
+- Meshy figurine: `.tmp/print-files/N6wSBUfLdEcQy82BG3l1duHmXTY2/f604d393-bfa2-4779-b05b-f6a2082604c9/figurine/creative-lab-original/model.glb`
+- Square base GLB: `.tmp/gold-standard/Figurine Standard Square Base/full_color/base.glb`
+- Square base STL: `.tmp/gold-standard/Figurine Standard Square Base/single_color/base.stl`
+- Beginner unit notes: `.tmp/gold-standard/Figurine Standard Square Base/UNITS_AND_COORDINATES_BEGINNER_NOTES.md`
+
+Measured raw sizes:
+
+| Asset | Coordinate Convention | X | Y | Z |
+| --- | --- | ---: | ---: | ---: |
+| Meshy `model.glb` | GLB, Y-up | `0.786765` | `1.899262` | `0.689108` |
+| Meshy clean Blender import | Blender, Z-up | `0.786765` | `0.689108` | `1.899262` |
+| Square `base.glb` | GLB, Y-up | `1.332571` | `0.303882` | `1.332571` |
+| Square `base.stl` / Blender import | Z-up | `1.332571` | `1.332571` | `0.303882` |
+
+Target physical scale:
+
+- Figurine target height: `150mm` (about 6 inches).
+- Raw-to-mm scale factor: `150 / 1.899262249 = 78.978034802`.
+- Expected scaled figurine body envelope: about `62.14mm x 54.42mm x 150.00mm`.
+- Expected scaled square base: about `105.24mm x 105.24mm x 24.00mm`.
+
+Important correction:
+
+- An older Blender review scene displayed the same Meshy figure at about `1000x` raw GLB size. Do not bake that review-scene display scale into reusable assets.
+- A fresh Blender import of the raw Meshy `model.glb` and current `full_color/base.glb` now matches without resizing. Future assembly code should load both in raw provider/base units first, then apply the explicit `150mm` target-height scale to the final package.
 
 ### Provider Interface
 
-Create a generated-3D provider interface with Meshy as the first implementation.
+The generated-3D provider interface now exists with Meshy Creative Lab Figure as the first implementation in `apps/functions/src/meshyFigurineProvider.ts`.
 
-Suggested responsibilities:
+Implemented responsibilities:
 
 - Submit a model-generation task.
 - Poll task status.
@@ -655,37 +846,41 @@ Suggested responsibilities:
 - Enumerate available model, thumbnail, and texture URLs.
 - Download provider assets into durable project storage.
 - Return sanitized provider audit metadata.
+- Recover Firestore state from already-uploaded job-owned assets when a provider run succeeded but a later Firestore update failed.
 
 Do not expose provider URLs or credentials to the browser.
 
 ### Firestore Model State
 
-Add model-generation state to figurine jobs. Minimum useful shape:
+Model-generation state is written to figurine jobs. Current preview-only shape:
 
 ```json
 {
   "productType": "figurine",
   "models": [
     {
-      "modelId": "model_...",
+      "modelId": "creative-lab-original",
       "provider": "meshy",
       "providerTaskId": "...",
-      "status": "submitted_to_provider",
-      "progress": 0,
-      "requestedFormats": ["glb", "stl", "3mf"],
-      "availableFormats": [],
-      "storagePaths": {},
-      "warnings": [],
+      "status": "preview_ready",
+      "requestedFormats": ["glb"],
+      "availableFormats": ["glb"],
+      "storagePaths": {
+        "previewGlb": "print-files/{uid}/{jobId}/figurine/creative-lab-original/model.glb",
+        "thumbnail": "print-files/{uid}/{jobId}/figurine/creative-lab-original/thumbnail.png",
+        "metadataJson": "print-files/{uid}/{jobId}/figurine/creative-lab-original/metadata.json"
+      },
+      "warnings": ["Preview-only warning copy"],
       "consumedCredits": null,
       "createdAt": "...",
       "updatedAt": "..."
     }
   ],
-  "selectedModelId": "model_...",
-  "readinessStatus": "generating",
+  "selectedModelId": "creative-lab-original",
+  "readinessStatus": "preview_ready",
   "checkoutEligibility": {
     "eligible": false,
-    "reason": "3D model is still generating."
+    "reason": "Figurine checkout is locked until printability and slicer review are complete."
   }
 }
 ```
@@ -724,15 +919,17 @@ For local experiments, continue using:
 
 ### Callable/API Surface
 
-Likely Firebase Functions:
+Current preview implementation:
 
-- `createFigurineJob`
-- `validateFigurineSourceImage`
-- `generateFigurineConcept`
-- `approveFigurineConcept`
-- `submitFigurineModelGeneration`
-- `getFigurineJobStatus`
-- `retryFigurineModelGeneration`
+- `createGenerationJob` accepts/infers `productType: "figurine"` for `creative_lab_figure`.
+- `approveGeneratedImage` approves the 2D proof and dispatches Creative Lab Figure generation for figurine jobs.
+- `createCheckoutSession` rejects figurine jobs until a future print-ready fulfillment path exists.
+
+Future split-out callable/API surface:
+
+- Dedicated retry/status endpoints for generated-3D models.
+- Webhook/poll reconciliation.
+- Downstream print-tooling state and manual review decisions.
 
 Meshy-specific details should stay behind the provider adapter, not in web components.
 
@@ -756,7 +953,7 @@ Next integration step:
 3. Create or select the approved reusable base STL asset and capture its manifest metadata.
 4. Build deterministic name-on-base service after the base STL exists.
 5. Build deterministic Meshy-body-to-named-base composition service after base naming works.
-6. Run Meshy Repair Printability or slicer repair against the 2026-05-24 Emoji/avatar output, the 2026-05-25 Experiment 002 output, the 2026-05-25 Experiment 002 B output, and the 2026-05-25 Experiment 003 output before any checkout/preorder claim.
+6. Run Experiment 010 from the three existing Experiment 009 GLBs without new figure generation: Analyze Printability, Repair Printability, and Remesh/format export via `model_url` inputs, then compare the resulting GLB/STL/3MF candidates in Blender and slicer software.
 7. Add generated-3D provider types and Meshy provider client in `apps/functions`.
 8. Add secret loading for `MESHY_API_KEY` through Functions secrets or Secret Manager in deployed runtimes.
 9. Add model-generation Firestore schema and status transitions.

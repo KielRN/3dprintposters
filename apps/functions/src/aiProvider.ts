@@ -4,6 +4,7 @@ import {
   buildProofStylePromptDirectives,
   type ProofStyleMetadata,
 } from "./styleContracts.js";
+import { isFigurineStyle } from "./figurineWorkflow.js";
 
 export type PosterGenerationInput = {
   jobId: string;
@@ -193,6 +194,10 @@ class CloudflareGatewayPosterAiProvider implements PosterAiProvider {
 }
 
 function buildPosterPrompt(input: PosterGenerationInput): string {
+  if (isFigurineStyle(input.selectedStyle)) {
+    return buildFigurineProofPrompt(input);
+  }
+
   const selectedStyle = input.selectedStyle.trim().slice(0, 120);
 
   return [
@@ -201,6 +206,23 @@ function buildPosterPrompt(input: PosterGenerationInput): string {
     `Selected style: ${selectedStyle}.`,
     ...buildProofStylePromptDirectives(input.selectedStyle),
     "Output only the poster proof image.",
+  ].join("\n");
+}
+
+function buildFigurineProofPrompt(input: PosterGenerationInput): string {
+  const selectedStyle = input.selectedStyle.trim().slice(0, 120);
+
+  return [
+    "Create one clean full-body 2D concept image for a personalized 3D printed figurine.",
+    "Use the uploaded photo as the identity and outfit reference. Preserve recognizable facial likeness, broad head shape, glasses or facial hair if present, and the main clothing color impression.",
+    `Selected figurine style: ${selectedStyle}.`,
+    "Style: smooth chibi or emoji/avatar vinyl toy character, simplified expressive face, friendly proportions, clean silhouette, and broad color regions.",
+    "Pose: natural standing pose, front-facing or slight three-quarter view, with head, torso, arms, hands, legs, shoes, and feet all visible.",
+    "Keep arms slightly away from the torso and hands visible. Keep feet clear and flat on an invisible ground plane.",
+    "Composition: single body-only character centered on a plain white studio background. No environment, no props unless they are part of the person, no text, and no watermark.",
+    "No base, pedestal, platform, stand, plaque, nameplate, sign, ground disk, scenery, or support prop.",
+    "Avoid fragile fingers, hair wisps, noisy textures, photorealistic pores, busy clothing detail, cropped limbs, bust-only framing, floating objects, display bases, or side-view-only body shapes.",
+    "Output only the figurine concept image.",
   ].join("\n");
 }
 

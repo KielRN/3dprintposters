@@ -27,6 +27,7 @@ import { httpsCallable } from "firebase/functions";
 import { ref, uploadBytes } from "firebase/storage";
 
 const styles = [
+  { id: "creative_lab_figure", label: "Creative Lab Figure" },
   { id: "gallery-relief", label: "Gallery Relief" },
   { id: "anime-poster", label: "Anime Poster" },
   { id: "cyberpunk", label: "Cyberpunk" },
@@ -40,6 +41,7 @@ type CreateGenerationJobRequest = {
   jobId: string;
   sourceImagePath: string;
   selectedStyle: string;
+  productType?: "poster" | "figurine";
 };
 
 type CreateGenerationJobResult = {
@@ -184,6 +186,8 @@ export function UploadFlow() {
         jobId: nextJobId,
         sourceImagePath,
         selectedStyle: styleId,
+        productType:
+          styleId === "creative_lab_figure" ? "figurine" : "poster",
       });
 
       setJobId(result.data.jobId);
@@ -206,7 +210,7 @@ export function UploadFlow() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-sm font-bold text-[var(--teal)]">New order</p>
-          <h2 className="mt-1 text-2xl font-semibold">Create your poster</h2>
+          <h2 className="mt-1 text-2xl font-semibold">Create your model</h2>
         </div>
         <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-[var(--teal)] text-white">
           <ImagePlus size={22} aria-hidden="true" />
@@ -385,13 +389,19 @@ export function UploadFlow() {
         <div className="flex items-center justify-between gap-3">
           <span className="text-[var(--muted)]">Size</span>
           <strong className="min-w-0 max-w-[58%] break-words text-right">
-            5in x 7in
+            {styleId === "creative_lab_figure" ? "Preview only" : "5in x 7in"}
           </strong>
         </div>
         <div className="flex items-center justify-between gap-3">
-          <span className="text-[var(--muted)]">Relief depth</span>
+          <span className="text-[var(--muted)]">
+            {styleId === "creative_lab_figure"
+              ? "Print readiness"
+              : "Relief depth"}
+          </span>
           <strong className="min-w-0 max-w-[58%] break-words text-right">
-            0.4mm to 3.0mm
+            {styleId === "creative_lab_figure"
+              ? "Needs review"
+              : "0.4mm to 3.0mm"}
           </strong>
         </div>
         <div className="flex items-center justify-between gap-3">

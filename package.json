@@ -23,6 +23,10 @@
     "meshy:analyze-printability": "node scripts/meshy/analyze-printability-task.mjs",
     "meshy:experiment": "node scripts/meshy/run-standard-figurine-experiment.mjs",
     "meshy:exp-005-standard": "node scripts/meshy/run-standard-figurine-experiment.mjs --input .tmp/Profile-Pic-HIMSS.jpg --experiment-slug exp-005-standard-body-only-normalized",
+    "meshy:exp-006-creative-lab": "node scripts/meshy/run-standard-figurine-experiment.mjs --workflow creative-lab-figure --input \".tmp/Input Image/Profile-Pic-HIMSS.jpg\" --output-root .tmp/experiments/meshy --experiment-slug exp006-creative-lab --short-folder-name --skip-normalization",
+    "meshy:exp-008-raw-provider-diagnostics": "node scripts/meshy/run-standard-figurine-experiment.mjs --input .tmp/Profile-Pic-HIMSS.jpg --experiment-slug exp-008-raw-multiview-provider-diagnostics --skip-normalization --no-generation-remesh --provider-diagnostics --provider-remesh-topology quad --provider-remesh-target-polycount 100000 --provider-remesh-formats glb,stl,3mf",
+    "meshy:exp-009-creative-lab-raw": "node scripts/meshy/run-standard-figurine-experiment.mjs --workflow creative-lab-figure --input \".tmp/Input Image/Profile-Pic-HIMSS.jpg\" --output-root .tmp/experiments/meshy/standard --experiment-slug exp-009-creative-lab-raw --skip-normalization",
+    "meshy:exp-010-print-tools": "node scripts/meshy/run-standard-figurine-experiment.mjs --workflow existing-model-print-tools --output-root .tmp/experiments/meshy/standard --experiment-slug exp-010-creative-lab-print-tools --run-folder-name exp-010-creative-lab-print-tools --provider-remesh-topology quad --provider-remesh-target-polycount 100000 --provider-remesh-formats glb,stl,3mf --skip-normalization",
     "stripe:create-poster-product": "node scripts/stripe/create-poster-product.mjs",
     "typecheck": "npm --workspaces --if-present run typecheck",
     "format": "prettier --write ."

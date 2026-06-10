@@ -6,7 +6,7 @@ Source screenshots: `human-tasks/printu-1.png` through `human-tasks/printu-15 - 
 
 This document maps the desired customer-facing workflow for the new standalone figurine product. The UI reference is MakerWorld PrintU; the implementation target is 3DPrintPosters / 3DPrintYou with Meshy behind a server-side provider boundary. Meshy should remain an implementation detail in the customer UI except where we need honest warnings about provider status, printability, file formats, or manual fulfillment.
 
-Immediate implementation target: first recreate the Image to Emoji/avatar-style figurine workflow with `Natural pose`. Other styles and posture modes should be evaluated after this path works end to end.
+Immediate implementation target: first recreate the smooth no-base Creative Lab Figure workflow proven by Experiment 009, starting from the existing uploaded-photo flow and preserving `Natural pose` as the default product posture when exposed. This preview path was validated in the normal app workflow on 2026-06-07 with job `cfc9039a-d83c-48d7-9ed5-39f214fce6c6`: upload photo -> Creative Lab Figure style -> generated 2D proof -> proof approval -> server-side Meshy Creative Lab Figure -> Storage-backed original textured GLB -> color figurine preview with checkout locked. Local emulator runs mirror the preview `model.glb`, `metadata.json`, and optional `thumbnail.png` to `.tmp/print-files/{uid}/{jobId}/figurine/creative-lab-original/` for Blender/slicer inspection. Other styles and posture modes should be evaluated after this path stays reliable end to end.
 
 ## Product Goal
 
@@ -22,10 +22,10 @@ Required services:
 
 - Figurine job orchestration in Firebase Functions: create/validate figurine jobs, persist style/posture selections, track selected concept/model IDs, and expose status to the web app.
 - Source-image validation: validate upload ownership, type, size, decode, minimum dimensions, and basic person/face suitability before concept or Meshy credits are spent.
-- 2D concept generation: call the existing server-side AI provider adapter with figurine style/posture contracts, store concept images/history, and support selected-concept approval.
-- 3D provider adapter: submit selected proof/source to a replaceable generated-3D provider interface, with Meshy as the first implementation after output quality and terms are accepted.
+- 2D concept generation: call the existing server-side AI provider adapter with figurine style/posture contracts when the selected workflow needs a proof stage; store concept images/history, and support selected-concept approval.
+- 3D provider adapter: submit the selected source/proof to a replaceable generated-3D provider interface, with Meshy Creative Lab Figure as the approved upstream GLB-generation milestone after Experiment 009.
 - Meshy task tracking: persist task IDs, model/version, requested formats, status/progress, webhook state, polling state, warnings, credits/cost, and failure reasons without storing secrets.
-- Asset ingestion: download GLB, STL, optional 3MF, thumbnails, and metadata from Meshy into user/job-scoped Firebase Storage before provider retention expires.
+- Asset ingestion: download GLB, optional STL/3MF when available, thumbnails, textures, and metadata from Meshy into user/job-scoped Firebase Storage before provider retention expires. Creative Lab Figure currently makes GLB the canonical upstream asset; STL/3MF are downstream print-conversion outputs unless Meshy adds them to the build response.
 - Webhook/async state bridge: connect Meshy polling and/or the Cloudflare webhook receiver to Firestore job/model history and readiness state.
 - Artifact/readiness service: inspect available assets and report `preview_ready`, `needs_review`, `printability_warning`, `print_ready`, or `blocked`.
 - Editor configuration persistence: save customer-facing color mode, base shape/texture/color, sign text/style, and supported posture/transform settings as structured metadata.
@@ -48,7 +48,7 @@ Required services:
 13. Single-color print mode.
 14. Posture / rigging editor state.
 15. Base editor.
-15b. Base editor with sign text enabled.
+    15b. Base editor with sign text enabled.
 
 ## 1. Project Gallery And Entry
 
@@ -252,7 +252,7 @@ Reference: `human-tasks/printu-9.png`
 
 PrintU adds a third card titled `3.Generate 3D model`, shows an empty waiting state, and displays a blocking modal titled `Model Generation in Progress`.
 
-For Meshy, this stage is asynchronous and can fail in ways customers need to understand: provider queue, moderation, no usable model, missing formats, texture failure, or printability concerns. The UI should make progress feel calm without overpromising.
+For Meshy, this stage is asynchronous and can fail in ways customers need to understand: provider queue, moderation, no usable model, missing formats, texture failure, or printability concerns. The approved upstream milestone is smooth no-base Creative Lab Figure GLB generation; print repair/conversion remains a separate readiness stage before checkout.
 
 Expected UI elements:
 
@@ -267,7 +267,8 @@ Status model:
 - `modelGenerationStatus`: `queued`, `submitted_to_provider`, `provider_running`, `asset_downloading`, `packaging`, `printability_checking`, `succeeded`, `failed`.
 - Store Meshy task ID and webhook events server-side.
 - Download returned provider assets into our Storage quickly.
-- Record available formats, provider warnings, credits/cost, model dimensions, and version metadata.
+- Record available formats, provider warnings, credits/cost, model dimensions, source endpoint/workflow, and version metadata.
+- Record whether the selected model is an upstream GLB-only result or has passed downstream print conversion/repair.
 
 Failure behavior:
 
@@ -301,7 +302,7 @@ Decision behavior:
 Backend notes:
 
 - Store model assets under `print-files/{uid}/{jobId}/figurine/{modelId}/` or a similarly scoped path.
-- Expected assets: `model.glb`, optional `model.stl`, optional `model.3mf`, thumbnails, metadata, warnings.
+- Expected upstream assets for the approved Creative Lab path: `model.glb`, thumbnails, texture assets when available, metadata, and warnings. Expected downstream print assets after repair/remesh/conversion: repaired/remeshed GLB plus STL/3MF where supported.
 - The job page should never depend on Meshy-hosted URLs for durable customer review.
 
 ## 11. Full Editor Entry And Full-Color Preview
@@ -460,23 +461,28 @@ Recommended MVP:
 
 ## End-To-End Customer Path
 
-The public MVP flow should be:
+The official preview pipeline v1 is:
 
 1. User starts a new figurine project.
 2. User uploads one clear image.
-3. User chooses style.
-4. User chooses posture.
-5. App validates the image and selections.
-6. Backend generates a 2D concept proof.
-7. User reviews concept history and selects the best concept.
-8. User approves the selected concept for 3D generation.
-9. Backend submits a Meshy provider task through a server-side adapter.
-10. Webhook/polling updates job state.
-11. Backend downloads provider assets into job-scoped Storage.
-12. Backend runs basic model/package/readiness checks.
-13. User reviews the GLB preview and readiness status.
-14. User optionally edits print-facing options: color mode, base, sign, supported posture/transform settings.
-15. User reaches preorder, checkout, or lead capture only after the active model's fulfillment status is clear.
+3. User chooses `Creative Lab Figure`.
+4. Backend stores a figurine job with `productType: "figurine"` and default `postureMode: "natural"`.
+5. Backend generates a 2D figurine proof.
+6. User approves the selected proof for 3D generation.
+7. Backend submits/polls Meshy Creative Lab Figure through a server-side adapter.
+8. Backend downloads the original textured Creative Lab `model.glb` into job-scoped Storage at `print-files/{uid}/{jobId}/figurine/creative-lab-original/model.glb`.
+9. Backend updates `figurinePreview.status` to `preview_ready` and `figurinePreview.printReadiness` to `needs_review`.
+10. User reviews the Storage-backed color GLB preview and preview-only warning copy.
+11. Checkout remains locked until a future print-ready fulfillment path is validated.
+
+The future public MVP flow should add:
+
+- Explicit posture controls once the supported provider control surface is validated.
+- Concept/model history.
+- Webhook/poll reconciliation.
+- Basic model/package/readiness checks and downstream print repair/remesh/conversion before any print-ready claim.
+- Print-facing options such as color mode, base, sign, and supported transform settings.
+- Preorder, checkout, or lead capture only after the active model's fulfillment status is clear.
 
 ## Recommended App Structure
 
@@ -513,6 +519,7 @@ The workflow needs job metadata beyond the existing poster-relief flow:
 - `selectedConceptId`.
 - `models[]`: model ID, provider, provider task ID, Storage paths, thumbnails, formats, dimensions, status, warnings.
 - `selectedModelId`.
+- `figurinePreview`: preview-only customer GLB contract with `previewGlb`, `status: "preview_ready"`, `printReadiness: "needs_review"`, and warnings.
 - `printMode`: `single`, `multi`, or `full_preview`.
 - `baseConfig`: shape, texture, color, sign text, sign style, print separately.
 - `readinessStatus`: `not_started`, `generating`, `preview_ready`, `needs_review`, `print_ready`, `blocked`.

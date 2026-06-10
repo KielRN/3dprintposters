@@ -16,7 +16,11 @@ import { onAuthStateChanged, type User } from "firebase/auth";
 import { doc, onSnapshot } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { getDownloadURL, ref } from "firebase/storage";
-import { PrintFilePreview, PrintFileStatusPanel } from "./PrintFilePreview";
+import {
+  FigurineModelPreview,
+  PrintFilePreview,
+  PrintFileStatusPanel,
+} from "./PrintFilePreview";
 
 type GeneratedImage = {
   id: string;
@@ -28,11 +32,13 @@ type GeneratedImage = {
 
 type JobDocument = {
   uid: string;
+  productType?: string;
   status: string;
   sourceImagePath: string;
   selectedStyle: string;
   generatedImages?: GeneratedImage[];
   approvedImagePath?: string | null;
+  figurinePreview?: FigurinePreview | null;
   printFileStatus?: string;
   printFileArtifacts?: PrintFileArtifacts | null;
   printability?: PrintabilitySummary | null;
@@ -81,6 +87,13 @@ type PrintFileArtifacts = {
   debugArtifacts?: Record<string, string>;
 };
 
+type FigurinePreview = {
+  previewGlb?: string;
+  status?: string;
+  printReadiness?: string;
+  warnings?: string[];
+};
+
 type PrintabilitySummary = {
   status: string;
   checks: string[];
@@ -94,6 +107,8 @@ const styleLabels: Record<string, string> = {
   "anime-poster": "Anime Poster",
   cyberpunk: "Cyberpunk",
   storybook: "Storybook",
+  creative_lab_figure: "Creative Lab Figure",
+  "creative-lab-figure": "Creative Lab Figure",
 };
 
 function normalizeGeneratedImages(rawImages: unknown): GeneratedImage[] {
@@ -124,6 +139,18 @@ function normalizeGeneratedImages(rawImages: unknown): GeneratedImage[] {
 }
 
 function statusCopy(job: JobDocument) {
+  if (job.productType === "figurine") {
+    if (job.figurinePreview?.printReadiness === "print_ready") {
+      return "Print-ready review complete";
+    }
+
+    if (job.figurinePreview?.status === "preview_ready") {
+      return "Color preview ready";
+    }
+
+    return "Figurine preview pending";
+  }
+
   if (job.status === "approved" && job.printFileStatus === "generated") {
     return "3D preview ready";
   }
@@ -168,8 +195,10 @@ export function JobDetail({ jobId }: { jobId: string }) {
     () => normalizeGeneratedImages(job?.generatedImages),
     [job?.generatedImages],
   );
+  const isFigurineJob = job?.productType === "figurine";
   const approvedImagePath = job?.approvedImagePath ?? null;
   const canCheckout =
+    !isFigurineJob &&
     job?.status === "approved" &&
     Boolean(approvedImagePath) &&
     job.printFileStatus === "generated" &&
@@ -184,6 +213,10 @@ export function JobDetail({ jobId }: { jobId: string }) {
     : "";
   const heightmapUrl = printFileArtifacts?.heightmapPng
     ? artifactUrls[printFileArtifacts.heightmapPng] ?? ""
+    : "";
+  const figurinePreviewPath = job?.figurinePreview?.previewGlb;
+  const figurinePreviewUrl = figurinePreviewPath
+    ? artifactUrls[figurinePreviewPath] ?? ""
     : "";
 
   useEffect(() => {
@@ -284,14 +317,15 @@ export function JobDetail({ jobId }: { jobId: string }) {
 
   useEffect(() => {
     const artifacts = job?.printFileArtifacts;
-    if (!firebaseClients || !artifacts) {
+    const figurinePath = job?.figurinePreview?.previewGlb;
+    if (!firebaseClients || (!artifacts && !figurinePath)) {
       setArtifactUrls({});
       return;
     }
 
     const paths = Array.from(
       new Set(
-        [artifacts.previewGlb, artifacts.heightmapPng].filter(
+        [artifacts?.previewGlb, artifacts?.heightmapPng, figurinePath].filter(
           (path): path is string => Boolean(path),
         ),
       ),
@@ -327,7 +361,7 @@ export function JobDetail({ jobId }: { jobId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [firebaseClients, job?.printFileArtifacts]);
+  }, [firebaseClients, job?.figurinePreview?.previewGlb, job?.printFileArtifacts]);
 
   async function approveImage(imagePath: string) {
     if (!firebaseClients) {
@@ -346,7 +380,11 @@ export function JobDetail({ jobId }: { jobId: string }) {
         timeout: PRINT_FILE_GENERATION_TIMEOUT_MS,
       });
       await approveGeneratedImage({ jobId, imagePath });
-      setNotice("3D relief preview is ready. Checkout is unlocked.");
+      setNotice(
+        isFigurineJob
+          ? "Color figurine preview is ready. Checkout stays locked for print review."
+          : "3D relief preview is ready. Checkout is unlocked.",
+      );
     } catch (approvalError) {
       setError(
         approvalError instanceof Error
@@ -403,11 +441,12 @@ export function JobDetail({ jobId }: { jobId: string }) {
             New order
           </Link>
           <h1 className="mt-3 text-2xl font-semibold sm:text-3xl">
-            Review your proof
+            {isFigurineJob ? "Review your 3D preview" : "Review your proof"}
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-[var(--muted)]">
-            Approve the generated proof before payment. Checkout unlocks only
-            after you approve the image for this poster.
+            {isFigurineJob
+              ? "Inspect the generated color model. Print files are still under review, so checkout stays locked."
+              : "Approve the generated proof before payment. Checkout unlocks only after you approve the image for this poster."}
           </p>
         </div>
         <button
@@ -468,12 +507,32 @@ export function JobDetail({ jobId }: { jobId: string }) {
           <strong>{job ? statusCopy(job) : "Loading"}</strong>
         </div>
         <div>
-          <p className="text-[var(--muted)]">3D files</p>
-          <strong>{job?.printFileStatus?.replaceAll("_", " ") ?? "Pending"}</strong>
+          <p className="text-[var(--muted)]">
+            {isFigurineJob ? "Model" : "3D files"}
+          </p>
+          <strong>
+            {isFigurineJob
+              ? job?.figurinePreview?.status?.replaceAll("_", " ") ?? "Pending"
+              : job?.printFileStatus?.replaceAll("_", " ") ?? "Pending"}
+          </strong>
         </div>
       </div>
 
-      {job?.printFileStatus === "generated" && previewGlbUrl ? (
+      {isFigurineJob && figurinePreviewUrl ? (
+        <FigurineModelPreview
+          previewUrl={figurinePreviewUrl}
+          status={job?.figurinePreview?.status}
+          printReadiness={job?.figurinePreview?.printReadiness}
+          warnings={job?.figurinePreview?.warnings}
+        />
+      ) : isFigurineJob ? (
+        <section className="mt-8 rounded-lg border border-black/10 bg-white p-5">
+          <div className="flex items-center gap-3 text-sm font-bold text-[var(--muted)]">
+            <RefreshCw size={18} aria-hidden="true" />
+            Color figurine preview pending
+          </div>
+        </section>
+      ) : job?.printFileStatus === "generated" && previewGlbUrl ? (
         <PrintFilePreview
           proofUrl={approvedProofUrl}
           heightmapUrl={heightmapUrl}
@@ -518,17 +577,30 @@ export function JobDetail({ jobId }: { jobId: string }) {
               isApproved &&
               job.status === "approved" &&
               job.printFileStatus === "failed";
-            const canRunPrintFiles = canRegeneratePrintFiles || canRetryPrintFiles;
+            const canRetryFigurinePreview =
+              isFigurineJob &&
+              isApproved &&
+              job.figurinePreview?.status === "failed";
+            const canRunPrintFiles =
+              canRegeneratePrintFiles ||
+              canRetryPrintFiles ||
+              canRetryFigurinePreview;
             const isBusy = approvalBusyPath === image.storagePath;
             let approvalLabel = "Approve proof";
+            if (isFigurineJob) {
+              approvalLabel = "Generate 3D figurine";
+            }
             if (isApproved) {
-              approvalLabel = "Approved";
+              approvalLabel = isFigurineJob ? "Preview generated" : "Approved";
             }
             if (canRegeneratePrintFiles) {
               approvalLabel = "Regenerate 3D preview";
             }
             if (canRetryPrintFiles) {
               approvalLabel = "Retry 3D generation";
+            }
+            if (canRetryFigurinePreview) {
+              approvalLabel = "Retry 3D figurine";
             }
 
             return (
@@ -556,7 +628,9 @@ export function JobDetail({ jobId }: { jobId: string }) {
                       <p className="mt-1 text-sm text-[var(--muted)]">
                         {image.isPlaceholder
                           ? "Temporary source-photo proof"
-                          : "Generated poster proof"}
+                          : isFigurineJob
+                            ? "Generated figurine proof"
+                            : "Generated poster proof"}
                       </p>
                     </div>
                     {isApproved ? (

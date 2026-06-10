@@ -18,6 +18,43 @@ Firebase Functions should orchestrate the job, authorize the user, write Firesto
 
 Implementation direction: keep this service's FastAPI contract and selectively extract useful core modules from `E:\PROJECTS\print-file-generator`. Use that project as a reference for image processing, heightmap settings, STL export, filament/color utilities, and tests. Do not import its Flask web app, SQLite state model, browser sessions, TD1 hardware communication, or local CLI as production architecture.
 
+## Figurine Scale Contract
+
+The active figurine print path uses Meshy Creative Lab as a provider for the body/figurine only. The reusable base, customer name, body/base placement, and final printable export are deterministic print-file-generator responsibilities.
+
+Validated milestone:
+
+- Reference job: `f604d393-bfa2-4779-b05b-f6a2082604c9`
+- Meshy source asset: `print-files/{uid}/{jobId}/figurine/creative-lab-original/model.glb`
+- Local mirrored source asset: `.tmp/print-files/N6wSBUfLdEcQy82BG3l1duHmXTY2/f604d393-bfa2-4779-b05b-f6a2082604c9/figurine/creative-lab-original/model.glb`
+- Matched square base source: `.tmp/gold-standard/Figurine Standard Square Base/full_color/base.glb`
+- Matched square base STL: `.tmp/gold-standard/Figurine Standard Square Base/single_color/base.stl`
+
+Current raw-size measurements:
+
+| Asset | Coordinate Convention | X | Y | Z |
+| --- | --- | ---: | ---: | ---: |
+| Meshy `model.glb` on disk | GLB, Y-up | `0.786765` | `1.899262` | `0.689108` |
+| Meshy clean Blender import | Blender, Z-up | `0.786765` | `0.689108` | `1.899262` |
+| Square `base.glb` on disk | GLB, Y-up | `1.332571` | `0.303882` | `1.332571` |
+| Square `base.stl` / clean Blender import | Z-up | `1.332571` | `1.332571` | `0.303882` |
+
+Target print size:
+
+- Figurine target height: `150mm` (about 6 inches).
+- Scale factor from raw Meshy GLB: `150 / 1.899262249 = 78.978034802`.
+- Expected scaled figurine body envelope: about `62.14mm x 54.42mm x 150.00mm`.
+- Expected scaled square base: about `105.24mm x 105.24mm x 24.00mm`.
+
+Implementation rule:
+
+1. Load the raw Meshy Creative Lab `model.glb`; do not overwrite or resize the provider source file.
+2. Load the matched square base in the same raw GLB scale.
+3. Align the figurine feet/contact area onto the base top plane.
+4. Add deterministic customer-name geometry to the base.
+5. Scale the assembled package to `150mm` figurine height.
+6. Export print-review artifacts, separating inherited Meshy body defects from deterministic base/name/assembly defects.
+
 ## Inputs
 
 - `jobId`

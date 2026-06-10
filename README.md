@@ -17,6 +17,8 @@ Working now:
 - Direct Vertex/Gemini proof-generation adapter in `apps/functions`
 - New product direction documented in `research/FIGURINE_PROVIDER_RESEARCH.md`: PrintU-like figurine workflow first, Meshy.ai as the first image-to-3D provider candidate, relief parked as R&D
 - Local root `.env` has `MESHY_API_KEY` for a paid Meshy account; never print or commit the value
+- Preview-only Meshy Creative Lab figurine workflow: proof approval can call the server-side Meshy provider adapter, store the original textured `model.glb` under `print-files/{uid}/{jobId}/figurine/creative-lab-original/`, show it on the job page, and keep checkout locked while `printReadiness` is `needs_review`
+- First Meshy/base scale contract: job `f604d393-bfa2-4779-b05b-f6a2082604c9` established a matched raw GLB-scale square base under `.tmp/gold-standard/Figurine Standard Square Base/`; the target printable height is `150mm`, giving an expected base of about `105.24mm x 105.24mm x 24.00mm`
 - Python print-file generator service for 400px mesh-output STL, 768px geometry-analysis depth/mask/detail work, geometry-only proof cleanup, contour-smoothed subject edges, HueForge-like lithophane subject height blending, reduced surface-intent smoothing, graphic emboss for text/logos, face-aware texture damping, face/forehead pit guarding, image-colored GLB preview, heightmap, metadata, full-color packages, filament painting guides, debug artifacts, region roughness metrics, and printability output
 - Current relief-quality direction: surface-intent aware generation where `lithophane_baseline` drives more of the subject height signal, semantic depth controls broad shape/background separation, skin/scalp/neck/simple clothing/backgrounds stay controlled instead of over-smoothed, and text/logos/emblems/panel lines remain deliberate and inspectable
 - Job-page proof, heightmap, 3D GLB inspection view, and local `.tmp` print-package mirroring after proof approval
@@ -30,10 +32,10 @@ Working now:
 Not done yet:
 
 - Customer-facing figurine style/posture flow
-- Figurine workflow backend services for upload validation, style/posture state, 2D concept history, concept approval, 3D model history, readiness, base/sign configuration, and checkout eligibility
-- Meshy or alternate generated-3D provider adapter
-- Meshy polling/webhook-to-Firestore bridge and asset-ingestion service
-- Figurine GLB/STL/3MF artifact storage and review flow
+- Full customer-facing figurine style/posture controls beyond the current Creative Lab preview slice
+- Richer figurine workflow backend services for 2D concept history, model history, retries, readiness, base/sign configuration, and checkout eligibility
+- Meshy webhook-to-Firestore reconciliation beyond the current submit/poll preview adapter
+- Deterministic 150mm Meshy-body-to-square-base assembly, name geometry, STL/3MF export, and print-readiness audit
 - Slicer and physical-print validation for provider-generated figurines
 - Deployed Cloud Run print-file generator endpoint
 - Fulfillment partner integration
