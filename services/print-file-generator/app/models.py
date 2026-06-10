@@ -337,3 +337,21 @@ class PrintFileGenerationResponse(BaseModel):
     status: str
     artifact_paths: PrintFileArtifactPaths
     printability: PackageReadinessSummary
+
+
+class FigurineNamedBaseRequest(BaseModel):
+    job_id: str = Field(min_length=1)
+    customer_name: str = Field(min_length=1, max_length=64)
+    base_id: str = Field(default="figurine-square-v1", min_length=1)
+    output_prefix: str = Field(min_length=1)
+
+
+class FigurineNamedBaseResponse(BaseModel):
+    job_id: str
+    status: str
+    base_id: str
+    normalized_name: str
+    artifact_paths: dict[str, str]
+    lettering: dict
+    composed: dict
+    warnings: list[str] = Field(default_factory=list)

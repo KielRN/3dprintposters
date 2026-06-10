@@ -91,6 +91,11 @@ All notable project changes will be documented in this file.
 - Added `surface-intent-emboss-mask.png` debug output and `surface_intent_status.roughness_metrics` for smooth-subject, flat-background, and crisp-graphic region review.
 - Added approved-relief training protocols for working backward from human-approved production STLs into gold-master heightmaps, masks, QA renders, deterministic-generator tuning, and future LoRA/ControlNet datasets.
 - Added a Blender MCP setup handoff task for the next chat so gold-master STL review can begin with an MCP-controlled Blender session.
+- Added the first reusable square figurine base service asset `figurine-square-v1` under `services/print-file-generator/assets/figurine-bases/`, derived deterministically by `scripts/promote_square_base_asset.py` from the personalized gold-standard sample: the baked `Elliott` lettering bodies are removed, the structural bodies are boolean-unioned into a single watertight `105.24mm x 105.24mm x 24.00mm` STL, and `base.manifest.json` records the sloped front name-panel plane, panel rectangle, and the approved sample lettering style (raised `1.94mm` proud, embedded `0.52mm` behind the panel).
+- Added the deterministic customer-name geometry service `app/figurine_name_base.py` in the print-file generator: server-side sign-name validation (12-character cap, letters/digits/space/hyphen/apostrophe/period), DejaVu Sans Bold lettering condensed 0.8x to match the approved sample proportions, target 10mm cap height with shrink-to-fit and a 4mm legibility floor, manifold boolean union into one watertight mesh, and STL/3MF/raw-scale preview GLB exports with metadata and checksums. This replaces the garbled Meshy-generated base text rejected in Experiment 002 B.
+- Added `scripts/compose_named_base.py` CLI for local named-base composition; sample outputs for `Elliott`, `Sophie-Jay`, and `Maximilliana` live under `.tmp/experiments/named-base/`.
+- Added the `POST /v1/figurine/named-base` print-file-generator endpoint, returning named-base artifact paths, lettering metadata, and composed-mesh stats, with `422` responses for invalid sign names.
+- Added the `updateFigurineBaseConfig` Firebase callable: validates job ownership and figurine product type, persists `baseConfig` (shape, baseId, sign enabled/text) on the job, calls the named-base endpoint when the sign is enabled, stores `figurineNamedBase` artifact metadata, and mirrors named-base artifacts to `.tmp` like the preview pipeline.
 
 ### Changed
 
@@ -161,6 +166,9 @@ All notable project changes will be documented in this file.
 - Verified the full print-file generator suite, Firebase Functions build, and web typecheck after adding the Super Dad style contract and surface-intent schema.
 - Verified the full print-file generator suite after adding inferred surface-intent masks and detail/smoothing gates.
 - Verified the full print-file generator suite passes after the depth module split.
+- Verified 13 focused unit tests for figurine sign-name validation, name-panel manifest loading, lettering plane placement, panel-bounds containment, and watertight named-base composition.
+- Verified the Functions TypeScript check passes after adding `updateFigurineBaseConfig` and the named-base generation bridge.
+- Verified composed named bases stay watertight and inside the base footprint for short, hyphenated, and 12-character names, with front-view depth renders matching the gold-standard Elliott sample.
 
 ## [Unreleased] - 2026-05-05
 

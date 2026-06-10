@@ -1605,3 +1605,269 @@ export const stripeWebhook = onRequest(
     response.json({ received: true });
   },
 );
+
+const figurineBaseIds = ["figurine-square-v1"] as const;
+const figurineSignNameMaxCharacters = 12;
+const figurineSignNamePattern = /^[A-Za-z0-9][A-Za-z0-9 .'-]*$/;
+
+const updateFigurineBaseConfigSchema = z.object({
+  jobId: jobIdSchema,
+  baseShape: z.enum(["square"]).default("square"),
+  baseId: z.enum(figurineBaseIds).default("figurine-square-v1"),
+  signEnabled: z.boolean(),
+  signText: z.string().max(64).optional(),
+});
+
+const figurineNamedBaseResponseSchema = z.object({
+  job_id: z.string().min(1),
+  status: z.string().min(1),
+  base_id: z.string().min(1),
+  normalized_name: z.string().min(1),
+  artifact_paths: z.record(z.string(), z.string()),
+  lettering: z.record(z.string(), z.unknown()),
+  composed: z.record(z.string(), z.unknown()),
+  warnings: z.array(z.string()).default([]),
+});
+
+function normalizeFigurineSignText(raw: string): string {
+  const collapsed = raw.trim().replace(/\s+/g, " ");
+  if (!collapsed) {
+    throw new HttpsError(
+      "invalid-argument",
+      "Sign name is required when the sign is enabled.",
+    );
+  }
+  if (collapsed.length > figurineSignNameMaxCharacters) {
+    throw new HttpsError(
+      "invalid-argument",
+      `Sign name must be ${figurineSignNameMaxCharacters} characters or fewer.`,
+    );
+  }
+  if (!figurineSignNamePattern.test(collapsed)) {
+    throw new HttpsError(
+      "invalid-argument",
+      "Sign name may only use letters, numbers, spaces, hyphens, " +
+        "apostrophes, and periods, and must start with a letter or number.",
+    );
+  }
+  return collapsed;
+}
+
+async function generateFigurineNamedBaseForJob(input: {
+  jobRef: DocumentReference;
+  jobId: string;
+  uid: string;
+  baseId: string;
+  signText: string;
+}): Promise<{
+  outputPrefix: string;
+  normalizedName: string;
+  artifacts: Record<string, string>;
+  lettering: Record<string, unknown>;
+  composed: Record<string, unknown>;
+}> {
+  const serviceUrl = resolveRequiredEnv("PRINT_FILE_GENERATOR_URL").replace(
+    /\/$/,
+    "",
+  );
+  const bucketName = resolveRequiredEnv("APP_STORAGE_BUCKET");
+  const outputPrefix = `print-files/${input.uid}/${input.jobId}/figurine/named-base/${input.baseId}`;
+
+  console.info("figurine named-base generation started", {
+    jobId: input.jobId,
+    baseId: input.baseId,
+    outputPrefix,
+  });
+
+  const response = await fetch(`${serviceUrl}/v1/figurine/named-base`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    signal: AbortSignal.timeout(printFileGeneratorFetchTimeoutMs),
+    body: JSON.stringify({
+      job_id: input.jobId,
+      customer_name: input.signText,
+      base_id: input.baseId,
+      output_prefix: storagePathToGcsUri(bucketName, outputPrefix),
+    }),
+  });
+
+  if (response.status === 422 || response.status === 400) {
+    const detail = (await response.text()).slice(0, 300);
+    throw new HttpsError(
+      "invalid-argument",
+      `The sign name could not be generated: ${detail}`,
+    );
+  }
+  if (!response.ok) {
+    throw new Error(
+      `Named-base generator failed with HTTP ${response.status}: ${(await response.text()).slice(0, 1000)}`,
+    );
+  }
+
+  const parsed = figurineNamedBaseResponseSchema.safeParse(
+    await response.json(),
+  );
+  if (!parsed.success) {
+    throw new Error("Named-base generator returned an invalid response.");
+  }
+
+  const artifacts: Record<string, string> = {};
+  for (const [key, gcsUri] of Object.entries(parsed.data.artifact_paths)) {
+    artifacts[key] = gcsUriToStoragePath(bucketName, gcsUri);
+  }
+
+  await input.jobRef.set(
+    {
+      figurineNamedBase: {
+        status: "generated",
+        baseId: parsed.data.base_id,
+        normalizedName: parsed.data.normalized_name,
+        outputPrefix,
+        artifacts,
+        lettering: parsed.data.lettering,
+        composed: parsed.data.composed,
+        warnings: parsed.data.warnings,
+        generatedAt: FieldValue.serverTimestamp(),
+      },
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
+
+  try {
+    const localMirror = await mirrorStoragePathsToLocalTmp({
+      bucketName,
+      storagePaths: Object.values(artifacts),
+    });
+    await input.jobRef.set(
+      {
+        figurineNamedBase: { localMirror },
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+  } catch (error) {
+    await input.jobRef.set(
+      {
+        figurineNamedBase: { localMirror: buildLocalMirrorError(error) },
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+    console.warn("figurine named-base local mirror failed", {
+      jobId: input.jobId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  return {
+    outputPrefix,
+    normalizedName: parsed.data.normalized_name,
+    artifacts,
+    lettering: parsed.data.lettering,
+    composed: parsed.data.composed,
+  };
+}
+
+export const updateFigurineBaseConfig = onCall(
+  {
+    timeoutSeconds: 300,
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError(
+        "unauthenticated",
+        "Sign in before editing the figurine base.",
+      );
+    }
+
+    const parsed = updateFigurineBaseConfigSchema.safeParse(request.data);
+    if (!parsed.success) {
+      throw new HttpsError(
+        "invalid-argument",
+        "jobId, signEnabled, and a supported base are required.",
+      );
+    }
+
+    const jobRef = db.collection("jobs").doc(parsed.data.jobId);
+    const jobSnap = await jobRef.get();
+    const jobData = jobSnap.data();
+
+    if (!jobSnap.exists || jobData?.uid !== request.auth.uid) {
+      throw new HttpsError("not-found", "Job not found.");
+    }
+
+    const isFigurineJob =
+      jobData.productType === "figurine" ||
+      (typeof jobData.selectedStyle === "string" &&
+        isFigurineStyle(jobData.selectedStyle));
+    if (!isFigurineJob) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Base sign configuration is only available for figurine jobs.",
+      );
+    }
+
+    const signText = parsed.data.signEnabled
+      ? normalizeFigurineSignText(parsed.data.signText ?? "")
+      : null;
+
+    const baseConfig = {
+      shape: parsed.data.baseShape,
+      baseId: parsed.data.baseId,
+      sign: {
+        enabled: parsed.data.signEnabled,
+        text: signText,
+      },
+      updatedAt: FieldValue.serverTimestamp(),
+    };
+
+    await jobRef.set(
+      {
+        baseConfig,
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+
+    if (!parsed.data.signEnabled || !signText) {
+      return {
+        jobId: parsed.data.jobId,
+        status: "saved",
+        baseConfig: {
+          shape: parsed.data.baseShape,
+          baseId: parsed.data.baseId,
+          sign: { enabled: false, text: null },
+        },
+        namedBase: null,
+      };
+    }
+
+    const namedBase = await generateFigurineNamedBaseForJob({
+      jobRef,
+      jobId: parsed.data.jobId,
+      uid: request.auth.uid,
+      baseId: parsed.data.baseId,
+      signText,
+    });
+
+    return {
+      jobId: parsed.data.jobId,
+      status: "generated",
+      baseConfig: {
+        shape: parsed.data.baseShape,
+        baseId: parsed.data.baseId,
+        sign: { enabled: true, text: namedBase.normalizedName },
+      },
+      namedBase: {
+        baseId: parsed.data.baseId,
+        normalizedName: namedBase.normalizedName,
+        outputPrefix: namedBase.outputPrefix,
+        artifacts: namedBase.artifacts,
+        lettering: namedBase.lettering,
+      },
+    };
+  },
+);

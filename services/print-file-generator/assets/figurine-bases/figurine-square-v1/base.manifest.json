@@ -1,0 +1,97 @@
+{
+  "baseId": "figurine-square-v1",
+  "assetVersion": "1.0.0",
+  "created": "2026-06-10",
+  "status": "pending-approval",
+  "derivedFrom": {
+    "goldStandard": ".tmp/gold-standard/Figurine Standard Square Base/single_color/base.stl",
+    "scaleContract": {
+      "factor": 78.978034802,
+      "targetFigurineHeightMm": 150.0,
+      "matchedJob": "f604d393-bfa2-4779-b05b-f6a2082604c9"
+    },
+    "removedBakedLettering": {
+      "sampleName": "Elliott",
+      "letterBodyCount": 8
+    }
+  },
+  "units": "millimeter",
+  "coordinateSystem": {
+    "zAxis": "up",
+    "origin": "center-bottom",
+    "front": "negative-y"
+  },
+  "files": {
+    "stl": "base.stl",
+    "previewGlb": "base-preview.glb",
+    "previewGlbScale": "raw-meshy-scene-units-y-up"
+  },
+  "dimensionsMm": {
+    "widthX": 105.24382019042969,
+    "depthY": 105.24381256103516,
+    "heightZ": 24.00000190734864
+  },
+  "geometry": {
+    "style": "square beveled pedestal with protruding sloped front plaque",
+    "watertight": true,
+    "faces": 544,
+    "decorations": "none baked into this asset; customer name text is deterministic add-on geometry on the front plaque panel"
+  },
+  "placementZones": {
+    "topPlaneZMm": 24.000001907348633,
+    "nameTextZone": {
+      "front": "negative-y",
+      "surface": "sloped front plaque recessed panel",
+      "plane": {
+        "normal": [
+          -0.0,
+          -0.9379464260301741,
+          0.3467801924810921
+        ],
+        "outerFrameOffset": 54.095620362304366,
+        "recessedPanelOffset": 53.26041513297595,
+        "inPlaneRight": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "inPlaneUp": [
+          -0.0,
+          0.3467801924810921,
+          0.9379464260301741
+        ]
+      },
+      "panelBoundsMm": {
+        "xMin": -26.310955581759334,
+        "xMax": 26.310955581759334,
+        "marginMm": 4.0
+      },
+      "panelRectWorldMm": {
+        "xMinMm": -22.364310126139465,
+        "xMaxMm": 22.364310126139465,
+        "zMinMm": 3.246694745668905,
+        "zMaxMm": 20.196669428406327
+      },
+      "defaultTextCenterWorldZMm": 12.000000814976238,
+      "recommendedMaxCharacters": 12,
+      "textPolicy": "deterministic raised geometry generated per order",
+      "approvedSampleStyle": {
+        "sampleName": "Elliott",
+        "sampleWidthMm": 21.54340717466679,
+        "sampleHeightInPlaneMm": 10.836623870208209,
+        "raisedProudOfPanelMm": 1.9419920910271955,
+        "embeddedBehindPanelMm": 0.5197333414840486,
+        "raisedProudOfFrameMm": 1.1067868616987795
+      }
+    }
+  },
+  "checksum": {
+    "stlSha256": "7edc4d1498c2f18e8ad72fcf4be38b36ee102eab455e465f264e9cce3a928e92"
+  },
+  "notes": [
+    "Derived deterministically from the personalized gold-standard sample by removing the baked Elliott lettering bodies and unioning the structural bodies.",
+    "Customer name text is intentionally not baked into this asset.",
+    "The approvedSampleStyle numbers reproduce the gold-standard lettering placement for deterministic name geometry.",
+    "Meshy Creative Lab generates the figurine body only; this asset is for deterministic server-side assembly."
+  ]
+}
