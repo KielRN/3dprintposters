@@ -28,6 +28,7 @@ Working now:
 - Local Next.js testing at `http://127.0.0.1:3000`
 - Function-only Firebase emulator testing at `http://127.0.0.1:5001`
 - Full Firebase emulator testing for Auth, Functions, Firestore, and Storage
+- Graphify knowledge-graph helper for AI developer navigation, with Gemini-backed refresh scripts and generated output ignored under `graphify-out/`
 
 Not done yet:
 
@@ -168,6 +169,7 @@ scripts                     Helper scripts
 
 Start with these files when you feel lost:
 
+- `AGENTS.md`: operating rules for AI developers, including Graphify usage
 - `README.md`: practical beginner map
 - `CHECKLIST.md`: active Meshy-service checklist
 - `CHANGELOG.md`: what changed recently

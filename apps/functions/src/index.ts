@@ -8,6 +8,7 @@ import { getStorage } from "firebase-admin/storage";
 import { defineSecret } from "firebase-functions/params";
 import { HttpsError, onCall, onRequest } from "firebase-functions/v2/https";
 import { access, mkdir, writeFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
 import path from "node:path";
 import Stripe from "stripe";
 import { z } from "zod";
@@ -240,11 +241,16 @@ function buildPrintFileError(error: unknown) {
 }
 
 function buildFigurineGenerationError(error: unknown) {
+  let message = "Figurine preview generation did not complete.";
+  if (error instanceof Error) {
+    const cause = (error as Error & { cause?: unknown }).cause;
+    message =
+      cause instanceof Error
+        ? `${error.message} (cause: ${cause.message})`
+        : error.message;
+  }
   return {
-    message:
-      error instanceof Error
-        ? error.message
-        : "Figurine preview generation did not complete.",
+    message,
     stage: "figurine_preview_generation",
   };
 }
@@ -1299,6 +1305,11 @@ export const approveGeneratedImage = onCall(
           figurinePreview,
         };
       } catch (error) {
+        console.error("figurine preview generation failed", {
+          jobId: jobRef.id,
+          error: buildFigurineGenerationError(error).message,
+          stack: error instanceof Error ? error.stack : undefined,
+        });
         await jobRef.set(
           {
             figurinePreview: {
@@ -1671,7 +1682,10 @@ async function generateFigurineNamedBaseForJob(input: {
     "",
   );
   const bucketName = resolveRequiredEnv("APP_STORAGE_BUCKET");
-  const outputPrefix = `print-files/${input.uid}/${input.jobId}/figurine/named-base/${input.baseId}`;
+  const generationId = `${Date.now()}-${randomUUID().slice(0, 8)}`;
+  const outputPrefix =
+    `print-files/${input.uid}/${input.jobId}/figurine/named-base/` +
+    `${input.baseId}/${generationId}`;
 
   console.info("figurine named-base generation started", {
     jobId: input.jobId,
@@ -1718,6 +1732,17 @@ async function generateFigurineNamedBaseForJob(input: {
     artifacts[key] = gcsUriToStoragePath(bucketName, gcsUri);
   }
 
+  // Firestore rejects arrays nested directly inside arrays, so reshape the
+  // generator's boundsMm ([[min...],[max...]]) into a map before persisting.
+  const composedRaw = parsed.data.composed;
+  const boundsMm = Array.isArray(composedRaw.boundsMm)
+    ? { min: composedRaw.boundsMm[0] ?? null, max: composedRaw.boundsMm[1] ?? null }
+    : null;
+  const composedForFirestore: Record<string, unknown> = {
+    ...composedRaw,
+    boundsMm,
+  };
+
   await input.jobRef.set(
     {
       figurineNamedBase: {
@@ -1727,7 +1752,7 @@ async function generateFigurineNamedBaseForJob(input: {
         outputPrefix,
         artifacts,
         lettering: parsed.data.lettering,
-        composed: parsed.data.composed,
+        composed: composedForFirestore,
         warnings: parsed.data.warnings,
         generatedAt: FieldValue.serverTimestamp(),
       },
@@ -1824,15 +1849,16 @@ export const updateFigurineBaseConfig = onCall(
       updatedAt: FieldValue.serverTimestamp(),
     };
 
-    await jobRef.set(
-      {
-        baseConfig,
-        updatedAt: FieldValue.serverTimestamp(),
-      },
-      { merge: true },
-    );
-
     if (!parsed.data.signEnabled || !signText) {
+      await jobRef.set(
+        {
+          baseConfig,
+          figurineNamedBase: FieldValue.delete(),
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+
       return {
         jobId: parsed.data.jobId,
         status: "saved",
@@ -1845,13 +1871,38 @@ export const updateFigurineBaseConfig = onCall(
       };
     }
 
-    const namedBase = await generateFigurineNamedBaseForJob({
-      jobRef,
-      jobId: parsed.data.jobId,
-      uid: request.auth.uid,
-      baseId: parsed.data.baseId,
-      signText,
-    });
+    await jobRef.set(
+      {
+        baseConfig,
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+
+    let namedBase: Awaited<ReturnType<typeof generateFigurineNamedBaseForJob>>;
+    try {
+      namedBase = await generateFigurineNamedBaseForJob({
+        jobRef,
+        jobId: parsed.data.jobId,
+        uid: request.auth.uid,
+        baseId: parsed.data.baseId,
+        signText,
+      });
+    } catch (error) {
+      if (error instanceof HttpsError) {
+        throw error;
+      }
+      const message = error instanceof Error ? error.message : String(error);
+      console.error("figurine named-base generation failed", {
+        jobId: parsed.data.jobId,
+        error: message,
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+      throw new HttpsError(
+        "internal",
+        `Base sign generation failed: ${message.slice(0, 200)}`,
+      );
+    }
 
     return {
       jobId: parsed.data.jobId,

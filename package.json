@@ -27,6 +27,10 @@
     "meshy:exp-008-raw-provider-diagnostics": "node scripts/meshy/run-standard-figurine-experiment.mjs --input .tmp/Profile-Pic-HIMSS.jpg --experiment-slug exp-008-raw-multiview-provider-diagnostics --skip-normalization --no-generation-remesh --provider-diagnostics --provider-remesh-topology quad --provider-remesh-target-polycount 100000 --provider-remesh-formats glb,stl,3mf",
     "meshy:exp-009-creative-lab-raw": "node scripts/meshy/run-standard-figurine-experiment.mjs --workflow creative-lab-figure --input \".tmp/Input Image/Profile-Pic-HIMSS.jpg\" --output-root .tmp/experiments/meshy/standard --experiment-slug exp-009-creative-lab-raw --skip-normalization",
     "meshy:exp-010-print-tools": "node scripts/meshy/run-standard-figurine-experiment.mjs --workflow existing-model-print-tools --output-root .tmp/experiments/meshy/standard --experiment-slug exp-010-creative-lab-print-tools --run-folder-name exp-010-creative-lab-print-tools --provider-remesh-topology quad --provider-remesh-target-polycount 100000 --provider-remesh-formats glb,stl,3mf --skip-normalization",
+    "graphify:check": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/graphify/update-graph.ps1 -Check",
+    "graphify:update": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/graphify/update-graph.ps1",
+    "graphify:update:deep": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/graphify/update-graph.ps1 -Deep",
+    "graphify:update:global": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/graphify/update-graph.ps1 -Global",
     "stripe:create-poster-product": "node scripts/stripe/create-poster-product.mjs",
     "typecheck": "npm --workspaces --if-present run typecheck",
     "format": "prettier --write ."

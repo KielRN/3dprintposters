@@ -21,6 +21,31 @@ This file is the first place Codex or another coding agent should read before wo
 - PM handoffs should summarize open human tasks and create or update them when the next action belongs to the human.
 - After an AI developer implements and verifies a meaningful PM/checklist task, create or update a human-test task for Elliot when the next useful validation is the whole product workflow in the browser. Human testing should exercise the app as a final product, not just isolated technical checks.
 
+## Graphify Knowledge Graph
+
+- Use Graphify early for architecture, ownership-boundary, dependency, "where is this implemented?", cross-file, and docs-drift questions. Prefer `graphify query "<question>"` against an existing graph before broad raw-file searching.
+- If `graphify-out/graph.json` is present, query it first:
+
+```powershell
+graphify query "Where is the figurine preview workflow implemented?"
+graphify explain "approveGeneratedImage"
+graphify path "approveGeneratedImage" "meshyFigurineProvider"
+```
+
+- Graphify outputs live in ignored `graphify-out/`. Treat them as generated local context, not source of truth to commit.
+- The repo includes a Gemini-backed Graphify automation helper at `scripts/graphify/update-graph.ps1`. It loads only `GEMINI_API_KEY` or `GOOGLE_API_KEY` from the local root `.env` into the current process and must not print, copy, or move the secret value.
+- Use these repo scripts from the repo root:
+
+```powershell
+npm run graphify:check          # no Gemini call; verifies local key + Graphify binary
+npm run graphify:update         # rebuild graphify-out/ with Gemini semantic extraction
+npm run graphify:update:deep    # richer semantic extraction; higher token/API cost
+npm run graphify:update:global  # also merge this repo into the user-level global graph
+```
+
+- Do not run `graphify:update`, `graphify:update:deep`, or `graphify:update:global` casually in the middle of unrelated work; they can call Gemini and consume API quota. Run them when the user asks for a graph refresh, when architecture has changed materially, or before a broad onboarding/review pass.
+- Graphify is a navigation and synthesis aid. When implementing, still verify current source files and tests directly before changing behavior.
+
 ## Cloudflare Skill
 
 - Use the repo-scoped `$cloudflare-3dprintyou` skill for Cloudflare account, zone, DNS, Workers, routes, custom-domain, AI Gateway, and webhook work for `3dprintyou.com` or `3dprintposters.com`.
@@ -131,6 +156,15 @@ Required Meshy experiment values belong in the local root `.env` or process envi
 ```text
 MESHY_API_KEY=...
 ```
+
+Graphify automation can also use the local root `.env`:
+
+```text
+GEMINI_API_KEY=...
+GOOGLE_API_KEY=...
+```
+
+These values are for local graph refreshes only. Never print or commit them.
 
 The hybrid relief path uses the print-file generator's normal Python dependencies for local Depth Anything V2.
 

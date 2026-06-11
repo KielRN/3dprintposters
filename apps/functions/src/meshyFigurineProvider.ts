@@ -336,6 +336,18 @@ async function pollMeshyTask(input: {
   );
 }
 
+const transientMeshyStatusCodes = new Set([429, 500, 502, 503, 504]);
+
+function describeFetchError(error: unknown): string {
+  if (!(error instanceof Error)) {
+    return String(error);
+  }
+  const cause = (error as Error & { cause?: unknown }).cause;
+  return cause instanceof Error
+    ? `${error.message} (cause: ${cause.message})`
+    : error.message;
+}
+
 async function meshyJson(
   apiKey: string,
   endpoint: string,
@@ -344,36 +356,78 @@ async function meshyJson(
     body?: Record<string, unknown>;
   },
 ): Promise<MeshyJsonResponse | MeshyTask> {
-  const response = await fetch(`${meshyOpenApiRoot}${endpoint}`, {
-    method: init.method,
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      ...(init.body ? { "Content-Type": "application/json" } : {}),
-    },
-    body: init.body ? JSON.stringify(init.body) : undefined,
-  });
-  const text = await response.text();
-  let data: MeshyJsonResponse | MeshyTask;
+  // A single stale-socket "fetch failed" must not kill a multi-minute paid
+  // flow. GETs are idempotent and retry freely; POST retries are capped at one
+  // because a duplicated create-task request can consume provider credits.
+  const maxAttempts = init.method === "GET" ? 3 : 2;
 
-  try {
-    data = text ? (JSON.parse(text) as MeshyJsonResponse | MeshyTask) : {};
-  } catch {
-    data = { message: text };
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    let response: Response;
+    try {
+      response = await fetch(`${meshyOpenApiRoot}${endpoint}`, {
+        method: init.method,
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          ...(init.body ? { "Content-Type": "application/json" } : {}),
+        },
+        body: init.body ? JSON.stringify(init.body) : undefined,
+      });
+    } catch (error) {
+      console.warn("Meshy request network failure", {
+        endpoint,
+        method: init.method,
+        attempt,
+        maxAttempts,
+        error: describeFetchError(error),
+      });
+      if (attempt < maxAttempts) {
+        await sleep(1_000 * attempt);
+        continue;
+      }
+      throw new Error(
+        `Meshy ${init.method} ${endpoint} network failure after ${maxAttempts} attempts: ${describeFetchError(error)}`,
+      );
+    }
+
+    const text = await response.text();
+    let data: MeshyJsonResponse | MeshyTask;
+
+    try {
+      data = text ? (JSON.parse(text) as MeshyJsonResponse | MeshyTask) : {};
+    } catch {
+      data = { message: text };
+    }
+
+    if (!response.ok) {
+      const message =
+        "message" in data && data.message
+          ? data.message
+          : "error" in data && data.error
+            ? data.error
+            : text.slice(0, 200);
+      if (
+        init.method === "GET" &&
+        transientMeshyStatusCodes.has(response.status) &&
+        attempt < maxAttempts
+      ) {
+        console.warn("Meshy request transient HTTP failure", {
+          endpoint,
+          status: response.status,
+          attempt,
+          maxAttempts,
+        });
+        await sleep(1_000 * attempt);
+        continue;
+      }
+      throw new Error(
+        `Meshy ${init.method} ${endpoint} failed: ${response.status} ${message}`,
+      );
+    }
+
+    return data;
   }
 
-  if (!response.ok) {
-    const message =
-      "message" in data && data.message
-        ? data.message
-        : "error" in data && data.error
-          ? data.error
-          : text.slice(0, 200);
-    throw new Error(
-      `Meshy ${init.method} ${endpoint} failed: ${response.status} ${message}`,
-    );
-  }
-
-  return data;
+  throw new Error(`Meshy ${init.method} ${endpoint} failed unexpectedly.`);
 }
 
 async function readStorageImage(storagePath: string): Promise<{

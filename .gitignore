@@ -13,6 +13,7 @@ coverage/
 .firebase/
 .vercel/
 .codex-run/
+graphify-out/
 !apps/web/lib/
 !apps/web/lib/config.ts
 !apps/web/lib/firebase.ts
