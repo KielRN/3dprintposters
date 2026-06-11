@@ -12,6 +12,7 @@ All notable project changes will be documented in this file.
 - Added `MESHY_WEBHOOK_SECRET` to the deployed Meshy webhook Worker as an encrypted Cloudflare secret, with live health verification that the binding is configured.
 - Enforced Meshy webhook authentication using the real delivery header `x-meshy-api-webhook-secret-key`; unauthenticated POSTs now return `401`.
 - Replaced the broad historical `CHECKLIST.md` with a short active Meshy-service checklist and archived the previous implementation checklist under `docs/archive/`.
+- Moved the remaining active `CHECKLIST.md` task list into a local ignored archive and replaced the root file with a lean source-of-truth pointer so current status stays in `AI_DEVELOPER_NOTES.md`, `docs/`, `research/`, and `human-tasks/open/`.
 - Added `docs/MESHY_FIGURINE_UI_WORKFLOW.md`, mapping the PrintU screenshot sequence into the target Meshy-backed figurine UI and required backend services.
 - Added a local Meshy Image to 3D runner and a living Meshy service implementation plan for API findings, run results, and backend backlog.
 - Added repeatable Meshy experiment scripts for the Emoji/avatar Natural pose workflow: `scripts/meshy/run-emoji-natural-experiment.mjs` generates a Vertex/Gemini 2D concept and submits it to Meshy, and `scripts/meshy/analyze-printability-task.mjs` records Meshy printability results for a completed task.

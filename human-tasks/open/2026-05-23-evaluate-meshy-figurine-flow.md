@@ -103,6 +103,6 @@ This still needs Elliot's Meshy account, dashboard access, and visual/printabili
 - `docs/MESHY_FIGURINE_UI_WORKFLOW.md`
 - `research/FIGURINE_PROVIDER_RESEARCH.md`
 - `research/MESHY_SERVICE_IMPLEMENTATION_PLAN.md`
-- `CHECKLIST.md`
+- `CHECKLIST.md` archive pointer
 - `docs/DEPLOYMENT.md`
 - `elliot_quick_dev_Startup.md`

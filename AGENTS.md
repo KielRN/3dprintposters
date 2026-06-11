@@ -12,6 +12,7 @@ This file is the first place Codex or another coding agent should read before wo
 - Keep print-file generation server-side. Do not move geometry generation, texture packaging, or fulfillment logic into the browser.
 - Use `human-tasks/` for human follow-ups. When AI work leaves a human validation, local testing, external account, partner outreach, or product decision step, create or update a Markdown task under `human-tasks/open/` using `human-tasks/TASK_TEMPLATE.md`.
 - Develop toward the intended final product behavior first. Do not leave a chosen direction as opt-in, experimental, or hidden behind a fallback plan after a decision has been made; wire it into the real workflow and let testing reveal the next fix.
+- `CHECKLIST.md` is now an archive pointer, not the active tracker. Do not add new task lists there. Use `AI_DEVELOPER_NOTES.md` for compact current state, `research/MESHY_SERVICE_IMPLEMENTATION_PLAN.md` for Meshy implementation detail, `docs/MESHY_FIGURINE_UI_WORKFLOW.md` for target UX/job contract, and `human-tasks/open/` for human-owned validation.
 - `elliot_quick_dev_Startup.md` is a local, ignored runbook for Elliot's startup and experiment commands. Reference it from human tasks when useful, and keep personal or local-only details there instead of copying them into tracked docs.
 
 ## Project Manager Skill
@@ -225,8 +226,8 @@ Run Python tests from `services/print-file-generator`.
 
 When behavior changes, update the relevant docs:
 
-- `CHECKLIST.md`
 - `CHANGELOG.md`
 - `README.md`
 - `AI_DEVELOPER_NOTES.md`
+- `CHECKLIST.md` only if the archive/source-of-truth pointer changes
 - `docs/PRINT_FILE_GENERATION_WORKFLOW.md`

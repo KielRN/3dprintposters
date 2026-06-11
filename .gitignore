@@ -18,6 +18,9 @@ graphify-out/
 !apps/web/lib/config.ts
 !apps/web/lib/firebase.ts
 
+# Local documentation archives
+docs/archive/CHECKLIST-archived-*.md
+
 # Local env and secrets
 .env
 .env.*

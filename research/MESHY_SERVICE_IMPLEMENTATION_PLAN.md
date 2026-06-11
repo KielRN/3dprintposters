@@ -1,41 +1,39 @@
 # Meshy Service Implementation Plan
 
 Status: living implementation plan
-Last updated: 2026-06-08
+Last updated: 2026-06-11
 
 ## Purpose
 
-This document is the growing technical plan for the Meshy-backed figurine service. Use it with `CHECKLIST.md`:
+This document is the growing technical plan for the Meshy-backed figurine service. Use it with the lean project docs:
 
-- `CHECKLIST.md`: PM-facing current state, next tasks, blockers, and done criteria.
+- `AI_DEVELOPER_NOTES.md`: compact current state, durable decisions, and risks.
 - This file: implementation details, Meshy API calls that work, calls that fail, coding decisions, service shape, and run findings.
-- `AI_DEVELOPER_NOTES.md`: compact memory and pointers only.
+- `CHECKLIST.md`: archived checklist pointer only.
 
-Keep detailed Meshy experiments and service decisions here so the checklist and AI notes stay short.
+Keep detailed Meshy experiments and service decisions here so AI notes stay short and the archived checklist does not become active again.
 
 ## Immediate Goal
 
-Recreate the customer workflows in `docs/MESHY_FIGURINE_UI_WORKFLOW.md` using Meshy behind the server-side provider boundary.
+Extend the validated preview-only Creative Lab Figure path into an honestly printable or preorderable product path.
 
-The first workflow to prove is:
+Current validated preview workflow:
 
 1. User uploads an image.
-2. User selects `Emoji / avatar` style.
-3. User selects `Natural pose`.
-4. Backend generates an Emoji-style 2D concept proof.
-5. User approves the concept.
-6. Backend submits the approved concept to Meshy Image to 3D.
-7. Backend downloads GLB/STL/3MF artifacts.
-8. Job page shows the standalone figurine preview and readiness/warning state.
+2. User selects the Creative Lab Figure figurine path with `Natural pose` as the default posture.
+3. Backend generates a 2D figurine proof.
+4. User approves the proof.
+5. Backend submits/polls Meshy Creative Lab Figure through the server-side provider adapter.
+6. Backend downloads the original textured `model.glb` into job-scoped Storage.
+7. Job page renders the standalone figurine preview with `printReadiness: "needs_review"`.
+8. Checkout remains locked.
 
-Important scope note: the 2026-05-24 raw-photo Meshy run proved the API and download path, but it skipped the product workflow's 2D concept step. The next Meshy runs should use an Emoji/avatar proof or a full-body source that matches the intended customer flow.
+Current open work:
 
-Current goal from the checklist:
-
-- Generate at least one successful Meshy figurine output from an Emoji/avatar-style Natural pose input.
-- Inspect the downloaded GLB/STL/3MF in slicer software.
-- Classify Meshy output quality as promising, weak, or not viable.
-- Use real results to decide the first supported style/posture options.
+- Finish deterministic Meshy-body-to-named-base assembly at `150mm` target body height.
+- Decide the downstream print path from Creative Lab GLB: provider repair, provider remesh/conversion, local deterministic repair/conversion, or manual fulfillment.
+- Add richer model history, retry/status controls, webhook/poll reconciliation, print-tooling state, and final readiness.
+- Keep customer copy preview-only until slicer/physical-print validation or a manual preorder path is explicitly approved.
 
 ## Current Architecture Decision
 
@@ -45,11 +43,11 @@ Target production flow:
 
 1. User uploads a source photo.
 2. Backend validates image ownership, file type, size, decode, and suitability.
-3. Backend creates or selects a figurine-friendly 2D concept proof. The first implementation target is Emoji/avatar style.
+3. Backend creates or selects a figurine-friendly 2D concept proof. The current validated preview target is Creative Lab Figure with `Natural pose` as the default product posture.
 4. User approves the concept.
-5. Backend submits the approved concept to Meshy. Raw photo submission remains a diagnostic fallback, not the intended first product path.
+5. Backend submits the approved job to Meshy Creative Lab Figure through the provider adapter.
 6. Backend tracks Meshy status through polling and/or webhook events.
-7. Backend downloads GLB/STL/3MF/thumbnails/textures into project Storage before Meshy retention expires.
+7. Backend downloads GLB/thumbnails/textures into project Storage before Meshy retention expires. STL/3MF are downstream print-tooling outputs unless Creative Lab starts returning them directly.
 8. Backend records model readiness and warnings.
 9. Job page shows our stored GLB and readiness state.
 10. Checkout/preorder/lead capture stays gated until the active model and fulfillment path are honestly represented.
@@ -946,24 +944,16 @@ Next integration step:
 - Use polling as a reconciliation path because webhook delivery should not be the only source of truth.
 - Download assets from backend code after `SUCCEEDED`, regardless of whether success is discovered by polling or webhook.
 
-## Coding Backlog
+## Current Coding Backlog
 
-1. Add or extend the 2D concept style contract for `emoji_avatar` with Natural pose assumptions and an explicit body-only/no-base policy.
-2. Promote the local Emoji/avatar Natural pose experiment prompt into a server-side concept style contract if human review accepts the direction, preserving the no-base/pedestal/platform constraint.
-3. Create or select the approved reusable base STL asset and capture its manifest metadata.
-4. Build deterministic name-on-base service after the base STL exists.
-5. Build deterministic Meshy-body-to-named-base composition service after base naming works.
-6. Run Experiment 010 from the three existing Experiment 009 GLBs without new figure generation: Analyze Printability, Repair Printability, and Remesh/format export via `model_url` inputs, then compare the resulting GLB/STL/3MF candidates in Blender and slicer software.
-7. Add generated-3D provider types and Meshy provider client in `apps/functions`.
-8. Add secret loading for `MESHY_API_KEY` through Functions secrets or Secret Manager in deployed runtimes.
-9. Add model-generation Firestore schema and status transitions.
-10. Add asset ingestion that downloads GLB/STL/3MF/thumbnails/textures into Firebase Storage.
-11. Add sanitized provider audit metadata capture.
-12. Add basic model readiness checks: required GLB present, print candidate present, file sizes nonzero, status/warnings recorded.
-13. Add local emulator artifact mirroring under `.tmp/print-files` for figurine outputs.
-14. Connect job page to standalone figurine GLB assets and readiness/warning state.
-15. Add slicer/human review outcome fields before allowing checkout.
-16. Add retries/idempotency so repeated submissions do not create accidental duplicate paid Meshy tasks.
+1. Build deterministic Meshy-body-to-named-base composition in `services/print-file-generator`: load the raw Creative Lab GLB, load the selected named base, align contact points, preserve the provider source asset, scale the final package to `150mm` body height, and export review artifacts.
+2. Decide and implement the first downstream print-tooling path from Creative Lab GLB: Meshy Repair Printability, Meshy Remesh/conversion, a local deterministic repair/conversion stage, or manual fulfillment review.
+3. Add explicit print-tooling state to figurine jobs so preview-ready, needs-review, printability-warning, print-ready, and blocked states are not inferred from the preview GLB alone.
+4. Add model history, retry/idempotency, and webhook/poll reconciliation around the existing server-side Meshy provider adapter.
+5. Persist selected model, base config, named-base revision, assembled-package revision, and human review outcome before enabling preorder or checkout.
+6. Add slicer/human review fields and checkout/preorder/lead-capture eligibility reasons.
+7. Move production `MESHY_API_KEY` loading to Firebase Functions secrets or Secret Manager before deployed public traffic.
+8. Defer broader public style/posture expansion until the Creative Lab GLB -> deterministic base -> print readiness path is honest end to end.
 
 ## Known Risks
 

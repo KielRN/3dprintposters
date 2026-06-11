@@ -1,6 +1,6 @@
 # Roadmap
 
-This file tracks product direction and enhancement ideas that are not yet committed execution work. Use `CHECKLIST.md` for the active Meshy-service task list and `CHANGELOG.md` for completed progress.
+This file tracks product direction and enhancement ideas that are not yet committed execution work. `CHECKLIST.md` is now an archive pointer; use `AI_DEVELOPER_NOTES.md` for compact current status, `research/MESHY_SERVICE_IMPLEMENTATION_PLAN.md` for Meshy implementation detail, and `CHANGELOG.md` for completed progress.
 
 ## Near-Term MVP
 

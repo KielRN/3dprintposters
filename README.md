@@ -34,9 +34,9 @@ Not done yet:
 
 - Customer-facing figurine style/posture flow
 - Full customer-facing figurine style/posture controls beyond the current Creative Lab preview slice
-- Richer figurine workflow backend services for 2D concept history, model history, retries, readiness, base/sign configuration, and checkout eligibility
+- Richer figurine workflow backend services for 2D concept history, model history, retries, readiness, final body/base package state, and checkout eligibility
 - Meshy webhook-to-Firestore reconciliation beyond the current submit/poll preview adapter
-- Deterministic 150mm Meshy-body-to-square-base assembly, name geometry, STL/3MF export, and print-readiness audit
+- Deterministic 150mm Meshy-body-to-square-base assembly, final STL/3MF package export, and print-readiness audit
 - Slicer and physical-print validation for provider-generated figurines
 - Deployed Cloud Run print-file generator endpoint
 - Fulfillment partner integration
@@ -64,7 +64,7 @@ flowchart LR
   Functions["Firebase Functions<br/>apps/functions"]
   AI["Vertex/Gemini<br/>proof image generation"]
   FigurineSvc["Figurine workflow services<br/>concepts, models, readiness"]
-  Provider["Future figurine model provider<br/>Meshy first candidate"]
+  Provider["Meshy Creative Lab provider<br/>server-side adapter"]
   Stripe["Stripe Checkout"]
   Print["Cloud Run print-file generator<br/>services/print-file-generator"]
   Fulfillment["Future print partner"]
@@ -125,7 +125,7 @@ sequenceDiagram
   Stripe-->>Customer: Collect payment
 ```
 
-The currently implemented app still follows the older poster-relief approval path after proof approval. The next UI/product slice should replace that customer promise with the figurine flow while preserving the existing backend ownership, Storage, Firestore, and checkout boundaries.
+The implemented app now has a preview-only figurine branch after proof approval: Creative Lab Figure jobs can call Meshy server-side, store the original textured GLB in job-scoped Storage, render it on the job page, and keep checkout locked while print readiness is `needs_review`. Poster-relief jobs still use the older print-file generator path.
 
 The home-page 3D panel is still a visual preview shell. In the existing relief path, the job page shows the approved proof, generated `heightmap.png`, and real color `preview.glb` after the user approves the proof and the print-file generator finishes. In the new figurine path, that page should review the standalone `model.glb`, provider thumbnails, generation warnings, and fulfillment/readiness state.
 
@@ -171,7 +171,7 @@ Start with these files when you feel lost:
 
 - `AGENTS.md`: operating rules for AI developers, including Graphify usage
 - `README.md`: practical beginner map
-- `CHECKLIST.md`: active Meshy-service checklist
+- `CHECKLIST.md`: archive pointer and source-of-truth map
 - `CHANGELOG.md`: what changed recently
 - `docs/ARCHITECTURE.md`: deeper system design
 - `docs/DEPLOYMENT.md`: hosting, Firebase, Cloudflare, and secret notes
@@ -187,7 +187,7 @@ The next major implementation slice is the PrintU-like figurine customer flow:
 - Let the customer upload a photo, choose a figurine style, and choose posture.
 - Generate a 2D proof before spending credits on a 3D model.
 - Create the service layer for the workflow: source validation, style/posture persistence, concept history/selection, model generation status/history, asset ingestion, readiness, editor options, and purchase-intent gating.
-- Evaluate Meshy.ai manually first, then implement a server-side provider adapter if output quality, terms, and cost are acceptable.
+- Keep Meshy behind the server-side provider adapter and continue validating output quality, terms, cost, and retention before public checkout.
 - Store generated GLB/STL/optional 3MF assets under user/job scoped Storage paths.
 - Show the generated figurine in the job page before checkout or preorder.
 - Validate slicer/print behavior before promising automated fulfillment.
@@ -347,7 +347,7 @@ This mode requires JDK 21+. On this machine, Microsoft OpenJDK 21 is installed, 
 
 ## Basic Manual Test Checklist
 
-Use this checklist when testing the currently implemented relief app as a beginner. The active project checklist is now focused on the Meshy figurine service; this manual relief checklist remains here only for the existing implemented flow.
+Use these steps when testing the implemented relief app as a beginner. The former root tracker has been archived; this manual relief flow remains here only for the existing relief product path.
 
 - [ ] Run `npm install` if dependencies are missing.
 - [ ] Confirm `apps/web/.env.local` exists.
