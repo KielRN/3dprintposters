@@ -355,3 +355,26 @@ class FigurineNamedBaseResponse(BaseModel):
     lettering: dict
     composed: dict
     warnings: list[str] = Field(default_factory=list)
+
+
+class FigurineAssemblyRequest(BaseModel):
+    job_id: str = Field(min_length=1)
+    uid: str = Field(min_length=1)
+    source_preview_glb_path: str = Field(min_length=1)
+    named_base_stl_path: str = Field(min_length=1)
+    base_id: str = Field(default="figurine-square-v1", min_length=1)
+    named_base_revision: str = Field(min_length=1)
+    output_prefix: str = Field(min_length=1)
+    target_body_height_mm: float = Field(default=150.0, gt=0)
+
+
+class FigurineAssemblyResponse(BaseModel):
+    job_id: str
+    status: str
+    assembly_id: str
+    base_id: str
+    source_preview_glb: str
+    named_base_revision: str
+    artifact_paths: dict[str, str]
+    metrics: dict
+    warnings: list[str] = Field(default_factory=list)

@@ -19,6 +19,7 @@ import {
   isFigurineStyle,
 } from "./figurineWorkflow.js";
 import { generateCreativeLabFigurinePreview } from "./meshyFigurineProvider.js";
+import { runMeshyFigurinePrintTooling } from "./meshyPrintTooling.js";
 
 initializeApp();
 
@@ -1640,6 +1641,26 @@ const figurineNamedBaseResponseSchema = z.object({
   warnings: z.array(z.string()).default([]),
 });
 
+const generateFigurineAssemblySchema = z.object({
+  jobId: jobIdSchema,
+});
+
+const runFigurinePrintToolingSchema = z.object({
+  jobId: jobIdSchema,
+});
+
+const figurineAssemblyResponseSchema = z.object({
+  job_id: z.string().min(1),
+  status: z.string().min(1),
+  assembly_id: z.string().min(1),
+  base_id: z.string().min(1),
+  source_preview_glb: z.string().min(1),
+  named_base_revision: z.string().min(1),
+  artifact_paths: z.record(z.string(), z.string()),
+  metrics: z.record(z.string(), z.unknown()),
+  warnings: z.array(z.string()).default([]),
+});
+
 function normalizeFigurineSignText(raw: string): string {
   const collapsed = raw.trim().replace(/\s+/g, " ");
   if (!collapsed) {
@@ -1796,6 +1817,352 @@ async function generateFigurineNamedBaseForJob(input: {
   };
 }
 
+function jobDataIsFigurine(jobData: Record<string, unknown> | undefined): boolean {
+  return (
+    jobData?.productType === "figurine" ||
+    (typeof jobData?.selectedStyle === "string" &&
+      isFigurineStyle(jobData.selectedStyle))
+  );
+}
+
+function firestoreSafeValue(value: unknown, insideArray = false): unknown {
+  if (value === undefined) {
+    return null;
+  }
+  if (Array.isArray(value)) {
+    const safeArray = value.map((item) => firestoreSafeValue(item, true));
+    return insideArray ? { items: safeArray } : safeArray;
+  }
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .filter(([, entryValue]) => entryValue !== undefined)
+        .map(([key, entryValue]) => [key, firestoreSafeValue(entryValue)]),
+    );
+  }
+  return value;
+}
+
+function collectStoragePaths(value: unknown): string[] {
+  if (typeof value === "string") {
+    return value.startsWith("print-files/") ? [value] : [];
+  }
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => collectStoragePaths(item));
+  }
+  if (value && typeof value === "object") {
+    return Object.values(value as Record<string, unknown>).flatMap((item) =>
+      collectStoragePaths(item),
+    );
+  }
+  return [];
+}
+
+function resolveMeshyApiKeyForPrintTooling(): string {
+  const value = meshyApiKey.value()?.trim();
+  if (!value) {
+    throw new Error("MESHY_API_KEY is required for figurine print tooling.");
+  }
+  return value;
+}
+
+async function generateFigurineAssemblyForJob(input: {
+  jobRef: DocumentReference;
+  jobId: string;
+  uid: string;
+  jobData: Record<string, unknown>;
+}): Promise<Record<string, unknown>> {
+  const figurinePreview = input.jobData.figurinePreview as
+    | { previewGlb?: unknown; status?: unknown }
+    | undefined;
+  const baseConfig = input.jobData.baseConfig as
+    | { baseId?: unknown }
+    | undefined;
+  const namedBase = input.jobData.figurineNamedBase as
+    | {
+        status?: unknown;
+        outputPrefix?: unknown;
+        artifacts?: Record<string, unknown>;
+      }
+    | undefined;
+  const sourcePreviewGlb = figurinePreview?.previewGlb;
+  const namedBaseStl = namedBase?.artifacts?.stl;
+  const baseId = baseConfig?.baseId ?? "figurine-square-v1";
+
+  if (figurinePreview?.status !== "preview_ready" || typeof sourcePreviewGlb !== "string") {
+    throw new HttpsError(
+      "failed-precondition",
+      "Generate the Creative Lab figurine preview before assembly.",
+    );
+  }
+  if (namedBase?.status !== "generated" || typeof namedBaseStl !== "string") {
+    throw new HttpsError(
+      "failed-precondition",
+      "Generate the named base before assembly.",
+    );
+  }
+  if (baseId !== "figurine-square-v1") {
+    throw new HttpsError(
+      "failed-precondition",
+      "Only figurine-square-v1 assembly is enabled for this review path.",
+    );
+  }
+
+  const serviceUrl = resolveRequiredEnv("PRINT_FILE_GENERATOR_URL").replace(
+    /\/$/,
+    "",
+  );
+  const bucketName = resolveRequiredEnv("APP_STORAGE_BUCKET");
+  const assemblyId = `${Date.now()}-${randomUUID().slice(0, 8)}`;
+  const outputPrefix =
+    `print-files/${input.uid}/${input.jobId}/figurine/assembled/${assemblyId}`;
+  const namedBaseRevision =
+    typeof namedBase.outputPrefix === "string"
+      ? namedBase.outputPrefix
+      : namedBaseStl;
+
+  await input.jobRef.set(
+    {
+      figurineAssembly: {
+        status: "assembling",
+        assemblyId,
+        sourcePreviewGlb,
+        namedBaseRevision,
+        startedAt: FieldValue.serverTimestamp(),
+      },
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
+
+  const response = await fetch(`${serviceUrl}/v1/figurine/assemble`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    signal: AbortSignal.timeout(printFileGeneratorFetchTimeoutMs),
+    body: JSON.stringify({
+      job_id: input.jobId,
+      uid: input.uid,
+      source_preview_glb_path: storagePathToGcsUri(bucketName, sourcePreviewGlb),
+      named_base_stl_path: storagePathToGcsUri(bucketName, namedBaseStl),
+      base_id: baseId,
+      named_base_revision: namedBaseRevision,
+      output_prefix: storagePathToGcsUri(bucketName, outputPrefix),
+      target_body_height_mm: 150.0,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `Figurine assembly failed with HTTP ${response.status}: ${(await response.text()).slice(0, 1000)}`,
+    );
+  }
+
+  const parsed = figurineAssemblyResponseSchema.safeParse(await response.json());
+  if (!parsed.success) {
+    throw new Error("Figurine assembly service returned an invalid response.");
+  }
+
+  const artifacts: Record<string, string> = {};
+  for (const [key, gcsUri] of Object.entries(parsed.data.artifact_paths)) {
+    artifacts[key] = gcsUriToStoragePath(bucketName, gcsUri);
+  }
+  const assembly = {
+    status: "assembled",
+    assemblyId: parsed.data.assembly_id,
+    baseId: parsed.data.base_id,
+    sourcePreviewGlb: gcsUriToStoragePath(
+      bucketName,
+      parsed.data.source_preview_glb,
+    ),
+    namedBaseRevision: parsed.data.named_base_revision,
+    outputPrefix,
+    artifacts,
+    metrics: parsed.data.metrics,
+    warnings: parsed.data.warnings,
+    completedAt: FieldValue.serverTimestamp(),
+  };
+
+  await input.jobRef.set(
+    {
+      figurineAssembly: firestoreSafeValue(assembly),
+      figurineReview: {
+        status: "needs_review",
+        decision: null,
+        notes: null,
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      figurinePreview: {
+        printReadiness: "needs_review",
+      },
+      checkoutEligibility: {
+        eligible: false,
+        reason:
+          "Figurine checkout is locked until printability and slicer review are complete.",
+      },
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
+
+  try {
+    const localMirror = await mirrorStoragePathsToLocalTmp({
+      bucketName,
+      storagePaths: Object.values(artifacts),
+    });
+    await input.jobRef.set(
+      {
+        figurineAssembly: { localMirror },
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+  } catch (error) {
+    await input.jobRef.set(
+      {
+        figurineAssembly: { localMirror: buildLocalMirrorError(error) },
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+  }
+
+  return assembly;
+}
+
+async function signedModelUrl(input: {
+  bucketName: string;
+  storagePath: string;
+}): Promise<string> {
+  const [url] = await getStorage()
+    .bucket(input.bucketName)
+    .file(input.storagePath)
+    .getSignedUrl({
+      action: "read",
+      expires: Date.now() + 60 * 60 * 1000,
+    });
+  return url;
+}
+
+async function runFigurinePrintToolingForJob(input: {
+  jobRef: DocumentReference;
+  jobId: string;
+  uid: string;
+  jobData: Record<string, unknown>;
+}): Promise<Record<string, unknown>> {
+  const assembly = input.jobData.figurineAssembly as
+    | {
+        status?: unknown;
+        assemblyId?: unknown;
+        artifacts?: Record<string, unknown>;
+      }
+    | undefined;
+  const assemblyId = assembly?.assemblyId;
+  const assembledPreviewGlb = assembly?.artifacts?.assembledPreviewGlb;
+
+  if (assembly?.status !== "assembled" || typeof assemblyId !== "string") {
+    throw new HttpsError(
+      "failed-precondition",
+      "Assemble the figurine package before running print tooling.",
+    );
+  }
+  if (typeof assembledPreviewGlb !== "string") {
+    throw new HttpsError(
+      "failed-precondition",
+      "The assembled GLB artifact is missing.",
+    );
+  }
+
+  const bucketName = resolveRequiredEnv("APP_STORAGE_BUCKET");
+  const toolingId = `${Date.now()}-${randomUUID().slice(0, 8)}`;
+  const outputPrefix =
+    `print-files/${input.uid}/${input.jobId}/figurine/print-tooling/` +
+    `${assemblyId}/${toolingId}`;
+
+  await input.jobRef.set(
+    {
+      figurinePrintTooling: {
+        status: "running",
+        toolingId,
+        inputAssemblyId: assemblyId,
+        inputArtifact: assembledPreviewGlb,
+        startedAt: FieldValue.serverTimestamp(),
+      },
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
+
+  const result = await runMeshyFigurinePrintTooling({
+    apiKey: resolveMeshyApiKeyForPrintTooling(),
+    modelUrl: await signedModelUrl({
+      bucketName,
+      storagePath: assembledPreviewGlb,
+    }),
+    outputPrefix,
+    jobId: input.jobId,
+    uid: input.uid,
+    remeshTopology: "quad",
+    remeshTargetPolycount: 100_000,
+    remeshTargetFormats: ["glb", "stl", "3mf"],
+  });
+  const tooling = firestoreSafeValue({
+    ...result,
+    toolingId,
+    inputAssemblyId: assemblyId,
+    inputArtifact: assembledPreviewGlb,
+    outputPrefix,
+    completedAt: FieldValue.serverTimestamp(),
+  }) as Record<string, unknown>;
+
+  await input.jobRef.set(
+    {
+      figurinePrintTooling: tooling,
+      figurineReview: {
+        status: "needs_review",
+        decision: null,
+        notes: null,
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      figurinePreview: {
+        printReadiness: "needs_review",
+      },
+      checkoutEligibility: {
+        eligible: false,
+        reason:
+          "Figurine checkout is locked until printability and slicer review are complete.",
+      },
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
+
+  try {
+    const localMirror = await mirrorStoragePathsToLocalTmp({
+      bucketName,
+      storagePaths: Array.from(new Set(collectStoragePaths(tooling))),
+    });
+    await input.jobRef.set(
+      {
+        figurinePrintTooling: { localMirror },
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+  } catch (error) {
+    await input.jobRef.set(
+      {
+        figurinePrintTooling: { localMirror: buildLocalMirrorError(error) },
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+  }
+
+  return tooling;
+}
+
 export const updateFigurineBaseConfig = onCall(
   {
     timeoutSeconds: 300,
@@ -1920,5 +2287,148 @@ export const updateFigurineBaseConfig = onCall(
         lettering: namedBase.lettering,
       },
     };
+  },
+);
+
+export const generateFigurineAssembly = onCall(
+  {
+    timeoutSeconds: 540,
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError(
+        "unauthenticated",
+        "Sign in before assembling the figurine package.",
+      );
+    }
+
+    const parsed = generateFigurineAssemblySchema.safeParse(request.data);
+    if (!parsed.success) {
+      throw new HttpsError("invalid-argument", "jobId is required.");
+    }
+
+    const jobRef = db.collection("jobs").doc(parsed.data.jobId);
+    const jobSnap = await jobRef.get();
+    const jobData = jobSnap.data() as Record<string, unknown> | undefined;
+    if (!jobSnap.exists || jobData?.uid !== request.auth.uid) {
+      throw new HttpsError("not-found", "Job not found.");
+    }
+    if (!jobDataIsFigurine(jobData)) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Figurine assembly is only available for figurine jobs.",
+      );
+    }
+
+    try {
+      const assembly = await generateFigurineAssemblyForJob({
+        jobRef,
+        jobId: parsed.data.jobId,
+        uid: request.auth.uid,
+        jobData,
+      });
+      return {
+        jobId: parsed.data.jobId,
+        status: "assembled",
+        assembly,
+      };
+    } catch (error) {
+      if (error instanceof HttpsError) {
+        throw error;
+      }
+      const message = error instanceof Error ? error.message : String(error);
+      console.error("figurine assembly failed", {
+        jobId: parsed.data.jobId,
+        error: message,
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+      await jobRef.set(
+        {
+          figurineAssembly: {
+            status: "failed",
+            error: { message: message.slice(0, 500) },
+            failedAt: FieldValue.serverTimestamp(),
+          },
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+      throw new HttpsError(
+        "internal",
+        `Figurine assembly failed: ${message.slice(0, 200)}`,
+      );
+    }
+  },
+);
+
+export const runFigurinePrintTooling = onCall(
+  {
+    secrets: [meshyApiKey],
+    timeoutSeconds: 540,
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError(
+        "unauthenticated",
+        "Sign in before running figurine print tooling.",
+      );
+    }
+
+    const parsed = runFigurinePrintToolingSchema.safeParse(request.data);
+    if (!parsed.success) {
+      throw new HttpsError("invalid-argument", "jobId is required.");
+    }
+
+    const jobRef = db.collection("jobs").doc(parsed.data.jobId);
+    const jobSnap = await jobRef.get();
+    const jobData = jobSnap.data() as Record<string, unknown> | undefined;
+    if (!jobSnap.exists || jobData?.uid !== request.auth.uid) {
+      throw new HttpsError("not-found", "Job not found.");
+    }
+    if (!jobDataIsFigurine(jobData)) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Print tooling is only available for figurine jobs.",
+      );
+    }
+
+    try {
+      const tooling = await runFigurinePrintToolingForJob({
+        jobRef,
+        jobId: parsed.data.jobId,
+        uid: request.auth.uid,
+        jobData,
+      });
+      return {
+        jobId: parsed.data.jobId,
+        status: "completed",
+        tooling,
+      };
+    } catch (error) {
+      if (error instanceof HttpsError) {
+        throw error;
+      }
+      const message = error instanceof Error ? error.message : String(error);
+      console.error("figurine print tooling failed", {
+        jobId: parsed.data.jobId,
+        error: message,
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+      await jobRef.set(
+        {
+          figurinePrintTooling: {
+            status: "failed",
+            error: { message: message.slice(0, 500) },
+            failedAt: FieldValue.serverTimestamp(),
+          },
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+      throw new HttpsError(
+        "internal",
+        `Figurine print tooling failed: ${message.slice(0, 200)}`,
+      );
+    }
   },
 );

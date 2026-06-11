@@ -9,6 +9,7 @@ import {
   FileCheck2,
   Loader2,
   RefreshCw,
+  Wrench,
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -643,6 +644,27 @@ export function JobDetail({ jobId }: { jobId: string }) {
             notice={baseSignNotice}
             onSave={saveBaseSign}
           />
+          {namedBasePreviewPath ? (
+            <section className="mt-8 rounded-lg border border-black/10 bg-white p-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-bold text-[var(--teal)]">
+                    Print-readiness review
+                  </p>
+                  <h2 className="mt-1 text-xl font-semibold">
+                    Body/base assembly
+                  </h2>
+                </div>
+                <Link
+                  className="secondary-button"
+                  href={`/jobs/${jobId}/print-readiness`}
+                >
+                  <Wrench size={18} aria-hidden="true" />
+                  Open review
+                </Link>
+              </div>
+            </section>
+          ) : null}
         </>
       ) : isFigurineJob ? (
         <section className="mt-8 rounded-lg border border-black/10 bg-white p-5">

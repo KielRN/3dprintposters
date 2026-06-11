@@ -23,8 +23,8 @@ Source-of-truth split:
 ## Phase B — Figurine Print-Decision Workflow
 
 - 🟡 Named base service — deterministic `figurine-square-v1` named-base service exists with `POST /v1/figurine/named-base`, `updateFigurineBaseConfig`, fresh artifact prefixes, and job-page preview controls. Manual lettering, slicer, and manifest approval are still needed before calling it product-approved.
-- 🔴 Body/base assembly — scale contract is known for a 150mm body and matching square base, but deterministic body-on-named-base composition is still missing. Build this server-side in `services/print-file-generator` with explicit 150mm package scaling.
-- 🔴 Print conversion/readiness — Exp 010 exposed the main tradeoff: Meshy Repair makes GLBs watertight but textureless; Meshy Remesh returns texture-capable formats but still fails Meshy printability analysis. Choose provider repair, provider remesh/conversion, local deterministic repair, or manual fulfillment after Blender/slicer review.
+- 🟡 Body/base assembly — deterministic body-on-named-base composition now exists in `services/print-file-generator` with explicit `150mm` body scaling, source preservation, GLB/STL/3MF exports, and `generateFigurineAssembly`. Real-job Blender/slicer validation is still required.
+- 🟡 Print conversion/readiness — `runFigurinePrintTooling` now promotes the Exp 010-style provider path into Functions for assembled packages: Analyze, Repair, Analyze repaired, Remesh, and Analyze remeshed GLB/STL. The core decision remains open because Meshy Repair is textureless and Meshy Remesh may still fail printability.
 - 🔴 Fulfillment path — public purchase path is undecided: paid preorder/manual fulfillment versus fully automated checkout. No path should imply automatic print readiness yet.
 - 🔴 Public policy and economics — provider terms, cost ceilings, likeness/privacy rules, moderation, and customer-content limits still need explicit product decisions before public traffic.
 

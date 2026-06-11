@@ -60,6 +60,14 @@ type FigurineBaseSignPanelProps = {
   onSave: (input: { signEnabled: boolean; signText: string }) => void;
 };
 
+type FigurineArtifactPreviewProps = {
+  title: string;
+  artifactLabel: string;
+  previewUrl?: string;
+  status?: string;
+  details?: Array<{ label: string; value: string }>;
+};
+
 const SIGN_NAME_MAX_CHARACTERS = 12;
 const SIGN_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9 .'-]*$/;
 
@@ -377,6 +385,42 @@ export function FigurineModelPreview({
             </p>
           ))}
         </div>
+      </div>
+    </section>
+  );
+}
+
+export function FigurineArtifactPreview({
+  title,
+  artifactLabel,
+  previewUrl,
+  status,
+  details = [],
+}: FigurineArtifactPreviewProps) {
+  return (
+    <section className="overflow-hidden rounded-lg border border-black/10 bg-white">
+      <div className="flex min-h-12 items-center justify-between gap-3 border-b border-black/10 px-4 text-sm">
+        <strong>{title}</strong>
+        <span className="text-[var(--muted)]">{artifactLabel}</span>
+      </div>
+      {previewUrl ? (
+        <GlbViewer compact previewUrl={previewUrl} variant="auto" />
+      ) : (
+        <div className="flex h-[min(34vh,320px)] min-h-56 items-center justify-center bg-black/[0.035] px-4 text-center text-sm font-bold text-[var(--muted)]">
+          Model preview unavailable
+        </div>
+      )}
+      <div className="grid gap-3 border-t border-black/10 p-4 text-sm sm:grid-cols-2">
+        <div>
+          <p className="text-[var(--muted)]">Status</p>
+          <strong>{labelizeStatus(status, "Pending")}</strong>
+        </div>
+        {details.map((detail) => (
+          <div key={detail.label}>
+            <p className="text-[var(--muted)]">{detail.label}</p>
+            <strong className="break-all">{detail.value}</strong>
+          </div>
+        ))}
       </div>
     </section>
   );

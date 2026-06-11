@@ -947,9 +947,9 @@ Next integration step:
 
 ## Current Coding Backlog
 
-1. Build deterministic Meshy-body-to-named-base composition in `services/print-file-generator`: load the raw Creative Lab GLB, load the selected named base, align contact points, preserve the provider source asset, scale the final package to `150mm` body height, and export review artifacts.
-2. Decide and implement the first downstream print-tooling path from Creative Lab GLB: Meshy Repair Printability, Meshy Remesh/conversion, a local deterministic repair/conversion stage, or manual fulfillment review.
-3. Add explicit print-tooling state to figurine jobs so preview-ready, needs-review, printability-warning, print-ready, and blocked states are not inferred from the preview GLB alone.
+1. Validate the new deterministic assembled-package path on a real Creative Lab job: `POST /v1/figurine/assemble` now loads the raw Creative Lab GLB plus generated named-base STL, scales the body to `150mm`, aligns it to the base top plane, preserves source files, and exports GLB/STL/3MF/metadata review artifacts.
+2. Validate the new production Meshy print-tooling callable on at least one assembled package: `runFigurinePrintTooling` now runs Analyze Printability, Repair Printability, Analyze repaired output, Remesh with quad/100000 and `glb,stl,3mf`, and Analyze remeshed GLB/STL from the assembled `model_url`.
+3. Use the new `/jobs/{jobId}/print-readiness` page to compare assembled original, repaired, and remeshed artifacts while keeping the customer job page on the original textured Creative Lab GLB.
 4. Add model history, retry/idempotency, and webhook/poll reconciliation around the existing server-side Meshy provider adapter.
 5. Persist selected model, base config, named-base revision, assembled-package revision, and human review outcome before enabling preorder or checkout.
 6. Add slicer/human review fields and checkout/preorder/lead-capture eligibility reasons.

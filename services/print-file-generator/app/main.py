@@ -1,8 +1,11 @@
 from fastapi import FastAPI, HTTPException
 
+from .figurine_assembly import assemble_figurine_package
 from .figurine_name_base import NameValidationError, generate_named_base_bundle
 from .packages import generate_print_file_bundle
 from .models import (
+    FigurineAssemblyRequest,
+    FigurineAssemblyResponse,
     FigurineNamedBaseRequest,
     FigurineNamedBaseResponse,
     PrintFileGenerationRequest,
@@ -53,3 +56,24 @@ async def generate_figurine_named_base(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     return FigurineNamedBaseResponse(**payload)
+
+
+@app.post("/v1/figurine/assemble", response_model=FigurineAssemblyResponse)
+async def assemble_figurine_print_package(
+    request: FigurineAssemblyRequest,
+) -> FigurineAssemblyResponse:
+    if (
+        request.output_prefix.startswith("gs://")
+        or request.source_preview_glb_path.startswith("gs://")
+        or request.named_base_stl_path.startswith("gs://")
+    ):
+        storage = GoogleCloudStorage()
+    else:
+        storage = LocalFilesystemStorage()
+
+    try:
+        payload = assemble_figurine_package(request, storage=storage)
+    except (FileNotFoundError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return FigurineAssemblyResponse(**payload)

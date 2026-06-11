@@ -49,11 +49,44 @@ Target print size:
 Implementation rule:
 
 1. Load the raw Meshy Creative Lab `model.glb`; do not overwrite or resize the provider source file.
-2. Load the matched square base in the same raw GLB scale.
+2. Load the generated named-base STL from the deterministic base service.
 3. Align the figurine feet/contact area onto the base top plane.
-4. Add deterministic customer-name geometry to the base.
-5. Scale the assembled package to `150mm` figurine height.
-6. Export print-review artifacts, separating inherited Meshy body defects from deterministic base/name/assembly defects.
+4. Scale the body to `150mm` figurine height while keeping the named base in millimeter product units.
+5. Export print-review artifacts, separating inherited Meshy body defects from deterministic base/name/assembly defects.
+
+Current assembled-package endpoint:
+
+```text
+POST /v1/figurine/assemble
+```
+
+Request fields:
+
+- `job_id`
+- `uid`
+- `source_preview_glb_path`
+- `named_base_stl_path`
+- `base_id`, currently `figurine-square-v1`
+- `named_base_revision`
+- `output_prefix`
+- `target_body_height_mm`, default `150.0`
+
+Generated assembled artifacts:
+
+- `assembled-preview.glb`
+- `assembled.stl`
+- `assembled.3mf`
+- `metadata.json`
+- `sources/source-creative-lab.glb`
+- `sources/source-named-base.stl`
+
+Firebase Functions writes these under:
+
+```text
+print-files/{uid}/{jobId}/figurine/assembled/{assemblyId}/
+```
+
+The follow-up `runFigurinePrintTooling` callable sends the assembled GLB to Meshy by signed `model_url` and persists sanitized Analyze, Repair, repaired Analyze, Remesh, and remeshed Analyze state under `figurinePrintTooling`. Remesh uses quad topology, `100000` target polycount, and `glb,stl,3mf` target formats. Meshy Analyze is run only on GLB/STL outputs; 3MF remains for local or slicer review.
 
 ## Inputs
 
@@ -182,6 +215,33 @@ Future versions may add slicer-specific project files or generated G-code, but t
 - `packageReadiness`
 
 The print-file audit is also written to `jobs/{jobId}/audit/printFileGeneration` after Functions reads `metadata.json` from Storage. Paid orders preserve the exact manifest, settings, and print-file audit used at checkout so future regeneration cannot silently change a customer order. The current checkout precondition requires `printFileStatus: "generated"` and generated `modelStl`/`previewGlb` artifact paths.
+
+Figurine print-readiness fields are separate from the poster-relief print-file fields:
+
+- `figurineAssembly.status`
+- `figurineAssembly.assemblyId`
+- `figurineAssembly.sourcePreviewGlb`
+- `figurineAssembly.namedBaseRevision`
+- `figurineAssembly.artifacts.assembledPreviewGlb`
+- `figurineAssembly.artifacts.assembledStl`
+- `figurineAssembly.artifacts.assembled3mf`
+- `figurineAssembly.artifacts.metadata`
+- `figurineAssembly.metrics`
+- `figurineAssembly.warnings`
+- `figurinePrintTooling.status`
+- `figurinePrintTooling.inputAssemblyId`
+- `figurinePrintTooling.originalAnalyze`
+- `figurinePrintTooling.repair`
+- `figurinePrintTooling.repairedAnalyze`
+- `figurinePrintTooling.remesh`
+- `figurinePrintTooling.remeshAnalyzeByFormat`
+- `figurinePrintTooling.recommendedPath`
+- `figurinePrintTooling.warnings`
+- `figurineReview.status`
+- `figurineReview.decision`
+- `figurineReview.notes`
+
+These fields do not unlock checkout by themselves. `figurinePreview.printReadiness` stays `needs_review` until a later explicit product decision changes the fulfillment gate.
 
 ## Current MVP Strategy
 
