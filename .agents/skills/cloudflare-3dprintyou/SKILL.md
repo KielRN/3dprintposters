@@ -16,7 +16,7 @@ Use this skill for project-specific Cloudflare work around `3dprintyou.com`, `3d
 - Prefer read-only checks first: verify token, list matching zones, inspect DNS records, inspect Worker scripts/routes/custom domains.
 - Before mutating Cloudflare DNS, Workers, routes, secrets, or account settings, state the exact intended change in a short update. Ask the user first when the change could disrupt live traffic.
 - Use `3dprintyou.com` as the preferred figurine/customer-acquisition domain. Keep `3dprintposters.com` available for parked poster-relief work or later redirects.
-- Update project docs and human tasks after changing Cloudflare behavior or discovering a durable setup fact.
+- Update durable project docs after changing Cloudflare behavior or discovering a durable setup fact. Use ignored `.tmp/human-tasks/` only for short-lived human handoffs.
 
 ## Current Project Facts
 
@@ -53,7 +53,7 @@ Create or route a Worker only after checking whether `api.3dprintyou.com` alread
    - DNS resolves through Cloudflare if DNS changed.
    - The Worker route returns an expected status for `GET` health checks.
    - The webhook path accepts only the expected method/signature shape.
-8. Update `CHECKLIST.md`, `docs/DEPLOYMENT.md`, `docs/ARCHITECTURE.md`, `research/FIGURINE_PROVIDER_RESEARCH.md`, and the open Meshy human task when the setup state changes.
+8. Update `CHECKLIST.md`, `docs/DEPLOYMENT.md`, `docs/ARCHITECTURE.md`, and `research/FIGURINE_PROVIDER_RESEARCH.md` when the setup state changes. Put any temporary human dashboard action under `.tmp/human-tasks/` only if it helps the current handoff.
 
 ## References
 

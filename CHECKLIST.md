@@ -10,7 +10,7 @@ Use the leaner source-of-truth map instead:
 - Target figurine customer workflow and job contract: `docs/MESHY_FIGURINE_UI_WORKFLOW.md`
 - Meshy technical plan, API findings, and experiment details: `research/MESHY_SERVICE_IMPLEMENTATION_PLAN.md`
 - Print-file boundary, deterministic base/name/assembly contract, and parked relief service: `docs/PRINT_FILE_GENERATION_WORKFLOW.md`
-- Human-owned validation and product decisions: `human-tasks/open/`
+- Human-owned validation and product decisions: summarize in handoffs; use ignored `.tmp/human-tasks/` only for short-lived agent notes
 - Completed chronology: `CHANGELOG.md`
 
 Current focus in one line: keep the Meshy Creative Lab figurine preview path honest and preview-only, finish deterministic body-to-named-base assembly and print-readiness validation, then choose lead capture, preorder/manual fulfillment, or checkout.

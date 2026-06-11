@@ -1,6 +1,6 @@
 ---
 name: project-manager-3dprintposters
-description: Use this skill when managing 3DPrintPosters project status, roadmap, backlog, sprint or iteration planning, blocker and risk review, release readiness, documentation drift, handoff summaries, human follow-up tasks, or "what should we do next?" PM questions. Ground every output in current repository artifacts and separate known facts from assumptions.
+description: Use this skill when managing 3DPrintPosters project status, roadmap, backlog, sprint or iteration planning, blocker and risk review, release readiness, documentation drift, handoff summaries, transient human follow-ups, or "what should we do next?" PM questions. Ground every output in current repository artifacts and separate known facts from assumptions.
 metadata:
   short-description: PM status and planning for 3DPrintPosters
 ---
@@ -15,14 +15,15 @@ Start with the most relevant of these files, depending on the request:
 
 - `AGENTS.md`: operating rules, architecture constraints, verification commands, current flow.
 - `AI_DEVELOPER_NOTES.md`: compact project memory, durable decisions, active direction, and risks.
-- `CHECKLIST.md`: active launch/project checklist.
+- `CHECKLIST.md`: archived source-of-truth pointer.
 - `CHANGELOG.md`: completed changes and chronology.
 - `README.md`: user-facing setup and project overview.
 - `docs/PRINT_FILE_GENERATION_WORKFLOW.md`: print-file flow and service contract.
 - `research/FIGURINE_PROVIDER_RESEARCH.md`: current 2026-05-23 customer-acquisition pivot, PrintU UX reference, Meshy provider research, and next validation steps.
 - `research/HEIGHTMAP_AND_3D_WORKFLOW_RESEARCH.md`: heightmap experiment status and decisions.
-- `human-tasks/README.md` and `human-tasks/open/*.md`: human-owned validation, decision, credential, partner, and external-action tasks.
-- `elliot_quick_dev_Startup.md`: local ignored startup and experiment runbook for Elliot's manual testing flow. Reference it when creating human testing tasks, but do not expose secrets or assume it is tracked.
+- `.tmp/human-tasks/`: optional ignored scratch space for short-lived human handoffs. Do not treat it as durable source of truth and do not recreate tracked `human-tasks/`.
+- `docs/archive/human-tasks-archived-2026-06-11/`: historical archive of the former tracked human task folder and PrintU reference assets.
+- `elliot_quick_dev_Startup.md`: local ignored startup and experiment runbook for Elliot's manual testing flow. Reference it in temporary `.tmp` handoffs when useful, but do not expose secrets or assume it is tracked.
 - `package.json`, `apps/*/package.json`, and `services/print-file-generator/pyproject.toml`: runnable checks and toolchain signals.
 - `scripts/meshy/run-standard-figurine-experiment.mjs`: active Meshy figurine experiment runner and output contract.
 - `.env.example`, `apps/*/.env.example`, `apps/web/.env.local.example`, config readers, provider adapters, Firebase callable functions, API routes, and service clients: available variables, APIs, contracts, and integration surfaces.
@@ -32,7 +33,7 @@ Secret-bearing configuration is in scope; secret values are not. Agents may insp
 
 ## Core Workflow
 
-1. Clarify the PM output type from the user's wording: status, roadmap, backlog, next steps, sprint plan, risk review, release readiness, handoff, or human task.
+1. Clarify the PM output type from the user's wording: status, roadmap, backlog, next steps, sprint plan, risk review, release readiness, handoff, or human follow-up.
 2. Read only the source artifacts needed for that output. Prefer `rg` and targeted file reads.
 3. Separate facts from assumptions:
    - Facts come from repo files, git state, test output, or user-provided context.
@@ -49,11 +50,12 @@ Secret-bearing configuration is in scope; secret values are not. Agents may insp
    - Reviewed product decisions should be promoted into the real workflow instead of left as opt-in experiments.
    - No branch creation, commits, pushes, PRs, or exposure/movement of secret values unless explicitly requested and safe.
 5. Review human follow-ups:
-   - Create or update a task under `human-tasks/open/` when the next action requires Elliot's browser session, local credentials, visual judgment, product decision, partner outreach, external account, or physical-world validation.
-   - Use `human-tasks/TASK_TEMPLATE.md` for new tasks.
-   - Keep tasks concrete: why human, exact steps, done criteria, evidence to capture, and related files.
-   - Do not put secret values, tokens, account credentials, or private personal details in human task files.
-   - If no human action remains, explicitly say no human task was needed.
+   - Summarize human-owned next actions in the PM response when the next action requires Elliot's browser session, local credentials, visual judgment, product decision, partner outreach, external account, or physical-world validation.
+   - Create a temporary note under `.tmp/human-tasks/` only when it materially helps the current handoff.
+   - Keep any temporary note concrete: why human, exact steps, done criteria, evidence to capture, and related files.
+   - Do not put secret values, tokens, account credentials, or private personal details in temporary handoff files.
+   - Do not recreate tracked `human-tasks/` files.
+   - If no human action remains, explicitly say no human action was needed.
 6. Produce a concise PM artifact with owners only when the user provided owners or roles. Otherwise use "Owner: TBD" or omit owners.
 7. Include verification or evidence needed to call work done. Prefer existing commands from `AGENTS.md`.
 
@@ -114,14 +116,14 @@ Open Threads:
 Verification:
 - [commands run or commands to run]
 
-Human Tasks:
-- [created/updated task path, or "None"]
+Human Follow-Ups:
+- [temporary `.tmp/human-tasks/` path, response-only note, or "None"]
 
 Do Not Touch:
 - [secrets, ignored experiment outputs, branch constraints, or fragile areas]
 ```
 
-For human task files:
+For temporary `.tmp/human-tasks/` handoff files:
 
 ```markdown
 # [Task Title]
@@ -163,4 +165,4 @@ Source: `[repo file, local runbook, or handoff context]`
 - Do not imply provider-generated bases are the intended architecture. Bases, name text, and final body/base assembly are separate deterministic services under `services/print-file-generator`.
 - Do not let PM outputs imply checkout is ready unless the active product path has its required artifacts: poster relief requires proof approval and print-file artifacts; figurine MVP requires proof approval, provider-generated 3D preview/assets, and human/provider validation of fulfillment readiness or an explicit preorder/manual-fulfillment decision.
 - Prefer exact dates for schedule/status claims. If a date is unknown, say `TBD`.
-- Human tasks are for human-only follow-ups, especially full product-flow browser tests after AI implementation and local verification. They are not a substitute for automated checks the agent can run locally.
+- Temporary `.tmp/human-tasks/` notes are for human-only follow-ups, especially full product-flow browser tests after AI implementation and local verification. They are not durable PM docs and are not a substitute for automated checks the agent can run locally.

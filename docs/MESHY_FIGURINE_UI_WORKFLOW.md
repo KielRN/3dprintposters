@@ -2,7 +2,7 @@
 
 Status: product-planning reference for the PrintU-like Meshy figurine workflow.
 
-Source screenshots: `human-tasks/printu-1.png` through `human-tasks/printu-15 - Base 2.png`. `printu-4.png` was not present in the captured set, so this document preserves the observed order and calls out the missing step rather than inventing it.
+Source screenshots: `docs/archive/human-tasks-archived-2026-06-11/printu-1.png` through `docs/archive/human-tasks-archived-2026-06-11/printu-15 - Base 2.png`. `printu-4.png` was not present in the captured set, so this document preserves the observed order and calls out the missing step rather than inventing it.
 
 This document maps the desired customer-facing workflow for the new standalone figurine product. The UI reference is MakerWorld PrintU; the implementation target is 3DPrintPosters / 3DPrintYou with Meshy behind a server-side provider boundary. Meshy should remain an implementation detail in the customer UI except where we need honest warnings about provider status, printability, file formats, or manual fulfillment.
 
@@ -52,7 +52,7 @@ Required services:
 
 ## 1. Project Gallery And Entry
 
-Reference: `human-tasks/printu-1.png`
+Reference: `docs/archive/human-tasks-archived-2026-06-11/printu-1.png`
 
 The first screen is a lightweight project dashboard. It includes a large branded hero area, a primary creation button, and a "My List" grid containing prior figurine projects.
 
@@ -74,7 +74,7 @@ Data and status:
 
 ## 2. New Figurine Creation Screen
 
-Reference: `human-tasks/printu-2.png`
+Reference: `docs/archive/human-tasks-archived-2026-06-11/printu-2.png`
 
 The next screen is a centered creation card titled `1.Upload image`. It has one upload dropzone, a style row, a posture row, and a bottom CTA for 2D generation.
 
@@ -103,7 +103,7 @@ Validation:
 
 ## 3. Style Picker
 
-Reference: `human-tasks/printu-3.png`
+Reference: `docs/archive/human-tasks-archived-2026-06-11/printu-3.png`
 
 PrintU opens a large modal with four style choices: Bobblehead, Chibi, Cartoon, and Emoji. The selected style is highlighted, and the right side shows examples for that style.
 
@@ -132,7 +132,7 @@ Implementation notes:
 
 ## 4. Missing Screenshot
 
-Reference: no `human-tasks/printu-4.png` was present.
+Reference: no `docs/archive/human-tasks-archived-2026-06-11/printu-4.png` was present.
 
 The missing step likely occurred between style selection and posture selection or between applying style and returning to the main upload card. Do not block implementation on this gap. The observed workflow already contains the necessary states: style modal, applied style row, posture picker, upload confirmation, and generation.
 
@@ -143,7 +143,7 @@ For our UI map, reserve this slot for either:
 
 ## 5. Posture Picker
 
-Reference: `human-tasks/printu-5.png`
+Reference: `docs/archive/human-tasks-archived-2026-06-11/printu-5.png`
 
 PrintU opens a compact popover beside the posture row with three choices: Natural pose, Image pose, and T-pose beta. Each option has a thumbnail, label, description, and selected checkmark.
 
@@ -170,7 +170,7 @@ Implementation notes:
 
 ## 6. Uploaded Photo Confirmation
 
-Reference: `human-tasks/printu-6.png`
+Reference: `docs/archive/human-tasks-archived-2026-06-11/printu-6.png`
 
 After upload, the dropzone becomes a photo preview. The current style and posture remain visible, and the generate button becomes active.
 
@@ -194,7 +194,7 @@ Pre-generation checks:
 
 ## 7. 2D Concept Generation Progress
 
-Reference: `human-tasks/printu-7.png`
+Reference: `docs/archive/human-tasks-archived-2026-06-11/printu-7.png`
 
 PrintU displays a modal overlay with a circular percentage progress indicator and the text `Image Generation in Progress`. The background remains visible but dimmed, and the main generate button shows a loading state.
 
@@ -216,7 +216,7 @@ Status model:
 
 ## 8. 2D Concept Review And History
 
-Reference: `human-tasks/printu-8.png`
+Reference: `docs/archive/human-tasks-archived-2026-06-11/printu-8.png`
 
 After generation, the layout expands to two columns: the original upload/settings card and a `2.Generate 2D Concept` card. The concept card shows a large proof image, a concept generation history strip, and a `Generate 3D model` CTA.
 
@@ -248,7 +248,7 @@ Backend notes:
 
 ## 9. 3D Model Generation Progress
 
-Reference: `human-tasks/printu-9.png`
+Reference: `docs/archive/human-tasks-archived-2026-06-11/printu-9.png`
 
 PrintU adds a third card titled `3.Generate 3D model`, shows an empty waiting state, and displays a blocking modal titled `Model Generation in Progress`.
 
@@ -278,7 +278,7 @@ Failure behavior:
 
 ## 10. 3D Model Review In Creation Layout
 
-Reference: `human-tasks/printu-10.png`
+Reference: `docs/archive/human-tasks-archived-2026-06-11/printu-10.png`
 
 PrintU shows the generated 3D model in the third card, with simple color preview toggles, model generation history, an `Export` button, and an `Edit your figurine` button.
 
@@ -307,7 +307,7 @@ Backend notes:
 
 ## 11. Full Editor Entry And Full-Color Preview
 
-Reference: `human-tasks/printu-11.png`
+Reference: `docs/archive/human-tasks-archived-2026-06-11/printu-11.png`
 
 The editor has a top bar, a vertical tool rail, a left settings panel, and a large 3D viewport. The default selected tool is Color, and the color type selector offers Single, Multi, and Full. Full color includes a warning that the full-color model is for preview only and points users to multi-color mode for printing exploration.
 
@@ -330,7 +330,7 @@ Full-color behavior:
 
 ## 12. Multi-Color Print Mode
 
-Reference: `human-tasks/printu-12- Multi Color.png`
+Reference: `docs/archive/human-tasks-archived-2026-06-11/printu-12- Multi Color.png`
 
 PrintU's multi-color mode quantizes the model into color/filament regions. It exposes automatic color count, a list of color swatches/hex values, refresh/adjust controls, and an onboarding tooltip.
 
@@ -354,7 +354,7 @@ Implementation notes:
 
 ## 13. Single-Color Print Mode
 
-Reference: `human-tasks/printu-13- Single Color.png`
+Reference: `docs/archive/human-tasks-archived-2026-06-11/printu-13- Single Color.png`
 
 Single-color mode shows the entire model as gray clay. It is the simplest and most honest print mode because it corresponds to ordinary single-material printing.
 
@@ -375,7 +375,7 @@ Product behavior:
 
 ## 14. Posture / Rigging Editor
 
-Reference: `human-tasks/printu-14- Posture 1.png`
+Reference: `docs/archive/human-tasks-archived-2026-06-11/printu-14- Posture 1.png`
 
 The posture tab shows a `Rigging in progress...` state while the model is being prepared for pose changes. The model in the viewport is gray and includes a base.
 
@@ -397,7 +397,7 @@ Implementation notes:
 
 ## 15. Base Editor
 
-Reference: `human-tasks/printu-15 - Base.png`
+Reference: `docs/archive/human-tasks-archived-2026-06-11/printu-15 - Base.png`
 
 The base tab allows selection of base shape, base texture, base color, sign toggle, and print-separately toggle. Shape options include none, round, square, and hexagon. Texture options include none, stone, tile patterns, petal, honeycomb, industrial, star, and decorative patterns.
 
@@ -429,7 +429,7 @@ Backend notes:
 
 ## 15b. Base Sign Text
 
-Reference: `human-tasks/printu-15 - Base 2.png`
+Reference: `docs/archive/human-tasks-archived-2026-06-11/printu-15 - Base 2.png`
 
 When Sign is enabled, PrintU reveals style choices, a text input, font dropdown, and print-separately toggle. The sample shows the name `Elliott` embossed or engraved on the base front.
 

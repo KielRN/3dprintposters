@@ -10,17 +10,17 @@ This file is the first place Codex or another coding agent should read before wo
 - Use `STL`, not `SLT`; treat `SLT` as a typo.
 - Preserve the web-first PWA architecture with backend services that can support native apps later.
 - Keep print-file generation server-side. Do not move geometry generation, texture packaging, or fulfillment logic into the browser.
-- Use `human-tasks/` for human follow-ups. When AI work leaves a human validation, local testing, external account, partner outreach, or product decision step, create or update a Markdown task under `human-tasks/open/` using `human-tasks/TASK_TEMPLATE.md`.
+- Do not recreate tracked `human-tasks/` files. If an agent needs a short-lived human handoff, put it under ignored `.tmp/human-tasks/` and summarize the action in the response. Durable product decisions belong in the normal docs, not in an accumulating task folder.
 - Develop toward the intended final product behavior first. Do not leave a chosen direction as opt-in, experimental, or hidden behind a fallback plan after a decision has been made; wire it into the real workflow and let testing reveal the next fix.
-- `CHECKLIST.md` is now an archive pointer, not the active tracker. Do not add new task lists there. Use `AI_DEVELOPER_NOTES.md` for compact current state, `research/MESHY_SERVICE_IMPLEMENTATION_PLAN.md` for Meshy implementation detail, `docs/MESHY_FIGURINE_UI_WORKFLOW.md` for target UX/job contract, and `human-tasks/open/` for human-owned validation.
-- `elliot_quick_dev_Startup.md` is a local, ignored runbook for Elliot's startup and experiment commands. Reference it from human tasks when useful, and keep personal or local-only details there instead of copying them into tracked docs.
+- `CHECKLIST.md` is now an archive pointer, not the active tracker. Do not add new task lists there. Use `AI_DEVELOPER_NOTES.md` for compact current state, `research/MESHY_SERVICE_IMPLEMENTATION_PLAN.md` for Meshy implementation detail, and `docs/MESHY_FIGURINE_UI_WORKFLOW.md` for target UX/job contract.
+- `elliot_quick_dev_Startup.md` is a local, ignored runbook for Elliot's startup and experiment commands. Reference it from `.tmp` handoffs when useful, and keep personal or local-only details there instead of copying them into tracked docs.
 
 ## Project Manager Skill
 
 - Use the repo-scoped `$project-manager-3dprintposters` skill for project status, roadmap, backlog, sprint/iteration planning, blocker/risk review, release readiness, docs drift, and handoff summaries.
 - The skill lives at `.agents/skills/project-manager-3dprintposters/SKILL.md` and should synthesize project management outputs from the current repo artifacts instead of relying on generic PM templates.
-- PM handoffs should summarize open human tasks and create or update them when the next action belongs to the human.
-- After an AI developer implements and verifies a meaningful PM/checklist task, create or update a human-test task for Elliot when the next useful validation is the whole product workflow in the browser. Human testing should exercise the app as a final product, not just isolated technical checks.
+- PM handoffs should summarize human-owned next actions in the response. Create a temporary `.tmp/human-tasks/` note only when it materially helps the current handoff.
+- After an AI developer implements and verifies a meaningful PM/checklist task, note any needed full-product browser validation for Elliot in the response or a temporary `.tmp/human-tasks/` note. Human testing should exercise the app as a final product, not just isolated technical checks.
 
 ## Graphify Knowledge Graph
 

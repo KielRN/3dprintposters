@@ -12,7 +12,8 @@ All notable project changes will be documented in this file.
 - Added `MESHY_WEBHOOK_SECRET` to the deployed Meshy webhook Worker as an encrypted Cloudflare secret, with live health verification that the binding is configured.
 - Enforced Meshy webhook authentication using the real delivery header `x-meshy-api-webhook-secret-key`; unauthenticated POSTs now return `401`.
 - Replaced the broad historical `CHECKLIST.md` with a short active Meshy-service checklist and archived the previous implementation checklist under `docs/archive/`.
-- Moved the remaining active `CHECKLIST.md` task list into a local ignored archive and replaced the root file with a lean source-of-truth pointer so current status stays in `AI_DEVELOPER_NOTES.md`, `docs/`, `research/`, and `human-tasks/open/`.
+- Moved the remaining active `CHECKLIST.md` task list into a local ignored archive and replaced the root file with a lean source-of-truth pointer so current status stays in `AI_DEVELOPER_NOTES.md`, `docs/`, and `research/`.
+- Archived the tracked `human-tasks/` folder under `docs/archive/human-tasks-archived-2026-06-11/`; future agent-only handoffs should be response-first or short-lived notes under ignored `.tmp/human-tasks/`.
 - Added `docs/MESHY_FIGURINE_UI_WORKFLOW.md`, mapping the PrintU screenshot sequence into the target Meshy-backed figurine UI and required backend services.
 - Added a local Meshy Image to 3D runner and a living Meshy service implementation plan for API findings, run results, and backend backlog.
 - Added repeatable Meshy experiment scripts for the Emoji/avatar Natural pose workflow: `scripts/meshy/run-emoji-natural-experiment.mjs` generates a Vertex/Gemini 2D concept and submits it to Meshy, and `scripts/meshy/analyze-printability-task.mjs` records Meshy printability results for a completed task.
@@ -48,7 +49,7 @@ All notable project changes will be documented in this file.
 - Added the first candidate reusable figurine base asset under `services/print-file-generator/assets/figurine-bases/printu-round-v1/`, including `base.stl`, `base.blend`, `base-review.png`, and `base.manifest.json`. The STL is a single-body sliced-round beveled pedestal with a flat front name face, locally verified watertight with consistent winding; product/slicer approval is still pending.
 - Approved `printu-round-v1` as the reusable figurine base after Blender review of the centered `Elliott` raised-text preview. The clean base remains unpersonalized, and `previews/elliott/preview.metadata.json` now captures the accepted default text placement and sizing for deterministic name geometry.
 - Added `MESHY_API_KEY`, `MESHY_WEBHOOK_URL`, and `MESHY_WEBHOOK_SECRET` placeholders to env examples without exposing local secret values.
-- Added a human follow-up task for Meshy figurine evaluation, slicer/printability review, and dashboard-based webhook setup.
+- Added a now-archived human follow-up task for Meshy figurine evaluation, slicer/printability review, and dashboard-based webhook setup.
 - Added AI 3D model generation research for the poster-relief pipeline.
 - Added a print-file generator architecture roadmap evaluation recommending selective core-module extraction from `E:\PROJECTS\print-file-generator`.
 - Added the first deterministic print-file generator pipeline with image normalization, luminance heightmaps, closed relief STL export, local/GCS storage adapters, artifact metadata, and regression tests.
@@ -67,10 +68,10 @@ All notable project changes will be documented in this file.
 - Added hybrid output discovery to the quality-gate harness so `masked_depth_detail_blend` variants are reported alongside prior experiment providers.
 - Added `composition_gradient_correlation` as the replacement composition-preservation quality gate for source image versus heightmap edge placement.
 - Declared provider dependencies explicitly in the print-file generator package, including `requests`, `python-dotenv`, and experiment-only `trimesh`.
-- Added `human-tasks/` for human-owned validation, testing, decision, and external-action follow-ups after AI developer work.
+- Added the now-archived `human-tasks/` folder for human-owned validation, testing, decision, and external-action follow-ups after AI developer work.
 - Added per-job print-file audit capture: provider-chain audit and segmentation status now flow into `metadata.json`, `jobs/{jobId}.printFileAudit`, and `jobs/{jobId}/audit/printFileGeneration`.
 - Added a documented print-file generator test layout with `contract/`, `unit/`, `integration/`, and shared test support helpers for future color-package coverage.
-- Added the PM/human-test handoff rule: after AI implementation and verification, create or update a human task when the next validation is the full product workflow in the browser.
+- Added the PM/human-test handoff rule for full-product browser validation after AI implementation; this later became response-first with optional ignored `.tmp/human-tasks/` notes.
 - Added explicit 5in x 7in image-window metadata and a 1/4in product border to print-file generator artifacts, making the default physical object 5.5in x 7.5in.
 - Added deterministic full-color package outputs (`3MF`, `OBJ`/`MTL`/texture, `VRML`, `PLY`) plus filament painting palette, layer-swap guide, print settings, and quantized preview artifacts.
 - Added shaped border/frame mesh geometry with an outer bevel, raised shoulder, and inner lip for the 5.5in x 7.5in relief object.
@@ -122,7 +123,7 @@ All notable project changes will be documented in this file.
 - Made `lithophane_baseline` the production in-mask detail source for the hybrid provider.
 - Tuned `masked_depth_detail_blend` to damp deterministic lithophane detail, smooth broad subject-surface roughness such as shirt texture, and further smooth detected eyes, mouth, and central-face skin while preserving low-frequency semantic shape and stronger structural edges.
 - Added height-provider policy metadata and warnings so deterministic brightness-to-height providers are explicitly marked as fallback-only, not the target production-quality path.
-- Updated the repo PM skill and agent guide to create or summarize human follow-up tasks during handoffs.
+- Updated the repo PM skill and agent guide to create or summarize human follow-up tasks during handoffs; this later moved to response-first handoffs with optional ignored `.tmp/human-tasks/` notes.
 - Promoted `masked_depth_detail_blend` with `lithophane_baseline` detail source into the default web approval flow and print-file generator defaults.
 - Changed hybrid relief generation to fail loudly when required depth or segmentation providers are unavailable instead of quietly substituting a lower-quality result.
 - Condensed `AI_DEVELOPER_NOTES.md` into compact durable memory and aligned `AGENTS.md` plus the repo PM skill around source-of-truth boundaries.

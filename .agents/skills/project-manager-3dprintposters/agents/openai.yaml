@@ -1,7 +1,7 @@
 interface:
   display_name: "3DPrintPosters Project Manager"
-  short_description: "Status, planning, risks, handoffs, and human follow-ups"
-  default_prompt: "Use $project-manager-3dprintposters to summarize project status, risks, blockers, next best actions, and any human follow-up tasks."
+  short_description: "Status, planning, risks, handoffs, and transient human follow-ups"
+  default_prompt: "Use $project-manager-3dprintposters to summarize project status, risks, blockers, next best actions, and any transient human follow-ups."
 
 policy:
   allow_implicit_invocation: true

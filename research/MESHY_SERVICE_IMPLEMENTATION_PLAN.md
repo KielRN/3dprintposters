@@ -438,7 +438,7 @@ Runner:
 
 Prompt/control changes from Experiment 002:
 
-- Added `human-tasks/printu-15 - Base.png` as a second reference image.
+- Added `docs/archive/human-tasks-archived-2026-06-11/printu-15 - Base.png` as a second reference image.
 - Added `--base-label Elliott`.
 - Added `--experiment-slug exp-002b-emoji-natural-base`.
 - The prompt asked for a single round gray display pedestal, physically attached to the feet, with a centered front nameplate/sign reading exactly `Elliott`.
