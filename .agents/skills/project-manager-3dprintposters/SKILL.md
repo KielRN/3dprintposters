@@ -14,7 +14,8 @@ Use this skill to act as a project manager for the 3DPrintPosters repository. Pr
 Start with the most relevant of these files, depending on the request:
 
 - `AGENTS.md`: operating rules, architecture constraints, verification commands, current flow.
-- `AI_DEVELOPER_NOTES.md`: compact project memory, durable decisions, active direction, and risks.
+- `PROJECT_STATE.md`: compact current implementation state, active direction, and risks.
+- `DECISIONS.md`: durable product and architecture decisions.
 - `CHECKLIST.md`: archived source-of-truth pointer.
 - `CHANGELOG.md`: completed changes and chronology.
 - `README.md`: user-facing setup and project overview.
@@ -40,7 +41,7 @@ Secret-bearing configuration is in scope; secret values are not. Agents may insp
    - Use the result to choose the smallest set of files or sections to inspect.
    - If Graphify returns a narrow or unhelpful traversal, say so briefly and continue with targeted `rg`.
    - Do not run graph refresh commands unless the user asks, the graph is missing/stale for the task, or architecture changed materially.
-3. Read only the source artifacts needed for that output. Prefer `rg` and targeted file reads over opening all of `AI_DEVELOPER_NOTES.md`, `CHANGELOG.md`, or broad docs.
+3. Read only the source artifacts needed for that output. Prefer `rg` and targeted file reads over opening all of `PROJECT_STATE.md`, `DECISIONS.md`, `CHANGELOG.md`, or broad docs.
 4. Separate facts from assumptions:
    - Facts come from repo files, git state, test output, or user-provided context.
    - Assumptions are labeled and should be minimal.
@@ -49,7 +50,7 @@ Secret-bearing configuration is in scope; secret values are not. Agents may insp
    - For detailed temporary plans, create `.tmp/pm-plans/YYYY-MM-DD-short-slug/` only when the extra files materially help the work.
    - Preferred files are `plan.md`, `implementation.md`, and optional `evidence.md`.
    - Delete the temporary plan folder after implementation lands or the plan is abandoned.
-   - Move durable outcomes into `CHANGELOG.md`, `AI_DEVELOPER_NOTES.md`, relevant `docs/` or `research/` files, or the roadmap only when status or priority changes.
+   - Move durable outcomes into `CHANGELOG.md`, `DECISIONS.md`, `PROJECT_STATE.md`, relevant `docs/` or `research/` files, or the roadmap only when status or priority changes.
    - Never store secrets, personal credentials, sensitive provider URLs, or long-lived human task queues in `.tmp/pm-plans/`.
 6. Preserve project constraints:
    - Web-first PWA architecture.
@@ -61,7 +62,9 @@ Secret-bearing configuration is in scope; secret values are not. Agents may insp
    - Vertex/Gemini and Meshy should generate the body only; reusable base, customer-name geometry, and body/base assembly belong in deterministic `services/print-file-generator` services.
    - Poster-relief work remains documented R&D and should not be treated as the next customer-acquisition blocker unless the user explicitly reactivates that line.
    - Reviewed product decisions should be promoted into the real workflow instead of left as opt-in experiments.
-   - No branch creation, commits, pushes, PRs, or exposure/movement of secret values unless explicitly requested and safe.
+   - Default Git integration target is `main`; do not create feature branches unless explicitly requested.
+   - When the user asks to commit or push from another branch, preserve the intended scope, move it onto `main` with a non-destructive Git flow, and push `origin main` unless the user names a different target.
+   - Open PRs only when explicitly requested. Never expose or move secret values.
 7. Review human follow-ups:
    - Summarize human-owned next actions in the PM response when the next action requires Elliot's browser session, local credentials, visual judgment, product decision, partner outreach, external account, or physical-world validation.
    - Create a temporary note under `.tmp/human-tasks/` only when it materially helps the current handoff.
@@ -182,7 +185,7 @@ Human Follow-Ups:
 - [temporary `.tmp/human-tasks/` path, response-only note, or "None"]
 
 Do Not Touch:
-- [secrets, ignored experiment outputs, branch constraints, or fragile areas]
+- [secrets, ignored experiment outputs, `main` integration constraints, or fragile areas]
 ```
 
 For temporary `.tmp/human-tasks/` handoff files:

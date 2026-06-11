@@ -5,7 +5,8 @@ Status legend: 🟢 done · 🟡 in progress · ⚪ not started / deferred · �
 This roadmap is the durable product-status board. Keep it high-level and current; do not use it as a task dump, changelog, experiment log, or implementation scratchpad.
 
 Source-of-truth split:
-- `AI_DEVELOPER_NOTES.md` — compact current state, durable decisions, active direction, and risks.
+- `PROJECT_STATE.md` — compact current implementation state, active direction, and risks.
+- `DECISIONS.md` — durable product and architecture decisions.
 - `CHANGELOG.md` — completed changes and verification history.
 - `research/MESHY_SERVICE_IMPLEMENTATION_PLAN.md` — Meshy API findings, experiment results, and implementation backlog.
 - `docs/MESHY_FIGURINE_UI_WORKFLOW.md` — target customer UX and job contract.
@@ -71,6 +72,6 @@ Detailed PM plans should not live in this roadmap. When a roadmap item needs a t
 
 Use this workspace only when it materially helps the work. Keep `plan.md` focused on scope, decisions, risks, and done criteria. Keep `implementation.md` focused on the execution sequence and verification notes. Use `evidence.md` only when there is enough testing or review output to avoid cluttering the other files.
 
-After implementation lands, delete the temporary plan folder. Move durable outcomes into the right permanent source: `CHANGELOG.md` for completed work, `AI_DEVELOPER_NOTES.md` for durable current state and risks, `research/MESHY_SERVICE_IMPLEMENTATION_PLAN.md` for Meshy technical findings, and this roadmap only when the traffic-light status or priority order changes.
+After implementation lands, delete the temporary plan folder. Move durable outcomes into the right permanent source: `CHANGELOG.md` for completed work, `DECISIONS.md` for durable product and architecture decisions, `PROJECT_STATE.md` for current state and risks, `research/MESHY_SERVICE_IMPLEMENTATION_PLAN.md` for Meshy technical findings, and this roadmap only when the traffic-light status or priority order changes.
 
 Never store secrets, personal credentials, provider asset URLs with sensitive access, or long-lived human-task queues in `.tmp/pm-plans/`.

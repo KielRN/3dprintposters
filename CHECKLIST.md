@@ -6,7 +6,8 @@ Last updated: 2026-06-11
 
 Use the leaner source-of-truth map instead:
 
-- Current direction and durable decisions: `AI_DEVELOPER_NOTES.md`
+- Current direction, implementation state, and risks: `PROJECT_STATE.md`
+- Durable product and architecture decisions: `DECISIONS.md`
 - Target figurine customer workflow and job contract: `docs/MESHY_FIGURINE_UI_WORKFLOW.md`
 - Meshy technical plan, API findings, and experiment details: `research/MESHY_SERVICE_IMPLEMENTATION_PLAN.md`
 - Print-file boundary, deterministic base/name/assembly contract, and parked relief service: `docs/PRINT_FILE_GENERATION_WORKFLOW.md`

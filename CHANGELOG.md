@@ -6,6 +6,8 @@ All notable project changes will be documented in this file.
 
 ### Added
 
+- Added `DECISIONS.md` as the durable product and architecture decision log, split current implementation state into `PROJECT_STATE.md`, and kept `AI_DEVELOPER_NOTES.md` as a compatibility pointer for older agent instructions.
+- Updated agent Git guidance so commits and pushes default to landing directly on `main` instead of staying on feature branches or opening PRs.
 - Added the 2026-05-23 customer-acquisition pivot: PrintU-like personalized figurines now outrank further poster-relief tuning until the business model is proven.
 - Added Meshy/PrintU provider research in `research/FIGURINE_PROVIDER_RESEARCH.md`, including Meshy API output formats, Meshy-6/MakerWorld fit, pricing/retention notes, and webhook setup constraints.
 - Added the Cloudflare Worker Meshy webhook receiver at `https://api.3dprintyou.com/webhooks/meshy`, with the default `workers.dev` trigger disabled and health/JSON POST smoke tests passing.

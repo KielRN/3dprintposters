@@ -7,11 +7,12 @@ Last updated: 2026-06-11
 
 This document is the growing technical plan for the Meshy-backed figurine service. Use it with the lean project docs:
 
-- `AI_DEVELOPER_NOTES.md`: compact current state, durable decisions, and risks.
+- `PROJECT_STATE.md`: compact current state, active direction, and risks.
+- `DECISIONS.md`: durable product and architecture decisions.
 - This file: implementation details, Meshy API calls that work, calls that fail, coding decisions, service shape, and run findings.
 - `CHECKLIST.md`: archived checklist pointer only.
 
-Keep detailed Meshy experiments and service decisions here so AI notes stay short and the archived checklist does not become active again.
+Keep detailed Meshy experiments and service decisions here so `PROJECT_STATE.md` and `DECISIONS.md` stay short and the archived checklist does not become active again.
 
 ## Immediate Goal
 

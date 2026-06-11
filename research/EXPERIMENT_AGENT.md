@@ -229,7 +229,8 @@ Look specifically for portrait readability, harsh slopes, muddy facial features,
 When behavior changes meaningfully, update the relevant docs:
 
 - `research/HEIGHTMAP_AND_3D_WORKFLOW_RESEARCH.md`
-- `AI_DEVELOPER_NOTES.md`
+- `PROJECT_STATE.md`
+- `DECISIONS.md`
 - `CHANGELOG.md`
 - `services/print-file-generator/README.md`
 - `docs/PRINT_FILE_GENERATION_WORKFLOW.md`

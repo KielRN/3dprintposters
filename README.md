@@ -170,6 +170,8 @@ scripts                     Helper scripts
 Start with these files when you feel lost:
 
 - `AGENTS.md`: operating rules for AI developers, including Graphify usage
+- `DECISIONS.md`: durable product and architecture decisions
+- `PROJECT_STATE.md`: compact current implementation state, active direction, and risks
 - `README.md`: practical beginner map
 - `CHECKLIST.md`: archive pointer and source-of-truth map
 - `CHANGELOG.md`: what changed recently

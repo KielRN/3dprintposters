@@ -1,27 +1,28 @@
 # 3DPrintPosters Agent Guide
 
-This file is the first place Codex or another coding agent should read before working in this repository. `AI_DEVELOPER_NOTES.md` keeps compact project memory; this file keeps the operating rules and current implementation shape.
+This file is the first place Codex or another coding agent should read before working in this repository. `PROJECT_STATE.md` keeps compact current project state, `DECISIONS.md` keeps durable product and architecture decisions, and this file keeps the operating rules and current implementation shape.
 
 ## Working Rules
 
-- Do not create, switch, or rename Git branches unless the user explicitly asks for that action. Continue on the current branch by default.
-- If the user asks to push, commit, or open a PR, first confirm the current branch and working-tree scope. If the current branch is inappropriate, ask before creating a new branch.
+- Default Git integration target is `main`. Do not create, switch, or rename feature branches unless the user explicitly asks for that action.
+- If the user asks to commit or push, first confirm the current branch and working-tree scope. If work is on a non-`main` branch, treat `main` as the intended push target by default: preserve the working tree, move the intended changes onto `main` with a non-destructive Git flow, and push `origin main`. Ask first only when the current branch contains unrelated work, the working-tree scope is ambiguous, or moving the changes could rewrite or discard work.
+- Open PRs only when the user explicitly asks for a PR. This project normally lands work directly on `main`.
 - Never commit or paste secrets. Local `.env` files are ignored and must stay local.
 - Use `STL`, not `SLT`; treat `SLT` as a typo.
 - Preserve the web-first PWA architecture with backend services that can support native apps later.
 - Keep print-file generation server-side. Do not move geometry generation, texture packaging, or fulfillment logic into the browser.
 - Do not recreate tracked `human-tasks/` files. If an agent needs a short-lived human handoff, put it under ignored `.tmp/human-tasks/` and summarize the action in the response. Durable product decisions belong in the normal docs, not in an accumulating task folder.
 - Develop toward the intended final product behavior first. Do not leave a chosen direction as opt-in, experimental, or hidden behind a fallback plan after a decision has been made; wire it into the real workflow and let testing reveal the next fix.
-- `CHECKLIST.md` is now an archive pointer, not the active tracker. Do not add new task lists there. Use `AI_DEVELOPER_NOTES.md` for compact current state, `research/MESHY_SERVICE_IMPLEMENTATION_PLAN.md` for Meshy implementation detail, and `docs/MESHY_FIGURINE_UI_WORKFLOW.md` for target UX/job contract.
+- `CHECKLIST.md` is now an archive pointer, not the active tracker. Do not add new task lists there. Use `PROJECT_STATE.md` for compact current state, `DECISIONS.md` for durable decisions, `research/MESHY_SERVICE_IMPLEMENTATION_PLAN.md` for Meshy implementation detail, and `docs/MESHY_FIGURINE_UI_WORKFLOW.md` for target UX/job contract.
 - `elliot_quick_dev_Startup.md` is a local, ignored runbook for Elliot's startup and experiment commands. Reference it from `.tmp` handoffs when useful, and keep personal or local-only details there instead of copying them into tracked docs.
 
 ## Project Manager Skill
 
 - Use the repo-scoped `$project-manager-3dprintposters` skill for project status, roadmap, backlog, sprint/iteration planning, blocker/risk review, release readiness, docs drift, and handoff summaries.
 - The skill lives at `.agents/skills/project-manager-3dprintposters/SKILL.md` and should synthesize project management outputs from the current repo artifacts instead of relying on generic PM templates.
-- For PM, roadmap, architecture, docs-drift, ownership-boundary, or "what should we do next?" work, use Graphify before opening broad source docs. Start with `graphify query "<task-specific question>"`, then verify the result against the current files. This keeps new-chat context smaller and avoids reading all of `AI_DEVELOPER_NOTES.md` or `CHANGELOG.md` before knowing which sections matter.
+- For PM, roadmap, architecture, docs-drift, ownership-boundary, or "what should we do next?" work, use Graphify before opening broad source docs. Start with `graphify query "<task-specific question>"`, then verify the result against the current files. This keeps new-chat context smaller and avoids reading all of `PROJECT_STATE.md`, `DECISIONS.md`, or `CHANGELOG.md` before knowing which sections matter.
 - Keep `docs/ROADMAP.md` as the durable traffic-light status board. Do not put detailed implementation plans, active scratch checklists, or long decision threads there.
-- For detailed temporary PM plans, create an ignored folder under `.tmp/pm-plans/YYYY-MM-DD-short-slug/` with `plan.md`, `implementation.md`, and optional `evidence.md` only when those files materially help the work. Delete the folder after implementation, and move durable outcomes to `CHANGELOG.md`, `AI_DEVELOPER_NOTES.md`, the relevant `docs/` or `research/` file, or the roadmap only if status/priority changed.
+- For detailed temporary PM plans, create an ignored folder under `.tmp/pm-plans/YYYY-MM-DD-short-slug/` with `plan.md`, `implementation.md`, and optional `evidence.md` only when those files materially help the work. Delete the folder after implementation, and move durable outcomes to `CHANGELOG.md`, `DECISIONS.md`, `PROJECT_STATE.md`, the relevant `docs/` or `research/` file, or the roadmap only if status/priority changed.
 - PM handoffs should summarize human-owned next actions in the response. Create a temporary `.tmp/human-tasks/` note only when it materially helps the current handoff.
 - After an AI developer implements and verifies a meaningful PM/checklist task, note any needed full-product browser validation for Elliot in the response or a temporary `.tmp/human-tasks/` note. Human testing should exercise the app as a final product, not just isolated technical checks.
 
@@ -232,6 +233,7 @@ When behavior changes, update the relevant docs:
 
 - `CHANGELOG.md`
 - `README.md`
-- `AI_DEVELOPER_NOTES.md`
+- `DECISIONS.md`
+- `PROJECT_STATE.md`
 - `CHECKLIST.md` only if the archive/source-of-truth pointer changes
 - `docs/PRINT_FILE_GENERATION_WORKFLOW.md`
