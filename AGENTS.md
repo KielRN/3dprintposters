@@ -19,16 +19,20 @@ This file is the first place Codex or another coding agent should read before wo
 
 - Use the repo-scoped `$project-manager-3dprintposters` skill for project status, roadmap, backlog, sprint/iteration planning, blocker/risk review, release readiness, docs drift, and handoff summaries.
 - The skill lives at `.agents/skills/project-manager-3dprintposters/SKILL.md` and should synthesize project management outputs from the current repo artifacts instead of relying on generic PM templates.
+- For PM, roadmap, architecture, docs-drift, ownership-boundary, or "what should we do next?" work, use Graphify before opening broad source docs. Start with `graphify query "<task-specific question>"`, then verify the result against the current files. This keeps new-chat context smaller and avoids reading all of `AI_DEVELOPER_NOTES.md` or `CHANGELOG.md` before knowing which sections matter.
+- Keep `docs/ROADMAP.md` as the durable traffic-light status board. Do not put detailed implementation plans, active scratch checklists, or long decision threads there.
+- For detailed temporary PM plans, create an ignored folder under `.tmp/pm-plans/YYYY-MM-DD-short-slug/` with `plan.md`, `implementation.md`, and optional `evidence.md` only when those files materially help the work. Delete the folder after implementation, and move durable outcomes to `CHANGELOG.md`, `AI_DEVELOPER_NOTES.md`, the relevant `docs/` or `research/` file, or the roadmap only if status/priority changed.
 - PM handoffs should summarize human-owned next actions in the response. Create a temporary `.tmp/human-tasks/` note only when it materially helps the current handoff.
 - After an AI developer implements and verifies a meaningful PM/checklist task, note any needed full-product browser validation for Elliot in the response or a temporary `.tmp/human-tasks/` note. Human testing should exercise the app as a final product, not just isolated technical checks.
 
 ## Graphify Knowledge Graph
 
-- Use Graphify early for architecture, ownership-boundary, dependency, "where is this implemented?", cross-file, and docs-drift questions. Prefer `graphify query "<question>"` against an existing graph before broad raw-file searching.
+- Use Graphify first for architecture, ownership-boundary, dependency, "where is this implemented?", cross-file, PM, roadmap, and docs-drift questions. Prefer `graphify query "<question>"` against an existing graph before broad raw-file searching or opening large docs.
 - If `graphify-out/graph.json` is present, query it first:
 
 ```powershell
 graphify query "Where is the figurine preview workflow implemented?"
+graphify query "What files explain the current figurine roadmap status and launch blockers?"
 graphify explain "approveGeneratedImage"
 graphify path "approveGeneratedImage" "meshyFigurineProvider"
 ```
@@ -45,7 +49,7 @@ npm run graphify:update:global  # also merge this repo into the user-level globa
 ```
 
 - Do not run `graphify:update`, `graphify:update:deep`, or `graphify:update:global` casually in the middle of unrelated work; they can call Gemini and consume API quota. Run them when the user asks for a graph refresh, when architecture has changed materially, or before a broad onboarding/review pass.
-- Graphify is a navigation and synthesis aid. When implementing, still verify current source files and tests directly before changing behavior.
+- Graphify is a navigation and synthesis aid. After using it, open only the smallest relevant source sections with `rg`/targeted reads, then verify current files and tests directly before changing behavior.
 
 ## Cloudflare Skill
 

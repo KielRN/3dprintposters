@@ -21,6 +21,7 @@ Start with the most relevant of these files, depending on the request:
 - `docs/PRINT_FILE_GENERATION_WORKFLOW.md`: print-file flow and service contract.
 - `research/FIGURINE_PROVIDER_RESEARCH.md`: current 2026-05-23 customer-acquisition pivot, PrintU UX reference, Meshy provider research, and next validation steps.
 - `research/HEIGHTMAP_AND_3D_WORKFLOW_RESEARCH.md`: heightmap experiment status and decisions.
+- `.tmp/pm-plans/`: optional ignored scratch space for detailed PM plans and implementation notes. Use it only for active temporary planning, not as durable source of truth.
 - `.tmp/human-tasks/`: optional ignored scratch space for short-lived human handoffs. Do not treat it as durable source of truth and do not recreate tracked `human-tasks/`.
 - `docs/archive/human-tasks-archived-2026-06-11/`: historical archive of the former tracked human task folder and PrintU reference assets.
 - `elliot_quick_dev_Startup.md`: local ignored startup and experiment runbook for Elliot's manual testing flow. Reference it in temporary `.tmp` handoffs when useful, but do not expose secrets or assume it is tracked.
@@ -34,11 +35,23 @@ Secret-bearing configuration is in scope; secret values are not. Agents may insp
 ## Core Workflow
 
 1. Clarify the PM output type from the user's wording: status, roadmap, backlog, next steps, sprint plan, risk review, release readiness, handoff, or human follow-up.
-2. Read only the source artifacts needed for that output. Prefer `rg` and targeted file reads.
-3. Separate facts from assumptions:
+2. Use Graphify before broad file reads when `graphify-out/graph.json` exists and the request is about project status, roadmap, architecture, docs drift, ownership boundaries, workflow location, dependencies, or "what should we do next?":
+   - Start with `graphify query "<task-specific question>"`.
+   - Use the result to choose the smallest set of files or sections to inspect.
+   - If Graphify returns a narrow or unhelpful traversal, say so briefly and continue with targeted `rg`.
+   - Do not run graph refresh commands unless the user asks, the graph is missing/stale for the task, or architecture changed materially.
+3. Read only the source artifacts needed for that output. Prefer `rg` and targeted file reads over opening all of `AI_DEVELOPER_NOTES.md`, `CHANGELOG.md`, or broad docs.
+4. Separate facts from assumptions:
    - Facts come from repo files, git state, test output, or user-provided context.
    - Assumptions are labeled and should be minimal.
-4. Preserve project constraints:
+5. Keep roadmap and temporary plans separate:
+   - `docs/ROADMAP.md` is the durable traffic-light status board. It should show status, priority order, and launch blockers without becoming a task dump.
+   - For detailed temporary plans, create `.tmp/pm-plans/YYYY-MM-DD-short-slug/` only when the extra files materially help the work.
+   - Preferred files are `plan.md`, `implementation.md`, and optional `evidence.md`.
+   - Delete the temporary plan folder after implementation lands or the plan is abandoned.
+   - Move durable outcomes into `CHANGELOG.md`, `AI_DEVELOPER_NOTES.md`, relevant `docs/` or `research/` files, or the roadmap only when status or priority changes.
+   - Never store secrets, personal credentials, sensitive provider URLs, or long-lived human task queues in `.tmp/pm-plans/`.
+6. Preserve project constraints:
    - Web-first PWA architecture.
    - Backend orchestration in Firebase Functions.
    - Server-side print-file/model generation; provider credentials and geometry/model generation must stay out of the browser.
@@ -49,15 +62,15 @@ Secret-bearing configuration is in scope; secret values are not. Agents may insp
    - Poster-relief work remains documented R&D and should not be treated as the next customer-acquisition blocker unless the user explicitly reactivates that line.
    - Reviewed product decisions should be promoted into the real workflow instead of left as opt-in experiments.
    - No branch creation, commits, pushes, PRs, or exposure/movement of secret values unless explicitly requested and safe.
-5. Review human follow-ups:
+7. Review human follow-ups:
    - Summarize human-owned next actions in the PM response when the next action requires Elliot's browser session, local credentials, visual judgment, product decision, partner outreach, external account, or physical-world validation.
    - Create a temporary note under `.tmp/human-tasks/` only when it materially helps the current handoff.
    - Keep any temporary note concrete: why human, exact steps, done criteria, evidence to capture, and related files.
    - Do not put secret values, tokens, account credentials, or private personal details in temporary handoff files.
    - Do not recreate tracked `human-tasks/` files.
    - If no human action remains, explicitly say no human action was needed.
-6. Produce a concise PM artifact with owners only when the user provided owners or roles. Otherwise use "Owner: TBD" or omit owners.
-7. Include verification or evidence needed to call work done. Prefer existing commands from `AGENTS.md`.
+8. Produce a concise PM artifact with owners only when the user provided owners or roles. Otherwise use "Owner: TBD" or omit owners.
+9. Include verification or evidence needed to call work done. Prefer existing commands from `AGENTS.md`.
 
 ## Output Patterns
 
@@ -100,6 +113,55 @@ Dependencies:
 
 Risks:
 - [Risk and mitigation]
+```
+
+For temporary `.tmp/pm-plans/YYYY-MM-DD-short-slug/plan.md` files:
+
+```markdown
+# [Plan Title]
+
+Status: active
+Created: YYYY-MM-DD
+Source: [request, roadmap item, or repo artifact]
+
+## Goal
+
+[Outcome in 1-2 sentences.]
+
+## Scope
+
+- In: [covered work]
+- Out: [explicit non-goals]
+
+## Decisions Needed
+
+- [Decision and owner, if known]
+
+## Done Criteria
+
+- [Observable result or verification]
+
+## Risks
+
+- [Risk and mitigation]
+```
+
+For temporary `.tmp/pm-plans/YYYY-MM-DD-short-slug/implementation.md` files:
+
+```markdown
+# Implementation Notes
+
+## Sequence
+
+1. [Step]
+
+## Verification
+
+- [Command, browser flow, or review evidence]
+
+## Outcome
+
+- [What happened, or pending]
 ```
 
 For handoff:
@@ -160,9 +222,11 @@ Source: `[repo file, local runbook, or handoff context]`
 - `masked_depth_detail_blend` with `lithophane_baseline` detail source is the current implemented poster-relief path, but relief is parked R&D until the figurine demand proof is addressed.
 - `triposr_sidecar` was evaluated on 2026-05-09 and rejected for poster relief because it reconstructs standalone 3D objects instead of image-plane depth. Do not read that as a global rejection of image-to-3D for standalone figurines.
 - Meshy.ai is the first provider to evaluate for the figurine path. Its API, pricing, retention, and commercial-use terms must be verified before public checkout.
+- For PM/roadmap/status work, Graphify should be the first navigation step when the existing graph is available. It is allowed to be unhelpful, but it should get a chance before large-doc reads.
 - Standard Meshy experiment path: `scripts/meshy/run-standard-figurine-experiment.mjs` / `npm run meshy:experiment -- -- --experiment-slug <slug>`. It runs source photo -> Vertex/Gemini body-only concept -> Meshy multi-view -> Meshy 3D -> printability -> normalized artifacts under `.tmp/experiments/meshy/standard`.
 - Historical Meshy runners are archived under `scripts/meshy/archive/2026-05-26-legacy-runners/` for reproducibility, but PM plans and next experiments should point to the standard runner unless the user explicitly asks otherwise.
 - Do not imply provider-generated bases are the intended architecture. Bases, name text, and final body/base assembly are separate deterministic services under `services/print-file-generator`.
 - Do not let PM outputs imply checkout is ready unless the active product path has its required artifacts: poster relief requires proof approval and print-file artifacts; figurine MVP requires proof approval, provider-generated 3D preview/assets, and human/provider validation of fulfillment readiness or an explicit preorder/manual-fulfillment decision.
 - Prefer exact dates for schedule/status claims. If a date is unknown, say `TBD`.
+- `.tmp/pm-plans/` is for temporary PM planning artifacts, not permanent docs. Delete or summarize those plans after implementation.
 - Temporary `.tmp/human-tasks/` notes are for human-only follow-ups, especially full product-flow browser tests after AI implementation and local verification. They are not durable PM docs and are not a substitute for automated checks the agent can run locally.
