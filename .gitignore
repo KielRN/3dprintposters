@@ -26,6 +26,8 @@ docs/archive/CHECKLIST-archived-*.md
 .env.*
 !.env.example
 !.env.local.example
+.secret.local
+**/.secret.local
 service-account*.json
 *service-account*.json
 gcp-key*.json

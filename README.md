@@ -243,23 +243,29 @@ For local Functions emulator runs, create:
 
 ```text
 apps/functions/.env
+apps/functions/.secret.local
 ```
 
 Server-only values for local backend testing go there:
 
 ```text
-VERTEX_API_KEY=
 AI_PROVIDER_ROUTE=vertex-gemini-direct
 VERTEX_IMAGE_MODEL=gemini-2.5-flash-image
-STRIPE_SECRET_KEY=
-STRIPE_WEBHOOK_SECRET=
 STRIPE_POSTER_PRICE_ID=
 PUBLIC_APP_URL=http://localhost:3000
 APP_STORAGE_BUCKET=gen-lang-client-0675309660.firebasestorage.app
 PRINT_FILE_GENERATOR_URL=http://127.0.0.1:8089
-MESHY_API_KEY=
 MESHY_WEBHOOK_URL=
 MESHY_WEBHOOK_SECRET=
+```
+
+Put Firebase Functions `defineSecret` values in ignored `apps/functions/.secret.local` for local emulator runs:
+
+```text
+VERTEX_API_KEY=
+MESHY_API_KEY=
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
 ```
 
 Do not commit real `.env` files or secrets.
@@ -310,7 +316,7 @@ In this mode:
 - Print-file generation calls `PRINT_FILE_GENERATOR_URL` and writes artifacts under `print-files/{uid}/{jobId}`.
 - The Functions emulator mirrors generated print-file artifacts, including `debug/` relief-stage PNGs, to `.tmp/print-files/{uid}/{jobId}` for local inspection and later printer-owner handoff.
 
-If generation fails with `Poster generation failed before a proof was ready`, check `apps/functions/.env` first. The local Functions emulator needs `VERTEX_API_KEY` before it can call Vertex/Gemini.
+If generation fails with `Poster generation failed before a proof was ready`, check `apps/functions/.env` and `apps/functions/.secret.local` first. The local Functions emulator needs `VERTEX_API_KEY` before it can call Vertex/Gemini.
 
 If approval fails with `3D preview generation failed`, make sure the print-file generator is running on `http://127.0.0.1:8089` and that `apps/functions/.env` has `PRINT_FILE_GENERATOR_URL=http://127.0.0.1:8089`. The print-file generator accepts generated proof images up to 4,000,000 decoded pixels by default before resizing them to the 768px geometry-analysis image and 400px mesh/color output. The approval callable and web client allow up to 9 minutes because the hybrid relief path can take longer than the default 60-second Functions timeout on first local runs. In local emulator runs, the job is marked `generated` before the optional `.tmp` artifact mirror finishes; if the app preview is ready but `.tmp/print-files/{uid}/{jobId}` is incomplete, wait for the Functions log line that the local mirror completed.
 
@@ -353,7 +359,7 @@ Use these steps when testing the implemented relief app as a beginner. The forme
 
 - [ ] Run `npm install` if dependencies are missing.
 - [ ] Confirm `apps/web/.env.local` exists.
-- [ ] Confirm `apps/functions/.env` exists if using the Functions emulator.
+- [ ] Confirm `apps/functions/.env` and `apps/functions/.secret.local` exist if using the Functions emulator.
 - [ ] Start `npm run firebase:emulators:functions`.
 - [ ] Start `npm run dev`.
 - [ ] Open `http://127.0.0.1:3000`.
@@ -411,7 +417,7 @@ npm run firebase:deploy:storage-cors:dev
 
 Most likely causes:
 
-- `apps/functions/.env` is missing `VERTEX_API_KEY`.
+- `apps/functions/.secret.local` is missing `VERTEX_API_KEY`.
 - The Functions emulator was not restarted after adding env values.
 - The uploaded file is too large for the configured Vertex inline image limit.
 - Vertex/Gemini rejected or failed the image-generation request.

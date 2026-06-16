@@ -31,6 +31,45 @@ type MeshyJsonResponse = {
   error?: string;
 };
 
+export type SanitizedMeshyTaskError = string | number | boolean | null | {
+  [key: string]: SanitizedMeshyTaskError;
+} | SanitizedMeshyTaskError[];
+
+export class MeshyProviderTaskError extends Error {
+  readonly provider = "meshy";
+  readonly taskId: string;
+  readonly label: string;
+  readonly status: string | null;
+  readonly progress: number | null;
+  readonly consumedCredits: number | null;
+  readonly taskError: SanitizedMeshyTaskError;
+
+  constructor(input: {
+    taskId: string;
+    label: string;
+    task: MeshyTask;
+  }) {
+    const status = input.task.status ?? "unknown";
+    const taskError = sanitizeMeshyTaskError(input.task.task_error);
+    const providerDetail = formatSanitizedTaskError(taskError);
+    super(
+      `Meshy ${input.label} task ${input.taskId} ended with status ${status}` +
+        (providerDetail ? `. Provider error: ${providerDetail}` : "."),
+    );
+    this.name = "MeshyProviderTaskError";
+    this.taskId = input.taskId;
+    this.label = input.label;
+    this.status = input.task.status ?? null;
+    this.progress =
+      typeof input.task.progress === "number" ? input.task.progress : null;
+    this.consumedCredits =
+      typeof input.task.consumed_credits === "number"
+        ? input.task.consumed_credits
+        : null;
+    this.taskError = taskError;
+  }
+}
+
 export type FigurineProviderInput = {
   jobId: string;
   uid: string;
@@ -87,9 +126,11 @@ export async function generateCreativeLabFigurinePreview(
   });
 
   if (prototypeTask.status !== "SUCCEEDED") {
-    throw new Error(
-      `Meshy figure prototype task ${prototypeTaskId} ended with status ${prototypeTask.status ?? "unknown"}.`,
-    );
+    throw new MeshyProviderTaskError({
+      taskId: prototypeTaskId,
+      label: "figure prototype",
+      task: prototypeTask,
+    });
   }
 
   const buildTaskId = await createBuildTask({
@@ -105,9 +146,11 @@ export async function generateCreativeLabFigurinePreview(
   });
 
   if (buildTask.status !== "SUCCEEDED") {
-    throw new Error(
-      `Meshy figure build task ${buildTaskId} ended with status ${buildTask.status ?? "unknown"}.`,
-    );
+    throw new MeshyProviderTaskError({
+      taskId: buildTaskId,
+      label: "figure build",
+      task: buildTask,
+    });
   }
 
   const glbUrl = buildTask.model_urls?.glb;
@@ -317,12 +360,21 @@ async function pollMeshyTask(input: {
     )) as MeshyTask;
     lastTask = task;
 
-    console.info("Meshy Creative Lab task status", {
+    const statusLog: Record<string, unknown> = {
       taskId: input.taskId,
       label: input.label,
       status: task.status,
       progress: task.progress,
-    });
+    };
+    if (
+      task.status &&
+      terminalStatuses.has(task.status) &&
+      task.status !== "SUCCEEDED" &&
+      task.task_error
+    ) {
+      statusLog.taskError = sanitizeMeshyTaskError(task.task_error);
+    }
+    console.info("Meshy Creative Lab task status", statusLog);
 
     if (task.status && terminalStatuses.has(task.status)) {
       return task;
@@ -492,6 +544,78 @@ function sanitizeTask(task: MeshyTask) {
       ? task.texture_urls.length
       : 0,
   };
+}
+
+export function sanitizeMeshyTaskError(
+  taskError: unknown,
+): SanitizedMeshyTaskError {
+  return sanitizeJsonValue(taskError, 0);
+}
+
+function sanitizeJsonValue(
+  value: unknown,
+  depth: number,
+): SanitizedMeshyTaskError {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  if (
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+  ) {
+    return typeof value === "string" ? value.slice(0, 500) : value;
+  }
+  if (depth >= 3) {
+    return "[nested-provider-detail]";
+  }
+  if (Array.isArray(value)) {
+    return value.slice(0, 10).map((entry) => sanitizeJsonValue(entry, depth + 1));
+  }
+  if (typeof value === "object") {
+    const safe: Record<string, SanitizedMeshyTaskError> = {};
+    for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+      if (/url|token|key|secret|authorization/i.test(key)) {
+        safe[key] = "[redacted]";
+        continue;
+      }
+      safe[key] = sanitizeJsonValue(entry, depth + 1);
+    }
+    return safe;
+  }
+
+  return String(value).slice(0, 500);
+}
+
+function formatSanitizedTaskError(
+  taskError: SanitizedMeshyTaskError,
+): string | null {
+  if (taskError === null) {
+    return null;
+  }
+  if (
+    typeof taskError === "string" ||
+    typeof taskError === "number" ||
+    typeof taskError === "boolean"
+  ) {
+    return String(taskError).slice(0, 500);
+  }
+  if (!Array.isArray(taskError) && typeof taskError === "object") {
+    const message =
+      typeof taskError.message === "string" ? taskError.message : null;
+    const type = typeof taskError.type === "string" ? taskError.type : null;
+    if (type && message) {
+      return `${type}: ${message}`.slice(0, 500);
+    }
+    if (message) {
+      return message.slice(0, 500);
+    }
+    if (type) {
+      return type.slice(0, 500);
+    }
+  }
+
+  return JSON.stringify(taskError).slice(0, 500);
 }
 
 function storageMetadata(

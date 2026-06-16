@@ -117,10 +117,10 @@ Required local variables for current AI-provider experiments:
 - `VERTEX_LOCATION`
 - `VERTEX_GCS_BUCKET`
 - `VERTEX_IMAGE_MODEL` for generated proofs; defaults to `gemini-2.5-flash-image`
-- `MESHY_API_KEY` for the figurine provider evaluation path. Keep it in local `.env` or server-only runtime secrets; never expose it to the browser.
+- `MESHY_API_KEY` for the figurine provider evaluation path. Keep it in local secrets or server-only runtime secrets; never expose it to the browser.
 - `MESHY_WEBHOOK_URL` should point to the active Cloudflare receiver at `https://api.3dprintyou.com/webhooks/meshy`. `MESHY_WEBHOOK_SECRET` is stored locally in root `.env` and was uploaded as an encrypted Cloudflare Worker secret on 2026-05-23. A real Meshy delivery confirmed the secret arrives in `x-meshy-api-webhook-secret-key`, and the receiver now rejects webhook POSTs without the matching secret. Meshy webhook creation is currently configured in the Meshy web app API settings page, not through a documented REST endpoint.
 
-For local Functions emulator runs, place server-only values in `apps/functions/.env`; Firebase Functions uses that file for local runtime env. For deployed Functions, configure `VERTEX_API_KEY` as a Firebase Functions secret because `createGenerationJob` declares it with `defineSecret`.
+For local Functions emulator runs, place non-secret runtime config in `apps/functions/.env`. Values declared with `defineSecret` belong in ignored `apps/functions/.secret.local`; use `apps/functions/.secret.local.example` as the shape reference. Without `.secret.local`, the emulator may try Google Secret Manager and log missing-secret warnings before local fallback behavior. For deployed Functions, configure declared secrets as Firebase Functions secrets.
 
 Meshy notes:
 
@@ -187,6 +187,8 @@ Use Stripe test mode until the full order and fulfillment state machine is prove
 
 Required secrets:
 
+- `VERTEX_API_KEY`
+- `MESHY_API_KEY`
 - `STRIPE_SECRET_KEY`
 - `STRIPE_WEBHOOK_SECRET`
 

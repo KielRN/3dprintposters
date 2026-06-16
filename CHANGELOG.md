@@ -111,6 +111,7 @@ All notable project changes will be documented in this file.
 
 ### Changed
 
+- Changed local Functions secret guidance so Firebase `defineSecret` values use ignored `apps/functions/.secret.local` in emulator runs, and Meshy Creative Lab task failures now preserve sanitized provider `task_error` details in logs and stored job errors.
 - Changed the active product priority from poster-relief quality tuning to proving a PrintU-like figurine funnel with `3dprintyou.com` as the better-fit public domain candidate.
 - Changed docs to clarify that image-to-3D providers were rejected for poster relief only, and are now valid candidates for standalone figurines.
 - Changed roadmap/checklist/architecture/README/PRD positioning so Meshy is the first generated-3D provider candidate and the existing relief path is parked R&D.

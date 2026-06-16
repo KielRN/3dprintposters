@@ -18,7 +18,10 @@ import {
   figurinePreviewWarnings,
   isFigurineStyle,
 } from "./figurineWorkflow.js";
-import { generateCreativeLabFigurinePreview } from "./meshyFigurineProvider.js";
+import {
+  generateCreativeLabFigurinePreview,
+  MeshyProviderTaskError,
+} from "./meshyFigurineProvider.js";
 import { runMeshyFigurinePrintTooling } from "./meshyPrintTooling.js";
 
 initializeApp();
@@ -249,6 +252,21 @@ function buildFigurineGenerationError(error: unknown) {
       cause instanceof Error
         ? `${error.message} (cause: ${cause.message})`
         : error.message;
+  }
+  if (error instanceof MeshyProviderTaskError) {
+    return {
+      message,
+      stage: "figurine_preview_generation",
+      provider: error.provider,
+      providerTask: {
+        taskId: error.taskId,
+        label: error.label,
+        status: error.status,
+        progress: error.progress,
+        consumedCredits: error.consumedCredits,
+        taskError: error.taskError,
+      },
+    };
   }
   return {
     message,
@@ -1306,9 +1324,13 @@ export const approveGeneratedImage = onCall(
           figurinePreview,
         };
       } catch (error) {
+        const generationError = buildFigurineGenerationError(error);
         console.error("figurine preview generation failed", {
           jobId: jobRef.id,
-          error: buildFigurineGenerationError(error).message,
+          error: generationError.message,
+          providerTask: "providerTask" in generationError
+            ? generationError.providerTask
+            : undefined,
           stack: error instanceof Error ? error.stack : undefined,
         });
         await jobRef.set(
@@ -1325,7 +1347,7 @@ export const approveGeneratedImage = onCall(
               status: "failed",
               failedAt: FieldValue.serverTimestamp(),
             },
-            error: buildFigurineGenerationError(error),
+            error: generationError,
             updatedAt: FieldValue.serverTimestamp(),
           },
           { merge: true },

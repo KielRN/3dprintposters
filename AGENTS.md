@@ -142,13 +142,21 @@ npm run firebase:emulators:functions
 npm run dev
 ```
 
-Required local Functions values belong in `apps/functions/.env`:
+Required local non-secret Functions values belong in `apps/functions/.env`:
 
 ```text
 AI_PROVIDER_ROUTE=vertex-gemini-direct
 APP_STORAGE_BUCKET=gen-lang-client-0675309660.firebasestorage.app
 PRINT_FILE_GENERATOR_URL=http://127.0.0.1:8089
+```
+
+Firebase Functions values declared with `defineSecret` belong in ignored `apps/functions/.secret.local` for emulator runs and Firebase Functions secrets for deployed runtimes:
+
+```text
 VERTEX_API_KEY=...
+MESHY_API_KEY=...
+STRIPE_SECRET_KEY=...
+STRIPE_WEBHOOK_SECRET=...
 ```
 
 Required print-file generator values belong in the print-file generator process environment or local root `.env`:
