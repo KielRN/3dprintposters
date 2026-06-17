@@ -2104,7 +2104,7 @@ async function storageModelDataUri(input: {
 
   return {
     source: "data_uri",
-    url: `data:application/octet-stream;base64,${buffer.toString("base64")}`,
+    url: `data:model/gltf-binary;base64,${buffer.toString("base64")}`,
   };
 }
 
