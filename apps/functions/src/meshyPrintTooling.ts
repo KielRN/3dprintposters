@@ -41,6 +41,7 @@ type SavedProviderAsset = {
 export type FigurinePrintToolingInput = {
   apiKey: string;
   modelUrl: string;
+  modelUrlSource?: "signed_storage_url" | "firebase_download_token_url";
   outputPrefix: string;
   jobId: string;
   uid: string;
@@ -51,7 +52,7 @@ export type FigurinePrintToolingInput = {
 
 export type FigurinePrintToolingOutput = {
   status: "completed";
-  inputModelUrlSource: "signed_storage_url";
+  inputModelUrlSource: "signed_storage_url" | "firebase_download_token_url";
   originalAnalyze: Record<string, unknown>;
   repair: Record<string, unknown>;
   repairedAnalyze: Record<string, unknown> | null;
@@ -155,7 +156,7 @@ export async function runMeshyFigurinePrintTooling(
 
   return {
     status: "completed",
-    inputModelUrlSource: "signed_storage_url",
+    inputModelUrlSource: input.modelUrlSource ?? "signed_storage_url",
     originalAnalyze,
     repair: {
       taskId: repairTaskId,

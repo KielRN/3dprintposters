@@ -2053,18 +2053,94 @@ async function generateFigurineAssemblyForJob(input: {
   return assembly;
 }
 
+type ModelUrlSource = "signed_storage_url" | "firebase_download_token_url";
+
+function isFunctionsEmulator(): boolean {
+  return process.env.FUNCTIONS_EMULATOR === "true";
+}
+
+function isMissingClientEmailSigningError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    error.message.includes("Cannot sign data without `client_email`")
+  );
+}
+
+function firebaseStorageDownloadUrl(input: {
+  bucketName: string;
+  storagePath: string;
+  token: string;
+}): string {
+  const url = new URL(
+    `https://firebasestorage.googleapis.com/v0/b/${encodeURIComponent(
+      input.bucketName,
+    )}/o/${encodeURIComponent(input.storagePath)}`,
+  );
+  url.searchParams.set("alt", "media");
+  url.searchParams.set("token", input.token);
+  return url.toString();
+}
+
+async function firebaseDownloadTokenModelUrl(input: {
+  bucketName: string;
+  storagePath: string;
+}): Promise<{ source: ModelUrlSource; url: string }> {
+  const file = getStorage().bucket(input.bucketName).file(input.storagePath);
+  const [metadata] = await file.getMetadata();
+  const existingTokenValue = metadata.metadata?.firebaseStorageDownloadTokens;
+  const existingToken =
+    typeof existingTokenValue === "string"
+      ? existingTokenValue
+          .split(",")
+          .map((token) => token.trim())
+          .find(Boolean)
+      : undefined;
+  const token = existingToken ?? randomUUID();
+
+  if (!existingToken) {
+    await file.setMetadata({
+      metadata: {
+        ...(metadata.metadata ?? {}),
+        firebaseStorageDownloadTokens: token,
+      },
+    });
+  }
+
+  return {
+    source: "firebase_download_token_url",
+    url: firebaseStorageDownloadUrl({
+      bucketName: input.bucketName,
+      storagePath: input.storagePath,
+      token,
+    }),
+  };
+}
+
 async function signedModelUrl(input: {
   bucketName: string;
   storagePath: string;
-}): Promise<string> {
-  const [url] = await getStorage()
-    .bucket(input.bucketName)
-    .file(input.storagePath)
-    .getSignedUrl({
+}): Promise<{ source: ModelUrlSource; url: string }> {
+  const file = getStorage().bucket(input.bucketName).file(input.storagePath);
+
+  try {
+    const [url] = await file.getSignedUrl({
       action: "read",
       expires: Date.now() + 60 * 60 * 1000,
     });
-  return url;
+    return { source: "signed_storage_url", url };
+  } catch (error) {
+    if (!isFunctionsEmulator() || !isMissingClientEmailSigningError(error)) {
+      throw error;
+    }
+
+    console.warn(
+      "falling back to Firebase download-token URL for local print tooling",
+      {
+        storagePath: input.storagePath,
+      },
+    );
+    return firebaseDownloadTokenModelUrl(input);
+  }
 }
 
 async function runFigurinePrintToolingForJob(input: {
@@ -2116,12 +2192,14 @@ async function runFigurinePrintToolingForJob(input: {
     { merge: true },
   );
 
+  const inputModelUrl = await signedModelUrl({
+    bucketName,
+    storagePath: assembledPreviewGlb,
+  });
   const result = await runMeshyFigurinePrintTooling({
     apiKey: resolveMeshyApiKeyForPrintTooling(),
-    modelUrl: await signedModelUrl({
-      bucketName,
-      storagePath: assembledPreviewGlb,
-    }),
+    modelUrl: inputModelUrl.url,
+    modelUrlSource: inputModelUrl.source,
     outputPrefix,
     jobId: input.jobId,
     uid: input.uid,

@@ -116,7 +116,7 @@ Required local variables for current AI-provider experiments:
 - `VERTEX_PROJECT`
 - `VERTEX_LOCATION`
 - `VERTEX_GCS_BUCKET`
-- `VERTEX_IMAGE_MODEL` for generated proofs; defaults to `gemini-2.5-flash-image`
+- `VERTEX_IMAGE_MODEL` for generated proofs; defaults to `gemini-3-pro-image`
 - `MESHY_API_KEY` for the figurine provider evaluation path. Keep it in local secrets or server-only runtime secrets; never expose it to the browser.
 - `MESHY_WEBHOOK_URL` should point to the active Cloudflare receiver at `https://api.3dprintyou.com/webhooks/meshy`. `MESHY_WEBHOOK_SECRET` is stored locally in root `.env` and was uploaded as an encrypted Cloudflare Worker secret on 2026-05-23. A real Meshy delivery confirmed the secret arrives in `x-meshy-api-webhook-secret-key`, and the receiver now rejects webhook POSTs without the matching secret. Meshy webhook creation is currently configured in the Meshy web app API settings page, not through a documented REST endpoint.
 
@@ -134,7 +134,7 @@ Verification status on 2026-04-26:
 
 - `GOOGLE_API_KEY` and `GEMINI_API_KEY` are present in the root `.env`, currently match each other, and both completed a live Gemini Developer API `gemini-2.5-flash` request.
 - `VERTEX_API_KEY` is present in the root `.env`, is separate from the Google/Gemini key, and completed a live Vertex AI Gemini API `gemini-2.5-flash` request.
-- The Functions direct provider uses the Vertex AI express-mode `generateContent` endpoint with `responseModalities: ["TEXT", "IMAGE"]` and `VERTEX_IMAGE_MODEL=gemini-2.5-flash-image` unless overridden.
+- The Functions direct provider uses the Vertex AI express-mode `generateContent` endpoint with `responseModalities: ["TEXT", "IMAGE"]` and `VERTEX_IMAGE_MODEL=gemini-3-pro-image` unless overridden.
 - `VERTEX_PROJECT`, `VERTEX_LOCATION`, and `VERTEX_GCS_BUCKET` are present locally.
 - `gcloud auth application-default login --project=gen-lang-client-0675309660` completed successfully.
 - Vertex AI, Gemini API, and Cloud Storage APIs are enabled for the configured project.

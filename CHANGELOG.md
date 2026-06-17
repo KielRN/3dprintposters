@@ -4,6 +4,10 @@ All notable project changes will be documented in this file.
 
 ## [Unreleased] - 2026-05-06
 
+### Fixed
+
+- Made `runFigurinePrintTooling` non-blocking in local Functions emulator runs when user ADC cannot sign Cloud Storage URLs because no service-account `client_email` is available. The callable still uses signed URLs by default, but emulator-only print tooling now falls back to a Firebase download-token `model_url` for the assembled GLB and records that URL source in `figurinePrintTooling`.
+
 ### Added
 
 - Added `DECISIONS.md` as the durable product and architecture decision log, split current implementation state into `PROJECT_STATE.md`, and kept `AI_DEVELOPER_NOTES.md` as a compatibility pointer for older agent instructions.

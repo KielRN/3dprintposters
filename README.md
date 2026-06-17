@@ -250,7 +250,7 @@ Server-only values for local backend testing go there:
 
 ```text
 AI_PROVIDER_ROUTE=vertex-gemini-direct
-VERTEX_IMAGE_MODEL=gemini-2.5-flash-image
+VERTEX_IMAGE_MODEL=gemini-3-pro-image
 STRIPE_POSTER_PRICE_ID=
 PUBLIC_APP_URL=http://localhost:3000
 APP_STORAGE_BUCKET=gen-lang-client-0675309660.firebasestorage.app

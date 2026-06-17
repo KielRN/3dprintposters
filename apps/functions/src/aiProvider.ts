@@ -34,7 +34,7 @@ export type PosterAiProvider = {
   ): Promise<PosterGenerationOutput>;
 };
 
-const defaultVertexImageModel = "gemini-2.5-flash-image";
+const defaultVertexImageModel = "gemini-3-pro-image";
 const defaultSourceImageByteLimit = 8 * 1024 * 1024;
 const vertexExpressBaseUrl = "https://aiplatform.googleapis.com/v1";
 
