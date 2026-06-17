@@ -1,6 +1,6 @@
 import { getStorage } from "firebase-admin/storage";
 
-const meshyOpenApiRoot = "https://api.meshy.ai/openapi";
+const meshyOpenApiRoot = "https://api.meshy.ai/openapi/v1";
 const terminalStatuses = new Set(["SUCCEEDED", "FAILED", "CANCELED", "EXPIRED"]);
 const supportedAnalyzeFormats = new Set(["glb", "gltf", "obj", "fbx", "stl"]);
 const defaultPollIntervalMs = 10_000;
@@ -41,7 +41,7 @@ type SavedProviderAsset = {
 export type FigurinePrintToolingInput = {
   apiKey: string;
   modelUrl: string;
-  modelUrlSource?: "signed_storage_url" | "firebase_download_token_url";
+  modelUrlSource?: "signed_storage_url" | "data_uri";
   outputPrefix: string;
   jobId: string;
   uid: string;
@@ -52,7 +52,7 @@ export type FigurinePrintToolingInput = {
 
 export type FigurinePrintToolingOutput = {
   status: "completed";
-  inputModelUrlSource: "signed_storage_url" | "firebase_download_token_url";
+  inputModelUrlSource: "signed_storage_url" | "data_uri";
   originalAnalyze: Record<string, unknown>;
   repair: Record<string, unknown>;
   repairedAnalyze: Record<string, unknown> | null;

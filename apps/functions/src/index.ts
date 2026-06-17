@@ -69,6 +69,7 @@ const defaultPhysicalDimensions = {
 
 const printFileGenerationTimeoutSeconds = 540;
 const printFileGeneratorFetchTimeoutMs = 480_000;
+const meshyModelDataUriByteLimit = 100 * 1024 * 1024;
 
 type CheckoutSessionWebhookObject = {
   metadata?: Record<string, string> | null;
@@ -2053,7 +2054,7 @@ async function generateFigurineAssemblyForJob(input: {
   return assembly;
 }
 
-type ModelUrlSource = "signed_storage_url" | "firebase_download_token_url";
+type ModelUrlSource = "signed_storage_url" | "data_uri";
 
 function isFunctionsEmulator(): boolean {
   return process.env.FUNCTIONS_EMULATOR === "true";
@@ -2066,53 +2067,22 @@ function isMissingClientEmailSigningError(error: unknown): boolean {
   );
 }
 
-function firebaseStorageDownloadUrl(input: {
-  bucketName: string;
-  storagePath: string;
-  token: string;
-}): string {
-  const url = new URL(
-    `https://firebasestorage.googleapis.com/v0/b/${encodeURIComponent(
-      input.bucketName,
-    )}/o/${encodeURIComponent(input.storagePath)}`,
-  );
-  url.searchParams.set("alt", "media");
-  url.searchParams.set("token", input.token);
-  return url.toString();
-}
-
-async function firebaseDownloadTokenModelUrl(input: {
+async function storageModelDataUri(input: {
   bucketName: string;
   storagePath: string;
 }): Promise<{ source: ModelUrlSource; url: string }> {
   const file = getStorage().bucket(input.bucketName).file(input.storagePath);
-  const [metadata] = await file.getMetadata();
-  const existingTokenValue = metadata.metadata?.firebaseStorageDownloadTokens;
-  const existingToken =
-    typeof existingTokenValue === "string"
-      ? existingTokenValue
-          .split(",")
-          .map((token) => token.trim())
-          .find(Boolean)
-      : undefined;
-  const token = existingToken ?? randomUUID();
+  const [buffer] = await file.download();
 
-  if (!existingToken) {
-    await file.setMetadata({
-      metadata: {
-        ...(metadata.metadata ?? {}),
-        firebaseStorageDownloadTokens: token,
-      },
-    });
+  if (buffer.byteLength > meshyModelDataUriByteLimit) {
+    throw new Error(
+      `Assembled model is ${buffer.byteLength} bytes, which exceeds Meshy's ${meshyModelDataUriByteLimit} byte data URL limit for local print tooling.`,
+    );
   }
 
   return {
-    source: "firebase_download_token_url",
-    url: firebaseStorageDownloadUrl({
-      bucketName: input.bucketName,
-      storagePath: input.storagePath,
-      token,
-    }),
+    source: "data_uri",
+    url: `data:application/octet-stream;base64,${buffer.toString("base64")}`,
   };
 }
 
@@ -2134,12 +2104,12 @@ async function signedModelUrl(input: {
     }
 
     console.warn(
-      "falling back to Firebase download-token URL for local print tooling",
+      "falling back to data URL model input for local print tooling",
       {
         storagePath: input.storagePath,
       },
     );
-    return firebaseDownloadTokenModelUrl(input);
+    return storageModelDataUri(input);
   }
 }
 

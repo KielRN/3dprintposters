@@ -86,7 +86,7 @@ Firebase Functions writes these under:
 print-files/{uid}/{jobId}/figurine/assembled/{assemblyId}/
 ```
 
-The follow-up `runFigurinePrintTooling` callable sends the assembled GLB to Meshy by signed `model_url` and persists sanitized Analyze, Repair, repaired Analyze, Remesh, and remeshed Analyze state under `figurinePrintTooling`. In the local Functions emulator only, user ADC may be unable to sign Storage URLs because no service-account `client_email` is available; that path falls back to a Firebase download-token URL for the same assembled GLB so dev print-tooling runs are not blocked. Remesh uses quad topology, `100000` target polycount, and `glb,stl,3mf` target formats. Meshy Analyze is run only on GLB/STL outputs; 3MF remains for local or slicer review.
+The follow-up `runFigurinePrintTooling` callable sends the assembled GLB to Meshy by signed `model_url` and persists sanitized Analyze, Repair, repaired Analyze, Remesh, and remeshed Analyze state under `figurinePrintTooling`. In the local Functions emulator only, user ADC may be unable to sign Storage URLs because no service-account `client_email` is available; that path falls back to a Meshy-supported data URL for the same assembled GLB so dev print-tooling runs are not blocked by public Storage download behavior. Remesh uses quad topology, `100000` target polycount, and `glb,stl,3mf` target formats. Meshy Analyze is run only on GLB/STL outputs; 3MF remains for local or slicer review.
 
 ## Inputs
 
