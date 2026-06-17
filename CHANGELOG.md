@@ -13,6 +13,7 @@ All notable project changes will be documented in this file.
 
 ### Added
 
+- Added `docs/BUSINESS.md` and `docs/figurine-job-cost-estimate-dc7f29eb.csv` as the first provider-cost baseline for the successful Meshy/Gemini figurine job, separating exact Meshy credits from approximate Gemini image-generation cost.
 - Added `DECISIONS.md` as the durable product and architecture decision log, split current implementation state into `PROJECT_STATE.md`, and kept `AI_DEVELOPER_NOTES.md` as a compatibility pointer for older agent instructions.
 - Updated agent Git guidance so commits and pushes default to landing directly on `main` instead of staying on feature branches or opening PRs.
 - Added the 2026-05-23 customer-acquisition pivot: PrintU-like personalized figurines now outrank further poster-relief tuning until the business model is proven.
