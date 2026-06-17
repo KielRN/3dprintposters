@@ -27,10 +27,32 @@ import { runMeshyFigurinePrintTooling } from "./meshyPrintTooling.js";
 initializeApp();
 
 const db = getFirestore();
+const publicAppUrl = defineSecret("PUBLIC_APP_URL");
+const appStorageBucket = defineSecret("APP_STORAGE_BUCKET");
+const printFileGeneratorUrl = defineSecret("PRINT_FILE_GENERATOR_URL");
+const aiProviderRoute = defineSecret("AI_PROVIDER_ROUTE");
+const vertexProject = defineSecret("VERTEX_PROJECT");
+const vertexLocation = defineSecret("VERTEX_LOCATION");
+const vertexGcsBucket = defineSecret("VERTEX_GCS_BUCKET");
+const vertexImageModel = defineSecret("VERTEX_IMAGE_MODEL");
+const vertexMaxSourceImageBytes = defineSecret("VERTEX_MAX_SOURCE_IMAGE_BYTES");
 const vertexApiKey = defineSecret("VERTEX_API_KEY");
 const meshyApiKey = defineSecret("MESHY_API_KEY");
 const stripeSecretKey = defineSecret("STRIPE_SECRET_KEY");
 const stripeWebhookSecret = defineSecret("STRIPE_WEBHOOK_SECRET");
+const stripePosterPriceId = defineSecret("STRIPE_POSTER_PRICE_ID");
+
+const vertexRuntimeSecrets = [
+  aiProviderRoute,
+  appStorageBucket,
+  vertexProject,
+  vertexLocation,
+  vertexGcsBucket,
+  vertexImageModel,
+  vertexMaxSourceImageBytes,
+  vertexApiKey,
+];
+const printFileRuntimeSecrets = [appStorageBucket, printFileGeneratorUrl];
 const jobIdSchema = z.string().regex(/^[a-zA-Z0-9_-]{8,80}$/);
 
 const createJobSchema = z.object({
@@ -999,7 +1021,7 @@ async function generateFigurinePreviewForApprovedJob(input: {
 
 export const createGenerationJob = onCall(
   {
-    secrets: [vertexApiKey],
+    secrets: vertexRuntimeSecrets,
   },
   async (request) => {
     if (!request.auth) {
@@ -1184,7 +1206,7 @@ export const createGenerationJob = onCall(
 
 export const approveGeneratedImage = onCall(
   {
-    secrets: [meshyApiKey],
+    secrets: [appStorageBucket, printFileGeneratorUrl, meshyApiKey],
     timeoutSeconds: printFileGenerationTimeoutSeconds,
   },
   async (request) => {
@@ -1401,7 +1423,7 @@ export const approveGeneratedImage = onCall(
 
 export const createCheckoutSession = onCall(
   {
-    secrets: [stripeSecretKey],
+    secrets: [publicAppUrl, stripePosterPriceId, stripeSecretKey],
   },
   async (request) => {
     if (!request.auth) {
@@ -2235,6 +2257,7 @@ async function runFigurinePrintToolingForJob(input: {
 
 export const updateFigurineBaseConfig = onCall(
   {
+    secrets: printFileRuntimeSecrets,
     timeoutSeconds: 300,
   },
   async (request) => {
@@ -2362,6 +2385,7 @@ export const updateFigurineBaseConfig = onCall(
 
 export const generateFigurineAssembly = onCall(
   {
+    secrets: printFileRuntimeSecrets,
     timeoutSeconds: 540,
   },
   async (request) => {
@@ -2433,7 +2457,7 @@ export const generateFigurineAssembly = onCall(
 
 export const runFigurinePrintTooling = onCall(
   {
-    secrets: [meshyApiKey],
+    secrets: [appStorageBucket, meshyApiKey],
     timeoutSeconds: 540,
   },
   async (request) => {

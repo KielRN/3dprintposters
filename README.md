@@ -242,11 +242,10 @@ PUBLIC_APP_URL=http://localhost:3000
 For local Functions emulator runs, create:
 
 ```text
-apps/functions/.env
 apps/functions/.secret.local
 ```
 
-Server-only values for local backend testing go there:
+Functions runtime config belongs in ignored `apps/functions/.secret.local`. Firebase CLI automatically loads `apps/functions/.env` during deploy as plain Cloud Run environment variables, so runtime config values are declared with `defineSecret` and mirrored through Secret Manager instead:
 
 ```text
 AI_PROVIDER_ROUTE=vertex-gemini-direct
@@ -255,11 +254,13 @@ STRIPE_POSTER_PRICE_ID=
 PUBLIC_APP_URL=http://localhost:3000
 APP_STORAGE_BUCKET=gen-lang-client-0675309660.firebasestorage.app
 PRINT_FILE_GENERATOR_URL=http://127.0.0.1:8089
-MESHY_WEBHOOK_URL=
-MESHY_WEBHOOK_SECRET=
+VERTEX_PROJECT=gen-lang-client-0675309660
+VERTEX_LOCATION=us-central1
+VERTEX_GCS_BUCKET=
+VERTEX_MAX_SOURCE_IMAGE_BYTES=8388608
 ```
 
-Put Firebase Functions `defineSecret` values in ignored `apps/functions/.secret.local` for local emulator runs:
+Put provider credentials in the same ignored `apps/functions/.secret.local` for local emulator runs and Firebase Functions secrets for deployed runtimes:
 
 ```text
 VERTEX_API_KEY=
@@ -316,9 +317,9 @@ In this mode:
 - Print-file generation calls `PRINT_FILE_GENERATOR_URL` and writes artifacts under `print-files/{uid}/{jobId}`.
 - The Functions emulator mirrors generated print-file artifacts, including `debug/` relief-stage PNGs, to `.tmp/print-files/{uid}/{jobId}` for local inspection and later printer-owner handoff.
 
-If generation fails with `Poster generation failed before a proof was ready`, check `apps/functions/.env` and `apps/functions/.secret.local` first. The local Functions emulator needs `VERTEX_API_KEY` before it can call Vertex/Gemini.
+If generation fails with `Poster generation failed before a proof was ready`, check `apps/functions/.secret.local` first. The local Functions emulator needs `VERTEX_API_KEY` before it can call Vertex/Gemini.
 
-If approval fails with `3D preview generation failed`, make sure the print-file generator is running on `http://127.0.0.1:8089` and that `apps/functions/.env` has `PRINT_FILE_GENERATOR_URL=http://127.0.0.1:8089`. The print-file generator accepts generated proof images up to 4,000,000 decoded pixels by default before resizing them to the 768px geometry-analysis image and 400px mesh/color output. The approval callable and web client allow up to 9 minutes because the hybrid relief path can take longer than the default 60-second Functions timeout on first local runs. In local emulator runs, the job is marked `generated` before the optional `.tmp` artifact mirror finishes; if the app preview is ready but `.tmp/print-files/{uid}/{jobId}` is incomplete, wait for the Functions log line that the local mirror completed.
+If approval fails with `3D preview generation failed`, make sure the print-file generator is running on `http://127.0.0.1:8089` and that `apps/functions/.secret.local` has `PRINT_FILE_GENERATOR_URL=http://127.0.0.1:8089`. The print-file generator accepts generated proof images up to 4,000,000 decoded pixels by default before resizing them to the 768px geometry-analysis image and 400px mesh/color output. The approval callable and web client allow up to 9 minutes because the hybrid relief path can take longer than the default 60-second Functions timeout on first local runs. In local emulator runs, the job is marked `generated` before the optional `.tmp` artifact mirror finishes; if the app preview is ready but `.tmp/print-files/{uid}/{jobId}` is incomplete, wait for the Functions log line that the local mirror completed.
 
 ## Local Testing: Web Only
 
@@ -359,7 +360,7 @@ Use these steps when testing the implemented relief app as a beginner. The forme
 
 - [ ] Run `npm install` if dependencies are missing.
 - [ ] Confirm `apps/web/.env.local` exists.
-- [ ] Confirm `apps/functions/.env` and `apps/functions/.secret.local` exist if using the Functions emulator.
+- [ ] Confirm `apps/functions/.secret.local` exists if using the Functions emulator.
 - [ ] Start `npm run firebase:emulators:functions`.
 - [ ] Start `npm run dev`.
 - [ ] Open `http://127.0.0.1:3000`.

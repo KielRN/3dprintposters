@@ -142,15 +142,22 @@ npm run firebase:emulators:functions
 npm run dev
 ```
 
-Required local non-secret Functions values belong in `apps/functions/.env`:
+Firebase Functions runtime config is declared with `defineSecret`, even for deploy-time non-secret values, so deploys do not push local `.env` keys as plain Cloud Run environment variables. Mirror these values in ignored `apps/functions/.secret.local` for local emulator runs and configure the same names as Firebase Functions secrets for deployed runtimes:
 
 ```text
 AI_PROVIDER_ROUTE=vertex-gemini-direct
 APP_STORAGE_BUCKET=gen-lang-client-0675309660.firebasestorage.app
 PRINT_FILE_GENERATOR_URL=http://127.0.0.1:8089
+PUBLIC_APP_URL=http://localhost:3000
+VERTEX_PROJECT=gen-lang-client-0675309660
+VERTEX_LOCATION=us-central1
+VERTEX_GCS_BUCKET=...
+VERTEX_IMAGE_MODEL=gemini-3-pro-image
+VERTEX_MAX_SOURCE_IMAGE_BYTES=8388608
+STRIPE_POSTER_PRICE_ID=...
 ```
 
-Firebase Functions values declared with `defineSecret` belong in ignored `apps/functions/.secret.local` for emulator runs and Firebase Functions secrets for deployed runtimes:
+Provider credentials also live in ignored `apps/functions/.secret.local` for emulator runs and Firebase Functions secrets for deployed runtimes:
 
 ```text
 VERTEX_API_KEY=...
