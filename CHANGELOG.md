@@ -13,6 +13,7 @@ All notable project changes will be documented in this file.
 
 ### Added
 
+- Added per-job provider cost snapshots for figurine jobs. Firebase Functions now calculate `jobCost` after proof generation, Creative Lab preview generation, deterministic assembly refreshes, and Meshy print-tooling runs, separating exact Meshy credits from estimated USD assumptions and approximate Gemini proof-generation cost.
 - Added `docs/BUSINESS.md` and `docs/figurine-job-cost-estimate-dc7f29eb.csv` as the first provider-cost baseline for the successful Meshy/Gemini figurine job, separating exact Meshy credits from approximate Gemini image-generation cost.
 - Added `DECISIONS.md` as the durable product and architecture decision log, split current implementation state into `PROJECT_STATE.md`, and kept `AI_DEVELOPER_NOTES.md` as a compatibility pointer for older agent instructions.
 - Updated agent Git guidance so commits and pushes default to landing directly on `main` instead of staying on feature branches or opening PRs.

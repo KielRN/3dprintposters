@@ -8,6 +8,7 @@
     "serve": "npm run build && node ../../scripts/firebase/check-emulator-java.mjs && firebase emulators:start --only auth,functions,firestore,storage --project dev",
     "serve:functions": "npm run build && firebase emulators:start --only functions --project dev",
     "deploy": "firebase deploy --only functions",
+    "test:job-cost": "npm run build && node --test test/jobCost.test.mjs",
     "typecheck": "tsc --noEmit"
   },
   "engines": {

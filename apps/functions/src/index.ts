@@ -23,6 +23,7 @@ import {
   MeshyProviderTaskError,
 } from "./meshyFigurineProvider.js";
 import { runMeshyFigurinePrintTooling } from "./meshyPrintTooling.js";
+import { calculateJobCost } from "./jobCost.js";
 
 initializeApp();
 
@@ -304,6 +305,54 @@ function buildLocalMirrorError(error: unknown): PrintFileLocalMirror {
     status: "skipped",
     reason: `local_mirror_failed: ${message.slice(0, 240)}`,
   };
+}
+
+async function refreshJobCostFromFirestore(
+  jobRef: DocumentReference,
+  reason: string,
+): Promise<void> {
+  try {
+    const jobSnap = await jobRef.get();
+    const jobData = jobSnap.data() as Record<string, unknown> | undefined;
+    if (!jobSnap.exists || !jobData || !jobDataIsFigurine(jobData)) {
+      return;
+    }
+
+    const jobCost = firestoreSafeValue(calculateJobCost(jobData)) as Record<
+      string,
+      unknown
+    >;
+    jobCost.updatedAt = FieldValue.serverTimestamp();
+    await jobRef.set(
+      {
+        jobCost,
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn("job cost refresh failed", {
+      jobId: jobRef.id,
+      reason,
+      error: message,
+    });
+    await jobRef.set(
+      {
+        jobCost: {
+          status: "partial",
+          currency: "USD",
+          updatedAt: FieldValue.serverTimestamp(),
+          calculationError: {
+            reason,
+            message: message.slice(0, 300),
+          },
+        },
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+  }
 }
 
 function resolveRequiredEnv(name: string): string {
@@ -972,6 +1021,10 @@ async function generateFigurinePreviewForApprovedJob(input: {
     },
     { merge: true },
   );
+  await refreshJobCostFromFirestore(
+    input.jobRef,
+    "figurine_preview_completed",
+  );
 
   try {
     const figurinePreviewLocalMirror = await mirrorFigurinePreviewToLocalTmp({
@@ -1177,6 +1230,7 @@ export const createGenerationJob = onCall(
         },
         { merge: true },
       );
+      await refreshJobCostFromFirestore(jobRef, "proof_generation_completed");
 
       return {
         jobId: jobRef.id,
@@ -1195,6 +1249,7 @@ export const createGenerationJob = onCall(
         },
         { merge: true },
       );
+      await refreshJobCostFromFirestore(jobRef, "proof_generation_failed");
 
       throw new HttpsError(
         "internal",
@@ -1302,6 +1357,10 @@ export const approveGeneratedImage = onCall(
           { merge: true },
         );
       }
+      await refreshJobCostFromFirestore(
+        jobRef,
+        "figurine_preview_existing",
+      );
 
       return {
         jobId: jobRef.id,
@@ -1374,6 +1433,10 @@ export const approveGeneratedImage = onCall(
             updatedAt: FieldValue.serverTimestamp(),
           },
           { merge: true },
+        );
+        await refreshJobCostFromFirestore(
+          jobRef,
+          "figurine_preview_failed",
         );
 
         throw new HttpsError(
@@ -2050,6 +2113,10 @@ async function generateFigurineAssemblyForJob(input: {
     },
     { merge: true },
   );
+  await refreshJobCostFromFirestore(
+    input.jobRef,
+    "figurine_assembly_completed",
+  );
 
   try {
     const localMirror = await mirrorStoragePathsToLocalTmp({
@@ -2228,6 +2295,10 @@ async function runFigurinePrintToolingForJob(input: {
       updatedAt: FieldValue.serverTimestamp(),
     },
     { merge: true },
+  );
+  await refreshJobCostFromFirestore(
+    input.jobRef,
+    "figurine_print_tooling_completed",
   );
 
   try {
@@ -2447,6 +2518,7 @@ export const generateFigurineAssembly = onCall(
         },
         { merge: true },
       );
+      await refreshJobCostFromFirestore(jobRef, "figurine_assembly_failed");
       throw new HttpsError(
         "internal",
         `Figurine assembly failed: ${message.slice(0, 200)}`,
@@ -2518,6 +2590,10 @@ export const runFigurinePrintTooling = onCall(
           updatedAt: FieldValue.serverTimestamp(),
         },
         { merge: true },
+      );
+      await refreshJobCostFromFirestore(
+        jobRef,
+        "figurine_print_tooling_failed",
       );
       throw new HttpsError(
         "internal",
