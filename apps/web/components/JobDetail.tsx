@@ -38,6 +38,7 @@ type JobDocument = {
   status: string;
   sourceImagePath: string;
   selectedStyle: string;
+  selectedStyleLabel?: string;
   generatedImages?: GeneratedImage[];
   approvedImagePath?: string | null;
   figurinePreview?: FigurinePreview | null;
@@ -155,6 +156,10 @@ const styleLabels: Record<string, string> = {
   storybook: "Storybook",
   creative_lab_figure: "Creative Lab Figure",
   "creative-lab-figure": "Creative Lab Figure",
+  emoji_avatar: "Emoji Avatar",
+  chibi_figure: "Chibi Figure",
+  bobblehead: "Bobblehead",
+  cartoon_figure: "Cartoon Figure",
 };
 
 function normalizeGeneratedImages(rawImages: unknown): GeneratedImage[] {
@@ -606,7 +611,11 @@ export function JobDetail({ jobId }: { jobId: string }) {
         </div>
         <div>
           <p className="text-[var(--muted)]">Style</p>
-          <strong>{styleLabels[job?.selectedStyle ?? ""] ?? "Loading"}</strong>
+          <strong>
+            {job?.selectedStyleLabel ??
+              styleLabels[job?.selectedStyle ?? ""] ??
+              "Loading"}
+          </strong>
         </div>
         <div>
           <p className="text-[var(--muted)]">Status</p>

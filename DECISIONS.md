@@ -1,6 +1,6 @@
 # 3DPrintPosters - Decisions
 
-Last updated: 2026-06-17
+Last updated: 2026-06-18
 
 ## Purpose
 
@@ -13,6 +13,7 @@ Do not let this file become a task list, experiment log, or second changelog. Ad
 - Keep print-file/model generation server-side. Do not move geometry generation, provider API keys, texture packaging, or fulfillment logic into the browser.
 - Keep `services/print-file-generator` as the production print-file boundary. Do not vendor the standalone `E:\PROJECTS\print-file-generator` Flask routes, SQLite state, browser session handling, local CLI flow, TD1 hardware code, or old open-surface mesh topology.
 - Direct Vertex/Gemini remains the MVP proof-generation path. Cloudflare AI Gateway is deferred until provider comparison, centralized observability, rate limits, or retries matter.
+- Proof/style prompt controls belong in server-read workflow configuration, not in browser-only state. The dev `/admin` page may edit that config while role enforcement is still a placeholder, but future production admin access must be backed by server-enforced roles/claims.
 - The five-experiment heightmap cycle is complete. Full image-to-3D reconstruction providers such as TripoSR, Stable Fast 3D, TRELLIS, SAM 3D Objects, TriplaneGaussian, and Meshy-style providers are rejected only for poster relief because they reconstruct standalone objects rather than image-plane depth. They are now valid candidates for the standalone figurine product direction.
 - Meshy.ai is the first provider to evaluate for the figurine direction. Keep it behind a replaceable server-side adapter, download provider assets into our Storage quickly because non-enterprise API retention may be short, and record provider/model/version/credits/cost metadata without storing secrets.
 - Corrected figurine base architecture: do not ask Vertex/Gemini or Meshy to generate customer name text, star details, or the final reusable product base. Vertex/Gemini and Meshy should generate the figurine/body object; a saved base STL asset, deterministic name-on-base geometry, and deterministic body/base assembly belong in `services/print-file-generator`. As of 2026-06-03, `printu-round-v1` is the approved reusable base asset at `services/print-file-generator/assets/figurine-bases/printu-round-v1/`; it is a clean unpersonalized sliced-round base with a flat front name face and local watertight/winding verification. The `previews/elliott/` sample captures the approved default raised-text placement: smaller, lower, centered in the flat front rectangle, and partially embedded into the structure. The paid Experiment 004 thumbnail included a base because the upstream 2D/reference path allowed one and Meshy followed it; future local Vertex/Gemini concept and Meshy multi-view prompts explicitly request no base/pedestal/platform unless a base experiment deliberately passes `--base-label`.

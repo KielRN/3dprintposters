@@ -11,6 +11,11 @@ export type PosterGenerationInput = {
   uid: string;
   sourceImagePath: string;
   selectedStyle: string;
+  selectedStyleLabel?: string;
+  productType?: "poster" | "figurine";
+  proofGenerationCount?: number;
+  baseProofPrompt?: string;
+  stylePrompt?: string;
 };
 
 export type PosterGenerationOutput = {
@@ -22,9 +27,13 @@ export type PosterGenerationOutput = {
     route: string;
     notes: string[];
     outputMimeType?: string;
+    outputMimeTypes?: string[];
+    proofGenerationCount?: number;
     styleMetadata?: ProofStyleMetadata;
     responseText?: string;
+    responseTextByGeneration?: string[];
     modelVersion?: string;
+    modelVersions?: string[];
   };
 };
 
@@ -36,6 +45,8 @@ export type PosterAiProvider = {
 
 const defaultVertexImageModel = "gemini-3-pro-image";
 const defaultSourceImageByteLimit = 8 * 1024 * 1024;
+const defaultProofGenerationCount = 1;
+const maxProofGenerationCount = 4;
 const vertexExpressBaseUrl = "https://aiplatform.googleapis.com/v1";
 
 type VertexGenerateContentResponse = {
@@ -94,6 +105,9 @@ class VertexGeminiPosterAiProvider implements PosterAiProvider {
     const model = process.env.VERTEX_IMAGE_MODEL ?? defaultVertexImageModel;
     const promptText = buildPosterPrompt(input);
     const styleMetadata = buildProofStyleMetadata(input.selectedStyle);
+    const proofGenerationCount = resolveProofGenerationCount(
+      input.proofGenerationCount,
+    );
     const bucket = getConfiguredStorageBucket();
     const sourceFile = bucket.file(input.sourceImagePath);
     const [downloadResult, metadataResult] = await Promise.all([
@@ -116,50 +130,92 @@ class VertexGeminiPosterAiProvider implements PosterAiProvider {
       );
     }
 
-    const vertexResponse = await generateVertexImage({
-      apiKey,
-      model,
-      promptText,
-      sourceImageBuffer,
-      sourceMimeType,
-    });
-    const generatedImage = extractGeneratedImage(vertexResponse);
-    const generatedImageBuffer = Buffer.from(generatedImage.data, "base64");
-    const outputMimeType = generatedImage.mimeType ?? "image/png";
-    const outputStoragePath = `generated/${input.uid}/${input.jobId}/preview.${extensionForMimeType(outputMimeType)}`;
-
-    await bucket.file(outputStoragePath).save(generatedImageBuffer, {
-      resumable: false,
-      metadata: {
-        contentType: outputMimeType,
-        cacheControl: "private, max-age=3600",
-        metadata: {
-          jobId: input.jobId,
-          uid: input.uid,
-          provider: "vertex-gemini-direct",
+    const generationResults = await Promise.all(
+      Array.from({ length: proofGenerationCount }, async (_, index) => {
+        const vertexResponse = await generateVertexImage({
+          apiKey,
           model,
-        },
-      },
-    });
+          promptText: buildProofVariantPrompt({
+            promptText,
+            index,
+            count: proofGenerationCount,
+          }),
+          sourceImageBuffer,
+          sourceMimeType,
+        });
+        const generatedImage = extractGeneratedImage(vertexResponse);
+        const generatedImageBuffer = Buffer.from(
+          generatedImage.data,
+          "base64",
+        );
+        const outputMimeType = generatedImage.mimeType ?? "image/png";
+        const outputStoragePath =
+          proofGenerationCount === 1
+            ? `generated/${input.uid}/${input.jobId}/preview.${extensionForMimeType(outputMimeType)}`
+            : `generated/${input.uid}/${input.jobId}/preview-${index + 1}.${extensionForMimeType(outputMimeType)}`;
 
-    const responseText = extractResponseText(vertexResponse);
+        await bucket.file(outputStoragePath).save(generatedImageBuffer, {
+          resumable: false,
+          metadata: {
+            contentType: outputMimeType,
+            cacheControl: "private, max-age=3600",
+            metadata: {
+              jobId: input.jobId,
+              uid: input.uid,
+              provider: "vertex-gemini-direct",
+              model,
+              proofIndex: String(index + 1),
+              proofGenerationCount: String(proofGenerationCount),
+            },
+          },
+        });
+
+        return {
+          outputStoragePath,
+          outputMimeType,
+          responseText: extractResponseText(vertexResponse),
+          modelVersion: vertexResponse.modelVersion,
+        };
+      }),
+    );
+
+    const outputMimeTypes = generationResults.map(
+      (result) => result.outputMimeType,
+    );
+    const responseTextByGeneration = generationResults
+      .map((result) => result.responseText)
+      .filter((responseText) => responseText.length > 0);
+    const modelVersions = generationResults
+      .map((result) => result.modelVersion)
+      .filter((modelVersion): modelVersion is string => Boolean(modelVersion));
 
     return {
       provider: "vertex-gemini-direct",
       status: "succeeded",
-      generatedImagePaths: [outputStoragePath],
+      generatedImagePaths: generationResults.map(
+        (result) => result.outputStoragePath,
+      ),
       metadata: {
         model,
         route: "direct-gcp-vertex-gemini-express",
-        outputMimeType,
+        outputMimeType: outputMimeTypes[0],
+        outputMimeTypes,
+        proofGenerationCount,
         styleMetadata,
-        ...(responseText ? { responseText } : {}),
-        ...(vertexResponse.modelVersion
-          ? { modelVersion: vertexResponse.modelVersion }
+        ...(input.selectedStyleLabel
+          ? { selectedStyleLabel: input.selectedStyleLabel }
           : {}),
+        ...(responseTextByGeneration[0]
+          ? { responseText: responseTextByGeneration[0] }
+          : {}),
+        ...(responseTextByGeneration.length > 0
+          ? { responseTextByGeneration }
+          : {}),
+        ...(modelVersions[0] ? { modelVersion: modelVersions[0] } : {}),
+        ...(modelVersions.length > 0 ? { modelVersions } : {}),
         notes: [
           "Generated through the direct Vertex/Gemini provider route.",
-          "The generated proof image was stored in the job-scoped Firebase Storage path.",
+          `${proofGenerationCount} proof image${proofGenerationCount === 1 ? " was" : "s were"} stored in the job-scoped Firebase Storage path.`,
         ],
       },
     };
@@ -173,16 +229,21 @@ class CloudflareGatewayPosterAiProvider implements PosterAiProvider {
     const model =
       process.env.CLOUDFLARE_AI_GATEWAY_MODEL ?? defaultVertexImageModel;
     const styleMetadata = buildProofStyleMetadata(input.selectedStyle);
+    const proofGenerationCount = resolveProofGenerationCount(
+      input.proofGenerationCount,
+    );
 
     return {
       provider: "cloudflare-ai-gateway",
       status: "stubbed",
-      generatedImagePaths: [
-        `generated/${input.uid}/${input.jobId}/preview.png`,
-      ],
+      generatedImagePaths: Array.from(
+        { length: proofGenerationCount },
+        (_, index) => `generated/${input.uid}/${input.jobId}/preview-${index + 1}.png`,
+      ),
       metadata: {
         model,
         route: "cloudflare-ai-gateway",
+        proofGenerationCount,
         styleMetadata,
         notes: [
           "Cloudflare AI Gateway is reserved for later provider comparison, rate limiting, observability, and fallback.",
@@ -194,29 +255,45 @@ class CloudflareGatewayPosterAiProvider implements PosterAiProvider {
 }
 
 function buildPosterPrompt(input: PosterGenerationInput): string {
-  if (isFigurineStyle(input.selectedStyle)) {
+  if (input.productType === "figurine" || isFigurineStyle(input.selectedStyle)) {
     return buildFigurineProofPrompt(input);
   }
 
-  const selectedStyle = input.selectedStyle.trim().slice(0, 120);
+  const selectedStyle = (input.selectedStyleLabel ?? input.selectedStyle)
+    .trim()
+    .slice(0, 120);
+  const stylePrompt = input.stylePrompt?.trim();
 
   return [
     "Create one portrait proof image for a custom 5 inch by 7 inch 3D print poster relief.",
     "Use the uploaded image as the main composition reference. Preserve the primary subject, crop, and recognizable visual intent while translating it into a polished poster-ready design.",
     `Selected style: ${selectedStyle}.`,
+    ...(stylePrompt ? [`Style prompt: ${stylePrompt}`] : []),
     ...buildProofStylePromptDirectives(input.selectedStyle),
     "Output only the poster proof image.",
   ].join("\n");
 }
 
 function buildFigurineProofPrompt(input: PosterGenerationInput): string {
-  const selectedStyle = input.selectedStyle.trim().slice(0, 120);
+  const selectedStyle = (input.selectedStyleLabel ?? input.selectedStyle)
+    .trim()
+    .slice(0, 120);
+  const baseProofPrompt = input.baseProofPrompt?.trim();
+  const stylePrompt = input.stylePrompt?.trim();
 
   return [
-    "Create one clean full-body 2D concept image for a personalized 3D printed figurine.",
-    "Use the uploaded photo as the identity and outfit reference. Preserve recognizable facial likeness, broad head shape, glasses or facial hair if present, and the main clothing color impression.",
+    ...(baseProofPrompt
+      ? [baseProofPrompt]
+      : [
+          "Create one clean full-body 2D concept image for a personalized 3D printed figurine.",
+          "Use the uploaded photo as the identity and outfit reference. Preserve recognizable facial likeness, broad head shape, glasses or facial hair if present, and the main clothing color impression.",
+        ]),
     `Selected figurine style: ${selectedStyle}.`,
-    "Style: smooth chibi or emoji/avatar vinyl toy character, simplified expressive face, friendly proportions, clean silhouette, and broad color regions.",
+    ...(stylePrompt
+      ? [`Style prompt: ${stylePrompt}`]
+      : [
+          "Style: smooth chibi or emoji/avatar vinyl toy character, simplified expressive face, friendly proportions, clean silhouette, and broad color regions.",
+        ]),
     "Pose: natural standing pose, front-facing or slight three-quarter view, with head, torso, arms, hands, legs, shoes, and feet all visible.",
     "Keep arms slightly away from the torso and hands visible. Keep feet clear and flat on an invisible ground plane.",
     "Composition: single body-only character centered on a plain white studio background. No environment, no props unless they are part of the person, no text, and no watermark.",
@@ -224,6 +301,29 @@ function buildFigurineProofPrompt(input: PosterGenerationInput): string {
     "Avoid fragile fingers, hair wisps, noisy textures, photorealistic pores, busy clothing detail, cropped limbs, bust-only framing, floating objects, display bases, or side-view-only body shapes.",
     "Output only the figurine concept image.",
   ].join("\n");
+}
+
+function buildProofVariantPrompt(input: {
+  promptText: string;
+  index: number;
+  count: number;
+}): string {
+  if (input.count === 1) {
+    return input.promptText;
+  }
+
+  return [
+    input.promptText,
+    `Proof option ${input.index + 1} of ${input.count}: keep the same product constraints and recognizable identity, but make this option visually distinct through expression, proportions, clothing simplification, color interpretation, or camera angle within the selected style.`,
+  ].join("\n\n");
+}
+
+function resolveProofGenerationCount(value: number | undefined): number {
+  if (!Number.isInteger(value)) {
+    return defaultProofGenerationCount;
+  }
+
+  return Math.min(Math.max(value as number, 1), maxProofGenerationCount);
 }
 
 function getConfiguredStorageBucket() {

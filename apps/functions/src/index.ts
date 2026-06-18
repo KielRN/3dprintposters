@@ -24,6 +24,12 @@ import {
 } from "./meshyFigurineProvider.js";
 import { runMeshyFigurinePrintTooling } from "./meshyPrintTooling.js";
 import { calculateJobCost } from "./jobCost.js";
+import {
+  readFigurineWorkflowConfig,
+  resolveVisibleWorkflowStyle,
+  saveFigurineWorkflowConfig as persistFigurineWorkflowConfig,
+  visibleWorkflowStyles,
+} from "./figurineWorkflowConfig.js";
 
 initializeApp();
 
@@ -1072,9 +1078,54 @@ async function generateFigurinePreviewForApprovedJob(input: {
   return generation;
 }
 
+export const getFigurineWorkflowConfig = onCall(async () => {
+  const config = await readFigurineWorkflowConfig(db);
+
+  return {
+    config,
+    visibleStyles: visibleWorkflowStyles(config),
+    roleGate: {
+      active: false,
+      ...config.roleGate,
+    },
+  };
+});
+
+export const saveFigurineWorkflowConfig = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError(
+      "unauthenticated",
+      "Sign in before saving workflow configuration.",
+    );
+  }
+
+  const requestedConfig =
+    request.data &&
+    typeof request.data === "object" &&
+    "config" in request.data
+      ? (request.data as { config?: unknown }).config
+      : request.data;
+
+  const config = await persistFigurineWorkflowConfig({
+    db,
+    config: requestedConfig,
+    uid: request.auth.uid,
+  });
+
+  return {
+    config,
+    visibleStyles: visibleWorkflowStyles(config),
+    roleGate: {
+      active: false,
+      ...config.roleGate,
+    },
+  };
+});
+
 export const createGenerationJob = onCall(
   {
     secrets: vertexRuntimeSecrets,
+    timeoutSeconds: printFileGenerationTimeoutSeconds,
   },
   async (request) => {
     if (!request.auth) {
@@ -1106,9 +1157,23 @@ export const createGenerationJob = onCall(
       );
     }
 
+    const workflowConfig = await readFigurineWorkflowConfig(db);
+    const workflowStyle = resolveVisibleWorkflowStyle(
+      workflowConfig,
+      parsed.data.selectedStyle,
+    );
+
+    if (!workflowStyle) {
+      throw new HttpsError(
+        "invalid-argument",
+        "Selected style is not available in the current workflow configuration.",
+      );
+    }
+
     const productType =
       parsed.data.productType === "figurine" ||
-      isFigurineStyle(parsed.data.selectedStyle)
+      workflowStyle.productType === "figurine" ||
+      isFigurineStyle(workflowStyle.id)
         ? "figurine"
         : "poster";
     const jobRef = db.collection("jobs").doc(parsed.data.jobId);
@@ -1118,7 +1183,7 @@ export const createGenerationJob = onCall(
       const isSameUpload =
         existingJobData?.uid === request.auth.uid &&
         existingJobData.sourceImagePath === parsed.data.sourceImagePath &&
-        existingJobData.selectedStyle === parsed.data.selectedStyle &&
+        existingJobData.selectedStyle === workflowStyle.id &&
         (existingJobData.productType ?? "poster") === productType;
 
       if (isSameUpload) {
@@ -1140,10 +1205,17 @@ export const createGenerationJob = onCall(
       productType,
       status: "generating",
       sourceImagePath: parsed.data.sourceImagePath,
-      selectedStyle: parsed.data.selectedStyle,
+      selectedStyle: workflowStyle.id,
+      selectedStyleLabel: workflowStyle.label,
+      workflowConfig: {
+        configPath: "adminConfig/figurineWorkflow",
+        proofGenerationCount: workflowConfig.proofGenerationCount,
+        visibleStyleCount: workflowConfig.visibleStyleCount,
+        roleGateEnabled: workflowConfig.roleGate.enabled,
+      },
       ...(productType === "figurine"
         ? {
-            figurineStyle: "creative_lab_figure",
+            figurineStyle: workflowStyle.id,
             postureMode: "natural",
             conceptSource: "generated_2d_proof",
             generated3dProvider: "meshy",
@@ -1181,34 +1253,44 @@ export const createGenerationJob = onCall(
         jobId: jobRef.id,
         uid: request.auth.uid,
         sourceImagePath: parsed.data.sourceImagePath,
-        selectedStyle: parsed.data.selectedStyle,
+        selectedStyle: workflowStyle.id,
+        selectedStyleLabel: workflowStyle.label,
+        productType,
+        proofGenerationCount: workflowConfig.proofGenerationCount,
+        baseProofPrompt: workflowConfig.baseProofPrompt,
+        stylePrompt: workflowStyle.prompt,
       });
-      const proofStoragePath =
+      const proofStoragePaths =
         generation.status === "stubbed"
-          ? parsed.data.sourceImagePath
-          : generation.generatedImagePaths[0];
+          ? Array.from(
+              {
+                length:
+                  generation.generatedImagePaths.length ||
+                  workflowConfig.proofGenerationCount,
+              },
+              () => parsed.data.sourceImagePath,
+            )
+          : generation.generatedImagePaths;
 
-      if (!proofStoragePath) {
+      if (proofStoragePaths.length === 0) {
         throw new Error("AI provider returned no generated proof image path.");
       }
 
       await jobRef.set(
         {
           status: "preview_ready",
-          generatedImages: [
-            {
-              id: "preview-1",
-              label:
-                generation.status === "stubbed"
-                  ? "Source photo proof"
-                  : productType === "figurine"
-                    ? "Generated figurine proof"
-                    : "Generated poster proof",
-              storagePath: proofStoragePath,
-              status: "ready",
-              isPlaceholder: generation.status === "stubbed",
-            },
-          ],
+          generatedImages: proofStoragePaths.map((proofStoragePath, index) => ({
+            id: `preview-${index + 1}`,
+            label:
+              generation.status === "stubbed"
+                ? `Source photo proof ${index + 1}`
+                : productType === "figurine"
+                  ? `Figurine proof ${index + 1}`
+                  : `Poster proof ${index + 1}`,
+            storagePath: proofStoragePath,
+            status: "ready",
+            isPlaceholder: generation.status === "stubbed",
+          })),
           aiGeneration: {
             provider: generation.provider,
             status: generation.status,

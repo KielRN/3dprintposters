@@ -193,14 +193,21 @@ function addGeminiProofItems(
   const metadata = asRecord(aiGeneration?.metadata);
   const model = asString(metadata?.model) ?? "gemini-3-pro-image";
   const sourceImagePath = asString(jobData.sourceImagePath);
-  const generatedImages = Array.isArray(jobData.generatedImages)
+  const generatedImageRecords = Array.isArray(jobData.generatedImages)
     ? jobData.generatedImages
+        .map((entry) => asRecord(entry))
+        .filter((entry): entry is Record<string, unknown> =>
+          Boolean(asString(entry?.storagePath)),
+        )
     : [];
-  const generatedImage = generatedImages
-    .map((entry) => asRecord(entry))
-    .find((entry) => asString(entry?.storagePath));
-  const generatedImagePath = asString(generatedImage?.storagePath);
+  const generatedImagePath = asString(generatedImageRecords[0]?.storagePath);
   const outputMimeType = asString(metadata?.outputMimeType);
+  const proofGenerationCount = Math.max(
+    1,
+    asNumber(metadata?.proofGenerationCount) ??
+      generatedImageRecords.length ??
+      1,
+  );
 
   if (!metadata && !generatedImagePath) {
     return;
@@ -214,10 +221,12 @@ function addGeminiProofItems(
       modelOrEndpoint: model,
       taskId: "input-image",
       status,
-      quantity: 1,
-      unit: "image",
+      quantity: proofGenerationCount,
+      unit: proofGenerationCount === 1 ? "image" : "images",
       credits: 0,
-      estimatedCostUsd: pricing.geminiInputImageUsd,
+      estimatedCostUsd: roundMoney(
+        pricing.geminiInputImageUsd * proofGenerationCount,
+      ),
       confidence: "estimated",
       pricingBasis:
         "Gemini proof-generation input image estimate from the current pricing assumptions.",
@@ -231,15 +240,21 @@ function addGeminiProofItems(
       modelOrEndpoint: model,
       taskId: "output-image",
       status,
-      quantity: 1,
-      unit: outputMimeType ? `${outputMimeType} proof image` : "proof image",
+      quantity: proofGenerationCount,
+      unit: outputMimeType
+        ? `${outputMimeType} proof image${proofGenerationCount === 1 ? "" : "s"}`
+        : `proof image${proofGenerationCount === 1 ? "" : "s"}`,
       credits: 0,
-      estimatedCostUsd: pricing.geminiOutputImageUsd,
+      estimatedCostUsd: roundMoney(
+        pricing.geminiOutputImageUsd * proofGenerationCount,
+      ),
       confidence: "estimated",
       pricingBasis:
         "Gemini proof-generation output image estimate from the current pricing assumptions.",
       notes: generatedImagePath
-        ? `Generated proof: ${generatedImagePath}.`
+        ? generatedImageRecords.length > 1
+          ? `Generated proof 1 of ${generatedImageRecords.length}: ${generatedImagePath}.`
+          : `Generated proof: ${generatedImagePath}.`
         : "Generated proof path is not stored on the job.",
     },
     {
@@ -248,10 +263,15 @@ function addGeminiProofItems(
       modelOrEndpoint: model,
       taskId: "text-prompt-and-response",
       status,
-      quantity: 1,
-      unit: "estimated text call",
+      quantity: proofGenerationCount,
+      unit:
+        proofGenerationCount === 1
+          ? "estimated text call"
+          : "estimated text calls",
       credits: 0,
-      estimatedCostUsd: pricing.geminiTextAllowanceUsd,
+      estimatedCostUsd: roundMoney(
+        pricing.geminiTextAllowanceUsd * proofGenerationCount,
+      ),
       confidence: "estimated",
       pricingBasis:
         "Placeholder allowance for prompt text, response text, and possible thinking tokens.",

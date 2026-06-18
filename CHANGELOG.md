@@ -13,6 +13,8 @@ All notable project changes will be documented in this file.
 
 ### Added
 
+- Added a dev workflow admin page at `/admin` for proof-generation controls. It can edit the base proof prompt, the default four proof options per upload, how many Style options are shown, and each style's customer-facing prompt; role-based permission is recorded as a placeholder but not enforced yet.
+- Added Firestore-backed figurine workflow configuration callables. `createGenerationJob` now reads the saved config, generates up to four proof images through the server-side Vertex/Gemini adapter, stores each proof as a separate `generatedImages` option, and persists the selected style label/prompt metadata on the job.
 - Added per-job provider cost snapshots for figurine jobs. Firebase Functions now calculate `jobCost` after proof generation, Creative Lab preview generation, deterministic assembly refreshes, and Meshy print-tooling runs, separating exact Meshy credits from estimated USD assumptions and approximate Gemini proof-generation cost.
 - Added `docs/BUSINESS.md` and `docs/figurine-job-cost-estimate-dc7f29eb.csv` as the first provider-cost baseline for the successful Meshy/Gemini figurine job, separating exact Meshy credits from approximate Gemini image-generation cost.
 - Added `DECISIONS.md` as the durable product and architecture decision log, split current implementation state into `PROJECT_STATE.md`, and kept `AI_DEVELOPER_NOTES.md` as a compatibility pointer for older agent instructions.

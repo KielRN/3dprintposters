@@ -6,7 +6,7 @@ Source screenshots: `docs/archive/human-tasks-archived-2026-06-11/printu-1.png` 
 
 This document maps the desired customer-facing workflow for the new standalone figurine product. The UI reference is MakerWorld PrintU; the implementation target is 3DPrintPosters / 3DPrintYou with Meshy behind a server-side provider boundary. Meshy should remain an implementation detail in the customer UI except where we need honest warnings about provider status, printability, file formats, or manual fulfillment.
 
-Immediate implementation target: first recreate the smooth no-base Creative Lab Figure workflow proven by Experiment 009, starting from the existing uploaded-photo flow and preserving `Natural pose` as the default product posture when exposed. This preview path was validated in the normal app workflow on 2026-06-07 with job `cfc9039a-d83c-48d7-9ed5-39f214fce6c6`: upload photo -> Creative Lab Figure style -> generated 2D proof -> proof approval -> server-side Meshy Creative Lab Figure -> Storage-backed original textured GLB -> color figurine preview with checkout locked. Local emulator runs mirror the preview `model.glb`, `metadata.json`, and optional `thumbnail.png` to `.tmp/print-files/{uid}/{jobId}/figurine/creative-lab-original/` for Blender/slicer inspection. Other styles and posture modes should be evaluated after this path stays reliable end to end.
+Immediate implementation target: first recreate the smooth no-base Creative Lab Figure workflow proven by Experiment 009, starting from the existing uploaded-photo flow and preserving `Natural pose` as the default product posture when exposed. This preview path was validated in the normal app workflow on 2026-06-07 with job `cfc9039a-d83c-48d7-9ed5-39f214fce6c6`: upload photo -> Creative Lab Figure style -> generated 2D proof -> proof approval -> server-side Meshy Creative Lab Figure -> Storage-backed original textured GLB -> color figurine preview with checkout locked. As of 2026-06-18, the proof stage defaults to four generated 2D concept options, and the dev `/admin` page can edit the base proof prompt, visible Style count, and per-style prompts through server-read workflow configuration. Local emulator runs mirror the preview `model.glb`, `metadata.json`, and optional `thumbnail.png` to `.tmp/print-files/{uid}/{jobId}/figurine/creative-lab-original/` for Blender/slicer inspection. Other styles and posture modes should be evaluated after this path stays reliable end to end.
 
 ## Product Goal
 
@@ -471,8 +471,8 @@ The official preview pipeline v1 is:
 2. User uploads one clear image.
 3. User chooses `Creative Lab Figure`.
 4. Backend stores a figurine job with `productType: "figurine"` and default `postureMode: "natural"`.
-5. Backend generates a 2D figurine proof.
-6. User approves the selected proof for 3D generation.
+5. Backend generates four 2D figurine proof options by default.
+6. User approves one selected proof for 3D generation.
 7. Backend submits/polls Meshy Creative Lab Figure through a server-side adapter.
 8. Backend downloads the original textured Creative Lab `model.glb` into job-scoped Storage at `print-files/{uid}/{jobId}/figurine/creative-lab-original/model.glb`.
 9. Backend updates `figurinePreview.status` to `preview_ready` and `figurinePreview.printReadiness` to `needs_review`.

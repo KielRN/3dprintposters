@@ -739,8 +739,8 @@ Pipeline:
 1. User uploads a source photo in the normal app flow.
 2. User selects `Creative Lab Figure`.
 3. Firebase Functions creates a `productType: "figurine"` job.
-4. Vertex/Gemini generates a 2D figurine proof.
-5. User approves the proof.
+4. Vertex/Gemini generates four 2D figurine proof options by default.
+5. User approves one selected proof.
 6. `approveGeneratedImage` branches server-side into the Meshy Creative Lab Figure provider adapter.
 7. Functions submits/polls Meshy Creative Lab Figure prototype/build tasks.
 8. Functions downloads the original textured Creative Lab `model.glb` into Firebase Storage under:
@@ -920,7 +920,7 @@ For local experiments, continue using:
 
 Current preview implementation:
 
-- `createGenerationJob` accepts/infers `productType: "figurine"` for `creative_lab_figure`.
+- `createGenerationJob` accepts/infers `productType: "figurine"` from the server-read workflow style config, defaults to four proof options, and persists the selected style label/prompt metadata on the job.
 - `approveGeneratedImage` approves the 2D proof and dispatches Creative Lab Figure generation for figurine jobs.
 - `createCheckoutSession` rejects figurine jobs until a future print-ready fulfillment path exists.
 

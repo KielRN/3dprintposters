@@ -1,6 +1,8 @@
 import { ReliefPreview } from "@/components/ReliefPreview";
 import { PwaInstallButton } from "@/components/PwaInstallButton";
 import { UploadFlow } from "@/components/UploadFlow";
+import { Settings } from "lucide-react";
+import Link from "next/link";
 
 const steps = ["Upload", "Generate", "Relief", "Checkout"];
 
@@ -24,7 +26,16 @@ export default function Home() {
               </span>
             ))}
           </nav>
-          <PwaInstallButton />
+          <div className="flex items-center gap-2">
+            <Link
+              className="secondary-button h-10 min-h-0 shrink-0 px-3"
+              href="/admin"
+            >
+              <Settings size={16} aria-hidden="true" />
+              Admin
+            </Link>
+            <PwaInstallButton />
+          </div>
         </header>
 
         <div className="grid min-w-0 flex-1 gap-5 py-5 lg:grid-cols-[minmax(0,0.92fr)_minmax(420px,1.08fr)]">

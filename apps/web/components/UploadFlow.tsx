@@ -2,6 +2,12 @@
 
 import { getFirebaseClients } from "@/lib/firebase";
 import {
+  defaultFigurineWorkflowConfig,
+  normalizeFigurineWorkflowConfigResponse,
+  visibleWorkflowStyles,
+  type WorkflowStyleConfig,
+} from "@/lib/figurineWorkflowConfig";
+import {
   AlertCircle,
   CheckCircle2,
   FileCheck2,
@@ -25,14 +31,6 @@ import {
 } from "firebase/auth";
 import { httpsCallable } from "firebase/functions";
 import { ref, uploadBytes } from "firebase/storage";
-
-const styles = [
-  { id: "creative_lab_figure", label: "Creative Lab Figure" },
-  { id: "gallery-relief", label: "Gallery Relief" },
-  { id: "anime-poster", label: "Anime Poster" },
-  { id: "cyberpunk", label: "Cyberpunk" },
-  { id: "storybook", label: "Storybook" },
-];
 
 type JobState = "idle" | "ready" | "queued" | "review";
 type AuthMode = "sign-in" | "create";
@@ -66,16 +64,29 @@ export function UploadFlow() {
   const [authError, setAuthError] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState("");
-  const [styleId, setStyleId] = useState(styles[0].id);
+  const [workflowConfig, setWorkflowConfig] = useState(
+    defaultFigurineWorkflowConfig,
+  );
+  const [styleId, setStyleId] = useState(
+    defaultFigurineWorkflowConfig.styles[0].id,
+  );
+  const [workflowConfigError, setWorkflowConfigError] = useState("");
   const [jobState, setJobState] = useState<JobState>("idle");
   const [jobId, setJobId] = useState("");
   const [workflowError, setWorkflowError] = useState("");
   const [statusMessage, setStatusMessage] = useState(
     "Choose a photo to start.",
   );
-  const selectedStyle = useMemo(
-    () => styles.find((style) => style.id === styleId) ?? styles[0],
-    [styleId],
+  const styles = useMemo(
+    () => visibleWorkflowStyles(workflowConfig),
+    [workflowConfig],
+  );
+  const selectedStyle = useMemo<WorkflowStyleConfig>(
+    () =>
+      styles.find((style) => style.id === styleId) ??
+      styles[0] ??
+      defaultFigurineWorkflowConfig.styles[0],
+    [styleId, styles],
   );
 
   useEffect(() => {
@@ -88,6 +99,48 @@ export function UploadFlow() {
       setUser(nextUser);
       setAuthLoading(false);
     });
+  }, [firebaseClients]);
+
+  useEffect(() => {
+    if (!firebaseClients) {
+      return;
+    }
+
+    let cancelled = false;
+    const getWorkflowConfig = httpsCallable<Record<string, never>, unknown>(
+      firebaseClients.functions,
+      "getFigurineWorkflowConfig",
+    );
+
+    void getWorkflowConfig({})
+      .then((result) => {
+        if (cancelled) {
+          return;
+        }
+
+        const nextConfig = normalizeFigurineWorkflowConfigResponse(result.data);
+        const nextStyles = visibleWorkflowStyles(nextConfig);
+        setWorkflowConfig(nextConfig);
+        setStyleId((currentStyleId) =>
+          nextStyles.some((style) => style.id === currentStyleId)
+            ? currentStyleId
+            : (nextStyles[0]?.id ?? defaultFigurineWorkflowConfig.styles[0].id),
+        );
+        setWorkflowConfigError("");
+      })
+      .catch((configError) => {
+        if (!cancelled) {
+          setWorkflowConfigError(
+            configError instanceof Error
+              ? configError.message
+              : "Using default workflow settings.",
+          );
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [firebaseClients]);
 
   async function submitAuth() {
@@ -147,7 +200,7 @@ export function UploadFlow() {
     }
 
     if (!user) {
-      setWorkflowError("Sign in before generating a poster.");
+      setWorkflowError("Sign in before generating a model.");
       return;
     }
 
@@ -172,6 +225,7 @@ export function UploadFlow() {
           customMetadata: {
             originalFileName: selectedFile.name,
             selectedStyle: styleId,
+            selectedStyleLabel: selectedStyle.label,
           },
         },
       );
@@ -186,8 +240,7 @@ export function UploadFlow() {
         jobId: nextJobId,
         sourceImagePath,
         selectedStyle: styleId,
-        productType:
-          styleId === "creative_lab_figure" ? "figurine" : "poster",
+        productType: selectedStyle.productType,
       });
 
       setJobId(result.data.jobId);
@@ -379,6 +432,12 @@ export function UploadFlow() {
         </select>
       </div>
 
+      {workflowConfigError ? (
+        <p className="mt-3 rounded-lg border border-[var(--gold)]/30 bg-[var(--gold)]/10 px-3 py-2 text-sm font-semibold text-[var(--ink)]">
+          Using default workflow settings.
+        </p>
+      ) : null}
+
       <div className="mt-5 grid gap-3 rounded-lg border border-black/10 bg-black/[0.025] p-4 text-sm">
         <div className="flex items-center justify-between gap-3">
           <span className="text-[var(--muted)]">Selected style</span>
@@ -389,17 +448,25 @@ export function UploadFlow() {
         <div className="flex items-center justify-between gap-3">
           <span className="text-[var(--muted)]">Size</span>
           <strong className="min-w-0 max-w-[58%] break-words text-right">
-            {styleId === "creative_lab_figure" ? "Preview only" : "5in x 7in"}
+            {selectedStyle.productType === "figurine"
+              ? "Preview only"
+              : "5in x 7in"}
+          </strong>
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-[var(--muted)]">Proof options</span>
+          <strong className="min-w-0 max-w-[58%] break-words text-right">
+            {workflowConfig.proofGenerationCount}
           </strong>
         </div>
         <div className="flex items-center justify-between gap-3">
           <span className="text-[var(--muted)]">
-            {styleId === "creative_lab_figure"
+            {selectedStyle.productType === "figurine"
               ? "Print readiness"
               : "Relief depth"}
           </span>
           <strong className="min-w-0 max-w-[58%] break-words text-right">
-            {styleId === "creative_lab_figure"
+            {selectedStyle.productType === "figurine"
               ? "Needs review"
               : "0.4mm to 3.0mm"}
           </strong>

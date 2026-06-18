@@ -13,19 +13,18 @@ function baseFigurineJob() {
     uid: "user-1",
     productType: "figurine",
     sourceImagePath: "uploads/user-1/job-1/source.jpg",
-    generatedImages: [
-      {
-        id: "preview-1",
-        storagePath: "generated/user-1/job-1/preview.png",
-        status: "ready",
-      },
-    ],
+    generatedImages: [1, 2, 3, 4].map((index) => ({
+      id: `preview-${index}`,
+      storagePath: `generated/user-1/job-1/preview-${index}.png`,
+      status: "ready",
+    })),
     aiGeneration: {
       provider: "vertex-gemini-direct",
       status: "succeeded",
       metadata: {
         model: "gemini-3-pro-image",
         outputMimeType: "image/png",
+        proofGenerationCount: 4,
       },
     },
   };
@@ -93,11 +92,18 @@ test("estimates Gemini proof generation cost", () => {
   const cost = calculateJobCost(baseFigurineJob(), { now });
 
   assert.equal(cost.status, "estimated");
-  assert.equal(cost.totalsByProvider.gemini?.estimatedUsd, 0.1401);
-  assert.equal(cost.providerCostUsd, 0.1401);
+  assert.equal(cost.totalsByProvider.gemini?.estimatedUsd, 0.5604);
+  assert.equal(cost.providerCostUsd, 0.5604);
   assert.equal(
     cost.items.filter((item) => item.phase === "proof_generation").length,
     3,
+  );
+  assert.deepEqual(
+    cost
+      .items
+      .filter((item) => item.phase === "proof_generation")
+      .map((item) => item.quantity),
+    [4, 4, 4],
   );
 });
 
@@ -120,11 +126,11 @@ test("totals successful print tooling without double-counting analyze rows", () 
 
   assert.equal(cost.providerCreditTotals.meshy, 51);
   assert.equal(cost.totalsByProvider.meshy?.estimatedUsd, 1.02);
-  assert.equal(cost.providerCostUsd, 1.1601);
+  assert.equal(cost.providerCostUsd, 1.5804);
   assert.equal(
     cost.items.find((item) => item.provider === "All AI providers")
       ?.estimatedCostUsd,
-    1.1601,
+    1.5804,
   );
 });
 

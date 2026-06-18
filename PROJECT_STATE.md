@@ -1,6 +1,6 @@
 # 3DPrintPosters - Project State
 
-Last updated: 2026-06-17
+Last updated: 2026-06-18
 
 ## Purpose
 
@@ -29,7 +29,8 @@ Use `STL`, not `SLT`.
 - Print-file generator: `services/print-file-generator`, FastAPI service intended for Cloud Run.
 - Dev Firebase/GCP project: `gen-lang-client-0675309660`.
 - Product domains: `3dprintyou.com` is the better-fit candidate for the figurine/customer-acquisition pivot; `3dprintposters.com` remains the existing domain and may fit the parked poster-relief line.
-- Current proof generation: direct Vertex/Gemini through `apps/functions/src/aiProvider.ts`, with generated proofs stored under `generated/{uid}/{jobId}/`.
+- Current proof generation: direct Vertex/Gemini through `apps/functions/src/aiProvider.ts`, with four default proof options stored under `generated/{uid}/{jobId}/` as separate `generatedImages` choices.
+- Dev workflow configuration now lives behind Firebase callable Functions and the `/admin` page. It controls the base proof prompt, proof count, visible Style count, and per-style prompts; role-based permission is a visible placeholder only and is not enforced by custom claims yet.
 - Current proof style contract: `super-dad-north-star-v1` in `apps/functions/src/styleContracts.ts`, which steers generated proofs toward smooth printable poster art and stores contract metadata instead of raw prompt text.
 - Official preview pipeline v1 is validated as of 2026-06-07. Creative Lab Figure jobs use the normal upload -> 2D proof -> approve flow; `approveGeneratedImage` branches server-side to Meshy Creative Lab Figure, stores the original textured `model.glb` under `print-files/{uid}/{jobId}/figurine/creative-lab-original/model.glb`, sets `figurinePreview.status: "preview_ready"` and `printReadiness: "needs_review"`, and leaves checkout locked. Elliot verified the full browser workflow with job `cfc9039a-d83c-48d7-9ed5-39f214fce6c6`, which rendered the color Creative Lab GLB preview in the job page. Fixture mode (`MESHY_FIGURINE_PROVIDER_MODE=fixture`) can exercise Storage/Firestore updates without paid Meshy calls. Local emulator runs now mirror the preview `model.glb`, `metadata.json`, and optional `thumbnail.png` under `.tmp/print-files/{uid}/{jobId}/figurine/creative-lab-original/` and record the result on `figurinePreviewLocalMirror`.
 - Graphify is installed for AI developer navigation and can be refreshed for this repo with Gemini-backed semantic extraction. `AGENTS.md` is the source of truth for usage rules and commands; the helper is `scripts/graphify/update-graph.ps1`, exposed as `npm run graphify:check`, `npm run graphify:update`, `npm run graphify:update:deep`, and `npm run graphify:update:global`. `graphify-out/` is generated local context and should remain ignored.
