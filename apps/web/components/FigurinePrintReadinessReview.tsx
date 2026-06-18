@@ -65,6 +65,20 @@ type FigurineReview = {
   notes?: string | null;
 };
 
+type JobCost = {
+  status?: string;
+  currency?: "USD";
+  providerCostUsd?: number;
+  providerCreditTotals?: {
+    meshy?: number;
+  };
+  items?: Array<{
+    phase?: string;
+    provider?: string;
+    estimatedCostUsd?: number;
+  }>;
+};
+
 type JobDocument = {
   uid: string;
   productType?: string;
@@ -88,6 +102,7 @@ type JobDocument = {
   figurineAssembly?: FigurineAssembly | null;
   figurinePrintTooling?: FigurinePrintTooling | null;
   figurineReview?: FigurineReview | null;
+  jobCost?: JobCost | null;
 };
 
 type CallableJobRequest = {
@@ -109,6 +124,32 @@ function formatNumber(value: number | undefined, digits = 2) {
   return typeof value === "number" && Number.isFinite(value)
     ? value.toFixed(digits)
     : "Pending";
+}
+
+function formatMoney(value: number | undefined, currency = "USD") {
+  return typeof value === "number" && Number.isFinite(value)
+    ? new Intl.NumberFormat("en-US", {
+        currency,
+        style: "currency",
+      }).format(value)
+    : "Pending";
+}
+
+function totalProviderCostUsd(jobCost: JobCost | null | undefined) {
+  if (
+    typeof jobCost?.providerCostUsd === "number" &&
+    Number.isFinite(jobCost.providerCostUsd)
+  ) {
+    return jobCost.providerCostUsd;
+  }
+
+  const totalItem = jobCost?.items?.find(
+    (item) => item.phase === "total" && item.provider === "All AI providers",
+  );
+  return typeof totalItem?.estimatedCostUsd === "number" &&
+    Number.isFinite(totalItem.estimatedCostUsd)
+    ? totalItem.estimatedCostUsd
+    : undefined;
 }
 
 function modelAsset(
@@ -143,6 +184,8 @@ export function FigurinePrintReadinessReview({ jobId }: { jobId: string }) {
 
   const assembly = job?.figurineAssembly ?? null;
   const tooling = job?.figurinePrintTooling ?? null;
+  const providerCostUsd = totalProviderCostUsd(job?.jobCost);
+  const meshyCredits = job?.jobCost?.providerCreditTotals?.meshy;
   const previewReady =
     job?.figurinePreview?.status === "preview_ready" &&
     Boolean(job.figurinePreview.previewGlb);
@@ -353,7 +396,7 @@ export function FigurinePrintReadinessReview({ jobId }: { jobId: string }) {
         </p>
       ) : null}
 
-      <div className="mt-6 grid gap-4 rounded-lg border border-black/10 bg-black/[0.025] p-4 text-sm sm:grid-cols-4">
+      <div className="mt-6 grid gap-4 rounded-lg border border-black/10 bg-black/[0.025] p-4 text-sm sm:grid-cols-5">
         <div>
           <p className="text-[var(--muted)]">Preview GLB</p>
           <strong>{previewReady ? "Ready" : "Missing"}</strong>
@@ -369,6 +412,15 @@ export function FigurinePrintReadinessReview({ jobId }: { jobId: string }) {
         <div>
           <p className="text-[var(--muted)]">Tooling</p>
           <strong>{labelize(tooling?.status, "Not started")}</strong>
+        </div>
+        <div>
+          <p className="text-[var(--muted)]">Approx. provider cost</p>
+          <strong>{formatMoney(providerCostUsd, job?.jobCost?.currency)}</strong>
+          {typeof meshyCredits === "number" && meshyCredits > 0 ? (
+            <p className="mt-1 text-xs text-[var(--muted)]">
+              {meshyCredits} Meshy credits
+            </p>
+          ) : null}
         </div>
       </div>
 
