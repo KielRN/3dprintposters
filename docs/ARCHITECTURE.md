@@ -2,7 +2,7 @@
 
 ## Product Shape
 
-3D Print Posters is pivoting to a mobile-first web/PWA flow for proving personalized AI figurine demand. Users upload a photo, choose a figurine style and posture, approve a 2D proof, preview a standalone generated 3D figurine, and either check out or enter a preorder/manual-fulfillment funnel.
+3D Print Posters is pivoting to a mobile-first web/PWA flow for proving personalized AI figurine demand. Public customers create a verified email account, upload a photo, choose a figurine style and posture, approve a 2D proof, preview a standalone generated 3D figurine, and check out only after the active full-color partner fulfillment path is validated.
 
 The poster-relief product remains implemented R&D. If that line resumes, users upload a photo, choose a style, approve controlled generated art, preview a 5in x 7in 3D relief, pay for a physical poster, and track fulfillment. The "Super Dad" generated proof remains the parked relief north star.
 
@@ -16,7 +16,7 @@ Location: `apps/web`
 
 - Next.js App Router.
 - Mobile-first responsive UI.
-- Firebase Auth for user identity, with email/password and anonymous guest sessions in the MVP UI.
+- Firebase Auth for user identity. The current UI still contains email/password and anonymous guest-session plumbing, but the public creation target is verified email before upload or job creation.
 - Firebase Storage for source uploads and generated assets.
 - Firebase callable Functions for authenticated generation job creation, proof approval, and checkout session creation.
 - Firestore reads for job/order status.
@@ -25,6 +25,12 @@ Location: `apps/web`
 
 For the figurine pivot, the same app should present a PrintU-like style/posture flow and standalone figurine GLB review instead of assuming every job has a heightmap/relief preview.
 
+### User Surfaces
+
+- Customer accounts create jobs, spend creation credits, approve proofs, review previews, and check out only when backend eligibility says the package is fulfillable.
+- Admin/operator users handle support, refunds, credit adjustments, manual holds, job review, and fulfillment exceptions through server-enforced roles.
+- Print-partner users access only assigned approved print packages, partner-facing order details, and download links needed for fulfillment.
+
 ### Firebase Functions
 
 Location: `apps/functions`
@@ -32,7 +38,8 @@ Location: `apps/functions`
 Responsibilities:
 
 - Create authenticated generation jobs.
-- Validate user quota, upload ownership, and upload metadata.
+- Validate verified email status, user quota/creation-credit state, upload ownership, and upload metadata.
+- Reserve, consume, refund, and adjust creation credits through an auditable ledger before provider-spend steps.
 - Trigger selected AI provider generation through the internal provider adapter. Direct Vertex/Gemini image generation is the default MVP route; Cloudflare AI Gateway can be added later behind the same adapter.
 - Record approved generated proofs and block checkout until approval exists.
 - Own the new figurine workflow service layer: source validation, style/posture persistence, concept history, selected concept/model IDs, generated model status, readiness, editor configuration, and checkout/preorder eligibility.
@@ -42,6 +49,7 @@ Responsibilities:
 - Receive Stripe webhooks.
 - Receive fulfillment callbacks.
 - Own Firestore status transitions that users cannot write directly.
+- Gate admin/operator and print-partner actions through server-side role checks and audit events.
 
 ### Generated 3D Model Provider
 
@@ -69,6 +77,7 @@ These services are required for the PrintU-like UI in `docs/MESHY_FIGURINE_UI_WO
 - Meshy task tracking: correlate task submission, polling, webhook events, sanitized audit data, retry/failure states, and consumed credit/cost metadata.
 - Asset ingestion: copy returned GLB, STL, optional 3MF, thumbnails, textures, and metadata into user/job-scoped Storage before Meshy retention expires.
 - Readiness and gating: summarize model availability, printability warnings, manual-review needs, and checkout/preorder/lead-capture eligibility.
+- Creation-credit gating: expose remaining credits, hard-stop provider-spend steps when credits are exhausted, and record reservations/consumption/refunds against each job.
 - Editor configuration persistence: save color mode, base style, base texture, base color, sign text/style, print-separately flags, and any supported pose/transform revisions as structured job metadata.
 
 ### Print File Generator Service
@@ -137,21 +146,21 @@ The first implementation should isolate provider logic behind a small interface:
 
 Active figurine target flow:
 
-1. User signs in with email/password or an anonymous guest session.
+1. User signs in with a verified email/password account before upload.
 2. Web app creates a job id and uploads a source JPG or PNG to `uploads/{uid}/{jobId}/source.{jpg|png}`.
 3. Web app calls `createGenerationJob` with `jobId`, `sourceImagePath`, selected figurine style, and selected posture.
-4. Function verifies the signed-in user owns the upload path and creates `jobs/{jobId}` with `status: "generating"`.
-5. Function calls the internal AI provider adapter, stores the generated 2D proof under `generated/{uid}/{jobId}/preview.{png|jpg|webp}`, stores non-secret `aiGeneration` metadata, and marks the job `preview_ready` or `failed`.
+4. Function verifies the signed-in user owns the upload path, has verified email, has enough creation credits for the requested step, and creates `jobs/{jobId}` with `status: "generating"`.
+5. Function reserves/consumes the needed creation credits, calls the internal AI provider adapter, stores the generated 2D proof under `generated/{uid}/{jobId}/preview.{png|jpg|webp}`, stores non-secret `aiGeneration` metadata, and marks the job `preview_ready` or `failed`.
 6. Job `generatedImages` lists the generated proof Storage path so the approval and checkout flow use the real AI output.
 7. User selects/approves one concept; the Function records `selectedConceptId`, `approvedImagePath`, and concept approval metadata.
 8. Backend dispatches the generated 3D model provider through the figurine workflow service, starting with Meshy if validation passes.
 9. Backend tracks task submission, polling/webhook events, and provider status.
 10. Backend downloads returned model assets into Storage under a path such as `generated-models/{uid}/{jobId}/{modelId}/`.
 11. Job stores model history, selected model ID, provider audit, task id, status, warnings, consumed credits/cost, preview path, and readiness.
-12. User reviews the standalone figurine GLB, optionally edits supported color/base/sign settings, and starts checkout, preorder, or lead capture.
+12. User reviews the standalone figurine GLB, optionally edits supported color/base/sign settings, and starts checkout only if backend eligibility says the package matches the validated full-color partner fulfillment path.
 13. Stripe webhook confirms payment if checkout is enabled.
 14. Function sends the locked model manifest and shipping data to manual or automated fulfillment only after the selected fulfillment path is validated.
-15. Fulfillment events update the order record.
+15. Partner users download the approved package through scoped access, and fulfillment events update the order record.
 
 Parked poster-relief flow: after proof approval, backend dispatches `services/print-file-generator`; the service writes `model.stl`, color package artifacts, filament painting support files, `heightmap.png`, `preview.glb`, and printability metadata; checkout is gated on generated print-file artifacts.
 
@@ -161,10 +170,71 @@ Parked poster-relief flow: after proof approval, backend dispatches `services/pr
 
 - `email`
 - `displayName`
-- `createdAt`
 - `stripeCustomerId`
-- `quota`
+- `emailVerified`
 - `role`
+- `creationCreditBalance`
+- `quota`
+- `acceptedPolicyVersions`
+- `createdAt`
+- `updatedAt`
+
+### `userCreditLedger/{entryId}`
+
+- `uid`
+- `jobId`
+- `orderId`
+- `type`
+- `amount`
+- `status`
+- `reason`
+- `createdBy`
+- `createdAt`
+- `reconciledJobCostSnapshot`
+
+### `adminAuditEvents/{eventId}`
+
+- `actorUid`
+- `actorRole`
+- `targetUid`
+- `jobId`
+- `orderId`
+- `eventType`
+- `summary`
+- `createdAt`
+
+### `printPartnerAssignments/{assignmentId}`
+
+- `partnerUid`
+- `partnerId`
+- `orderId`
+- `jobId`
+- `packagePrefix`
+- `status`
+- `expiresAt`
+- `createdAt`
+
+### `partnerDownloadEvents/{eventId}`
+
+- `partnerUid`
+- `partnerId`
+- `orderId`
+- `jobId`
+- `artifactPath`
+- `createdAt`
+
+### `partnerCostSnapshots/{snapshotId}`
+
+- `partnerId`
+- `orderId`
+- `jobId`
+- `quoteId`
+- `estimatedCost`
+- `finalInvoiceCost`
+- `currency`
+- `includesShipping`
+- `includesTax`
+- `createdAt`
 
 ### `jobs/{jobId}`
 
@@ -250,6 +320,10 @@ Suggested statuses:
 - The client cannot mark jobs complete, set STL paths, set fulfillment data, or mark orders paid.
 - Stripe, fulfillment provider, model provider, Cloudflare, and service account credentials live only in server runtimes.
 - Every external side effect should be idempotent and logged.
+- Public creation requires verified email and server-side creation-credit checks before provider-spend steps.
+- Admin/operator and print-partner pages must be backed by server-side role checks, scoped queries, and audit logs.
+- Print partners can download only assigned approved packages through scoped links; they cannot browse customer Storage paths or full customer profiles.
+- Policy acceptance, likeness consent, minor/guardian consent, and refund/support actions should be versioned or logged so future disputes are reviewable.
 
 ## Domain and Hosting Direction
 

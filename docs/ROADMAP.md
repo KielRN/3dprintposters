@@ -25,7 +25,7 @@ Source-of-truth split:
 - 🟡 Named base service — deterministic `figurine-square-v1` named-base service exists with `POST /v1/figurine/named-base`, `updateFigurineBaseConfig`, fresh artifact prefixes, and job-page preview controls. Manual lettering, slicer, and manifest approval are still needed before calling it product-approved.
 - 🟡 Body/base assembly — deterministic body-on-named-base composition now exists in `services/print-file-generator` with explicit `150mm` body scaling, source preservation, GLB/STL/3MF exports, and `generateFigurineAssembly`. Real-job Blender/slicer validation is still required.
 - 🟡 Print conversion/readiness — `runFigurinePrintTooling` now promotes the Exp 010-style provider path into Functions for assembled packages: Analyze, Repair, Analyze repaired, Remesh, and Analyze remeshed GLB/STL. The core decision remains open because Meshy Repair is textureless and Meshy Remesh may still fail printability.
-- 🔴 Fulfillment path — public purchase path is undecided: paid preorder/manual fulfillment versus fully automated checkout. No path should imply automatic print readiness yet.
+- 🔴 Fulfillment path — first intended public purchase path is automated checkout for full-color partner fulfillment, but checkout remains blocked until the selected partner's file, quote, order, policy, and print-readiness requirements are validated. No path should imply automatic print readiness yet.
 - 🔴 Public policy and economics — provider terms, cost ceilings, likeness/privacy rules, moderation, and customer-content limits still need explicit product decisions before public traffic.
 
 ## Phase C — Provider Boundary And Job State
@@ -34,21 +34,23 @@ Source-of-truth split:
 - 🟡 Model history and retry controls — add richer model-generation history, visible retry/status controls, provider task IDs, status transitions, credits, failure reasons, and retry attempts without storing secrets.
 - 🟡 Webhook/poll reconciliation — reconcile polling and webhook events into one Firestore-visible state model.
 - 🟡 Asset ingestion — keep provider assets job-scoped and ingest them immediately because external retention can be short.
-- ⚪ Cost, moderation, and quota gates — add cost ceilings, moderation checks, and provider failure states before wider traffic.
+- ⚪ Cost, moderation, and quota gates — add cost ceilings, moderation checks, user-facing creation credits, server-side hard stops before provider-spend steps, and provider failure states before wider traffic.
 
 ## Phase D — First Purchase-Intent Funnel
 
-- ⚪ Purchase-intent decision — decide whether the first public path is lead capture, paid preorder/manual fulfillment, or fully automated checkout.
+- 🟡 Purchase-intent direction — target automated checkout for full-color partner fulfillment; implementation remains blocked on partner requirements, backend eligibility, and print-readiness validation.
 - ⚪ Backend eligibility rules — wire checkout/preorder eligibility to backend job state, not only browser UI.
+- ⚪ User credit ledger — track customer creation credits with atomic reserve/consume/refund adjustments, show remaining credits before generation, and tie usage back to `jobCost`.
 - ⚪ Funnel analytics — track upload, proof generation, proof approval, 3D preview readiness, base-name edits, checkout/preorder intent, and abandonment.
 - ⚪ Stripe production readiness — keep Stripe in test mode until the selected path is represented honestly and verified end to end.
-- ⚪ Product rules — document and enforce likeness, minors/consent, celebrities/IP, unsafe content, refunds, and manual-review rules.
+- ⚪ Account and product rules — require verified email before public creation; document and enforce account lifecycle, likeness, minors/consent, celebrities/IP, unsafe content, refunds, retention, and manual-review rules.
 
 ## Phase E — Public Exposure And Ops
 
 - 🟡 Domains — `3dprintyou.com` is the preferred domain for the figurine pivot; Meshy webhook custom domain is live. Public app hosting/staging is not the main validated path yet.
 - ⚪ Staging/production hosting — create staging and production hosting only after the figurine funnel is ready enough to expose honestly.
-- ⚪ Admin/support view — add visibility for failed jobs, retries, payment mismatches, fulfillment holds, and manual decisions.
+- ⚪ Admin/support view — add visibility for failed jobs, retries, payment mismatches, refunds, usage-credit adjustments, fulfillment holds, and manual decisions.
+- ⚪ Print-partner portal — add scoped partner access for approved print-package downloads, download audit events, and partner cost capture for margin review.
 - ⚪ Alerts and cleanup — add alerting for model cost spikes, failed webhooks, fulfillment failures, and storage growth; add cleanup jobs for abandoned uploads and expired artifacts.
 
 ## Phase F — Parked Or Later Work

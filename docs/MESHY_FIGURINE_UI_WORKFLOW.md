@@ -10,7 +10,7 @@ Immediate implementation target: first recreate the smooth no-base Creative Lab 
 
 ## Product Goal
 
-The user should be able to start with one photo, choose a figurine style and posture, approve a 2D concept proof, generate a standalone 3D figurine, inspect it, optionally tune print-facing presentation settings, and then continue into preorder, checkout, or lead capture only after the output is honestly represented.
+The user should be able to create a verified email account, start with one photo, choose a figurine style and posture, approve a 2D concept proof, generate a standalone 3D figurine, inspect it, optionally tune print-facing presentation settings, and then check out only after the output is honestly represented and the selected full-color partner fulfillment path is validated.
 
 The first version should feel like a product creation flow, not an engineering console. The customer-facing labels can say "Generate 2D concept" and "Generate 3D figurine"; admin/debug surfaces can record Meshy task IDs, provider versions, credits, file URLs, and webhook state.
 
@@ -29,7 +29,10 @@ Required services:
 - Webhook/async state bridge: connect Meshy polling and/or the Cloudflare webhook receiver to Firestore job/model history and readiness state.
 - Artifact/readiness service: inspect available assets and report `preview_ready`, `needs_review`, `printability_warning`, `print_ready`, or `blocked`.
 - Editor configuration persistence: save customer-facing color mode, base shape/texture/color, sign text/style, and supported posture/transform settings as structured metadata.
+- Creation-credit service: show remaining customer creation credits, reserve/consume credits before provider-spend steps, and explain hard-stop states when credits are exhausted.
+- Policy/consent service: store accepted versions for terms, privacy, likeness consent, minors/guardian rules, celebrity/IP policy, and refund policy before paid or provider-spend steps require them.
 - Checkout/preorder/lead-capture gate: allow purchase intent only when the selected model and fulfillment path are represented honestly.
+- Admin and partner surfaces: support admin refunds/credit adjustments/manual holds, and scoped print-partner package downloads after checkout/fulfillment assignment.
 
 ## Workflow Overview
 
@@ -187,9 +190,10 @@ Expected UI elements:
 Pre-generation checks:
 
 - Image meets file and decode requirements.
-- Job owner/session is valid.
+- Job owner is signed in with verified email.
 - Selected style and posture are supported.
 - User has accepted any required likeness/content terms.
+- User has enough creation credits for the provider-spend step.
 - Backend can create an idempotent concept-generation request.
 
 ## 7. 2D Concept Generation Progress
@@ -527,19 +531,30 @@ The workflow needs job metadata beyond the existing poster-relief flow:
 
 ## Checkout And Lead Capture Rules
 
-Checkout, preorder, or lead capture may happen only when the user is not misled about what exists.
+Checkout, preorder, or lead capture may happen only when the user is not misled about what exists. The current intended public purchase path is automated checkout for full-color partner fulfillment, but checkout stays blocked until partner requirements and print-readiness are represented in backend eligibility.
 
 Allow:
 
 - Lead capture after concept generation if the copy says the 3D figurine is not ready yet.
 - Preorder after a generated 3D model exists and fulfillment is manual or pending review.
-- Checkout only when the active output mode has a validated fulfillment path.
+- Checkout only when the active output mode has a validated fulfillment path, the customer has accepted required policies, and payment/fulfillment state can be reconciled.
 
 Do not allow:
 
 - Checkout from a 2D concept alone unless the product is explicitly sold as "we will manually create this."
 - Full-color checkout if full-color is only a preview mode.
 - Export/download buttons that imply ownership or printability before policy and business rules are decided.
+- Provider-spend generation when the customer is out of creation credits.
+
+## Account, Credits, And Support Rules
+
+- Require a verified email account before upload/job creation in the public workflow.
+- Show remaining creation credits before provider-spend actions and explain out-of-credit hard stops in customer language.
+- Keep provider task IDs, raw credit/cost metadata, and file URLs on admin/debug surfaces, not the main customer creation screen.
+- Preserve failed attempts that consumed provider credits and route unclear retry/refund cases to admin review.
+- Admin/operator users need server-enforced access for refunds, credit adjustments, manual holds, customer support, and fulfillment exceptions.
+- Print-partner users need scoped package download access for assigned approved orders only; downloads should create audit events.
+- Store policy/version acceptance for likeness, minors/guardian consent, celebrity/IP/content limits, privacy, terms, and refunds on the job or order.
 
 ## Analytics Events
 
@@ -556,17 +571,21 @@ Track the funnel at these points:
 - 3D generation started.
 - Meshy/provider task completed or failed.
 - 3D preview viewed.
+- Creation credits exhausted.
 - Editor opened.
 - Color mode selected.
 - Base/sign edited.
 - Readiness warning viewed.
 - Checkout/preorder/lead capture clicked.
+- Admin refund or credit adjustment.
+- Print-partner package download.
 - Abandonment by step.
 
 ## Open Product Decisions
 
 - Whether Emoji/avatar should remain the public default after the first Meshy validation workflow, or whether Bobblehead, Chibi, or Cartoon performs better.
-- Whether public MVP sells single-color only, multi-color preorder, full-color partner fulfillment, or manual review first.
+- Which full-color partner is the first automated checkout target, including file formats, quote rules, order handoff, shipping, policy constraints, and final invoice reconciliation.
+- Customer credit rules: initial balance, paid/free credit policy, step pricing, retry/refund behavior, and admin grant/adjustment rules.
 - Whether customers should be allowed to export model files.
 - Whether post-generation posture editing is in MVP or deferred.
 - Which base/sign options are safe enough for first launch.

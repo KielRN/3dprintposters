@@ -11,13 +11,14 @@ This project is still in local MVP development. It is not production-ready yet.
 Working now:
 
 - Next.js customer app in `apps/web`
-- Firebase Auth sign-in, including guest sessions
+- Firebase Auth sign-in; public creation target is verified email before upload/job creation
 - Browser upload to Firebase Storage
 - Firebase callable Functions for job creation, proof approval, print-file generation orchestration, and checkout
 - Direct Vertex/Gemini proof-generation adapter in `apps/functions`
 - New product direction documented in `research/FIGURINE_PROVIDER_RESEARCH.md`: PrintU-like figurine workflow first, Meshy.ai as the first image-to-3D provider candidate, relief parked as R&D
 - Local root `.env` has `MESHY_API_KEY` for a paid Meshy account; never print or commit the value
 - Preview-only Meshy Creative Lab figurine workflow: proof approval can call the server-side Meshy provider adapter, store the original textured `model.glb` under `print-files/{uid}/{jobId}/figurine/creative-lab-original/`, show it on the job page, and keep checkout locked while `printReadiness` is `needs_review`
+- Planned user model: customer accounts, admin/operator users, and print-partner users with separate server-enforced permissions
 - First Meshy/base scale contract: job `f604d393-bfa2-4779-b05b-f6a2082604c9` established a matched raw GLB-scale square base under `.tmp/gold-standard/Figurine Standard Square Base/`; the target printable height is `150mm`, giving an expected base of about `105.24mm x 105.24mm x 24.00mm`
 - Python print-file generator service for 400px mesh-output STL, 768px geometry-analysis depth/mask/detail work, geometry-only proof cleanup, contour-smoothed subject edges, HueForge-like lithophane subject height blending, reduced surface-intent smoothing, graphic emboss for text/logos, face-aware texture damping, face/forehead pit guarding, image-colored GLB preview, heightmap, metadata, full-color packages, filament painting guides, debug artifacts, region roughness metrics, and printability output
 - Current relief-quality direction: surface-intent aware generation where `lithophane_baseline` drives more of the subject height signal, semantic depth controls broad shape/background separation, skin/scalp/neck/simple clothing/backgrounds stay controlled instead of over-smoothed, and text/logos/emblems/panel lines remain deliberate and inspectable
@@ -452,7 +453,9 @@ Use Stripe test mode until payment, webhook, and fulfillment state transitions a
 - [ ] Add `staging` and `production` aliases to `.firebaserc`.
 - [ ] Enable Firebase Auth in staging and production.
 - [ ] Enable Email/Password sign-in.
-- [ ] Decide whether Anonymous sign-in is allowed publicly.
+- [ ] Require verified email before public upload/job creation.
+- [ ] Disable anonymous public creation, or keep anonymous sign-in restricted to local/internal testing.
+- [ ] Add account lifecycle flows for password reset, email change, account deletion/export, and past-order retention.
 - [ ] Enable Firestore.
 - [ ] Enable Cloud Storage.
 - [ ] Deploy Firestore and Storage rules to staging.
@@ -470,7 +473,8 @@ Use Stripe test mode until payment, webhook, and fulfillment state transitions a
 - [ ] Store `VERTEX_API_KEY` as a Firebase Functions secret.
 - [ ] Confirm production model and `VERTEX_IMAGE_MODEL`.
 - [ ] Add moderation and safety review for uploads and generated content.
-- [ ] Add user quotas and abuse controls.
+- [ ] Add user-facing creation credits, server-side reserve/consume/refund ledger, and out-of-credit hard stops before provider-spend steps.
+- [ ] Add abuse controls for duplicate accounts, excessive uploads, retry loops, and provider-spend attempts.
 - [ ] Add cost caps and alerts for AI usage.
 - [ ] Add structured logs for job state changes.
 - [ ] Add retry behavior or queueing with Cloud Tasks/Pub/Sub.
@@ -513,18 +517,22 @@ Use Stripe test mode until payment, webhook, and fulfillment state transitions a
 - [ ] Persist Stripe customer ids.
 - [ ] Choose a print partner.
 - [ ] Confirm accepted file formats, dimensions, material profile, and quote process.
+- [ ] Confirm partner order handoff, package download access, shipping/tax handling, reprint policy, and final invoice reconciliation.
 - [ ] Build fulfillment quote flow.
 - [ ] Send paid orders to fulfillment only after confirmed payment.
-- [ ] Add admin retry/manual-review states.
+- [ ] Add admin retry/manual-review states, refund actions, credit adjustments, and audit events.
+- [ ] Add print-partner portal with scoped approved-package downloads and download audit events.
 
 ### Launch Basics
 
 - [ ] Add privacy policy.
 - [ ] Add terms of service.
+- [ ] Add likeness, minors/guardian consent, celebrity/IP/content, refund, and data-retention policies with accepted version tracking.
 - [ ] Add analytics events for upload, generation, approval, checkout, and purchase.
+- [ ] Add analytics/audit events for verified account creation, credit exhaustion, admin refund/credit adjustments, partner downloads, and fulfillment exceptions.
 - [ ] Add error monitoring.
 - [ ] Add Cloud Storage lifecycle cleanup for abandoned uploads.
-- [ ] Add admin visibility for failed jobs and payment mismatches.
+- [ ] Add admin visibility for failed jobs, payment mismatches, fulfillment holds, support notes, provider cost, partner cost, refunds, and margin.
 - [ ] Resolve or document dependency audit advisories.
 - [ ] Run a full staging test with test cards.
 - [ ] Run a production smoke test with tightly controlled access.
