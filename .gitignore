@@ -50,9 +50,11 @@ venv/
 Thumbs.db
 .idea/
 .vscode/
+.claude/
 elliot_quick_dev_Startup.md
 .tmp
 
 # Archives
 archives/
 docs/archive/
+.claude

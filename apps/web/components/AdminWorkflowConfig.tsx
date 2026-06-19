@@ -13,6 +13,7 @@ import {
   AlertCircle,
   CheckCircle2,
   Eye,
+  House,
   Loader2,
   LogOut,
   Plus,
@@ -24,6 +25,7 @@ import {
 } from "lucide-react";
 import { onAuthStateChanged, signInAnonymously, signOut, type User } from "firebase/auth";
 import { httpsCallable } from "firebase/functions";
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 type SaveWorkflowConfigRequest = {
@@ -239,6 +241,10 @@ export function AdminWorkflowConfig() {
           </h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <Link className="secondary-button h-10 min-h-0 px-3" href="/">
+            <House size={16} aria-hidden="true" />
+            Home
+          </Link>
           {user ? (
             <button
               className="secondary-button h-10 min-h-0 px-3"
