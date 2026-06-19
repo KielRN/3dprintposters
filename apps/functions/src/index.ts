@@ -26,6 +26,7 @@ import {
 import { runMeshyFigurinePrintTooling } from "./meshyPrintTooling.js";
 import { calculateJobCost } from "./jobCost.js";
 import {
+  adminSupportDevelopmentAccessReason,
   adminSupportIssueTypes,
   adminSupportStatuses,
   isAdminSupportAllowed,
@@ -2118,7 +2119,13 @@ function requireAdminSupport(request: {
   const allowlist =
     secretAllowlist || process.env.ADMIN_SUPPORT_ALLOWLIST?.trim() || "";
 
-  if (!isAdminSupportAllowed({ allowlist, principal })) {
+  const developmentAccessReason = adminSupportDevelopmentAccessReason(
+    process.env,
+  );
+  if (
+    !developmentAccessReason &&
+    !isAdminSupportAllowed({ allowlist, principal })
+  ) {
     throw new HttpsError(
       "permission-denied",
       "This account is not allowed to use admin/support tools.",

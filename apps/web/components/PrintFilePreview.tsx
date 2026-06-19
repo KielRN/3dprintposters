@@ -66,6 +66,7 @@ type FigurineArtifactPreviewProps = {
   previewUrl?: string;
   status?: string;
   details?: Array<{ label: string; value: string }>;
+  modelOrientation?: "viewer-y-up" | "print-z-up";
 };
 
 const SIGN_NAME_MAX_CHARACTERS = 12;
@@ -93,7 +94,17 @@ function ReliefGlbModel({ previewUrl }: { previewUrl: string }) {
   );
 }
 
-function AutoFramedGlbModel({ previewUrl }: { previewUrl: string }) {
+function printZUpToViewerYUp(vector: Vector3) {
+  return new Vector3(vector.x, vector.z, -vector.y);
+}
+
+function AutoFramedGlbModel({
+  previewUrl,
+  modelOrientation = "viewer-y-up",
+}: {
+  previewUrl: string;
+  modelOrientation?: FigurineArtifactPreviewProps["modelOrientation"];
+}) {
   const gltf = useLoader(GLTFLoader, previewUrl);
   const groupRef = useRef<Group>(null);
   const frame = useMemo(() => {
@@ -102,19 +113,30 @@ function AutoFramedGlbModel({ previewUrl }: { previewUrl: string }) {
     const center = box.getCenter(new Vector3());
     const maxDimension = Math.max(size.x, size.y, size.z, 0.001);
     const scale = 2.85 / maxDimension;
+    const displayCenter =
+      modelOrientation === "print-z-up" ? printZUpToViewerYUp(center) : center;
 
     return {
       position: [
-        -center.x * scale,
-        -center.y * scale,
-        -center.z * scale,
+        -displayCenter.x * scale,
+        -displayCenter.y * scale,
+        -displayCenter.z * scale,
       ] as [number, number, number],
+      rotation:
+        modelOrientation === "print-z-up"
+          ? ([-Math.PI / 2, 0, 0] as [number, number, number])
+          : ([0, 0, 0] as [number, number, number]),
       scale,
     };
-  }, [gltf.scene]);
+  }, [gltf.scene, modelOrientation]);
 
   return (
-    <group ref={groupRef} position={frame.position} scale={frame.scale}>
+    <group
+      ref={groupRef}
+      position={frame.position}
+      rotation={frame.rotation}
+      scale={frame.scale}
+    >
       <primitive object={gltf.scene} />
     </group>
   );
@@ -196,10 +218,12 @@ function GlbViewer({
   previewUrl,
   variant,
   compact = false,
+  modelOrientation = "viewer-y-up",
 }: {
   previewUrl: string;
   variant: "relief" | "auto";
   compact?: boolean;
+  modelOrientation?: FigurineArtifactPreviewProps["modelOrientation"];
 }) {
   const [viewerZoom, setViewerZoom] = useState(1);
   const [viewerResetSignal, setViewerResetSignal] = useState(0);
@@ -253,7 +277,10 @@ function GlbViewer({
           {variant === "relief" ? (
             <ReliefGlbModel previewUrl={previewUrl} />
           ) : (
-            <AutoFramedGlbModel previewUrl={previewUrl} />
+            <AutoFramedGlbModel
+              modelOrientation={modelOrientation}
+              previewUrl={previewUrl}
+            />
           )}
         </Suspense>
         <ReliefViewerCamera
@@ -396,6 +423,7 @@ export function FigurineArtifactPreview({
   previewUrl,
   status,
   details = [],
+  modelOrientation = "viewer-y-up",
 }: FigurineArtifactPreviewProps) {
   return (
     <section className="overflow-hidden rounded-lg border border-black/10 bg-white">
@@ -404,7 +432,12 @@ export function FigurineArtifactPreview({
         <span className="text-[var(--muted)]">{artifactLabel}</span>
       </div>
       {previewUrl ? (
-        <GlbViewer compact previewUrl={previewUrl} variant="auto" />
+        <GlbViewer
+          compact
+          modelOrientation={modelOrientation}
+          previewUrl={previewUrl}
+          variant="auto"
+        />
       ) : (
         <div className="flex h-[min(34vh,320px)] min-h-56 items-center justify-center bg-black/[0.035] px-4 text-center text-sm font-bold text-[var(--muted)]">
           Model preview unavailable

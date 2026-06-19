@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  adminSupportDevelopmentAccessReason,
   isAdminSupportAllowed,
   jobMatchesAdminSupportFilters,
   normalizeAdminSupportNoteBody,
@@ -74,6 +75,40 @@ test("admin support allowlist matches exact UID or case-insensitive email", () =
       principal: { uid: "uid-456", email: "user@example.com" },
     }),
     false,
+  );
+});
+
+test("admin support development access opens only dev contexts", () => {
+  assert.equal(
+    adminSupportDevelopmentAccessReason({ FUNCTIONS_EMULATOR: "true" }),
+    "functions_emulator",
+  );
+  assert.equal(
+    adminSupportDevelopmentAccessReason({
+      GCLOUD_PROJECT: "gen-lang-client-0675309660",
+    }),
+    "dev_project",
+  );
+  assert.equal(
+    adminSupportDevelopmentAccessReason({
+      FIREBASE_CONFIG: JSON.stringify({
+        projectId: "gen-lang-client-0675309660",
+      }),
+    }),
+    "dev_project",
+  );
+  assert.equal(
+    adminSupportDevelopmentAccessReason({
+      ADMIN_SUPPORT_DEV_BYPASS: "true",
+      GCLOUD_PROJECT: "production-project",
+    }),
+    "explicit_dev_bypass",
+  );
+  assert.equal(
+    adminSupportDevelopmentAccessReason({
+      GCLOUD_PROJECT: "production-project",
+    }),
+    null,
   );
 });
 

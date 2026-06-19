@@ -465,6 +465,7 @@ export function FigurinePrintReadinessReview({ jobId }: { jobId: string }) {
               ? artifactUrls[assembly.artifacts.assembledPreviewGlb]
               : undefined
           }
+          modelOrientation="print-z-up"
           status={assembly?.status}
           title="Assembled original"
         />
@@ -483,6 +484,7 @@ export function FigurinePrintReadinessReview({ jobId }: { jobId: string }) {
           previewUrl={
             repairedGlb?.storagePath ? artifactUrls[repairedGlb.storagePath] : undefined
           }
+          modelOrientation="print-z-up"
           status={tooling?.repair?.task?.status}
           title="Meshy repair"
         />
@@ -504,6 +506,7 @@ export function FigurinePrintReadinessReview({ jobId }: { jobId: string }) {
           previewUrl={
             remeshedGlb?.storagePath ? artifactUrls[remeshedGlb.storagePath] : undefined
           }
+          modelOrientation="print-z-up"
           status={tooling?.remesh?.task?.status}
           title="Meshy remesh"
         />

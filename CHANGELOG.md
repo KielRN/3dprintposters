@@ -6,6 +6,7 @@ All notable project changes will be documented in this file.
 
 ### Fixed
 
+- Allowed signed-in dev users to access `/admin` support/workflow callables in the local Functions emulator and documented dev Firebase project while keeping non-dev deployments on `ADMIN_SUPPORT_ALLOWLIST`.
 - Moved deployed Firebase Functions runtime config values such as `APP_STORAGE_BUCKET`, `PRINT_FILE_GENERATOR_URL`, Vertex settings, and checkout URL/price config behind `defineSecret` / Secret Manager bindings so deploys no longer push local `.env` keys as plain Cloud Run environment variables.
 - Fixed `runFigurinePrintTooling` Meshy print-tooling calls to use the current versioned OpenAPI root (`/openapi/v1`), so Analyze Printability no longer fails immediately with `404 NoMatchingRoute` from the stale `/openapi/print/analyze` path.
 - Fixed the local Functions emulator fallback for `runFigurinePrintTooling` to send Meshy a `data:model/gltf-binary` URL when ADC cannot sign Cloud Storage URLs, avoiding provider-side `failed to download model file` and invalid data-URL MIME errors from Firebase token URLs.

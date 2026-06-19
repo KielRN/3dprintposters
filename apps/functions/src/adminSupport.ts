@@ -124,6 +124,47 @@ type Allowlist = {
   uids: Set<string>;
 };
 
+const adminSupportDevelopmentProjectIds = new Set([
+  "dev",
+  "gen-lang-client-0675309660",
+]);
+const truthyDevBypassValues = new Set(["1", "true", "yes", "on"]);
+
+function firebaseConfigProjectId(value: string | undefined): string | null {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(value) as { projectId?: unknown };
+    return typeof parsed.projectId === "string" ? parsed.projectId : null;
+  } catch {
+    return null;
+  }
+}
+
+export function adminSupportDevelopmentAccessReason(
+  env: Record<string, string | undefined>,
+): string | null {
+  const explicitBypass = env.ADMIN_SUPPORT_DEV_BYPASS?.trim().toLowerCase();
+  if (explicitBypass && truthyDevBypassValues.has(explicitBypass)) {
+    return "explicit_dev_bypass";
+  }
+
+  if (env.FUNCTIONS_EMULATOR === "true") {
+    return "functions_emulator";
+  }
+
+  const projectId =
+    env.GCLOUD_PROJECT ||
+    env.GCP_PROJECT ||
+    env.GOOGLE_CLOUD_PROJECT ||
+    firebaseConfigProjectId(env.FIREBASE_CONFIG);
+  return projectId && adminSupportDevelopmentProjectIds.has(projectId)
+    ? "dev_project"
+    : null;
+}
+
 export function parseAdminSupportAllowlist(rawAllowlist: string): Allowlist {
   const emails = new Set<string>();
   const uids = new Set<string>();
