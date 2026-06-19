@@ -1,4 +1,3 @@
-import { ReliefPreview } from "@/components/ReliefPreview";
 import { PwaInstallButton } from "@/components/PwaInstallButton";
 import { UploadFlow } from "@/components/UploadFlow";
 import { Settings } from "lucide-react";
@@ -38,9 +37,8 @@ export default function Home() {
           </div>
         </header>
 
-        <div className="grid min-w-0 flex-1 gap-5 py-5 lg:grid-cols-[minmax(0,0.92fr)_minmax(420px,1.08fr)]">
+        <div className="mx-auto grid w-full max-w-3xl min-w-0 flex-1 py-5">
           <UploadFlow />
-          <ReliefPreview />
         </div>
       </section>
     </main>
