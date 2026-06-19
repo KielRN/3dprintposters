@@ -3,6 +3,7 @@ import {
   FieldValue,
   getFirestore,
   type DocumentReference,
+  type Query,
 } from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
 import { defineSecret } from "firebase-functions/params";
@@ -24,6 +25,18 @@ import {
 } from "./meshyFigurineProvider.js";
 import { runMeshyFigurinePrintTooling } from "./meshyPrintTooling.js";
 import { calculateJobCost } from "./jobCost.js";
+import {
+  adminSupportIssueTypes,
+  adminSupportStatuses,
+  isAdminSupportAllowed,
+  jobMatchesAdminSupportFilters,
+  normalizeAdminSupportNoteBody,
+  normalizeAdminSupportStatus,
+  sanitizeAdminSupportJobDetail,
+  sanitizeAdminSupportJobSummary,
+  type AdminSupportFilters,
+  type AdminSupportJobSummary,
+} from "./adminSupport.js";
 import {
   enabledWorkflowStyleReferenceImages,
   publicFigurineWorkflowConfig,
@@ -50,6 +63,7 @@ const meshyApiKey = defineSecret("MESHY_API_KEY");
 const stripeSecretKey = defineSecret("STRIPE_SECRET_KEY");
 const stripeWebhookSecret = defineSecret("STRIPE_WEBHOOK_SECRET");
 const stripePosterPriceId = defineSecret("STRIPE_POSTER_PRICE_ID");
+const adminSupportAllowlist = defineSecret("ADMIN_SUPPORT_ALLOWLIST");
 
 const vertexRuntimeSecrets = [
   aiProviderRoute,
@@ -73,6 +87,29 @@ const createJobSchema = z.object({
 
 const checkoutSchema = z.object({
   jobId: jobIdSchema,
+});
+
+const adminSupportStatusSchema = z.enum(adminSupportStatuses);
+const adminSupportIssueTypeSchema = z.enum(adminSupportIssueTypes);
+
+const listAdminSupportJobsSchema = z.object({
+  productType: z.enum(["poster", "figurine"]).optional(),
+  jobStatus: z.string().trim().min(1).max(80).optional(),
+  supportStatus: adminSupportStatusSchema.optional(),
+  issueType: adminSupportIssueTypeSchema.optional(),
+  search: z.string().trim().max(120).optional(),
+  pageSize: z.coerce.number().int().min(1).max(50).default(25),
+  cursor: jobIdSchema.optional(),
+});
+
+const getAdminSupportJobSchema = z.object({
+  jobId: jobIdSchema,
+});
+
+const addAdminSupportNoteSchema = z.object({
+  jobId: jobIdSchema,
+  body: z.string().trim().min(1).max(2000),
+  status: adminSupportStatusSchema.optional(),
 });
 
 const approveGeneratedImageSchema = z.object({
@@ -1094,56 +1131,54 @@ export const getFigurineWorkflowConfig = onCall(async () => {
   };
 });
 
-export const getAdminFigurineWorkflowConfig = onCall(async (request) => {
-  if (!request.auth) {
-    throw new HttpsError(
-      "unauthenticated",
-      "Sign in before loading admin workflow configuration.",
-    );
-  }
+export const getAdminFigurineWorkflowConfig = onCall(
+  {
+    secrets: [adminSupportAllowlist],
+  },
+  async (request) => {
+    requireAdminSupport(request);
+    const config = await readFigurineWorkflowConfig(db);
 
-  const config = await readFigurineWorkflowConfig(db);
+    return {
+      config,
+      visibleStyles: visibleWorkflowStyles(config),
+      roleGate: {
+        active: true,
+        ...config.roleGate,
+      },
+    };
+  },
+);
 
-  return {
-    config,
-    visibleStyles: visibleWorkflowStyles(config),
-    roleGate: {
-      active: false,
-      ...config.roleGate,
-    },
-  };
-});
+export const saveFigurineWorkflowConfig = onCall(
+  {
+    secrets: [adminSupportAllowlist],
+  },
+  async (request) => {
+    const admin = requireAdminSupport(request);
+    const requestedConfig =
+      request.data &&
+      typeof request.data === "object" &&
+      "config" in request.data
+        ? (request.data as { config?: unknown }).config
+        : request.data;
 
-export const saveFigurineWorkflowConfig = onCall(async (request) => {
-  if (!request.auth) {
-    throw new HttpsError(
-      "unauthenticated",
-      "Sign in before saving workflow configuration.",
-    );
-  }
+    const config = await persistFigurineWorkflowConfig({
+      db,
+      config: requestedConfig,
+      uid: admin.uid,
+    });
 
-  const requestedConfig =
-    request.data &&
-    typeof request.data === "object" &&
-    "config" in request.data
-      ? (request.data as { config?: unknown }).config
-      : request.data;
-
-  const config = await persistFigurineWorkflowConfig({
-    db,
-    config: requestedConfig,
-    uid: request.auth.uid,
-  });
-
-  return {
-    config,
-    visibleStyles: visibleWorkflowStyles(config),
-    roleGate: {
-      active: false,
-      ...config.roleGate,
-    },
-  };
-});
+    return {
+      config,
+      visibleStyles: visibleWorkflowStyles(config),
+      roleGate: {
+        active: true,
+        ...config.roleGate,
+      },
+    };
+  },
+);
 
 export const createGenerationJob = onCall(
   {
@@ -2060,6 +2095,321 @@ function firestoreSafeValue(value: unknown, insideArray = false): unknown {
   }
   return value;
 }
+
+function requireAdminSupport(request: {
+  auth?: { uid: string; token?: Record<string, unknown> };
+}): { uid: string; email: string | null } {
+  if (!request.auth) {
+    throw new HttpsError(
+      "unauthenticated",
+      "Sign in with an admin account first.",
+    );
+  }
+
+  const email =
+    typeof request.auth.token?.email === "string"
+      ? request.auth.token.email
+      : null;
+  const principal = {
+    uid: request.auth.uid,
+    email,
+  };
+  const secretAllowlist = adminSupportAllowlist.value()?.trim();
+  const allowlist =
+    secretAllowlist || process.env.ADMIN_SUPPORT_ALLOWLIST?.trim() || "";
+
+  if (!isAdminSupportAllowed({ allowlist, principal })) {
+    throw new HttpsError(
+      "permission-denied",
+      "This account is not allowed to use admin/support tools.",
+    );
+  }
+
+  return principal;
+}
+
+function buildAdminSupportFilters(
+  data: z.infer<typeof listAdminSupportJobsSchema>,
+): AdminSupportFilters {
+  return {
+    ...(data.productType ? { productType: data.productType } : {}),
+    ...(data.jobStatus ? { jobStatus: data.jobStatus } : {}),
+    ...(data.supportStatus ? { supportStatus: data.supportStatus } : {}),
+    ...(data.issueType ? { issueType: data.issueType } : {}),
+  };
+}
+
+function applyPrimaryAdminSupportFilter(
+  query: Query,
+  filters: AdminSupportFilters,
+): Query {
+  if (filters.productType) {
+    return query.where("productType", "==", filters.productType);
+  }
+  if (filters.jobStatus) {
+    return query.where("status", "==", filters.jobStatus);
+  }
+  if (filters.supportStatus && filters.supportStatus !== "open") {
+    return query.where("supportSummary.status", "==", filters.supportStatus);
+  }
+  return query;
+}
+
+function orderHasPaymentIssue(orderData: Record<string, unknown> | undefined) {
+  if (!orderData) {
+    return false;
+  }
+  return (
+    orderData.status === "checkout_expired" ||
+    orderData.paymentStatus === "expired" ||
+    orderData.paymentStatus === "failed" ||
+    orderData.status === "payment_failed"
+  );
+}
+
+function addPaymentIssue<T extends AdminSupportJobSummary>(
+  summary: T,
+  orderData: Record<string, unknown> | undefined,
+): T {
+  if (
+    orderHasPaymentIssue(orderData) &&
+    !summary.issueTypes.includes("payment")
+  ) {
+    return {
+      ...summary,
+      issueTypes: [...summary.issueTypes, "payment"],
+    } as T;
+  }
+
+  return summary;
+}
+
+async function adminSupportSummaryForJobDoc(input: {
+  jobId: string;
+  jobData: Record<string, unknown>;
+}): Promise<AdminSupportJobSummary> {
+  const orderSnap = await db.collection("orders").doc(input.jobId).get();
+  const orderData = orderSnap.data() as Record<string, unknown> | undefined;
+  return addPaymentIssue(
+    sanitizeAdminSupportJobSummary({
+      jobId: input.jobId,
+      jobData: input.jobData,
+    }),
+    orderData,
+  );
+}
+
+async function adminSupportDetailForJob(input: {
+  jobId: string;
+  jobData: Record<string, unknown>;
+}) {
+  const jobRef = db.collection("jobs").doc(input.jobId);
+  const [orderSnap, printFileAuditSnap, supportNotesSnap] = await Promise.all([
+    db.collection("orders").doc(input.jobId).get(),
+    jobRef.collection("audit").doc("printFileGeneration").get(),
+    jobRef
+      .collection("supportNotes")
+      .orderBy("createdAt", "desc")
+      .limit(25)
+      .get(),
+  ]);
+  const orderData = orderSnap.data() as Record<string, unknown> | undefined;
+  const detail = sanitizeAdminSupportJobDetail({
+    jobId: input.jobId,
+    jobData: input.jobData,
+    orderData,
+    printFileAuditData:
+      (printFileAuditSnap.data() as Record<string, unknown> | undefined) ??
+      null,
+    supportNotes: supportNotesSnap.docs.map((noteSnap) => ({
+      id: noteSnap.id,
+      data: noteSnap.data() as Record<string, unknown>,
+    })),
+  });
+
+  return addPaymentIssue(detail, orderData);
+}
+
+export const listAdminSupportJobs = onCall(
+  {
+    secrets: [adminSupportAllowlist],
+  },
+  async (request) => {
+    requireAdminSupport(request);
+    const parsed = listAdminSupportJobsSchema.safeParse(request.data ?? {});
+    if (!parsed.success) {
+      throw new HttpsError(
+        "invalid-argument",
+        "Support job filters are invalid.",
+      );
+    }
+
+    const filters = buildAdminSupportFilters(parsed.data);
+    const search = parsed.data.search?.trim();
+    if (search) {
+      const snapshots = new Map<string, Record<string, unknown>>();
+      const directJob = await db.collection("jobs").doc(search).get();
+      if (directJob.exists) {
+        snapshots.set(directJob.id, directJob.data() as Record<string, unknown>);
+      }
+
+      const uidMatches = await db
+        .collection("jobs")
+        .where("uid", "==", search)
+        .orderBy("updatedAt", "desc")
+        .limit(parsed.data.pageSize)
+        .get();
+      for (const jobSnap of uidMatches.docs) {
+        snapshots.set(jobSnap.id, jobSnap.data() as Record<string, unknown>);
+      }
+
+      const summaries = await Promise.all(
+        Array.from(snapshots.entries()).map(([jobId, jobData]) =>
+          adminSupportSummaryForJobDoc({ jobId, jobData }),
+        ),
+      );
+      return {
+        items: summaries
+          .filter((summary) => jobMatchesAdminSupportFilters(summary, filters))
+          .slice(0, parsed.data.pageSize),
+        nextCursor: null,
+      };
+    }
+
+    const scanLimit =
+      Object.keys(filters).length > 0
+        ? Math.min(parsed.data.pageSize * 5, 250)
+        : parsed.data.pageSize;
+    let query = applyPrimaryAdminSupportFilter(
+      db.collection("jobs").orderBy("updatedAt", "desc"),
+      filters,
+    );
+    if (parsed.data.cursor) {
+      const cursorSnap = await db.collection("jobs").doc(parsed.data.cursor).get();
+      if (cursorSnap.exists) {
+        query = query.startAfter(cursorSnap);
+      }
+    }
+
+    const jobsSnap = await query.limit(scanLimit).get();
+    const summaries = await Promise.all(
+      jobsSnap.docs.map((jobSnap) =>
+        adminSupportSummaryForJobDoc({
+          jobId: jobSnap.id,
+          jobData: jobSnap.data() as Record<string, unknown>,
+        }),
+      ),
+    );
+    const filteredSummaries = summaries
+      .filter((summary) => jobMatchesAdminSupportFilters(summary, filters))
+      .slice(0, parsed.data.pageSize);
+
+    return {
+      items: filteredSummaries,
+      nextCursor:
+        jobsSnap.docs.length === scanLimit
+          ? jobsSnap.docs[jobsSnap.docs.length - 1]?.id ?? null
+          : null,
+    };
+  },
+);
+
+export const getAdminSupportJob = onCall(
+  {
+    secrets: [adminSupportAllowlist],
+  },
+  async (request) => {
+    requireAdminSupport(request);
+    const parsed = getAdminSupportJobSchema.safeParse(request.data);
+    if (!parsed.success) {
+      throw new HttpsError("invalid-argument", "jobId is required.");
+    }
+
+    const jobSnap = await db.collection("jobs").doc(parsed.data.jobId).get();
+    const jobData = jobSnap.data() as Record<string, unknown> | undefined;
+    if (!jobSnap.exists || !jobData) {
+      throw new HttpsError("not-found", "Job not found.");
+    }
+
+    return {
+      job: await adminSupportDetailForJob({
+        jobId: parsed.data.jobId,
+        jobData,
+      }),
+    };
+  },
+);
+
+export const addAdminSupportNote = onCall(
+  {
+    secrets: [adminSupportAllowlist],
+  },
+  async (request) => {
+    const admin = requireAdminSupport(request);
+    const parsed = addAdminSupportNoteSchema.safeParse(request.data);
+    if (!parsed.success) {
+      throw new HttpsError(
+        "invalid-argument",
+        "jobId and note body are required.",
+      );
+    }
+
+    const body = normalizeAdminSupportNoteBody(parsed.data.body);
+    if (!body) {
+      throw new HttpsError("invalid-argument", "Support note cannot be empty.");
+    }
+
+    const jobRef = db.collection("jobs").doc(parsed.data.jobId);
+    const jobSnap = await jobRef.get();
+    const jobData = jobSnap.data() as Record<string, unknown> | undefined;
+    if (!jobSnap.exists || !jobData) {
+      throw new HttpsError("not-found", "Job not found.");
+    }
+
+    const currentSupportSummary = jobData.supportSummary as
+      | { status?: unknown }
+      | undefined;
+    const nextStatus =
+      parsed.data.status ??
+      normalizeAdminSupportStatus(currentSupportSummary?.status) ??
+      "open";
+    const noteRef = jobRef.collection("supportNotes").doc();
+    const batch = db.batch();
+    batch.set(noteRef, {
+      body,
+      statusChange: parsed.data.status ?? null,
+      createdAt: FieldValue.serverTimestamp(),
+      createdByUid: admin.uid,
+      createdByEmail: admin.email,
+    });
+    batch.set(
+      jobRef,
+      {
+        supportSummary: {
+          status: nextStatus,
+          noteCount: FieldValue.increment(1),
+          lastNoteAt: FieldValue.serverTimestamp(),
+          lastNoteByUid: admin.uid,
+          lastNoteByEmail: admin.email,
+          lastNotePreview: body.slice(0, 160),
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+    await batch.commit();
+
+    const updatedJobSnap = await jobRef.get();
+    const updatedJobData = updatedJobSnap.data() as Record<string, unknown>;
+    return {
+      job: await adminSupportDetailForJob({
+        jobId: parsed.data.jobId,
+        jobData: updatedJobData,
+      }),
+    };
+  },
+);
 
 function collectStoragePaths(value: unknown): string[] {
   if (typeof value === "string") {

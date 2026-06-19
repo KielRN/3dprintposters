@@ -49,7 +49,7 @@ Source-of-truth split:
 
 - 🟡 Domains — `3dprintyou.com` is the preferred domain for the figurine pivot; Meshy webhook custom domain is live. Public app hosting/staging is not the main validated path yet.
 - ⚪ Staging/production hosting — create staging and production hosting only after the figurine funnel is ready enough to expose honestly.
-- ⚪ Admin/support view — add visibility for failed jobs, retries, payment mismatches, refunds, usage-credit adjustments, fulfillment holds, and manual decisions.
+- 🟡 Admin/support view — v1 support jobs tab exists inside `/admin` with server-side allowlist gating, sanitized job/order/cost/error/audit visibility, and support notes/status markers. Refunds, retries, usage-credit adjustments, fulfillment holds, and production role/custom-claim hardening remain open.
 - ⚪ Print-partner portal — add scoped partner access for approved print-package downloads, download audit events, and partner cost capture for margin review.
 - ⚪ Alerts and cleanup — add alerting for model cost spikes, failed webhooks, fulfillment failures, and storage growth; add cleanup jobs for abandoned uploads and expired artifacts.
 

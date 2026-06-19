@@ -15,6 +15,7 @@ All notable project changes will be documented in this file.
 
 ### Added
 
+- Added the first admin/support job view inside `/admin`. Firebase Functions now expose allowlist-gated support callables for listing sanitized job summaries, inspecting job/order/cost/error/audit state, and appending support notes with `open`, `watching`, `blocked`, or `resolved` status markers.
 - Added per-style admin reference images for 2D proof generation. The `/admin` Style cards can upload up to four JPG/PNG references per style, saved workflow config stores normalized reference metadata under `admin/workflow-style-references/...`, and `createGenerationJob` passes the selected style's enabled references to Vertex/Gemini after the customer source photo while recording only reference counts/IDs on the job.
 - Added a dev workflow admin page at `/admin` for proof-generation controls. It can edit the base proof prompt, the default four proof options per upload, how many Style options are shown, and each style's customer-facing prompt; role-based permission is recorded as a placeholder but not enforced yet.
 - Added Firestore-backed figurine workflow configuration callables. `createGenerationJob` now reads the saved config, generates up to four proof images through the server-side Vertex/Gemini adapter, stores each proof as a separate `generatedImages` option, and persists the selected style label/prompt metadata on the job.

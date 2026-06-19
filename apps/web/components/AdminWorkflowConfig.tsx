@@ -39,6 +39,12 @@ type SaveWorkflowConfigRequest = {
   config: FigurineWorkflowConfig;
 };
 
+type AdminWorkflowConfigProps = {
+  authLoading?: boolean;
+  embedded?: boolean;
+  user?: User | null;
+};
+
 function enabledStyleCount(styles: WorkflowStyleConfig[]) {
   return Math.max(1, styles.filter((style) => style.enabled).length);
 }
@@ -62,10 +68,17 @@ function referenceImageLabel(fileName: string) {
   );
 }
 
-export function AdminWorkflowConfig() {
+export function AdminWorkflowConfig({
+  authLoading: externalAuthLoading = false,
+  embedded = false,
+  user: externalUser,
+}: AdminWorkflowConfigProps = {}) {
   const firebaseClients = useMemo(() => getFirebaseClients(), []);
-  const [user, setUser] = useState<User | null>(null);
-  const [authLoading, setAuthLoading] = useState(Boolean(firebaseClients));
+  const usesExternalAuth = embedded || externalUser !== undefined;
+  const [internalUser, setInternalUser] = useState<User | null>(null);
+  const [internalAuthLoading, setInternalAuthLoading] = useState(
+    Boolean(firebaseClients),
+  );
   const [authBusy, setAuthBusy] = useState(false);
   const [configLoading, setConfigLoading] = useState(Boolean(firebaseClients));
   const [saving, setSaving] = useState(false);
@@ -78,19 +91,28 @@ export function AdminWorkflowConfig() {
   );
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const user = usesExternalAuth ? (externalUser ?? null) : internalUser;
+  const authLoading = usesExternalAuth
+    ? externalAuthLoading
+    : internalAuthLoading;
 
   useEffect(() => {
+    if (usesExternalAuth) {
+      setInternalAuthLoading(false);
+      return;
+    }
+
     if (!firebaseClients) {
-      setAuthLoading(false);
+      setInternalAuthLoading(false);
       setConfigLoading(false);
       return;
     }
 
     return onAuthStateChanged(firebaseClients.auth, (nextUser) => {
-      setUser(nextUser);
-      setAuthLoading(false);
+      setInternalUser(nextUser);
+      setInternalAuthLoading(false);
     });
-  }, [firebaseClients]);
+  }, [firebaseClients, usesExternalAuth]);
 
   useEffect(() => {
     if (!firebaseClients || authLoading) {
@@ -444,7 +466,13 @@ export function AdminWorkflowConfig() {
   const maxVisibleStyles = enabledStyleCount(config.styles);
 
   return (
-    <section className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-5 py-5 text-[var(--ink)] sm:px-7 lg:px-10">
+    <section
+      className={
+        embedded
+          ? "flex w-full flex-col text-[var(--ink)]"
+          : "mx-auto flex min-h-screen w-full max-w-6xl flex-col px-5 py-5 text-[var(--ink)] sm:px-7 lg:px-10"
+      }
+    >
       <header className="flex flex-wrap items-start justify-between gap-4 border-b border-black/10 pb-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
@@ -455,38 +483,46 @@ export function AdminWorkflowConfig() {
           </h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Link className="secondary-button h-10 min-h-0 px-3" href="/">
-            <House size={16} aria-hidden="true" />
-            Home
-          </Link>
-          {user ? (
-            <button
-              className="secondary-button h-10 min-h-0 px-3"
-              type="button"
-              onClick={() => {
-                if (firebaseClients) {
-                  void signOut(firebaseClients.auth);
-                }
-              }}
-            >
-              <LogOut size={16} aria-hidden="true" />
-              Sign out
-            </button>
-          ) : (
-            <button
-              className="secondary-button h-10 min-h-0 px-3"
-              type="button"
-              disabled={!firebaseClients || authBusy}
-              onClick={continueAsDev}
-            >
-              {authBusy ? (
-                <Loader2 className="animate-spin" size={16} aria-hidden="true" />
+          {!embedded ? (
+            <>
+              <Link className="secondary-button h-10 min-h-0 px-3" href="/">
+                <House size={16} aria-hidden="true" />
+                Home
+              </Link>
+              {user ? (
+                <button
+                  className="secondary-button h-10 min-h-0 px-3"
+                  type="button"
+                  onClick={() => {
+                    if (firebaseClients) {
+                      void signOut(firebaseClients.auth);
+                    }
+                  }}
+                >
+                  <LogOut size={16} aria-hidden="true" />
+                  Sign out
+                </button>
               ) : (
-                <Shield size={16} aria-hidden="true" />
+                <button
+                  className="secondary-button h-10 min-h-0 px-3"
+                  type="button"
+                  disabled={!firebaseClients || authBusy}
+                  onClick={continueAsDev}
+                >
+                  {authBusy ? (
+                    <Loader2
+                      className="animate-spin"
+                      size={16}
+                      aria-hidden="true"
+                    />
+                  ) : (
+                    <Shield size={16} aria-hidden="true" />
+                  )}
+                  Dev sign in
+                </button>
               )}
-              Dev sign in
-            </button>
-          )}
+            </>
+          ) : null}
           <button
             className="secondary-button h-10 min-h-0 px-3"
             type="button"
