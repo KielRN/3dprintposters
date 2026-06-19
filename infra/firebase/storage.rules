@@ -22,6 +22,14 @@ service firebase.storage {
       allow write: if false;
     }
 
+    // DEV ONLY: tighten this to admin custom claims before production.
+    match /admin/workflow-style-references/{styleId}/{fileName} {
+      allow read: if signedIn();
+      allow write: if signedIn()
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|png)');
+    }
+
     match /print-files/{uid}/{jobId}/{allPaths=**} {
       allow read: if underUserPath(uid);
       allow write: if false;

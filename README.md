@@ -15,7 +15,7 @@ Working now:
 - Browser upload to Firebase Storage
 - Firebase callable Functions for job creation, proof approval, print-file generation orchestration, and checkout
 - Direct Vertex/Gemini proof-generation adapter in `apps/functions`
-- Dev `/admin` workflow controls for the base proof prompt, four default proof options, visible Style count, and per-style prompts; role-based access is a placeholder during local MVP development
+- Dev `/admin` workflow controls for the base proof prompt, four default proof options, visible Style count, per-style prompts, and per-style proof reference images; role-based access is a placeholder during local MVP development
 - New product direction documented in `research/FIGURINE_PROVIDER_RESEARCH.md`: PrintU-like figurine workflow first, Meshy.ai as the first image-to-3D provider candidate, relief parked as R&D
 - Local root `.env` has `MESHY_API_KEY` for a paid Meshy account; never print or commit the value
 - Preview-only Meshy Creative Lab figurine workflow: proof approval can call the server-side Meshy provider adapter, store the original textured `model.glb` under `print-files/{uid}/{jobId}/figurine/creative-lab-original/`, show it on the job page, and keep checkout locked while `printReadiness` is `needs_review`

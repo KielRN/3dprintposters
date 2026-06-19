@@ -5,6 +5,7 @@ import {
   type ProofStyleMetadata,
 } from "./styleContracts.js";
 import { isFigurineStyle } from "./figurineWorkflow.js";
+import type { WorkflowStyleReferenceImage } from "./figurineWorkflowConfig.js";
 
 export type PosterGenerationInput = {
   jobId: string;
@@ -16,6 +17,7 @@ export type PosterGenerationInput = {
   proofGenerationCount?: number;
   baseProofPrompt?: string;
   stylePrompt?: string;
+  referenceImages?: WorkflowStyleReferenceImage[];
 };
 
 export type PosterGenerationOutput = {
@@ -34,6 +36,10 @@ export type PosterGenerationOutput = {
     responseTextByGeneration?: string[];
     modelVersion?: string;
     modelVersions?: string[];
+    referenceImageCount?: number;
+    referenceImageIds?: string[];
+    failedProofGenerationCount?: number;
+    proofGenerationFailures?: string[];
   };
 };
 
@@ -45,6 +51,7 @@ export type PosterAiProvider = {
 
 const defaultVertexImageModel = "gemini-3-pro-image";
 const defaultSourceImageByteLimit = 8 * 1024 * 1024;
+const defaultReferenceImageByteLimit = 5 * 1024 * 1024;
 const defaultProofGenerationCount = 1;
 const maxProofGenerationCount = 4;
 const vertexExpressBaseUrl = "https://aiplatform.googleapis.com/v1";
@@ -80,6 +87,69 @@ type GeneratedVertexImage = {
   mimeType?: string;
   data: string;
 };
+
+type VertexProofGenerationSuccess = {
+  status: "fulfilled";
+  outputStoragePath: string;
+  outputMimeType: string;
+  responseText: string;
+  modelVersion?: string;
+};
+
+type VertexProofGenerationFailure = {
+  status: "rejected";
+  proofIndex: number;
+  message: string;
+};
+
+type VertexRequestReferenceImage = {
+  id: string;
+  mimeType: "image/jpeg" | "image/png";
+  imageBuffer: Buffer;
+};
+
+export function buildReferenceImageGenerationMetadata(
+  referenceImages: WorkflowStyleReferenceImage[] = [],
+): {
+  referenceImageCount?: number;
+  referenceImageIds?: string[];
+} {
+  const enabledImages = enabledReferenceImages(referenceImages);
+
+  if (enabledImages.length === 0) {
+    return {};
+  }
+
+  return {
+    referenceImageCount: enabledImages.length,
+    referenceImageIds: enabledImages.map((image) => image.id),
+  };
+}
+
+export function buildVertexUserParts(input: {
+  promptText: string;
+  sourceImageBuffer: Buffer;
+  sourceMimeType: string;
+  referenceImages?: VertexRequestReferenceImage[];
+}): VertexPart[] {
+  return [
+    {
+      text: input.promptText,
+    },
+    {
+      inlineData: {
+        mimeType: input.sourceMimeType,
+        data: input.sourceImageBuffer.toString("base64"),
+      },
+    },
+    ...(input.referenceImages ?? []).map((referenceImage) => ({
+      inlineData: {
+        mimeType: referenceImage.mimeType,
+        data: referenceImage.imageBuffer.toString("base64"),
+      },
+    })),
+  ];
+}
 
 export function createPosterAiProvider(): PosterAiProvider {
   const aiRoute = process.env.AI_PROVIDER_ROUTE ?? "vertex-gemini-direct";
@@ -129,55 +199,87 @@ class VertexGeminiPosterAiProvider implements PosterAiProvider {
         `Source image is ${sourceImageBuffer.byteLength} bytes, which exceeds the configured Vertex inline image limit of ${sourceImageByteLimit} bytes.`,
       );
     }
+    const referenceImages = await loadStyleReferenceImages({
+      bucket,
+      referenceImages: input.referenceImages ?? [],
+    });
+    const referenceImageMetadata = buildReferenceImageGenerationMetadata(
+      input.referenceImages ?? [],
+    );
 
-    const generationResults = await Promise.all(
+    const generationAttempts = await Promise.all(
       Array.from({ length: proofGenerationCount }, async (_, index) => {
-        const vertexResponse = await generateVertexImage({
-          apiKey,
-          model,
-          promptText: buildProofVariantPrompt({
-            promptText,
+        try {
+          const vertexResponse = await generateVertexImage({
+            apiKey,
+            model,
+            promptText: buildProofVariantPrompt({
+              promptText,
             index,
             count: proofGenerationCount,
+            lockReferenceStyling: referenceImages.length > 0,
           }),
-          sourceImageBuffer,
-          sourceMimeType,
-        });
-        const generatedImage = extractGeneratedImage(vertexResponse);
-        const generatedImageBuffer = Buffer.from(
-          generatedImage.data,
-          "base64",
-        );
-        const outputMimeType = generatedImage.mimeType ?? "image/png";
-        const outputStoragePath =
-          proofGenerationCount === 1
-            ? `generated/${input.uid}/${input.jobId}/preview.${extensionForMimeType(outputMimeType)}`
-            : `generated/${input.uid}/${input.jobId}/preview-${index + 1}.${extensionForMimeType(outputMimeType)}`;
+            sourceImageBuffer,
+            sourceMimeType,
+            referenceImages,
+          });
+          const generatedImage = extractGeneratedImage(vertexResponse);
+          const generatedImageBuffer = Buffer.from(
+            generatedImage.data,
+            "base64",
+          );
+          const outputMimeType = generatedImage.mimeType ?? "image/png";
+          const outputStoragePath =
+            proofGenerationCount === 1
+              ? `generated/${input.uid}/${input.jobId}/preview.${extensionForMimeType(outputMimeType)}`
+              : `generated/${input.uid}/${input.jobId}/preview-${index + 1}.${extensionForMimeType(outputMimeType)}`;
 
-        await bucket.file(outputStoragePath).save(generatedImageBuffer, {
-          resumable: false,
-          metadata: {
-            contentType: outputMimeType,
-            cacheControl: "private, max-age=3600",
+          await bucket.file(outputStoragePath).save(generatedImageBuffer, {
+            resumable: false,
             metadata: {
-              jobId: input.jobId,
-              uid: input.uid,
-              provider: "vertex-gemini-direct",
-              model,
-              proofIndex: String(index + 1),
-              proofGenerationCount: String(proofGenerationCount),
+              contentType: outputMimeType,
+              cacheControl: "private, max-age=3600",
+              metadata: {
+                jobId: input.jobId,
+                uid: input.uid,
+                provider: "vertex-gemini-direct",
+                model,
+                proofIndex: String(index + 1),
+                proofGenerationCount: String(proofGenerationCount),
+              },
             },
-          },
-        });
+          });
 
-        return {
-          outputStoragePath,
-          outputMimeType,
-          responseText: extractResponseText(vertexResponse),
-          modelVersion: vertexResponse.modelVersion,
-        };
+          return {
+            status: "fulfilled",
+            outputStoragePath,
+            outputMimeType,
+            responseText: extractResponseText(vertexResponse),
+            modelVersion: vertexResponse.modelVersion,
+          } satisfies VertexProofGenerationSuccess;
+        } catch (error) {
+          return {
+            status: "rejected",
+            proofIndex: index + 1,
+            message: summarizeProofGenerationError(error),
+          } satisfies VertexProofGenerationFailure;
+        }
       }),
     );
+    const generationResults = generationAttempts.filter(
+      (result): result is VertexProofGenerationSuccess =>
+        result.status === "fulfilled",
+    );
+    const generationFailures = generationAttempts.filter(
+      (result): result is VertexProofGenerationFailure =>
+        result.status === "rejected",
+    );
+
+    if (generationResults.length === 0) {
+      throw new Error(
+        `Vertex/Gemini returned no proof images. ${summarizeProofGenerationFailures(generationFailures)}`,
+      );
+    }
 
     const outputMimeTypes = generationResults.map(
       (result) => result.outputMimeType,
@@ -202,6 +304,7 @@ class VertexGeminiPosterAiProvider implements PosterAiProvider {
         outputMimeTypes,
         proofGenerationCount,
         styleMetadata,
+        ...referenceImageMetadata,
         ...(input.selectedStyleLabel
           ? { selectedStyleLabel: input.selectedStyleLabel }
           : {}),
@@ -213,9 +316,21 @@ class VertexGeminiPosterAiProvider implements PosterAiProvider {
           : {}),
         ...(modelVersions[0] ? { modelVersion: modelVersions[0] } : {}),
         ...(modelVersions.length > 0 ? { modelVersions } : {}),
+        ...(generationFailures.length > 0
+          ? {
+              failedProofGenerationCount: generationFailures.length,
+              proofGenerationFailures:
+                summarizeProofGenerationFailureMessages(generationFailures),
+            }
+          : {}),
         notes: [
           "Generated through the direct Vertex/Gemini provider route.",
-          `${proofGenerationCount} proof image${proofGenerationCount === 1 ? " was" : "s were"} stored in the job-scoped Firebase Storage path.`,
+          `${generationResults.length} of ${proofGenerationCount} proof image${proofGenerationCount === 1 ? " was" : "s were"} stored in the job-scoped Firebase Storage path.`,
+          ...(generationFailures.length > 0
+            ? [
+                `${generationFailures.length} proof option${generationFailures.length === 1 ? "" : "s"} failed and were omitted.`,
+              ]
+            : []),
         ],
       },
     };
@@ -232,6 +347,9 @@ class CloudflareGatewayPosterAiProvider implements PosterAiProvider {
     const proofGenerationCount = resolveProofGenerationCount(
       input.proofGenerationCount,
     );
+    const referenceImageMetadata = buildReferenceImageGenerationMetadata(
+      input.referenceImages ?? [],
+    );
 
     return {
       provider: "cloudflare-ai-gateway",
@@ -245,6 +363,7 @@ class CloudflareGatewayPosterAiProvider implements PosterAiProvider {
         route: "cloudflare-ai-gateway",
         proofGenerationCount,
         styleMetadata,
+        ...referenceImageMetadata,
         notes: [
           "Cloudflare AI Gateway is reserved for later provider comparison, rate limiting, observability, and fallback.",
           "Real gateway calls are not implemented yet.",
@@ -263,12 +382,18 @@ function buildPosterPrompt(input: PosterGenerationInput): string {
     .trim()
     .slice(0, 120);
   const stylePrompt = input.stylePrompt?.trim();
+  const referenceImageCount = enabledReferenceImages(input.referenceImages).length;
 
   return [
     "Create one portrait proof image for a custom 5 inch by 7 inch 3D print poster relief.",
     "Use the uploaded image as the main composition reference. Preserve the primary subject, crop, and recognizable visual intent while translating it into a polished poster-ready design.",
     `Selected style: ${selectedStyle}.`,
     ...(stylePrompt ? [`Style prompt: ${stylePrompt}`] : []),
+    ...(referenceImageCount > 0
+      ? [
+          "Use the additional admin reference images only as style, composition, material, and finish guidance. The uploaded customer source photo remains the main subject reference.",
+        ]
+      : []),
     ...buildProofStylePromptDirectives(input.selectedStyle),
     "Output only the poster proof image.",
   ].join("\n");
@@ -280,6 +405,7 @@ function buildFigurineProofPrompt(input: PosterGenerationInput): string {
     .slice(0, 120);
   const baseProofPrompt = input.baseProofPrompt?.trim();
   const stylePrompt = input.stylePrompt?.trim();
+  const referenceImageCount = enabledReferenceImages(input.referenceImages).length;
 
   return [
     ...(baseProofPrompt
@@ -294,9 +420,14 @@ function buildFigurineProofPrompt(input: PosterGenerationInput): string {
       : [
           "Style: smooth chibi or emoji/avatar vinyl toy character, simplified expressive face, friendly proportions, clean silhouette, and broad color regions.",
         ]),
+    ...(referenceImageCount > 0
+      ? [
+          "Input image priority for this reference-image workflow: the first image is the customer source photo and controls face identity only: recognizable face, head shape, skin tone, facial hair, glasses, and expression. The additional admin reference images control the final character's overall visual style: render style, character design language, stylization level, proportions, material finish, lighting feel, outfit, costume, color palette, emblem treatment, accessories, and pose language. If the customer source photo clothing conflicts with the admin reference styling, the admin reference styling wins. Dress and render the customer identity like the admin reference character/style while avoiding the admin reference face/identity. Keep backgrounds from the admin references out of the result. If the admin reference includes costume emblems or logo-like shapes, simplify them as part of the costume design rather than adding separate text.",
+        ]
+      : []),
     "Pose: natural standing pose, front-facing or slight three-quarter view, with head, torso, arms, hands, legs, shoes, and feet all visible.",
     "Keep arms slightly away from the torso and hands visible. Keep feet clear and flat on an invisible ground plane.",
-    "Composition: single body-only character centered on a plain white studio background. No environment, no props unless they are part of the person, no text, and no watermark.",
+    "Composition: single body-only character centered on a plain white studio background. No environment, no props unless they are part of the admin reference outfit or customer identity, no freestanding text, and no watermark.",
     "No base, pedestal, platform, stand, plaque, nameplate, sign, ground disk, scenery, or support prop.",
     "Avoid fragile fingers, hair wisps, noisy textures, photorealistic pores, busy clothing detail, cropped limbs, bust-only framing, floating objects, display bases, or side-view-only body shapes.",
     "Output only the figurine concept image.",
@@ -307,6 +438,7 @@ function buildProofVariantPrompt(input: {
   promptText: string;
   index: number;
   count: number;
+  lockReferenceStyling?: boolean;
 }): string {
   if (input.count === 1) {
     return input.promptText;
@@ -314,7 +446,9 @@ function buildProofVariantPrompt(input: {
 
   return [
     input.promptText,
-    `Proof option ${input.index + 1} of ${input.count}: keep the same product constraints and recognizable identity, but make this option visually distinct through expression, proportions, clothing simplification, color interpretation, or camera angle within the selected style.`,
+    input.lockReferenceStyling
+      ? `Proof option ${input.index + 1} of ${input.count}: keep the same customer face identity and the same admin-reference visual style, render style, character design language, proportions, outfit, costume, color scheme, emblem treatment, material finish, body style, pose language, and accessories. Vary only small expression, head angle, camera angle, or render polish. Do not change clothing category, costume theme, costume colors, style family, logo/emblem placement, material finish, or accessories between proof options.`
+      : `Proof option ${input.index + 1} of ${input.count}: keep the same product constraints and recognizable identity, but make this option visually distinct through expression, proportions, clothing simplification, color interpretation, or camera angle within the selected style.`,
   ].join("\n\n");
 }
 
@@ -326,9 +460,67 @@ function resolveProofGenerationCount(value: number | undefined): number {
   return Math.min(Math.max(value as number, 1), maxProofGenerationCount);
 }
 
+function summarizeProofGenerationError(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.replace(/\s+/g, " ").slice(0, 500);
+}
+
+function summarizeProofGenerationFailures(
+  failures: VertexProofGenerationFailure[],
+): string {
+  return summarizeProofGenerationFailureMessages(failures).join(" ");
+}
+
+function summarizeProofGenerationFailureMessages(
+  failures: VertexProofGenerationFailure[],
+): string[] {
+  return failures.map(
+    (failure) => `Proof option ${failure.proofIndex} failed: ${failure.message}`,
+  );
+}
+
 function getConfiguredStorageBucket() {
   const bucketName = process.env.APP_STORAGE_BUCKET;
   return bucketName ? getStorage().bucket(bucketName) : getStorage().bucket();
+}
+
+async function loadStyleReferenceImages(input: {
+  bucket: ReturnType<typeof getConfiguredStorageBucket>;
+  referenceImages: WorkflowStyleReferenceImage[];
+}): Promise<VertexRequestReferenceImage[]> {
+  const referenceImageByteLimit = defaultReferenceImageByteLimit;
+
+  return Promise.all(
+    enabledReferenceImages(input.referenceImages).map(async (referenceImage) => {
+      const file = input.bucket.file(referenceImage.storagePath);
+      const [downloadResult, metadataResult] = await Promise.all([
+        file.download(),
+        file.getMetadata(),
+      ]);
+      const imageBuffer = downloadResult[0];
+
+      if (imageBuffer.byteLength > referenceImageByteLimit) {
+        throw new Error(
+          `Reference image ${referenceImage.id} is ${imageBuffer.byteLength} bytes, which exceeds the configured Vertex inline reference image limit of ${referenceImageByteLimit} bytes.`,
+        );
+      }
+
+      return {
+        id: referenceImage.id,
+        mimeType: resolveReferenceImageMimeType(
+          referenceImage,
+          metadataResult[0].contentType,
+        ),
+        imageBuffer,
+      };
+    }),
+  );
+}
+
+function enabledReferenceImages(
+  referenceImages: WorkflowStyleReferenceImage[] | undefined,
+): WorkflowStyleReferenceImage[] {
+  return (referenceImages ?? []).filter((image) => image.enabled).slice(0, 4);
 }
 
 function resolveImageMimeType(
@@ -347,6 +539,17 @@ function resolveImageMimeType(
   }
 
   return "image/jpeg";
+}
+
+function resolveReferenceImageMimeType(
+  referenceImage: WorkflowStyleReferenceImage,
+  metadataContentType: unknown,
+): "image/jpeg" | "image/png" {
+  if (metadataContentType === "image/jpeg" || metadataContentType === "image/png") {
+    return metadataContentType;
+  }
+
+  return referenceImage.mimeType;
 }
 
 function resolvePositiveIntegerEnv(name: string, fallback: number): number {
@@ -390,6 +593,7 @@ async function generateVertexImage(input: {
   promptText: string;
   sourceImageBuffer: Buffer;
   sourceMimeType: string;
+  referenceImages?: VertexRequestReferenceImage[];
 }): Promise<VertexGenerateContentResponse> {
   const generationConfig: Record<string, unknown> = {
     candidateCount: 1,
@@ -413,17 +617,12 @@ async function generateVertexImage(input: {
         contents: [
           {
             role: "USER",
-            parts: [
-              {
-                text: input.promptText,
-              },
-              {
-                inlineData: {
-                  mimeType: input.sourceMimeType,
-                  data: input.sourceImageBuffer.toString("base64"),
-                },
-              },
-            ],
+            parts: buildVertexUserParts({
+              promptText: input.promptText,
+              sourceImageBuffer: input.sourceImageBuffer,
+              sourceMimeType: input.sourceMimeType,
+              referenceImages: input.referenceImages,
+            }),
           },
         ],
         generationConfig,

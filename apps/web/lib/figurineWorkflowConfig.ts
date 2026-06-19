@@ -1,11 +1,20 @@
 export type WorkflowProductType = "poster" | "figurine";
 
+export type WorkflowStyleReferenceImage = {
+  id: string;
+  label: string;
+  storagePath: string;
+  mimeType: "image/jpeg" | "image/png";
+  enabled: boolean;
+};
+
 export type WorkflowStyleConfig = {
   id: string;
   label: string;
   productType: WorkflowProductType;
   prompt: string;
   enabled: boolean;
+  referenceImages: WorkflowStyleReferenceImage[];
 };
 
 export type WorkflowRoleGateConfig = {
@@ -28,6 +37,11 @@ export type FigurineWorkflowConfigResponse = {
   roleGate?: unknown;
 };
 
+export const maxWorkflowStyleReferenceImages = 4;
+export const maxWorkflowStyleReferenceImageBytes = 5 * 1024 * 1024;
+const referenceImageStoragePathPattern =
+  /^admin\/workflow-style-references\/[a-z0-9_]{1,80}\/[a-zA-Z0-9_-]{8,80}\.(?:jpe?g|png)$/;
+
 export const defaultFigurineWorkflowConfig: FigurineWorkflowConfig = {
   proofGenerationCount: 4,
   baseProofPrompt: [
@@ -44,6 +58,7 @@ export const defaultFigurineWorkflowConfig: FigurineWorkflowConfig = {
       prompt:
         "Smooth chibi or emoji/avatar vinyl toy character, simplified expressive face, friendly proportions, clean silhouette, and broad color regions.",
       enabled: true,
+      referenceImages: [],
     },
     {
       id: "emoji_avatar",
@@ -52,6 +67,7 @@ export const defaultFigurineWorkflowConfig: FigurineWorkflowConfig = {
       prompt:
         "Bright emoji-avatar character with a rounded head, expressive simple face, toy-like body, clean clothing shapes, and a friendly natural standing pose.",
       enabled: true,
+      referenceImages: [],
     },
     {
       id: "chibi_figure",
@@ -60,6 +76,7 @@ export const defaultFigurineWorkflowConfig: FigurineWorkflowConfig = {
       prompt:
         "Cute chibi figurine proportions with a larger head, compact body, soft features, clean hands and shoes, and a balanced full-body stance.",
       enabled: true,
+      referenceImages: [],
     },
     {
       id: "bobblehead",
@@ -68,6 +85,7 @@ export const defaultFigurineWorkflowConfig: FigurineWorkflowConfig = {
       prompt:
         "Bobblehead-inspired proof with an oversized expressive head, smaller sturdy body, clear facial likeness, and feet placed flat for later base assembly.",
       enabled: true,
+      referenceImages: [],
     },
     {
       id: "cartoon_figure",
@@ -76,6 +94,7 @@ export const defaultFigurineWorkflowConfig: FigurineWorkflowConfig = {
       prompt:
         "Polished cartoon figurine with smooth simplified shapes, readable outfit colors, friendly expression, and a clean manufacturable silhouette.",
       enabled: true,
+      referenceImages: [],
     },
   ],
   roleGate: {
@@ -169,6 +188,14 @@ export function normalizeStyleId(value: string): string {
     .slice(0, 80);
 }
 
+export function normalizeReferenceImageId(value: string): string {
+  return value
+    .trim()
+    .replace(/\s+/g, "_")
+    .replace(/[^a-zA-Z0-9_-]/g, "")
+    .slice(0, 80);
+}
+
 function normalizeWorkflowStyle(
   rawStyle: unknown,
   index: number,
@@ -190,7 +217,7 @@ function normalizeWorkflowStyle(
     typeof style.id === "string" && style.id.trim() ? style.id : label,
   );
 
-  if (!id || !prompt) {
+  if (!id) {
     return null;
   }
 
@@ -200,6 +227,56 @@ function normalizeWorkflowStyle(
     productType: style.productType === "poster" ? "poster" : "figurine",
     prompt,
     enabled: style.enabled !== false,
+    referenceImages: Array.isArray(style.referenceImages)
+      ? style.referenceImages
+          .map(normalizeWorkflowStyleReferenceImage)
+          .filter((image): image is WorkflowStyleReferenceImage =>
+            Boolean(image),
+          )
+          .slice(0, maxWorkflowStyleReferenceImages)
+      : [],
+  };
+}
+
+function normalizeWorkflowStyleReferenceImage(
+  rawImage: unknown,
+  index: number,
+): WorkflowStyleReferenceImage | null {
+  if (!rawImage || typeof rawImage !== "object") {
+    return null;
+  }
+
+  const image = rawImage as Partial<WorkflowStyleReferenceImage>;
+  const storagePath =
+    typeof image.storagePath === "string" ? image.storagePath.trim() : "";
+  const mimeType = image.mimeType;
+
+  if (
+    !referenceImageStoragePathPattern.test(storagePath) ||
+    (mimeType !== "image/jpeg" && mimeType !== "image/png")
+  ) {
+    return null;
+  }
+
+  const id = normalizeReferenceImageId(
+    typeof image.id === "string" && image.id.trim()
+      ? image.id
+      : `reference_${index + 1}`,
+  );
+
+  if (!id) {
+    return null;
+  }
+
+  return {
+    id,
+    label:
+      typeof image.label === "string" && image.label.trim()
+        ? image.label.trim().slice(0, 80)
+        : `Reference ${index + 1}`,
+    storagePath,
+    mimeType,
+    enabled: image.enabled !== false,
   };
 }
 

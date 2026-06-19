@@ -25,6 +25,8 @@ import {
 import { runMeshyFigurinePrintTooling } from "./meshyPrintTooling.js";
 import { calculateJobCost } from "./jobCost.js";
 import {
+  enabledWorkflowStyleReferenceImages,
+  publicFigurineWorkflowConfig,
   readFigurineWorkflowConfig,
   resolveVisibleWorkflowStyle,
   saveFigurineWorkflowConfig as persistFigurineWorkflowConfig,
@@ -1080,6 +1082,27 @@ async function generateFigurinePreviewForApprovedJob(input: {
 
 export const getFigurineWorkflowConfig = onCall(async () => {
   const config = await readFigurineWorkflowConfig(db);
+  const publicConfig = publicFigurineWorkflowConfig(config);
+
+  return {
+    config: publicConfig,
+    visibleStyles: visibleWorkflowStyles(publicConfig),
+    roleGate: {
+      active: false,
+      ...config.roleGate,
+    },
+  };
+});
+
+export const getAdminFigurineWorkflowConfig = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError(
+      "unauthenticated",
+      "Sign in before loading admin workflow configuration.",
+    );
+  }
+
+  const config = await readFigurineWorkflowConfig(db);
 
   return {
     config,
@@ -1176,6 +1199,8 @@ export const createGenerationJob = onCall(
       isFigurineStyle(workflowStyle.id)
         ? "figurine"
         : "poster";
+    const styleReferenceImages =
+      enabledWorkflowStyleReferenceImages(workflowStyle);
     const jobRef = db.collection("jobs").doc(parsed.data.jobId);
     const existingJob = await jobRef.get();
     if (existingJob.exists) {
@@ -1212,6 +1237,8 @@ export const createGenerationJob = onCall(
         proofGenerationCount: workflowConfig.proofGenerationCount,
         visibleStyleCount: workflowConfig.visibleStyleCount,
         roleGateEnabled: workflowConfig.roleGate.enabled,
+        styleReferenceImageCount: styleReferenceImages.length,
+        styleReferenceImageIds: styleReferenceImages.map((image) => image.id),
       },
       ...(productType === "figurine"
         ? {
@@ -1259,6 +1286,7 @@ export const createGenerationJob = onCall(
         proofGenerationCount: workflowConfig.proofGenerationCount,
         baseProofPrompt: workflowConfig.baseProofPrompt,
         stylePrompt: workflowStyle.prompt,
+        referenceImages: styleReferenceImages,
       });
       const proofStoragePaths =
         generation.status === "stubbed"

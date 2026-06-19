@@ -6,12 +6,21 @@ import { z } from "zod";
 
 export type WorkflowProductType = "poster" | "figurine";
 
+export type WorkflowStyleReferenceImage = {
+  id: string;
+  label: string;
+  storagePath: string;
+  mimeType: "image/jpeg" | "image/png";
+  enabled: boolean;
+};
+
 export type WorkflowStyleConfig = {
   id: string;
   label: string;
   productType: WorkflowProductType;
   prompt: string;
   enabled: boolean;
+  referenceImages: WorkflowStyleReferenceImage[];
 };
 
 export type WorkflowRoleGateConfig = {
@@ -33,6 +42,10 @@ export const figurineWorkflowConfigDocId = "figurineWorkflow";
 
 const maxProofGenerationCount = 4;
 const maxWorkflowStyles = 12;
+export const maxWorkflowStyleReferenceImages = 4;
+export const maxWorkflowStyleReferenceImageBytes = 5 * 1024 * 1024;
+const referenceImageStoragePathPattern =
+  /^admin\/workflow-style-references\/[a-z0-9_]{1,80}\/[a-zA-Z0-9_-]{8,80}\.(?:jpe?g|png)$/;
 
 const defaultBaseProofPrompt = [
   "Create a clean full-body 2D concept image for a personalized 3D printed figurine.",
@@ -48,6 +61,7 @@ const defaultStyles: WorkflowStyleConfig[] = [
     prompt:
       "Smooth chibi or emoji/avatar vinyl toy character, simplified expressive face, friendly proportions, clean silhouette, and broad color regions.",
     enabled: true,
+    referenceImages: [],
   },
   {
     id: "emoji_avatar",
@@ -56,6 +70,7 @@ const defaultStyles: WorkflowStyleConfig[] = [
     prompt:
       "Bright emoji-avatar character with a rounded head, expressive simple face, toy-like body, clean clothing shapes, and a friendly natural standing pose.",
     enabled: true,
+    referenceImages: [],
   },
   {
     id: "chibi_figure",
@@ -64,6 +79,7 @@ const defaultStyles: WorkflowStyleConfig[] = [
     prompt:
       "Cute chibi figurine proportions with a larger head, compact body, soft features, clean hands and shoes, and a balanced full-body stance.",
     enabled: true,
+    referenceImages: [],
   },
   {
     id: "bobblehead",
@@ -72,6 +88,7 @@ const defaultStyles: WorkflowStyleConfig[] = [
     prompt:
       "Bobblehead-inspired proof with an oversized expressive head, smaller sturdy body, clear facial likeness, and feet placed flat for later base assembly.",
     enabled: true,
+    referenceImages: [],
   },
   {
     id: "cartoon_figure",
@@ -80,6 +97,7 @@ const defaultStyles: WorkflowStyleConfig[] = [
     prompt:
       "Polished cartoon figurine with smooth simplified shapes, readable outfit colors, friendly expression, and a clean manufacturable silhouette.",
     enabled: true,
+    referenceImages: [],
   },
 ];
 
@@ -102,6 +120,17 @@ const rawStyleSchema = z.object({
   productType: z.enum(["poster", "figurine"]).optional(),
   prompt: z.string().trim().min(1).max(4000),
   enabled: z.boolean().optional(),
+  referenceImages: z
+    .array(
+      z.object({
+        id: z.string().trim().min(1).max(80).optional(),
+        label: z.string().trim().max(80).optional(),
+        storagePath: z.string().trim().min(1).max(500),
+        mimeType: z.string().trim().min(1).max(120),
+        enabled: z.boolean().optional(),
+      }),
+    )
+    .optional(),
 });
 
 const rawRoleGateSchema = z.object({
@@ -200,6 +229,31 @@ export function visibleWorkflowStyles(
     .slice(0, config.visibleStyleCount);
 }
 
+export function enabledWorkflowStyleReferenceImages(
+  style: WorkflowStyleConfig,
+): WorkflowStyleReferenceImage[] {
+  return style.referenceImages
+    .filter((image) => image.enabled)
+    .slice(0, maxWorkflowStyleReferenceImages);
+}
+
+export function publicFigurineWorkflowConfig(
+  config: FigurineWorkflowConfig,
+): FigurineWorkflowConfig {
+  return {
+    ...config,
+    baseProofPrompt: "Server-managed proof prompt.",
+    styles: config.styles.map((style) => ({
+      id: style.id,
+      label: style.label,
+      productType: style.productType,
+      prompt: "Server-managed style prompt.",
+      enabled: style.enabled,
+      referenceImages: [],
+    })),
+  };
+}
+
 export function resolveVisibleWorkflowStyle(
   config: FigurineWorkflowConfig,
   selectedStyle: string,
@@ -230,7 +284,52 @@ function normalizeWorkflowStyle(
     productType: rawStyle.productType ?? "figurine",
     prompt,
     enabled: rawStyle.enabled ?? true,
+    referenceImages: (rawStyle.referenceImages ?? [])
+      .map(normalizeWorkflowStyleReferenceImage)
+      .filter((image): image is WorkflowStyleReferenceImage => Boolean(image))
+      .slice(0, maxWorkflowStyleReferenceImages),
   };
+}
+
+function normalizeWorkflowStyleReferenceImage(
+  rawImage: NonNullable<
+    z.infer<typeof rawStyleSchema>["referenceImages"]
+  >[number],
+  index: number,
+): WorkflowStyleReferenceImage | null {
+  const storagePath = rawImage.storagePath.trim();
+  if (!referenceImageStoragePathPattern.test(storagePath)) {
+    return null;
+  }
+  const mimeType = normalizeReferenceImageMimeType(rawImage.mimeType);
+  if (!mimeType) {
+    return null;
+  }
+
+  const id = normalizeReferenceImageId(rawImage.id ?? `reference_${index + 1}`);
+  if (!id) {
+    return null;
+  }
+
+  const label = rawImage.label?.trim() || `Reference ${index + 1}`;
+
+  return {
+    id,
+    label,
+    storagePath,
+    mimeType,
+    enabled: rawImage.enabled ?? true,
+  };
+}
+
+function normalizeReferenceImageMimeType(
+  value: string,
+): WorkflowStyleReferenceImage["mimeType"] | null {
+  if (value === "image/jpeg" || value === "image/png") {
+    return value;
+  }
+
+  return null;
 }
 
 function normalizeStyleId(value: string): string {
@@ -240,6 +339,14 @@ function normalizeStyleId(value: string): string {
     .replaceAll("-", "_")
     .replaceAll(/\s+/g, "_")
     .replaceAll(/[^a-z0-9_]/g, "")
+    .slice(0, 80);
+}
+
+function normalizeReferenceImageId(value: string): string {
+  return value
+    .trim()
+    .replaceAll(/\s+/g, "_")
+    .replaceAll(/[^a-zA-Z0-9_-]/g, "")
     .slice(0, 80);
 }
 

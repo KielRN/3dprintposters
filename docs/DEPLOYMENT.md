@@ -79,7 +79,7 @@ npm run firebase:emulators:functions
 
 Set `NEXT_PUBLIC_USE_FIREBASE_FUNCTIONS_EMULATOR=true` for the web app when using that path. This keeps Auth, Firestore, and Storage pointed at the configured Firebase project while callable Functions run locally. On this machine, JDK 21+ is installed, new terminals resolve `java -version` to Java 21, and the full emulator suite preflight passes.
 
-Source uploads are written by the browser to `uploads/{uid}/{jobId}/source.{jpg|png}`. The `createGenerationJob` callable Function now requires the same `jobId` and source path, verifies that they belong to the authenticated user, reads `adminConfig/figurineWorkflow` for dev proof/style settings, creates `jobs/{jobId}` with `status: "generating"`, calls the server-side Vertex/Gemini provider adapter, stores generated proof options under `generated/{uid}/{jobId}/`, and marks the job `preview_ready` or `failed`. The `/admin` page edits that workflow config through callable Functions; role-based permission is a placeholder until custom-claim enforcement is added. The `approveGeneratedImage` callable records the selected `approvedImagePath`, and `createCheckoutSession` requires that approval before creating the deterministic `orders/{jobId}` checkout record.
+Source uploads are written by the browser to `uploads/{uid}/{jobId}/source.{jpg|png}`. The `createGenerationJob` callable Function now requires the same `jobId` and source path, verifies that they belong to the authenticated user, reads `adminConfig/figurineWorkflow` for dev proof/style settings, creates `jobs/{jobId}` with `status: "generating"`, calls the server-side Vertex/Gemini provider adapter, stores generated proof options under `generated/{uid}/{jobId}/`, and marks the job `preview_ready` or `failed`. The `/admin` page edits that workflow config through callable Functions and uploads per-style proof reference images under `admin/workflow-style-references/{styleId}/{imageId}.{jpg|png}`; role-based permission is a placeholder until custom-claim enforcement is added. The `approveGeneratedImage` callable records the selected `approvedImagePath`, and `createCheckoutSession` requires that approval before creating the deterministic `orders/{jobId}` checkout record.
 
 ## Firebase Rules Deployment
 
@@ -96,7 +96,7 @@ npm run firebase:deploy:rules:dry-run
 npm run firebase:deploy:rules:dev
 ```
 
-Storage rules control who can read and write objects. Browser-based GLB previews also need bucket CORS so Three.js can fetch `preview.glb` from the web app origin:
+Storage rules control who can read and write objects. The current admin reference-image Storage rule is dev-only and allows signed-in users to read/write the `admin/workflow-style-references/` lane with JPG/PNG and 5 MB limits; tighten it to admin custom claims before staging or production. Browser-based GLB previews also need bucket CORS so Three.js can fetch `preview.glb` from the web app origin:
 
 ```powershell
 npm run firebase:deploy:storage-cors:dev

@@ -3,10 +3,14 @@
 import { getFirebaseClients } from "@/lib/firebase";
 import {
   defaultFigurineWorkflowConfig,
+  maxWorkflowStyleReferenceImageBytes,
+  maxWorkflowStyleReferenceImages,
   normalizeFigurineWorkflowConfigResponse,
+  normalizeReferenceImageId,
   normalizeStyleId,
   type FigurineWorkflowConfig,
   type WorkflowProductType,
+  type WorkflowStyleReferenceImage,
   type WorkflowStyleConfig,
 } from "@/lib/figurineWorkflowConfig";
 import {
@@ -14,6 +18,8 @@ import {
   CheckCircle2,
   Eye,
   House,
+  Image as ImageIcon,
+  ImagePlus,
   Loader2,
   LogOut,
   Plus,
@@ -25,6 +31,7 @@ import {
 } from "lucide-react";
 import { onAuthStateChanged, signInAnonymously, signOut, type User } from "firebase/auth";
 import { httpsCallable } from "firebase/functions";
+import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
@@ -36,6 +43,25 @@ function enabledStyleCount(styles: WorkflowStyleConfig[]) {
   return Math.max(1, styles.filter((style) => style.enabled).length);
 }
 
+function referenceImageStoragePath(input: {
+  styleId: string;
+  imageId: string;
+  mimeType: WorkflowStyleReferenceImage["mimeType"];
+}) {
+  const extension = input.mimeType === "image/png" ? "png" : "jpg";
+  return `admin/workflow-style-references/${input.styleId}/${input.imageId}.${extension}`;
+}
+
+function referenceImageLabel(fileName: string) {
+  return (
+    fileName
+      .replace(/\.[^.]+$/, "")
+      .replaceAll(/[_-]+/g, " ")
+      .trim()
+      .slice(0, 80) || "Reference image"
+  );
+}
+
 export function AdminWorkflowConfig() {
   const firebaseClients = useMemo(() => getFirebaseClients(), []);
   const [user, setUser] = useState<User | null>(null);
@@ -43,6 +69,10 @@ export function AdminWorkflowConfig() {
   const [authBusy, setAuthBusy] = useState(false);
   const [configLoading, setConfigLoading] = useState(Boolean(firebaseClients));
   const [saving, setSaving] = useState(false);
+  const [referenceUploadBusyKey, setReferenceUploadBusyKey] = useState("");
+  const [referenceImageUrls, setReferenceImageUrls] = useState<
+    Record<string, string>
+  >({});
   const [config, setConfig] = useState<FigurineWorkflowConfig>(
     defaultFigurineWorkflowConfig,
   );
@@ -63,14 +93,21 @@ export function AdminWorkflowConfig() {
   }, [firebaseClients]);
 
   useEffect(() => {
-    if (!firebaseClients) {
+    if (!firebaseClients || authLoading) {
+      return;
+    }
+
+    if (!user) {
+      setConfig(defaultFigurineWorkflowConfig);
+      setReferenceImageUrls({});
+      setConfigLoading(false);
       return;
     }
 
     let cancelled = false;
     const getWorkflowConfig = httpsCallable<Record<string, never>, unknown>(
       firebaseClients.functions,
-      "getFigurineWorkflowConfig",
+      "getAdminFigurineWorkflowConfig",
     );
 
     setConfigLoading(true);
@@ -100,7 +137,54 @@ export function AdminWorkflowConfig() {
     return () => {
       cancelled = true;
     };
-  }, [firebaseClients]);
+  }, [authLoading, firebaseClients, user]);
+
+  const referenceImagePaths = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          config.styles.flatMap((style) =>
+            style.referenceImages.map((image) => image.storagePath),
+          ),
+        ),
+      ),
+    [config.styles],
+  );
+  const referenceImagePathKey = referenceImagePaths.join("|");
+
+  useEffect(() => {
+    if (!firebaseClients) {
+      return;
+    }
+
+    if (referenceImagePaths.length === 0) {
+      setReferenceImageUrls({});
+      return;
+    }
+
+    let cancelled = false;
+
+    void Promise.all(
+      referenceImagePaths.map(async (storagePath) => {
+        try {
+          return [
+            storagePath,
+            await getDownloadURL(ref(firebaseClients.storage, storagePath)),
+          ] as const;
+        } catch {
+          return [storagePath, ""] as const;
+        }
+      }),
+    ).then((entries) => {
+      if (!cancelled) {
+        setReferenceImageUrls(Object.fromEntries(entries));
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [firebaseClients, referenceImagePathKey, referenceImagePaths]);
 
   async function continueAsDev() {
     if (!firebaseClients) {
@@ -192,6 +276,7 @@ export function AdminWorkflowConfig() {
           prompt:
             "Clean full-body stylized figurine proof with smooth toy-like surfaces, clear identity, visible hands, legs, shoes, and no base.",
           enabled: true,
+          referenceImages: [],
         },
       ];
 
@@ -225,6 +310,135 @@ export function AdminWorkflowConfig() {
         styles,
       };
     });
+  }
+
+  function updateStyleReferenceImage(
+    styleIndex: number,
+    imageIndex: number,
+    patch: Partial<WorkflowStyleReferenceImage>,
+  ) {
+    setConfig((currentConfig) => ({
+      ...currentConfig,
+      styles: currentConfig.styles.map((style, currentStyleIndex) =>
+        currentStyleIndex === styleIndex
+          ? {
+              ...style,
+              referenceImages: style.referenceImages.map(
+                (referenceImage, currentImageIndex) =>
+                  currentImageIndex === imageIndex
+                    ? { ...referenceImage, ...patch }
+                    : referenceImage,
+              ),
+            }
+          : style,
+      ),
+    }));
+  }
+
+  function removeStyleReferenceImage(styleIndex: number, imageIndex: number) {
+    setConfig((currentConfig) => ({
+      ...currentConfig,
+      styles: currentConfig.styles.map((style, currentStyleIndex) =>
+        currentStyleIndex === styleIndex
+          ? {
+              ...style,
+              referenceImages: style.referenceImages.filter(
+                (_referenceImage, currentImageIndex) =>
+                  currentImageIndex !== imageIndex,
+              ),
+            }
+          : style,
+      ),
+    }));
+  }
+
+  async function uploadStyleReferenceImage(styleIndex: number, file: File) {
+    if (!firebaseClients) {
+      setError("Firebase Storage is not configured for reference uploads.");
+      return;
+    }
+
+    if (!user) {
+      setError("Sign in before uploading reference images.");
+      return;
+    }
+
+    const style = config.styles[styleIndex];
+    if (!style) {
+      setError("Style was not found.");
+      return;
+    }
+
+    if (style.referenceImages.length >= maxWorkflowStyleReferenceImages) {
+      setError(
+        `Each style can use up to ${maxWorkflowStyleReferenceImages} reference images.`,
+      );
+      return;
+    }
+
+    if (file.type !== "image/jpeg" && file.type !== "image/png") {
+      setError("Reference images must be JPG or PNG files.");
+      return;
+    }
+
+    if (file.size > maxWorkflowStyleReferenceImageBytes) {
+      setError("Reference images must be 5 MB or smaller.");
+      return;
+    }
+
+    const styleId =
+      normalizeStyleId(style.id || style.label) || `style_${styleIndex + 1}`;
+    const imageId = normalizeReferenceImageId(crypto.randomUUID());
+    const mimeType = file.type as WorkflowStyleReferenceImage["mimeType"];
+    const storagePath = referenceImageStoragePath({
+      styleId,
+      imageId,
+      mimeType,
+    });
+    const busyKey = `${styleIndex}:${imageId}`;
+
+    setReferenceUploadBusyKey(busyKey);
+    setNotice("");
+    setError("");
+
+    try {
+      const storageRef = ref(firebaseClients.storage, storagePath);
+      await uploadBytes(storageRef, file, {
+        contentType: mimeType,
+        customMetadata: {
+          styleId,
+          imageId,
+          originalFileName: file.name,
+          workflow: "figurine-style-reference",
+        },
+      });
+
+      const downloadUrl = await getDownloadURL(storageRef);
+      const referenceImage: WorkflowStyleReferenceImage = {
+        id: imageId,
+        label: referenceImageLabel(file.name),
+        storagePath,
+        mimeType,
+        enabled: true,
+      };
+
+      updateStyle(styleIndex, {
+        referenceImages: [...style.referenceImages, referenceImage],
+      });
+      setReferenceImageUrls((currentUrls) => ({
+        ...currentUrls,
+        [storagePath]: downloadUrl,
+      }));
+      setNotice("Reference image uploaded. Save to use it in proof prompts.");
+    } catch (uploadError) {
+      setError(
+        uploadError instanceof Error
+          ? uploadError.message
+          : "Reference image upload failed.",
+      );
+    } finally {
+      setReferenceUploadBusyKey("");
+    }
   }
 
   const maxVisibleStyles = enabledStyleCount(config.styles);
@@ -515,6 +729,135 @@ export function AdminWorkflowConfig() {
                   }
                 />
               </label>
+              <div className="mt-4 grid gap-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 text-sm font-bold">
+                    <ImageIcon
+                      className="text-[var(--teal)]"
+                      size={16}
+                      aria-hidden="true"
+                    />
+                    Reference images
+                    <span className="text-xs font-semibold text-[var(--muted)]">
+                      {style.referenceImages.length}/
+                      {maxWorkflowStyleReferenceImages}
+                    </span>
+                  </div>
+                  <label
+                    className={`secondary-button h-10 min-h-0 px-3 ${
+                      !user ||
+                      style.referenceImages.length >=
+                        maxWorkflowStyleReferenceImages
+                        ? "pointer-events-none opacity-50"
+                        : "cursor-pointer"
+                    }`}
+                  >
+                    {referenceUploadBusyKey.startsWith(`${index}:`) ? (
+                      <Loader2
+                        className="animate-spin"
+                        size={16}
+                        aria-hidden="true"
+                      />
+                    ) : (
+                      <ImagePlus size={16} aria-hidden="true" />
+                    )}
+                    Add image
+                    <input
+                      className="sr-only"
+                      accept="image/png,image/jpeg"
+                      disabled={
+                        !user ||
+                        style.referenceImages.length >=
+                          maxWorkflowStyleReferenceImages ||
+                        referenceUploadBusyKey.startsWith(`${index}:`)
+                      }
+                      type="file"
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        event.currentTarget.value = "";
+                        if (file) {
+                          void uploadStyleReferenceImage(index, file);
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+
+                {style.referenceImages.length > 0 ? (
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {style.referenceImages.map((referenceImage, imageIndex) => {
+                      const imageUrl =
+                        referenceImageUrls[referenceImage.storagePath];
+
+                      return (
+                        <div
+                          className="grid min-h-24 grid-cols-[72px_minmax(0,1fr)_auto] gap-3 rounded-lg border border-black/10 p-3"
+                          key={`${referenceImage.id}-${imageIndex}`}
+                        >
+                          {imageUrl ? (
+                            <img
+                              alt={referenceImage.label}
+                              className="h-[72px] w-[72px] rounded-md object-cover"
+                              src={imageUrl}
+                            />
+                          ) : (
+                            <div className="flex h-[72px] w-[72px] items-center justify-center rounded-md bg-black/5 text-[var(--muted)]">
+                              <ImageIcon size={20} aria-hidden="true" />
+                            </div>
+                          )}
+                          <div className="grid min-w-0 gap-2">
+                            <input
+                              className="h-10 rounded-lg border border-black/15 px-3 text-sm font-semibold"
+                              value={referenceImage.label}
+                              onChange={(event) =>
+                                updateStyleReferenceImage(index, imageIndex, {
+                                  label: event.target.value.slice(0, 80),
+                                })
+                              }
+                            />
+                            <span className="truncate text-xs font-semibold text-[var(--muted)]">
+                              {referenceImage.mimeType}
+                            </span>
+                          </div>
+                          <div className="flex flex-col gap-2">
+                            <label
+                              className="flex h-10 w-12 items-center justify-center rounded-lg border border-black/10"
+                              title="Use reference"
+                            >
+                              <input
+                                className="h-4 w-4 accent-[var(--teal)]"
+                                checked={referenceImage.enabled}
+                                type="checkbox"
+                                onChange={(event) =>
+                                  updateStyleReferenceImage(
+                                    index,
+                                    imageIndex,
+                                    { enabled: event.target.checked },
+                                  )
+                                }
+                              />
+                            </label>
+                            <button
+                              className="secondary-button h-10 min-h-0 w-12 px-0"
+                              type="button"
+                              title="Remove reference"
+                              onClick={() =>
+                                removeStyleReferenceImage(index, imageIndex)
+                              }
+                            >
+                              <Trash2 size={16} aria-hidden="true" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="flex min-h-16 items-center justify-center rounded-lg border border-dashed border-black/15 text-sm font-semibold text-[var(--muted)]">
+                    No reference images
+                  </div>
+                )}
+              </div>
             </article>
           ))}
         </div>

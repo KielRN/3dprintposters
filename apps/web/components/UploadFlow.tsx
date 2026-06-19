@@ -64,6 +64,7 @@ export function UploadFlow() {
   const [authError, setAuthError] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState("");
+  const [sourcePreviewUrl, setSourcePreviewUrl] = useState("");
   const [workflowConfig, setWorkflowConfig] = useState(
     defaultFigurineWorkflowConfig,
   );
@@ -100,6 +101,14 @@ export function UploadFlow() {
       setAuthLoading(false);
     });
   }, [firebaseClients]);
+
+  useEffect(() => {
+    return () => {
+      if (sourcePreviewUrl) {
+        URL.revokeObjectURL(sourcePreviewUrl);
+      }
+    };
+  }, [sourcePreviewUrl]);
 
   useEffect(() => {
     if (!firebaseClients) {
@@ -388,14 +397,45 @@ export function UploadFlow() {
         ) : null}
       </div>
 
-      <label className="field-shell mt-6 flex min-h-40 cursor-pointer flex-col items-center justify-center px-4 py-6 text-center">
-        <Upload className="text-[var(--teal)]" size={28} aria-hidden="true" />
-        <span className="mt-3 text-base font-bold">
-          {fileName || "Choose a source photo"}
-        </span>
-        <span className="mt-1 max-w-xs text-sm text-[var(--muted)]">
-          JPG or PNG, portrait crops work best for the first pass.
-        </span>
+      <label className="field-shell mt-6 flex min-h-40 cursor-pointer flex-col overflow-hidden text-center">
+        {sourcePreviewUrl ? (
+          <span className="grid gap-3 p-3 sm:grid-cols-[10rem_minmax(0,1fr)] sm:items-center sm:text-left">
+            <span className="flex aspect-[4/3] w-full items-center justify-center overflow-hidden rounded-md bg-white sm:aspect-[4/5]">
+              <img
+                alt={`Selected source photo: ${fileName}`}
+                className="h-full w-full object-contain"
+                src={sourcePreviewUrl}
+              />
+            </span>
+            <span className="flex min-w-0 flex-col items-center justify-center px-1 py-2 sm:items-start">
+              <Upload
+                className="text-[var(--teal)]"
+                size={26}
+                aria-hidden="true"
+              />
+              <span className="mt-3 max-w-full break-words text-base font-bold">
+                {fileName}
+              </span>
+              <span className="mt-1 max-w-xs text-sm text-[var(--muted)]">
+                JPG or PNG, portrait crops work best for the first pass.
+              </span>
+            </span>
+          </span>
+        ) : (
+          <span className="flex min-h-40 flex-col items-center justify-center px-4 py-6">
+            <Upload
+              className="text-[var(--teal)]"
+              size={28}
+              aria-hidden="true"
+            />
+            <span className="mt-3 text-base font-bold">
+              Choose a source photo
+            </span>
+            <span className="mt-1 max-w-xs text-sm text-[var(--muted)]">
+              JPG or PNG, portrait crops work best for the first pass.
+            </span>
+          </span>
+        )}
         <input
           className="sr-only"
           type="file"
@@ -404,6 +444,7 @@ export function UploadFlow() {
             const file = event.target.files?.[0];
             setSelectedFile(file ?? null);
             setFileName(file?.name ?? "");
+            setSourcePreviewUrl(file ? URL.createObjectURL(file) : "");
             setJobState(file ? "ready" : "idle");
             setJobId("");
             setWorkflowError("");
