@@ -47,7 +47,9 @@ function drawContain(
   const dw = iw * scale;
   const dh = ih * scale;
   const dx = (cssWidth - dw) / 2;
-  const dy = (cssHeight - dh) / 2;
+  // top-align: keep any vertical letterbox at the bottom (under the scrim + copy)
+  // rather than leaving an empty black band above the frame
+  const dy = 0;
   ctx.drawImage(img, dx, dy, dw, dh);
 }
 

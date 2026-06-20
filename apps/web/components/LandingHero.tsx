@@ -174,7 +174,7 @@ export function LandingHero() {
             src={STATIC_FRAME}
             alt=""
             aria-hidden="true"
-            className="absolute inset-0 h-full w-full object-contain"
+            className="absolute inset-0 h-full w-full object-contain object-top"
           />
           <div
             aria-hidden="true"
