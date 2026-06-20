@@ -272,7 +272,7 @@ export function UploadFlow() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-sm font-bold text-[var(--teal)]">New order</p>
-          <h2 className="mt-1 text-2xl font-semibold">Create your model</h2>
+          <h2 className="display mt-1 text-2xl">Create your model</h2>
         </div>
         <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-[var(--teal)] text-white">
           <ImagePlus size={22} aria-hidden="true" />

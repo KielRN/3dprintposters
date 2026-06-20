@@ -111,12 +111,12 @@ export function OrderDetail({ orderId }: { orderId: string }) {
         <div>
           <Link
             className="inline-flex items-center gap-2 text-sm font-bold text-[var(--muted)]"
-            href={order?.jobId ? `/jobs/${order.jobId}` : "/"}
+            href={order?.jobId ? `/jobs/${order.jobId}` : "/start"}
           >
             <ArrowLeft size={16} aria-hidden="true" />
             {order?.jobId ? "Back to proof" : "New order"}
           </Link>
-          <h1 className="mt-3 text-2xl font-semibold sm:text-3xl">
+          <h1 className="display mt-3 text-2xl sm:text-3xl">
             Order status
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-[var(--muted)]">

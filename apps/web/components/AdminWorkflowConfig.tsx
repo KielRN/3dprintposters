@@ -478,14 +478,14 @@ export function AdminWorkflowConfig({
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
             Admin
           </p>
-          <h1 className="mt-1 text-2xl font-semibold sm:text-3xl">
+          <h1 className="display mt-1 text-2xl sm:text-3xl">
             Workflow controls
           </h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {!embedded ? (
             <>
-              <Link className="secondary-button h-10 min-h-0 px-3" href="/">
+              <Link className="secondary-button h-10 min-h-0 px-3" href="/start">
                 <House size={16} aria-hidden="true" />
                 Home
               </Link>

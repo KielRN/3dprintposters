@@ -1,15 +1,25 @@
 @import "tailwindcss";
 
 :root {
-  --page-bg: #f6f7f8;
+  /* 3DPrintU warm palette */
+  --cream: #f5f1ea;
+  --ink: #1a1714;
+  --ember: #e8552e;
+  --terracotta: #c2410c;
+  --clay: #e8dfd3;
+  --moss: #3f6b4c;
+  --muted: #6b5f52;
+  --line: rgba(26, 23, 20, 0.1);
+
+  /* surfaces */
   --surface: #ffffff;
-  --surface-strong: #111318;
-  --ink: #15171c;
-  --muted: #646a73;
-  --line: rgba(18, 19, 24, 0.12);
-  --teal: #147d7e;
-  --coral: #df5c45;
-  --gold: #c79a2e;
+  --surface-strong: #1a1714;
+
+  /* legacy semantic aliases (kept so existing pages don't break, remapped warm) */
+  --page-bg: var(--cream);
+  --teal: var(--moss);
+  --coral: #c0462b;
+  --gold: #b07a1e;
 }
 
 * {
@@ -17,26 +27,37 @@
 }
 
 html {
-  background: var(--page-bg);
+  background: var(--cream);
 }
 
 body {
   margin: 0;
+  color: var(--ink);
   font-family:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
+    var(--font-inter), Inter, ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
 }
 
+/* Fraunces display utility — flips a heading to the serif display face */
+.display {
+  font-family: var(--font-fraunces), "Fraunces", Georgia, "Times New Roman", serif;
+  font-optical-sizing: auto;
+  font-variation-settings: "opsz" 144, "SOFT" 4, "WONK" 0;
+  letter-spacing: -0.015em;
+  font-weight: 600;
+}
+
 .panel {
-  border: 1px solid var(--line);
+  border: 1px solid var(--clay);
   background: var(--surface);
-  box-shadow: 0 18px 50px rgba(21, 23, 28, 0.08);
+  box-shadow: 0 18px 50px rgba(26, 23, 20, 0.08);
 }
 
 .step-pill {
@@ -45,7 +66,7 @@ select {
   align-items: center;
   border: 1px solid var(--line);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.72);
+  background: var(--clay);
   padding: 0 12px;
   color: var(--muted);
   font-size: 12px;
@@ -60,7 +81,7 @@ select {
   gap: 10px;
   border-radius: 8px;
   border: 0;
-  background: var(--surface-strong);
+  background: var(--ember);
   color: #ffffff;
   padding: 0 16px;
   font-weight: 800;
@@ -70,8 +91,12 @@ select {
 }
 
 .primary-button:hover {
-  background: #272b33;
+  background: var(--terracotta);
   transform: translateY(-1px);
+}
+
+.primary-button:active {
+  transform: translateY(0);
 }
 
 .secondary-button {
@@ -81,7 +106,7 @@ select {
   justify-content: center;
   gap: 10px;
   border-radius: 8px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--clay);
   background: #ffffff;
   color: var(--ink);
   padding: 0 14px;
@@ -107,7 +132,50 @@ select {
 }
 
 .field-shell {
-  border: 1px dashed rgba(20, 125, 126, 0.55);
+  border: 1px dashed rgba(63, 107, 76, 0.55);
   border-radius: 8px;
-  background: rgba(20, 125, 126, 0.06);
+  background: rgba(63, 107, 76, 0.06);
+}
+
+/* Landing: scroll-reveal (IntersectionObserver toggles data-shown) */
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition:
+    opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+
+.reveal[data-shown="true"] {
+  opacity: 1;
+  transform: none;
+}
+
+/* Landing: gallery strip drifts horizontally with scroll where supported */
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) {
+    .gallery-drift {
+      animation: gallery-drift linear both;
+      animation-timeline: view();
+      animation-range: entry 0% exit 100%;
+    }
+
+    @keyframes gallery-drift {
+      from {
+        transform: translateX(2%);
+      }
+      to {
+        transform: translateX(-22%);
+      }
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
 }

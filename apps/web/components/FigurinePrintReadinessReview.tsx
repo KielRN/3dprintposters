@@ -338,7 +338,7 @@ export function FigurinePrintReadinessReview({ jobId }: { jobId: string }) {
             <ArrowLeft size={16} aria-hidden="true" />
             Job preview
           </Link>
-          <h1 className="mt-3 text-2xl font-semibold sm:text-3xl">
+          <h1 className="display mt-3 text-2xl sm:text-3xl">
             Figurine print readiness
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-[var(--muted)]">

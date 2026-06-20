@@ -1,14 +1,28 @@
 import type { Metadata, Viewport } from "next";
+import { Fraunces, Inter } from "next/font/google";
 import "./globals.css";
 
+const fraunces = Fraunces({
+  subsets: ["latin"],
+  display: "swap",
+  axes: ["opsz", "SOFT", "WONK"],
+  variable: "--font-fraunces"
+});
+
+const inter = Inter({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-inter"
+});
+
 export const metadata: Metadata = {
-  title: "3D Print Posters",
-  description: "Turn a photo into a tactile AI-generated 3D printed poster.",
+  title: "3DPrintU",
+  description: "From your photo to a printed figurine. Send us a picture, approve the proof, we print and ship.",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "3D Posters"
+    title: "3DPrintU"
   },
   icons: {
     icon: [
@@ -22,7 +36,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#121212"
+  themeColor: "#F5F1EA"
 };
 
 export default function RootLayout({
@@ -31,7 +45,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${fraunces.variable} ${inter.variable}`}>
       <body>{children}</body>
     </html>
   );

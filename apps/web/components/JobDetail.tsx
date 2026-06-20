@@ -546,12 +546,12 @@ export function JobDetail({ jobId }: { jobId: string }) {
         <div>
           <Link
             className="inline-flex items-center gap-2 text-sm font-bold text-[var(--muted)]"
-            href="/"
+            href="/start"
           >
             <ArrowLeft size={16} aria-hidden="true" />
             New order
           </Link>
-          <h1 className="mt-3 text-2xl font-semibold sm:text-3xl">
+          <h1 className="display mt-3 text-2xl sm:text-3xl">
             {isFigurineJob ? "Review your 3D preview" : "Review your proof"}
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-[var(--muted)]">
