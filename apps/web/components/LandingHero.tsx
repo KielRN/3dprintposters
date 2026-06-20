@@ -91,29 +91,32 @@ export function LandingHero() {
     "min(clamp(0, calc((var(--p, 0) - 0.30) / 0.07), 1), clamp(0, calc((0.66 - var(--p, 0)) / 0.07), 1))";
   const line3 = "clamp(0, calc((var(--p, 0) - 0.63) / 0.07), 1)";
 
+  // y of the top-aligned frame's bottom edge (matches the canvas contain math)
+  const videoBottom = "min(calc(100vw * 9 / 16), 100dvh)";
+
   return (
     <>
       <LandingHeader solid={solidHeader || !scrub} />
       <div ref={sentinelRef} aria-hidden className="absolute top-0 h-1 w-full" />
 
       {scrub ? (
-        <section ref={sectionRef} className="relative bg-[var(--ink)]">
+        <section ref={sectionRef} className="relative bg-[var(--cream)]">
           <div
             ref={stickyRef}
-            className="sticky top-0 h-[100dvh] w-full overflow-hidden"
+            className="sticky top-0 h-[100dvh] w-full overflow-hidden bg-[var(--cream)]"
           >
             <canvas
               ref={canvasRef}
               aria-hidden="true"
               className="absolute inset-0 h-full w-full"
             />
-            {/* legibility scrim */}
+            {/* subtle top scrim so the header + wordmark read over the frame */}
             <div
               aria-hidden="true"
-              className="pointer-events-none absolute inset-0"
+              className="pointer-events-none absolute inset-x-0 top-0 h-[30vh]"
               style={{
                 background:
-                  "linear-gradient(180deg, rgba(26,23,20,0.35) 0%, rgba(26,23,20,0) 28%, rgba(26,23,20,0) 55%, rgba(26,23,20,0.55) 100%)"
+                  "linear-gradient(180deg, rgba(26,23,20,0.28) 0%, rgba(26,23,20,0) 100%)"
               }}
             />
 
@@ -138,27 +141,28 @@ export function LandingHero() {
               Start your figurine
             </Link>
 
-            {/* visual crossfading copy */}
+            {/* visual crossfading copy — inside the frame, lower-left, ink */}
             <div
               aria-hidden="true"
-              className="absolute inset-0 flex items-end px-5 pb-[14vh] sm:px-7 lg:px-10"
+              className="absolute inset-x-0 px-5 sm:px-7 lg:px-10"
+              style={{ bottom: `calc(100dvh - ${videoBottom} + 4vh)` }}
             >
-              <div className="relative mx-auto w-full max-w-7xl">
-                <div className="relative h-[1.1em] text-white">
+              <div className="mx-auto w-full max-w-7xl">
+                <div className="grid text-[var(--ink)]">
                   <span
-                    className="display absolute inset-0 text-[clamp(2.75rem,9vw,7rem)] leading-none"
+                    className="display col-start-1 row-start-1 text-[clamp(1.5rem,4.6vw,3.25rem)] leading-none"
                     style={{ opacity: line1 }}
                   >
                     Your photo.
                   </span>
                   <span
-                    className="display absolute inset-0 text-[clamp(2.75rem,9vw,7rem)] leading-none"
+                    className="display col-start-1 row-start-1 text-[clamp(1.5rem,4.6vw,3.25rem)] leading-none"
                     style={{ opacity: line2 }}
                   >
                     Your figurine.
                   </span>
                   <span
-                    className="display absolute inset-0 text-[clamp(2.75rem,9vw,7rem)] leading-none"
+                    className="display col-start-1 row-start-1 text-[clamp(1.5rem,4.6vw,3.25rem)] leading-none"
                     style={{ opacity: line3 }}
                   >
                     Your shelf.

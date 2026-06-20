@@ -27,10 +27,15 @@ export type FrameScrubOptions = {
 const framePath = (dir: string, oneBasedIndex: number) =>
   `${dir}/frame-${String(oneBasedIndex).padStart(4, "0")}.webp`;
 
+const CREAM = "#f5f1ea";
+const INK = "#1a1714";
+/** thickness of the ink rule drawn under the frame, in CSS px */
+const RULE = 8;
+
 /**
- * Paints the frame "contain" (whole frame visible, centered) on an ink backdrop.
- * Contain keeps the full composition in view rather than cropping to fill, so the
- * subject reads smaller / zoomed-out compared to a cover fit.
+ * Paints the frame "contain" (whole frame visible) anchored to the top, on a cream
+ * backdrop that blends into the page below. Any area under the frame is cream, not
+ * a black band; a thin ink rule sits directly beneath the frame as a divider.
  */
 function drawContain(
   ctx: CanvasRenderingContext2D,
@@ -38,7 +43,7 @@ function drawContain(
   cssWidth: number,
   cssHeight: number
 ) {
-  ctx.fillStyle = "#1a1714";
+  ctx.fillStyle = CREAM;
   ctx.fillRect(0, 0, cssWidth, cssHeight);
   const iw = img.naturalWidth;
   const ih = img.naturalHeight;
@@ -47,10 +52,14 @@ function drawContain(
   const dw = iw * scale;
   const dh = ih * scale;
   const dx = (cssWidth - dw) / 2;
-  // top-align: keep any vertical letterbox at the bottom (under the scrim + copy)
-  // rather than leaving an empty black band above the frame
+  // top-align: no empty band above the frame
   const dy = 0;
   ctx.drawImage(img, dx, dy, dw, dh);
+  // thin ink rule beneath the frame (only when there is room below it)
+  if (dh < cssHeight) {
+    ctx.fillStyle = INK;
+    ctx.fillRect(dx, dh, dw, RULE);
+  }
 }
 
 /**
