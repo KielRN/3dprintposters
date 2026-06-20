@@ -27,18 +27,10 @@ export type FrameScrubOptions = {
 const framePath = (dir: string, oneBasedIndex: number) =>
   `${dir}/frame-${String(oneBasedIndex).padStart(4, "0")}.webp`;
 
-const INK = "#1a1714";
-const INK_CLEAR = "rgba(26, 23, 20, 0)";
-/** how much smaller than a full contain fit the frame is drawn (more = more margin) */
-const FRAME_ZOOM = 0.78;
-/** edge feather band as a fraction of the frame's short side */
-const FRAME_FEATHER = 0.16;
-
 /**
- * Paints the frame scaled down and centered on an ink backdrop, then feathers its
- * four edges into that backdrop so the frame dissolves into the scene instead of
- * reading as a hard-edged rectangle. Contain (not cover) keeps the whole
- * composition in view; FRAME_ZOOM pulls it in further for breathing room.
+ * Paints the frame "contain" (whole frame visible, centered) on an ink backdrop.
+ * Contain keeps the full composition in view rather than cropping to fill, so the
+ * subject reads smaller / zoomed-out compared to a cover fit.
  */
 function drawContain(
   ctx: CanvasRenderingContext2D,
@@ -46,35 +38,17 @@ function drawContain(
   cssWidth: number,
   cssHeight: number
 ) {
-  ctx.fillStyle = INK;
+  ctx.fillStyle = "#1a1714";
   ctx.fillRect(0, 0, cssWidth, cssHeight);
   const iw = img.naturalWidth;
   const ih = img.naturalHeight;
   if (!iw || !ih) return;
-  const scale = Math.min(cssWidth / iw, cssHeight / ih) * FRAME_ZOOM;
+  const scale = Math.min(cssWidth / iw, cssHeight / ih);
   const dw = iw * scale;
   const dh = ih * scale;
   const dx = (cssWidth - dw) / 2;
   const dy = (cssHeight - dh) / 2;
   ctx.drawImage(img, dx, dy, dw, dh);
-
-  // feather the four edges back into the ink backdrop
-  const f = Math.round(Math.min(dw, dh) * FRAME_FEATHER);
-  if (f <= 0) return;
-  const band = (x0: number, y0: number, x1: number, y1: number, from: string, to: string) => {
-    const g = ctx.createLinearGradient(x0, y0, x1, y1);
-    g.addColorStop(0, from);
-    g.addColorStop(1, to);
-    return g;
-  };
-  ctx.fillStyle = band(0, dy, 0, dy + f, INK, INK_CLEAR);
-  ctx.fillRect(dx, dy, dw, f);
-  ctx.fillStyle = band(0, dy + dh - f, 0, dy + dh, INK_CLEAR, INK);
-  ctx.fillRect(dx, dy + dh - f, dw, f);
-  ctx.fillStyle = band(dx, 0, dx + f, 0, INK, INK_CLEAR);
-  ctx.fillRect(dx, dy, f, dh);
-  ctx.fillStyle = band(dx + dw - f, 0, dx + dw, 0, INK_CLEAR, INK);
-  ctx.fillRect(dx + dw - f, dy, f, dh);
 }
 
 /**
