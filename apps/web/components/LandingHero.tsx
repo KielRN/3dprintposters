@@ -84,6 +84,8 @@ export function LandingHero() {
   });
 
   // single-clamp / dual-clamp opacity windows driven by the --p scroll var
+  // brand wordmark owns the opening, then fades out as the scrub begins
+  const brand = "clamp(0, calc((0.16 - var(--p, 0)) / 0.08), 1)";
   const line1 = "clamp(0, calc((0.30 - var(--p, 0)) / 0.07), 1)";
   const line2 =
     "min(clamp(0, calc((var(--p, 0) - 0.30) / 0.07), 1), clamp(0, calc((0.66 - var(--p, 0)) / 0.07), 1))";
@@ -114,6 +116,19 @@ export function LandingHero() {
                   "linear-gradient(180deg, rgba(26,23,20,0.35) 0%, rgba(26,23,20,0) 28%, rgba(26,23,20,0) 55%, rgba(26,23,20,0.55) 100%)"
               }}
             />
+
+            {/* prominent brand wordmark — the opening beat, fades on scroll */}
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-x-0 top-[16vh] flex justify-center px-5"
+            >
+              <span
+                className="display text-center text-[clamp(3rem,13vw,9.5rem)] leading-[0.9] text-white"
+                style={{ opacity: brand }}
+              >
+                3DPrintU
+              </span>
+            </div>
 
             {/* accessible heading + CTA, visually hidden while the canvas plays */}
             <h1 className="sr-only">
@@ -159,7 +174,7 @@ export function LandingHero() {
             src={STATIC_FRAME}
             alt=""
             aria-hidden="true"
-            className="absolute inset-0 h-full w-full object-cover"
+            className="absolute inset-0 h-full w-full object-contain"
           />
           <div
             aria-hidden="true"
@@ -170,7 +185,13 @@ export function LandingHero() {
             }}
           />
           <div className="relative mx-auto flex min-h-[100dvh] max-w-7xl flex-col justify-end px-5 pb-[12vh] pt-24 sm:px-7 lg:px-10">
-            <h1 className="display max-w-[14ch] text-[clamp(2.75rem,8vw,5.5rem)] leading-[0.98] text-white">
+            <p
+              aria-hidden="true"
+              className="display text-[clamp(3rem,11vw,7rem)] leading-[0.9] text-white"
+            >
+              3DPrintU
+            </p>
+            <h1 className="display mt-6 max-w-[14ch] text-[clamp(1.75rem,4.5vw,3rem)] leading-[1.02] text-white/90">
               Your photo. Your figurine. Your shelf.
             </h1>
             <div className="mt-8">

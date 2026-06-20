@@ -27,21 +27,27 @@ export type FrameScrubOptions = {
 const framePath = (dir: string, oneBasedIndex: number) =>
   `${dir}/frame-${String(oneBasedIndex).padStart(4, "0")}.webp`;
 
-function drawCover(
+/**
+ * Paints the frame "contain" (whole frame visible, centered) on an ink backdrop.
+ * Contain keeps the full composition in view rather than cropping to fill, so the
+ * subject reads smaller / zoomed-out compared to a cover fit.
+ */
+function drawContain(
   ctx: CanvasRenderingContext2D,
   img: HTMLImageElement,
   cssWidth: number,
   cssHeight: number
 ) {
+  ctx.fillStyle = "#1a1714";
+  ctx.fillRect(0, 0, cssWidth, cssHeight);
   const iw = img.naturalWidth;
   const ih = img.naturalHeight;
   if (!iw || !ih) return;
-  const scale = Math.max(cssWidth / iw, cssHeight / ih);
+  const scale = Math.min(cssWidth / iw, cssHeight / ih);
   const dw = iw * scale;
   const dh = ih * scale;
   const dx = (cssWidth - dw) / 2;
   const dy = (cssHeight - dh) / 2;
-  ctx.clearRect(0, 0, cssWidth, cssHeight);
   ctx.drawImage(img, dx, dy, dw, dh);
 }
 
@@ -118,7 +124,7 @@ export function useFrameScrub({
     const paint = (index: number) => {
       const src = loaded[index] ? index : nearestLoaded(index);
       if (src < 0) return;
-      drawCover(ctx, images[src], cssW, cssH);
+      drawContain(ctx, images[src], cssW, cssH);
       lastDrawnRef.current = index;
     };
 
