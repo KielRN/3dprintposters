@@ -120,10 +120,10 @@ export function LandingHero() {
             {/* prominent brand wordmark — the opening beat, fades on scroll */}
             <div
               aria-hidden="true"
-              className="pointer-events-none absolute inset-x-0 top-[16vh] flex justify-center px-5"
+              className="pointer-events-none absolute inset-x-0 top-[12vh] flex justify-center px-5"
             >
               <span
-                className="display text-center text-[clamp(3rem,13vw,9.5rem)] leading-[0.9] text-white"
+                className="display text-center text-[clamp(3.5rem,16vw,12.5rem)] leading-[0.88] text-[var(--ember)] drop-shadow-[0_6px_30px_rgba(26,23,20,0.45)]"
                 style={{ opacity: brand }}
               >
                 3DPrintU
@@ -187,7 +187,7 @@ export function LandingHero() {
           <div className="relative mx-auto flex min-h-[100dvh] max-w-7xl flex-col justify-end px-5 pb-[12vh] pt-24 sm:px-7 lg:px-10">
             <p
               aria-hidden="true"
-              className="display text-[clamp(3rem,11vw,7rem)] leading-[0.9] text-white"
+              className="display text-[clamp(3.5rem,13vw,9rem)] leading-[0.88] text-[var(--ember)] drop-shadow-[0_6px_30px_rgba(26,23,20,0.45)]"
             >
               3DPrintU
             </p>
