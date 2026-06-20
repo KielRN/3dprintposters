@@ -12,6 +12,13 @@ import numpy as np
 from .models import FigurineAssemblyRequest
 from .storage import StorageAdapter, artifact_path
 
+DEFAULT_BODY_BASE_SEATING_OVERLAP_MM = 1.0
+CONTACT_SEARCH_HEIGHT_FRACTION = 0.25
+CONTACT_SEARCH_HEIGHT_MAX_MM = 30.0
+CONTACT_Z_BIN_MM = 0.05
+CONTACT_MIN_FOOTPRINT_FRACTION = 0.01
+CONTACT_MIN_FOOTPRINT_MM2 = 4.0
+
 
 def _vector3(values: np.ndarray) -> dict[str, float]:
     return {
@@ -54,6 +61,75 @@ def _load_base_manifest(base_id: str) -> dict:
     return json.loads(manifest_path.read_text(encoding="utf-8"))
 
 
+def _xy_footprint_area(points: np.ndarray) -> float:
+    if len(points) < 3:
+        return 0.0
+    extents = np.ptp(points[:, :2], axis=0)
+    return float(max(extents[0], 0.0) * max(extents[1], 0.0))
+
+
+def _placement_contact_z(body_mesh) -> dict[str, float | str]:
+    vertices = np.asarray(body_mesh.vertices, dtype=float)
+    if vertices.size == 0:
+        raise ValueError("Body GLB has no vertices to place on the base.")
+
+    bounds = body_mesh.bounds
+    min_z = float(bounds[0][2])
+    max_z = float(bounds[1][2])
+    height = max_z - min_z
+    if height <= 0:
+        raise ValueError("Body GLB has no measurable upright height.")
+
+    body_footprint_area = _xy_footprint_area(vertices)
+    min_required_area = max(
+        CONTACT_MIN_FOOTPRINT_MM2,
+        body_footprint_area * CONTACT_MIN_FOOTPRINT_FRACTION,
+    )
+    z_values = vertices[:, 2]
+    epsilon = max(CONTACT_Z_BIN_MM, height * 0.0001)
+
+    bottom_points = vertices[z_values <= min_z + epsilon]
+    bottom_area = _xy_footprint_area(bottom_points)
+    if bottom_area >= min_required_area:
+        return {
+            "contactZMm": min_z,
+            "method": "lowest_bounds_broad_footprint",
+            "footprintAreaMm2": bottom_area,
+            "minimumFootprintAreaMm2": min_required_area,
+            "ignoredLowerGeometryMm": 0.0,
+        }
+
+    search_height = min(
+        max(height * CONTACT_SEARCH_HEIGHT_FRACTION, 8.0),
+        CONTACT_SEARCH_HEIGHT_MAX_MM,
+    )
+    search_top = min(max_z, min_z + search_height)
+    candidate_z = z_values[(z_values >= min_z) & (z_values <= search_top)]
+    thresholds = np.unique(
+        np.round(candidate_z / CONTACT_Z_BIN_MM) * CONTACT_Z_BIN_MM
+    )
+    for threshold in np.sort(thresholds):
+        candidate_points = vertices[z_values <= threshold + epsilon]
+        candidate_area = _xy_footprint_area(candidate_points)
+        if candidate_area >= min_required_area:
+            contact_z = float(max(threshold, min_z))
+            return {
+                "contactZMm": contact_z,
+                "method": "lowest_broad_footprint",
+                "footprintAreaMm2": candidate_area,
+                "minimumFootprintAreaMm2": min_required_area,
+                "ignoredLowerGeometryMm": max(contact_z - min_z, 0.0),
+            }
+
+    return {
+        "contactZMm": min_z,
+        "method": "fallback_lowest_bounds",
+        "footprintAreaMm2": bottom_area,
+        "minimumFootprintAreaMm2": min_required_area,
+        "ignoredLowerGeometryMm": 0.0,
+    }
+
+
 def _body_to_z_up(body_mesh):
     """Rotate the likely up axis to Z using the largest body extent."""
     import trimesh
@@ -89,6 +165,13 @@ def _foot_zone_center_xy(manifest: dict, base_mesh) -> np.ndarray:
 def _top_plane_z(manifest: dict, base_mesh) -> float:
     configured = manifest.get("placementZones", {}).get("topPlaneZMm")
     return float(configured) if configured is not None else float(base_mesh.bounds[1][2])
+
+
+def _body_base_seating_overlap_mm(manifest: dict) -> float:
+    configured = manifest.get("placementZones", {}).get("bodyBaseSeatingOverlapMm")
+    if configured is None:
+        return DEFAULT_BODY_BASE_SEATING_OVERLAP_MM
+    return max(float(configured), 0.0)
 
 
 def assemble_figurine_package(
@@ -130,11 +213,14 @@ def assemble_figurine_package(
         )
         target_center_xy = _foot_zone_center_xy(manifest, named_base)
         top_z = _top_plane_z(manifest, named_base)
+        seating_overlap_mm = _body_base_seating_overlap_mm(manifest)
+        placement_contact = _placement_contact_z(body)
+        target_contact_z = top_z - seating_overlap_mm
         body.apply_translation(
             [
                 float(target_center_xy[0] - body_center_xy[0]),
                 float(target_center_xy[1] - body_center_xy[1]),
-                float(top_z - body_bounds[0][2]),
+                float(target_contact_z - placement_contact["contactZMm"]),
             ]
         )
 
@@ -161,6 +247,11 @@ def assemble_figurine_package(
             "scaleFactor": float(scale_factor),
             "detectedSourceUpAxis": detected_up_axis,
             "baseTopPlaneZMm": top_z,
+            "bodyBaseSeatingOverlapMm": seating_overlap_mm,
+            "bodyPlacementContact": {
+                **placement_contact,
+                "targetContactZMm": target_contact_z,
+            },
             "targetFootCenterMm": {
                 "x": float(target_center_xy[0]),
                 "y": float(target_center_xy[1]),
@@ -189,6 +280,13 @@ def assemble_figurine_package(
             warnings.append(
                 "Assembled package is not watertight before downstream print tooling."
             )
+        if float(placement_contact["ignoredLowerGeometryMm"]) > max(
+            seating_overlap_mm * 2.0,
+            2.0,
+        ):
+            warnings.append(
+                "Provider mesh includes isolated lower geometry below the support footprint; the broader contact plane was seated into the base."
+            )
 
         checksums = {
             key: _sha256((out_dir / filename).read_bytes())
@@ -203,7 +301,7 @@ def assemble_figurine_package(
             "namedBaseStl": request.named_base_stl_path,
             "namedBaseRevision": request.named_base_revision,
             "coordinateSystem": "millimeter_z_up",
-            "assemblyPolicy": "bbox_contact_to_base_top_plane_v1",
+            "assemblyPolicy": "support_plane_overlap_to_base_top_plane_v2",
             "metrics": metrics,
             "warnings": warnings,
             "artifacts": artifact_files,

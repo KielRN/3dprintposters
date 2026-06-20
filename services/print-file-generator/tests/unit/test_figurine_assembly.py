@@ -23,10 +23,30 @@ def _write_body_glb(path: Path) -> None:
     mesh.export(path)
 
 
-def _request(tmp_path: Path) -> FigurineAssemblyRequest:
+def _write_body_with_provider_base_and_low_outlier_glb(path: Path) -> None:
+    import trimesh
+
+    provider_base = trimesh.creation.cylinder(radius=10.0, height=2.0, sections=32)
+    provider_base.apply_translation((0.0, 0.0, 1.0))
+
+    torso = trimesh.creation.box(extents=(6.0, 5.0, 28.0))
+    torso.apply_translation((0.0, 0.0, 16.0))
+
+    low_outlier = trimesh.creation.box(extents=(0.25, 0.25, 0.5))
+    low_outlier.apply_translation((0.0, 0.0, -3.25))
+
+    mesh = trimesh.util.concatenate([provider_base, torso, low_outlier])
+    mesh.export(path)
+
+
+def _request(
+    tmp_path: Path,
+    *,
+    body_writer=_write_body_glb,
+) -> FigurineAssemblyRequest:
     body_path = tmp_path / "body.glb"
     base_path = tmp_path / "named-base.stl"
-    _write_body_glb(body_path)
+    body_writer(body_path)
     base_path.write_bytes((ASSET_DIR / "base.stl").read_bytes())
     return FigurineAssemblyRequest(
         job_id="job-123",
@@ -65,10 +85,39 @@ def test_assembly_exports_review_artifacts_and_metadata(tmp_path: Path) -> None:
     assert metrics["scaleFactor"] == pytest.approx(5.0)
     assert metrics["detectedSourceUpAxis"] == "y"
     assert metrics["bodyBoundsMm"]["min"]["z"] == pytest.approx(
-        metrics["baseTopPlaneZMm"],
+        metrics["baseTopPlaneZMm"] - metrics["bodyBaseSeatingOverlapMm"],
         abs=0.001,
     )
+    assert metrics["bodyPlacementContact"]["targetContactZMm"] == pytest.approx(
+        metrics["baseTopPlaneZMm"] - metrics["bodyBaseSeatingOverlapMm"],
+        abs=0.001,
+    )
+    assert metrics["bodyPlacementContact"]["method"] == "lowest_bounds_broad_footprint"
     assert metrics["assembledExtentsMm"]["z"] > 150.0
+
+
+def test_assembly_seats_provider_base_instead_of_low_outlier(
+    tmp_path: Path,
+) -> None:
+    response = assemble_figurine_package(
+        _request(
+            tmp_path,
+            body_writer=_write_body_with_provider_base_and_low_outlier_glb,
+        ),
+        storage=LocalFilesystemStorage(),
+    )
+
+    metrics = response["metrics"]
+    target_contact_z = (
+        metrics["baseTopPlaneZMm"] - metrics["bodyBaseSeatingOverlapMm"]
+    )
+    contact = metrics["bodyPlacementContact"]
+
+    assert contact["method"] == "lowest_broad_footprint"
+    assert contact["ignoredLowerGeometryMm"] > 1.0
+    assert contact["targetContactZMm"] == pytest.approx(target_contact_z, abs=0.001)
+    assert metrics["bodyBoundsMm"]["min"]["z"] < target_contact_z - 1.0
+    assert any("isolated lower geometry" in warning for warning in response["warnings"])
 
 
 def test_assembly_rejects_missing_body_input(tmp_path: Path) -> None:
