@@ -4,6 +4,11 @@ All notable project changes will be documented in this file.
 
 ## [Unreleased] - 2026-05-06
 
+### Changed
+
+- Rebranded the user-facing surface from "3D Print Posters" / "3D Posters" to **3DPrintU** (page titles, PWA `manifest.webmanifest`, `appleWebApp.title`, header/footer wordmarks, theme color). This is a brand-surface change only: the repo name, Firebase project id `gen-lang-client-0675309660`, env keys, the Cloud Storage bucket, and all source-code identifiers are unchanged.
+- Moved the upload flow from `/` to `/start`. `/` is now the marketing landing page; the PWA `start_url` points to `/start`, and in-app "home" / "new order" links (admin, job, and order pages) follow. The `3dprintu.com` canonical domain is documented; production DNS/App Hosting custom-domain wiring and new brand icons/OG images remain follow-ups.
+
 ### Fixed
 
 - Seated assembled figurine provider meshes slightly into the deterministic square base using a robust support-footprint plane, so provider outputs that include their own plinth no longer hover above the square base because of low outlier geometry or exact butt-joint placement.
@@ -17,6 +22,8 @@ All notable project changes will be documented in this file.
 
 ### Added
 
+- Added the 3DPrintU marketing landing page at `/`. A pinned, scroll-scrubbed `<canvas>` hero plays a 241-frame WebP sequence extracted from `3dprint-hero-seedance20.mp4` (desktop 241 frames at 1600px / ~7.2 MB, mobile 121 frames at 960px / ~2.4 MB, committed under `apps/web/public/landing/hero/`), driven by `apps/web/lib/useFrameScrub.ts` via `requestAnimationFrame` with no per-frame React state. The page composes `LandingHero`, `LandingSections` (how-it-works steps, a scroll-drifting gallery strip with placeholder tiles, a why block, and an ember CTA band), and a shared `LandingFooter`. `prefers-reduced-motion` and low-power devices (`deviceMemory`/`saveData`) get a static-frame hero that scrolls normally; copy and headings live in static DOM for SEO and screen readers.
+- Added a warm 3DPrintU design-token system in `apps/web/app/globals.css` (`--ember #E8552E`, `--cream #F5F1EA`, `--ink #1A1714`, `--terracotta`, `--clay`, `--moss`, `--muted`) plus a Fraunces + Inter type pair via `next/font/google` and a `.display` utility for serif headings. Existing pages inherit through remapped legacy aliases without a redesign; top-level headings across `/start`, `/jobs/[jobId]`, `/admin`, and `/orders` adopt Fraunces and primary buttons read `--ember`.
 - Added the first admin/support job view inside `/admin`. Firebase Functions now expose allowlist-gated support callables for listing sanitized job summaries, inspecting job/order/cost/error/audit state, and appending support notes with `open`, `watching`, `blocked`, or `resolved` status markers.
 - Added per-style admin reference images for 2D proof generation. The `/admin` Style cards can upload up to four JPG/PNG references per style, saved workflow config stores normalized reference metadata under `admin/workflow-style-references/...`, and `createGenerationJob` passes the selected style's enabled references to Vertex/Gemini after the customer source photo while recording only reference counts/IDs on the job.
 - Added a dev workflow admin page at `/admin` for proof-generation controls. It can edit the base proof prompt, the default four proof options per upload, how many Style options are shown, and each style's customer-facing prompt; role-based permission is recorded as a placeholder but not enforced yet.

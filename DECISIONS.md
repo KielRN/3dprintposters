@@ -1,6 +1,6 @@
 # 3DPrintPosters - Decisions
 
-Last updated: 2026-06-19
+Last updated: 2026-06-21
 
 ## Purpose
 
@@ -30,3 +30,4 @@ Do not let this file become a task list, experiment log, or second changelog. Ad
 - Current relief-quality direction is surface-intent aware generation: the hybrid provider now infers v1 smooth/crisp/emboss/texture masks so skin, scalp, neck, ears, hands, simple clothing, and backgrounds remain smooth by default, crisp text/logos/graphic edges get a separate raised emboss treatment, and shallow material texture is enabled only from explicit proof-generation or human override metadata. `surface_intent_status.roughness_metrics` reports whether smooth subject/background regions are still too noisy or graphic regions are too flat.
 - The recommended maturity path now has two tracks: (1) customer-facing figurine demand proof using API-backed image-to-3D providers, starting with Meshy; (2) parked poster-relief R&D using API-backed proof generation, monocular depth, subject segmentation, and deterministic server-side print-file generation.
 - The current job page is the first quality-control surface: approved proof, generated heightmap, interactive GLB preview, printability status, and warnings. Local Functions emulator runs mirror the full print-file bundle under `.tmp/print-files/{uid}/{jobId}` instead of exposing customer-facing artifact download links.
+- The public-facing brand is **3DPrintU** with canonical domain `3dprintu.com`. `/` is the marketing landing page and `/start` is the upload/creation flow (PWA `start_url` = `/start`). This is a brand-surface decision only: the repo name, Firebase project id, env keys, Cloud Storage bucket, and all source-code identifiers stay as-is, so internal references to "posters"/"3dprintyou" are not a bug. The landing hero uses a committed scroll-scrubbed WebP frame sequence (no runtime video transcode) and the warm Fraunces/Inter token system in `globals.css`; existing app pages get the tokens and a light heading/button retouch, not a redesign. Production DNS, brand icons/OG art, a bespoke wordmark, and real gallery photography are tracked follow-ups, not part of this decision.
