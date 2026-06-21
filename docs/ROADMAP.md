@@ -8,6 +8,7 @@ Source-of-truth split:
 - `PROJECT_STATE.md` — compact current implementation state, active direction, and risks.
 - `DECISIONS.md` — durable product and architecture decisions.
 - `CHANGELOG.md` — completed changes and verification history.
+- `docs/DESIGN.md` — front-end design system: brand, color/type tokens, landing-page architecture, and the hero scrub spec.
 - `research/MESHY_SERVICE_IMPLEMENTATION_PLAN.md` — Meshy API findings, experiment results, and implementation backlog.
 - `docs/MESHY_FIGURINE_UI_WORKFLOW.md` — target customer UX and job contract.
 - `docs/PRINT_FILE_GENERATION_WORKFLOW.md` — poster-relief print-file service contract.

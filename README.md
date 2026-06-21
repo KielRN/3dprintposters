@@ -165,7 +165,7 @@ services/print-file-generator Planned Python print artifact service
 services/stl-converter      Older STL-only service scaffold
 infra/firebase              Firestore and Storage rules
 infra/cloudflare            Domain and DNS notes
-docs                        Architecture, deployment, and workflow docs
+docs                        Architecture, design, deployment, and workflow docs
 scripts                     Helper scripts
 ```
 
@@ -178,6 +178,7 @@ Start with these files when you feel lost:
 - `CHECKLIST.md`: archive pointer and source-of-truth map
 - `CHANGELOG.md`: what changed recently
 - `docs/ARCHITECTURE.md`: deeper system design
+- `docs/DESIGN.md`: front-end design system — brand, color/type tokens, and the landing/hero spec
 - `docs/DEPLOYMENT.md`: hosting, Firebase, Cloudflare, and secret notes
 - `docs/PRINT_FILE_GENERATION_WORKFLOW.md`: current print-file generator contract and product direction
 - `research/FIGURINE_PROVIDER_RESEARCH.md`: current PrintU/Meshy pivot and provider research

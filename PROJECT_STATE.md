@@ -4,7 +4,7 @@ Last updated: 2026-06-21
 
 ## Purpose
 
-This file is compact current-state memory for future AI developers. Keep durable product and architecture decisions in `DECISIONS.md`. Keep operating rules, local commands, security rules, and verification commands in `AGENTS.md`. `CHECKLIST.md` is now an archive pointer, not an active tracker. Keep chronology in `CHANGELOG.md`, detailed service contracts in `docs/`, and Meshy implementation detail in `research/MESHY_SERVICE_IMPLEMENTATION_PLAN.md`. If an agent needs a short-lived human handoff, use ignored `.tmp/human-tasks/` instead of tracked docs.
+This file is compact current-state memory for future AI developers. Keep durable product and architecture decisions in `DECISIONS.md`. Keep operating rules, local commands, security rules, and verification commands in `AGENTS.md`. `CHECKLIST.md` is now an archive pointer, not an active tracker. Keep chronology in `CHANGELOG.md`, the front-end design system (brand, tokens, type, landing/hero) in `docs/DESIGN.md`, detailed service contracts in `docs/`, and Meshy implementation detail in `research/MESHY_SERVICE_IMPLEMENTATION_PLAN.md`. If an agent needs a short-lived human handoff, use ignored `.tmp/human-tasks/` instead of tracked docs.
 
 Do not let this file become a second copy of those sources. Keep only current implementation facts, active direction, and risks that would materially change future development.
 

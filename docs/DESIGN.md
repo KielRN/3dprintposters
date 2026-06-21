@@ -1,0 +1,255 @@
+# 3DPrintU Design
+
+Last updated: 2026-06-21
+
+## Purpose
+
+This is the durable design document for the **3DPrintU** front end: the brand
+surface, the design tokens, the type system, and the landing-page experience.
+It records not just *what* the design is but *why*, so future work extends the
+system instead of re-deriving it.
+
+Scope today is the marketing landing page (`/`) and the app-wide token/type
+system that every page inherits. The existing product pages (`/start`,
+`/jobs/[jobId]`, `/admin`, `/orders`) were given the tokens plus a light
+heading/button retouch, not a redesign; their detailed UI is not specified here
+yet. Expand this file as more surfaces get real design treatment.
+
+Source-of-truth split (see also `AGENTS.md`):
+- `DESIGN.md` (this file) — brand, tokens, type, landing experience, design rationale.
+- `DECISIONS.md` — durable product/architecture decisions (incl. the brand-surface decision).
+- `PROJECT_STATE.md` — current implementation state and risks.
+- `CHANGELOG.md` — chronology of shipped changes.
+
+This file was produced by applying the `taste-skill` (anti-slop frontend) skill
+to an approved plan. The plan was treated as a contract for routes, palette,
+type, and scope; the skill was given creative range on composition, motion, and
+copy.
+
+## Design Read and Dials
+
+**Design read:** consumer marketing landing for gift-buyers (turn a photo into a
+3D-printed figurine), warm-marketplace editorial language, native CSS +
+Tailwind v4 + a scroll-scrubbed `<canvas>` hero, Fraunces + Inter type.
+
+**Dials** (taste-skill): `DESIGN_VARIANCE 7` / `MOTION_INTENSITY 7` (the hero
+scrub is the cinematic centerpiece) / `VISUAL_DENSITY 3` (airy, editorial).
+
+## Brand
+
+- Public brand: **3DPrintU**. Canonical domain `3dprintu.com`.
+- Wordmark: text-set "3DPrintU" in Fraunces (no logo asset yet — a bespoke mark
+  is a follow-up).
+- Brand-surface only: repo name, Firebase project id, env keys, Cloud Storage
+  bucket, and source-code identifiers stay as "posters"/internal names. See the
+  brand decision in `DECISIONS.md`.
+
+## Color
+
+Warm, marketplace-adjacent palette. Defined as CSS custom properties in
+`apps/web/app/globals.css`. One accent (ember) is used across the whole page.
+
+| Token | Hex | Use |
+|---|---|---|
+| `--cream` | `#F5F1EA` | Page background, hero backdrop, light surfaces |
+| `--ink` | `#1A1714` | Body + heading text, dark sections, hero rule |
+| `--ember` | `#E8552E` | Primary CTA, brand orange, hero wordmark, step numerals |
+| `--terracotta` | `#C2410C` | Primary hover/active, dark-section accent |
+| `--clay` | `#E8DFD3` | Cards, pills, dividers, placeholder tiles |
+| `--moss` | `#3F6B4C` | Muted secondary accent (e.g. dashed dropzone), replaces old teal |
+| `--muted` | `#6B5F52` | Secondary text on cream |
+| `--line` | `rgba(26,23,20,0.10)` | Warm hairline borders |
+| `--surface` | `#FFFFFF` | Panels |
+
+Legacy aliases (`--page-bg`, `--teal`, `--coral`, `--gold`, `--surface-strong`)
+are kept and remapped to warm values so existing components inherit without
+edits. `--teal` now points at `--moss`; `--page-bg` at `--cream`.
+
+Notes: ember `#E8552E` is a deliberate warm-marketplace signal, chosen as a
+distinct variant of Etsy's `#F1641E` rather than a copy. No pure black/white.
+
+## Type
+
+- **Fraunces** (variable, Google) for display/headings via `next/font/google`,
+  with axes `opsz`, `SOFT`, `WONK`. The `.display` utility sets
+  `font-variation-settings: "opsz" 144, "SOFT" 4, "WONK" 0`, weight 600,
+  `letter-spacing: -0.015em`. Wrapped display headings use `leading` around 1.1
+  to breathe.
+- **Inter** (variable, Google) for UI and body, exposed as `--font-inter`.
+- Both registered in `apps/web/app/layout.tsx`, exposed as `--font-fraunces` /
+  `--font-inter` on `<html>`. The `.display` class is the single switch to the
+  serif face; body stays Inter. Every route's top-level heading carries
+  `.display`.
+
+## Component tokens
+
+Set in `globals.css`, inherited app-wide:
+- `.primary-button` — `--ember` background, hover `--terracotta`, white text,
+  tactile `translateY` on hover/active.
+- `.secondary-button` — `--clay` border, white background.
+- `.panel` — white surface, `--clay` border, warm shadow `0 18px 50px rgba(26,23,20,0.08)`.
+- `.step-pill` — `--clay` background, `--muted` text.
+- `.field-shell` — dashed `--moss` border at 55%, `--moss` tint at 6%.
+- `.display` — Fraunces display utility (above).
+- `.reveal` — scroll-reveal base (opacity + translateY, eased), toggled by
+  `data-shown`; disabled under reduced motion.
+- `.gallery-drift` — CSS scroll-driven horizontal drift, gated behind
+  `prefers-reduced-motion: no-preference` and `@supports (animation-timeline: view())`.
+
+## Landing page architecture
+
+Route: `/` is a server component (`apps/web/app/page.tsx`) composing client
+islands. Sections, in order:
+
+1. **Pinned scroll-scrubbed hero** (`LandingHero`) — the centerpiece. See below.
+2. **How it works** — three numbered steps (ember numerals, Inter body),
+   reveal-on-scroll. A legitimate process pattern, kept distinct from a generic
+   "three equal cards" row by leading with large display numerals over dividers.
+3. **Gallery strip** — horizontal row of figurine example tiles that drift with
+   scroll (CSS scroll-driven). Currently local placeholder tiles (clay gradient
+   + muted camera glyph); real photography is a follow-up.
+4. **Why 3DPrintU** — two-column text/image split.
+5. **Final CTA band** — full-width `--ember` band, Fraunces "Make yours.",
+   single Start button (cream-on-ember).
+6. **Footer** (`LandingFooter`) — slim, cream-on-ink.
+
+At least four distinct layout families across the page (pinned canvas, numbered
+grid, horizontal drift, two-column split, full-width band) — no repeated
+section layout, no zigzag chain.
+
+### Header
+
+Fixed top bar: wordmark left (links to `/`), "Sign in" right (links to `/start`
+until a dedicated sign-in route exists). Transparent (white text) over the hero,
+switches to solid cream with a hairline once scrolled past, via an
+IntersectionObserver sentinel.
+
+## Hero scroll-scrub mechanic
+
+The hero plays a baked frame sequence on a `<canvas>` as the user scrolls. This
+is the most iterated part of the design; the current spec:
+
+**Frames.** Extracted once from `3dprint-hero-seedance20.mp4` (1920×1080, 24fps,
+241 frames) with ffmpeg and committed under `apps/web/public/landing/hero/` so
+deploys are deterministic (no runtime transcode):
+- Desktop: 241 frames at 1600px wide, WebP quality 70, ~7.2 MB (under an 8 MB
+  hard ceiling).
+- Mobile (viewport < 768px): every other frame, 121 frames at 960px wide, WebP
+  quality 80, ~2.4 MB (≤ 4 MB target).
+
+**Fit and framing.**
+- **Contain, not cover.** The whole 16:9 frame stays in view rather than
+  cropping to fill — cover read as "too big" on squarer windows (it crops 20%+
+  of the sides). Contain keeps the subject smaller and the composition intact.
+- **Top-aligned.** The frame anchors to the top so there is never an empty band
+  *above* it; any letterbox falls to the bottom.
+- **Band sized to the frame.** The pinned hero height is
+  `min(100dvh, 56.25vw)` — the frame's natural 16:9 height capped at the
+  viewport — so the hero does not reserve a full viewport of height that the
+  frame can't fill. This removes the dead space that appears on small/square
+  windows. On 16:9 screens the band is the full viewport; on squarer windows it
+  is shorter and the page flows on below it.
+- **Cream backdrop + thin rule.** Outside the frame is `--cream` (blends into
+  the page, not a black band); a 6px `--ink` rule sits at the base of the frame
+  as a divider.
+
+**Overlay copy.**
+- **Ember wordmark** "3DPrintU" owns the opening at full opacity, then fades out
+  as the scrub begins (opacity driven by the `--p` scroll variable).
+- **Three crossfading lines** — "Your photo." → "Your figurine." → "Your shelf."
+  — sit *inside* the frame's lower-left in `--ink`, crossfading in pure CSS off
+  `--p` (they sit over the light studio area on the left, so ink reads).
+- A subtle top scrim keeps the header and wordmark legible over the frame.
+
+**Driver (`apps/web/lib/useFrameScrub.ts`).**
+- Listens to a passive `scroll` listener feeding `requestAnimationFrame`; it
+  draws to the canvas and writes one CSS variable (`--p`, 0→1 scrub progress)
+  via refs. It never sets React state on the hot path, so the tree does not
+  re-render while scrolling.
+- Frame set is chosen once on mount (mobile vs desktop) and not re-evaluated on
+  resize, so a window cross of 768px never reloads megabytes of WebP.
+- Scroll budget is ~12px per frame; the tall scroll section is
+  `frameCount * 12 + bandHeight`. Progress = the section's scrolled fraction.
+- Preload: first 10 frames eager, the rest batched in the background
+  (`requestIdleCallback`); if scroll outruns preload it draws the nearest loaded
+  frame.
+
+**Fallbacks (accessibility + performance).**
+- `prefers-reduced-motion: reduce` or low-power devices
+  (`navigator.deviceMemory <= 2` or `connection.saveData`) skip the scrub
+  entirely: the hero renders a single static frame (`frame-0120`, `object-contain
+  object-top`) with a visible `<h1>` and Start button, and the page scrolls
+  normally (not pinned).
+- The canvas is `aria-hidden`; a real `<h1>` ("Your photo. Your figurine. Your
+  shelf.") and a Start link exist as static DOM for SEO and screen readers.
+
+## Motion principles
+
+- `MOTION_INTENSITY 7`: the page actually moves (hero scrub, scroll reveals,
+  CTA hover) and every animation is motivated (hierarchy/storytelling/feedback).
+- Reveals use **IntersectionObserver + CSS transitions** (`.reveal`), not a
+  motion library — zero new dependencies, and reduced-motion shows content
+  immediately.
+- No `window.addEventListener('scroll')` that touches React state; the one
+  scroll listener (the canvas scrubber) is contract-mandated and writes only to
+  the canvas and a CSS variable via refs.
+- Gallery drift uses native CSS scroll-driven animations, gated behind support
+  and reduced-motion.
+- Animate only `transform`/`opacity`.
+
+## Layout principles
+
+- `max-w-7xl` content gutters; `min-h-[100dvh]` (never `h-screen`) for full-bleed.
+- One accent color, one corner-radius scale, one theme (light) locked across the page.
+- Eyebrows avoided (the section's position categorizes it); no decorative dots,
+  no scroll cues, no version labels, no em-dashes anywhere.
+
+## Accessibility
+
+- Real heading + CTA in static DOM behind the decorative canvas.
+- Reduced-motion and low-power fully degrade to a static, normally-scrolling page.
+- Buttons and copy meet WCAG AA contrast against their backgrounds (ink-on-light
+  copy is positioned over the light region of the frame).
+
+## Contract vs skill decisions
+
+The taste-skill's defaults were overridden only where the approved contract
+named specifics; everything else followed the skill:
+- **Fraunces** and the **warm cream palette** are normally discouraged by the
+  skill (serif default; premium-consumer beige ban). Both are allowed here
+  because the brand brief named them explicitly with exact hex codes — which is
+  the skill's own override path. Contract wins.
+- **lucide-react** is discouraged by the skill but kept because the project
+  already depends on it.
+- The plan's hero "scroll" affordance was **dropped** — the skill bans scroll
+  cues, and it is a micro-interaction in the skill's creative-range zone, not an
+  acceptance-checked contract item.
+- **IntersectionObserver + CSS** was chosen over adding Motion (~30kb) for
+  reveals — no new dependency.
+- The scroll-driven canvas is the contract's mandated mechanic; it is
+  implemented in the performant, no-React-state-on-the-hot-path way the skill's
+  rules want.
+
+## File map
+
+- `apps/web/app/page.tsx` — landing composition (server component).
+- `apps/web/app/start/page.tsx` — upload/creation flow (the old `/`).
+- `apps/web/app/layout.tsx` — fonts + metadata.
+- `apps/web/app/globals.css` — tokens, type, component classes, motion utilities.
+- `apps/web/components/LandingHero.tsx` — hero + header (client island).
+- `apps/web/components/LandingSections.tsx` — how-it-works, gallery, why, CTA.
+- `apps/web/components/LandingFooter.tsx` — footer.
+- `apps/web/lib/useFrameScrub.ts` — canvas scrub driver.
+- `apps/web/public/landing/hero/{desktop,mobile}/frame-####.webp` — frame sets.
+- `apps/web/public/manifest.webmanifest` — PWA name/start_url.
+
+## Follow-ups (not yet done)
+
+- Real figurine gallery photography to replace placeholder tiles.
+- Production DNS/App Hosting custom-domain wiring for `3dprintu.com`.
+- New brand icons, favicon, Apple touch icon, and OG share image.
+- Bespoke wordmark or icon mark replacing the text-set Fraunces wordmark.
+- Final marketing copy pass (the hero/section copy is provisional).
+- README and developer-doc brand sweep (this work touched user-visible strings only).
+- Optional: matte the hero footage background (per-frame matting + `alpha:true`
+  canvas) if a transparent subject is wanted — a separate effort from this design.

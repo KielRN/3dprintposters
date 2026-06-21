@@ -10,5 +10,6 @@ Use these root sources instead:
 - `PROJECT_STATE.md` for compact current implementation state, active direction, and open risks.
 - `AGENTS.md` for operating rules, local commands, security rules, and verification commands.
 - `CHANGELOG.md` for completed chronology and verification history.
+- `docs/DESIGN.md` for the front-end design system: brand, color/type tokens, and the landing/hero spec.
 
 Do not add new durable notes here. Update `DECISIONS.md` or `PROJECT_STATE.md` instead.
