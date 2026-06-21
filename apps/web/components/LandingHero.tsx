@@ -91,9 +91,6 @@ export function LandingHero() {
     "min(clamp(0, calc((var(--p, 0) - 0.30) / 0.07), 1), clamp(0, calc((0.66 - var(--p, 0)) / 0.07), 1))";
   const line3 = "clamp(0, calc((var(--p, 0) - 0.63) / 0.07), 1)";
 
-  // y of the top-aligned frame's bottom edge (matches the canvas contain math)
-  const videoBottom = "min(calc(100vw * 9 / 16), 100dvh)";
-
   return (
     <>
       <LandingHeader solid={solidHeader || !scrub} />
@@ -103,12 +100,17 @@ export function LandingHero() {
         <section ref={sectionRef} className="relative bg-[var(--cream)]">
           <div
             ref={stickyRef}
-            className="sticky top-0 h-[100dvh] w-full overflow-hidden bg-[var(--cream)]"
+            className="sticky top-0 h-[min(100dvh,56.25vw)] w-full overflow-hidden bg-[var(--cream)]"
           >
             <canvas
               ref={canvasRef}
               aria-hidden="true"
               className="absolute inset-0 h-full w-full"
+            />
+            {/* thin ink rule at the base of the frame */}
+            <div
+              aria-hidden="true"
+              className="absolute inset-x-0 bottom-0 h-[6px] bg-[var(--ink)]"
             />
             {/* subtle top scrim so the header + wordmark read over the frame */}
             <div
@@ -144,8 +146,7 @@ export function LandingHero() {
             {/* visual crossfading copy — inside the frame, lower-left, ink */}
             <div
               aria-hidden="true"
-              className="absolute inset-x-0 px-5 sm:px-7 lg:px-10"
-              style={{ bottom: `calc(100dvh - ${videoBottom} + 4vh)` }}
+              className="absolute inset-x-0 bottom-[6vh] px-5 sm:px-7 lg:px-10"
             >
               <div className="mx-auto w-full max-w-7xl">
                 <div className="grid text-[var(--ink)]">

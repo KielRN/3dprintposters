@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
+import { Camera } from "lucide-react";
 
 function Reveal({
   children,
@@ -76,7 +77,7 @@ export function LandingSections() {
       {/* How it works */}
       <section className="mx-auto max-w-7xl px-5 py-28 sm:px-7 lg:px-10">
         <Reveal>
-          <h2 className="display max-w-[18ch] text-[clamp(2rem,5vw,3.5rem)] leading-[1.02]">
+          <h2 className="display max-w-[20ch] text-[clamp(2rem,5vw,3.5rem)] leading-[1.12]">
             Three steps to a shelf-worthy keepsake.
           </h2>
         </Reveal>
@@ -110,13 +111,17 @@ export function LandingSections() {
               key={tile.seed}
               className="w-[clamp(220px,40vw,360px)] shrink-0"
             >
-              <div className="aspect-[4/5] overflow-hidden rounded-xl border border-[var(--clay)] bg-[var(--clay)]">
-                {/* placeholder photography — real figurine shots are a follow-up */}
-                <img
-                  src={`https://picsum.photos/seed/${tile.seed}/720/900`}
-                  alt={`Example figurine: ${tile.label}`}
-                  loading="lazy"
-                  className="h-full w-full object-cover"
+              {/* placeholder tile — real figurine photography is a follow-up */}
+              <div
+                className="flex aspect-[4/5] items-center justify-center overflow-hidden rounded-xl border border-[var(--clay)] bg-gradient-to-br from-[var(--clay)] to-[#dccfbd]"
+                role="img"
+                aria-label={`Example figurine: ${tile.label}`}
+              >
+                <Camera
+                  size={36}
+                  strokeWidth={1.5}
+                  className="text-[var(--muted)] opacity-40"
+                  aria-hidden="true"
                 />
               </div>
               <figcaption className="mt-3 text-sm font-semibold text-[var(--muted)]">
@@ -131,7 +136,7 @@ export function LandingSections() {
       <section className="mx-auto max-w-7xl px-5 py-28 sm:px-7 lg:px-10">
         <div className="grid items-center gap-12 md:grid-cols-2 md:gap-16">
           <Reveal>
-            <h2 className="display text-[clamp(2rem,5vw,3.5rem)] leading-[1.02]">
+            <h2 className="display text-[clamp(2rem,5vw,3.5rem)] leading-[1.12]">
               Why 3DPrintU
             </h2>
             <p className="mt-6 max-w-[46ch] text-lg leading-relaxed text-[var(--ink)]/80">
@@ -145,12 +150,17 @@ export function LandingSections() {
             </p>
           </Reveal>
           <Reveal delay={120}>
-            <div className="aspect-[4/5] overflow-hidden rounded-2xl border border-[var(--clay)] bg-[var(--clay)]">
-              <img
-                src="https://picsum.photos/seed/figurine-hands-holding-keepsake/900/1125"
-                alt="A finished figurine held in two hands"
-                loading="lazy"
-                className="h-full w-full object-cover"
+            {/* placeholder tile — real figurine photography is a follow-up */}
+            <div
+              className="flex aspect-[4/5] items-center justify-center overflow-hidden rounded-2xl border border-[var(--clay)] bg-gradient-to-br from-[var(--clay)] to-[#dccfbd]"
+              role="img"
+              aria-label="A finished figurine held in two hands"
+            >
+              <Camera
+                size={56}
+                strokeWidth={1.5}
+                className="text-[var(--muted)] opacity-40"
+                aria-hidden="true"
               />
             </div>
           </Reveal>

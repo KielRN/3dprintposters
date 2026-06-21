@@ -28,14 +28,12 @@ const framePath = (dir: string, oneBasedIndex: number) =>
   `${dir}/frame-${String(oneBasedIndex).padStart(4, "0")}.webp`;
 
 const CREAM = "#f5f1ea";
-const INK = "#1a1714";
-/** thickness of the ink rule drawn under the frame, in CSS px */
-const RULE = 8;
 
 /**
  * Paints the frame "contain" (whole frame visible) anchored to the top, on a cream
- * backdrop that blends into the page below. Any area under the frame is cream, not
- * a black band; a thin ink rule sits directly beneath the frame as a divider.
+ * backdrop. The canvas height matches the frame's 16:9 height (see bandHeight), so
+ * on most viewports the frame fills the canvas with no letterbox; cream only shows
+ * as side pillarbox on viewports wider than 16:9.
  */
 function drawContain(
   ctx: CanvasRenderingContext2D,
@@ -55,11 +53,6 @@ function drawContain(
   // top-align: no empty band above the frame
   const dy = 0;
   ctx.drawImage(img, dx, dy, dw, dh);
-  // thin ink rule beneath the frame (only when there is room below it)
-  if (dh < cssHeight) {
-    ctx.fillStyle = INK;
-    ctx.fillRect(dx, dh, dw, RULE);
-  }
 }
 
 /**
@@ -97,9 +90,15 @@ export function useFrameScrub({
       window.innerWidth < mobileMaxWidth ? mobile : desktop;
     const count = set.count;
 
+    // The pinned hero is exactly as tall as the frame at full width (16:9),
+    // capped at the viewport. This keeps the hero from reserving a full viewport
+    // of height when the frame only fills part of it, which would leave dead space.
+    const bandHeight = () =>
+      Math.min(window.innerHeight, Math.round((window.innerWidth * 9) / 16));
+
     // size the tall scroll section so its height controls the scrub length
     if (section) {
-      section.style.height = `${count * pxPerFrame + window.innerHeight}px`;
+      section.style.height = `${count * pxPerFrame + bandHeight()}px`;
     }
 
     const ctx = canvas.getContext("2d", { alpha: false });
@@ -117,7 +116,7 @@ export function useFrameScrub({
     const resizeCanvas = () => {
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       cssW = window.innerWidth;
-      cssH = window.innerHeight;
+      cssH = bandHeight();
       canvas.width = Math.round(cssW * dpr);
       canvas.height = Math.round(cssH * dpr);
       canvas.style.width = `${cssW}px`;
@@ -142,7 +141,7 @@ export function useFrameScrub({
     const computeProgress = () => {
       if (!section) return 0;
       const rect = section.getBoundingClientRect();
-      const travel = section.offsetHeight - window.innerHeight;
+      const travel = section.offsetHeight - bandHeight();
       if (travel <= 0) return 0;
       const p = -rect.top / travel;
       return Math.min(1, Math.max(0, p));
@@ -167,7 +166,7 @@ export function useFrameScrub({
 
     const onResize = () => {
       if (section) {
-        section.style.height = `${count * pxPerFrame + window.innerHeight}px`;
+        section.style.height = `${count * pxPerFrame + bandHeight()}px`;
       }
       resizeCanvas();
       // force a repaint of the current frame at the new size
