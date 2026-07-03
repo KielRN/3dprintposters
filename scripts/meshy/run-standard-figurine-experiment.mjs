@@ -2195,6 +2195,24 @@ async function main() {
   const copiedInputPath = usesSourcePhoto
     ? await copyInputImage(inputPath, runDir)
     : null;
+  const directImagePaths = args.directImages
+    ? splitCsv(args.directImages).map((imagePath) => resolveFromRoot(imagePath))
+    : null;
+  const copiedDirectImagePaths = directImagePaths
+    ? await Promise.all(
+        directImagePaths.map(async (imagePath, index) => {
+          const ext = path.extname(imagePath).toLowerCase() || ".png";
+          const destination = path.join(
+            runDir,
+            "input",
+            `view-${index + 1}${ext}`,
+          );
+          await fs.mkdir(path.dirname(destination), { recursive: true });
+          await fs.copyFile(imagePath, destination);
+          return destination;
+        }),
+      )
+    : null;
   const startedSummary = {
     created_at: new Date().toISOString(),
     experiment_runner: "standard-figurine-v1",
@@ -2204,6 +2222,8 @@ async function main() {
     run_dir: runDir,
     input_path: inputPath,
     copied_input_path: copiedInputPath,
+    direct_image_paths: directImagePaths,
+    copied_direct_image_paths: copiedDirectImagePaths,
     stages: {
       existing_model_copy:
         workflow === "existing-model-print-tools" ? "pending" : "not_requested",
@@ -2398,13 +2418,7 @@ async function main() {
     apiKey,
     imageTaskId
       ? { imageTaskId }
-      : {
-          conceptPaths: args.directImages
-            ? splitCsv(args.directImages).map((imagePath) =>
-                resolveFromRoot(imagePath),
-              )
-            : [conceptPath],
-        },
+      : { conceptPaths: directImagePaths ?? [conceptPath] },
     runDir,
     args,
   );
