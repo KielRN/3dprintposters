@@ -97,7 +97,10 @@ Options:
   --concept-only                    Stop after Vertex/Gemini concept generation.
   --multiview-only                  Stop after Meshy multi-view image generation.
   --skip-concept <path>             Use an existing concept PNG/JPG instead of calling Vertex/Gemini.
+  --faithful-multiview              Multi-view prompt preserves the reference image's style/proportions instead of restyling to emoji/avatar toy.
   --skip-image-task-id <id>         Use an existing succeeded Meshy image-to-image multi-view task.
+  --skip-multiview                  Direct-3D: send the concept image straight to Multi-Image-to-3D as image_urls, skipping the Image-to-Image multi-view task.
+  --direct-images <csv>             Direct-3D with explicit view images (1-4 local paths, e.g. front,side). Implies --skip-multiview.
   --prototype-only                  Stop after Meshy Creative Lab Figure prototype generation.
   --skip-prototype-task-id <id>     Use an existing succeeded Creative Lab Figure prototype task.
   --skip-build-task-id <id>         Use an existing succeeded Creative Lab Figure build task.
@@ -124,12 +127,14 @@ function parseArgs(argv) {
       [
         "help",
         "conceptOnly",
+        "faithfulMultiview",
         "multiviewOnly",
         "noGenerationRemesh",
         "noTexture",
         "prototypeOnly",
         "providerDiagnostics",
         "shortFolderName",
+        "skipMultiview",
         "skipNormalization",
       ].includes(key)
     ) {
@@ -308,6 +313,18 @@ function buildVertexConceptPrompt() {
     "No base, pedestal, platform, stand, plaque, nameplate, sign, ground disk, scenery, or support prop.",
     "Avoid fragile fingers, hair wisps, noisy textures, photorealistic pores, busy clothing detail, cropped limbs, bust-only framing, floating objects, display bases, or side-view-only body shapes.",
     "Output only the concept image.",
+  ].join("\n");
+}
+
+function buildFaithfulMultiviewPrompt() {
+  return [
+    "Create a clean multi-view character sheet from the reference image.",
+    "Treat the reference image as the exact source of truth for style, body proportions, anatomy, musculature, pose attitude, identity, facial likeness, outfit design, props, and colors.",
+    "Do not restyle the character. Do not convert it into a chibi, emoji, avatar, toy, or cartoon style. Preserve the reference's realism level, adult proportions, and surface detail as closely as possible.",
+    "Views: generate consistent front, side, and back views of the same character. Keep proportions, outfit, props, colors, and silhouette identical across views.",
+    "Body-only output: do not add a base, pedestal, platform, stand, plaque, nameplate, sign, ground disk, scenery, or support prop. If the reference contains one, remove it.",
+    "Background: plain white studio background, one centered character per view, no text, no watermark, no extra props.",
+    "Printability: keep the figure a single connected body with feet grounded; avoid floating parts and cropped limbs, but never change the style to achieve this.",
   ].join("\n");
 }
 
@@ -629,7 +646,9 @@ function firstAvailableModelUrl(task, preferredFormats = ["glb", "stl"]) {
 async function createImageTask(apiKey, conceptPath, runDir, args) {
   const request = {
     ai_model: args.meshyImageModel ?? DEFAULT_MESHY_IMAGE_MODEL,
-    prompt: buildMeshyMultiviewPrompt(),
+    prompt: args.faithfulMultiview
+      ? buildFaithfulMultiviewPrompt()
+      : buildMeshyMultiviewPrompt(),
     reference_image_urls: [await fileToDataUri(conceptPath)],
     generate_multi_view: true,
   };
@@ -805,7 +824,7 @@ async function downloadFigurePrototypeImages(task, meshyDir) {
   return downloaded;
 }
 
-async function createMultiImageTo3dTask(apiKey, imageTaskId, runDir, args) {
+async function createMultiImageTo3dTask(apiKey, source, runDir, args) {
   const formats = (args.formats ?? DEFAULT_MODEL_FORMATS.join(","))
     .split(",")
     .map((format) => format.trim())
@@ -813,7 +832,15 @@ async function createMultiImageTo3dTask(apiKey, imageTaskId, runDir, args) {
   const shouldGenerationRemesh = !args.noGenerationRemesh;
 
   const request = {
-    input_task_id: imageTaskId,
+    ...(source.imageTaskId
+      ? { input_task_id: source.imageTaskId }
+      : {
+          image_urls: await Promise.all(
+            source.conceptPaths.map((conceptPath) =>
+              fileToDataUri(conceptPath),
+            ),
+          ),
+        }),
     ai_model: "meshy-6",
     should_texture: !args.noTexture,
     enable_pbr: false,
@@ -840,7 +867,16 @@ async function createMultiImageTo3dTask(apiKey, imageTaskId, runDir, args) {
 
   await writeJson(
     path.join(runDir, "meshy", "model-task.request.sanitized.json"),
-    request,
+    {
+      ...request,
+      ...(request.image_urls
+        ? {
+            image_urls: request.image_urls.map(
+              () => "<base64-data-uri-redacted>",
+            ),
+          }
+        : {}),
+    },
   );
   return response.result;
 }
@@ -2114,6 +2150,9 @@ async function main() {
   await loadEnvFile(path.join(repoRoot, ".env"));
   await loadEnvFile(path.join(repoRoot, "apps", "functions", ".env"));
 
+  if (args.directImages) {
+    args.skipMultiview = true;
+  }
   const workflow = args.workflow ?? "standard-multiview";
   if (!WORKFLOWS.has(workflow)) {
     throw new Error(
@@ -2180,7 +2219,9 @@ async function main() {
         workflow === "existing-model-print-tools" ||
         args.conceptOnly
           ? "not_requested"
-          : "pending",
+          : args.skipMultiview
+            ? "skipped_direct_3d"
+            : "pending",
       meshy_model:
         workflow === "creative-lab-figure" ||
         workflow === "existing-model-print-tools" ||
@@ -2290,43 +2331,50 @@ async function main() {
     throw new Error("MESHY_API_KEY is required for Meshy stages.");
   }
 
-  let imageTaskId = args.skipImageTaskId;
-  if (!imageTaskId) {
-    console.log("Creating Meshy Image-to-Image multi-view task...");
-    imageTaskId = await createImageTask(apiKey, conceptPath, runDir, args);
-  }
-  if (!imageTaskId) {
-    throw new Error("Meshy did not return an image task id.");
-  }
+  let imageTaskId = null;
+  if (args.skipMultiview) {
+    console.log(
+      "Direct-3D mode: skipping Image-to-Image multi-view; concept image goes straight to Multi-Image-to-3D.",
+    );
+  } else {
+    imageTaskId = args.skipImageTaskId;
+    if (!imageTaskId) {
+      console.log("Creating Meshy Image-to-Image multi-view task...");
+      imageTaskId = await createImageTask(apiKey, conceptPath, runDir, args);
+    }
+    if (!imageTaskId) {
+      throw new Error("Meshy did not return an image task id.");
+    }
 
-  console.log(`Image task id: ${imageTaskId}`);
-  const imageTask = await pollTask(
-    apiKey,
-    "/image-to-image",
-    imageTaskId,
-    meshyDir,
-    "image-task",
-    sanitizeImageTask,
-    args,
-  );
-  if (imageTask.status !== "SUCCEEDED") {
+    console.log(`Image task id: ${imageTaskId}`);
+    const imageTask = await pollTask(
+      apiKey,
+      "/image-to-image",
+      imageTaskId,
+      meshyDir,
+      "image-task",
+      sanitizeImageTask,
+      args,
+    );
+    if (imageTask.status !== "SUCCEEDED") {
+      await writeJson(
+        path.join(meshyDir, "image-task.final.sanitized.json"),
+        sanitizeImageTask(imageTask),
+      );
+      throw new Error(
+        `Meshy image task ${imageTaskId} ended with status ${imageTask.status}.`,
+      );
+    }
+
+    console.log("Downloading multi-view reference images...");
+    const downloadedImages = await downloadImageTaskImages(imageTask, meshyDir);
     await writeJson(
       path.join(meshyDir, "image-task.final.sanitized.json"),
-      sanitizeImageTask(imageTask),
-    );
-    throw new Error(
-      `Meshy image task ${imageTaskId} ended with status ${imageTask.status}.`,
+      sanitizeImageTask(imageTask, downloadedImages),
     );
   }
 
-  console.log("Downloading multi-view reference images...");
-  const downloadedImages = await downloadImageTaskImages(imageTask, meshyDir);
-  await writeJson(
-    path.join(meshyDir, "image-task.final.sanitized.json"),
-    sanitizeImageTask(imageTask, downloadedImages),
-  );
-
-  if (args.multiviewOnly) {
+  if (args.multiviewOnly && !args.skipMultiview) {
     const summary = {
       ...startedSummary,
       completed_at: new Date().toISOString(),
@@ -2348,7 +2396,15 @@ async function main() {
   console.log("Creating Meshy Multi-Image-to-3D task...");
   const modelTaskId = await createMultiImageTo3dTask(
     apiKey,
-    imageTaskId,
+    imageTaskId
+      ? { imageTaskId }
+      : {
+          conceptPaths: args.directImages
+            ? splitCsv(args.directImages).map((imagePath) =>
+                resolveFromRoot(imagePath),
+              )
+            : [conceptPath],
+        },
     runDir,
     args,
   );
@@ -2439,7 +2495,9 @@ async function main() {
       : null,
     stages: {
       vertex_concept: "completed",
-      meshy_multiview: "completed",
+      meshy_multiview: args.skipMultiview
+        ? "skipped_direct_3d"
+        : "completed",
       meshy_model: "completed",
       printability: "completed",
       provider_repair:
