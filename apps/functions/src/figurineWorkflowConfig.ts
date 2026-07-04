@@ -12,6 +12,19 @@ export type WorkflowProductType = "poster" | "figurine";
 // it and the single swapped image feeds the 3D provider directly.
 export type WorkflowProofMode = "generated_options" | "template_face_swap";
 
+// In template_face_swap mode the style prompt is sent to Vertex VERBATIM as
+// the entire edit instruction — nothing is added or hidden. This is the
+// default text the admin UI prefills so admins can see and adjust exactly
+// what the model receives. Image order: template first, customer photo second.
+export const defaultTemplateFaceSwapPrompt = [
+  "Face swap task. The first image is the approved style template character. The second image is the customer photo.",
+  "Edit the first image so the character's facial identity becomes the person from the second image: face, head shape, skin tone, hair or baldness, facial hair, glasses, and expression cues come from the customer photo while staying rendered in the template's art style.",
+  "Preserve everything else in the template exactly: pose, body proportions, costume, props with their exact grip and angle, colors, materials, lighting, background treatment, and framing.",
+  "Preserve every costume and surface detail at full sharpness; do not soften, simplify, or repaint anything outside the swapped face and head.",
+  "The result must read as the same stylized character artwork with a new identity, never as a photorealistic person.",
+  "Output only the edited image.",
+].join("\n");
+
 export type WorkflowStyleReferenceImage = {
   id: string;
   label: string;

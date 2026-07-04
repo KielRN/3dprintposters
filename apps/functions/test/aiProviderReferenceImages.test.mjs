@@ -3,11 +3,12 @@ import test from "node:test";
 
 import {
   buildReferenceImageGenerationMetadata,
-  buildTemplateFaceSwapPrompt,
   buildVertexUserParts,
   nearestSupportedAspectRatio,
   readImageDimensions,
+  resolveTemplateFaceSwapPrompt,
 } from "../lib/aiProvider.js";
+import { defaultTemplateFaceSwapPrompt } from "../lib/figurineWorkflowConfig.js";
 
 test("Vertex user parts append style references after source image", () => {
   const parts = buildVertexUserParts({
@@ -64,15 +65,23 @@ test("reference image metadata stores counts and IDs without paths", () => {
   assert.doesNotMatch(JSON.stringify(metadata), /admin\/workflow|https?:\/\//);
 });
 
-test("face swap prompt preserves template detail and appends style guidance", () => {
-  const prompt = buildTemplateFaceSwapPrompt({
-    stylePrompt: "Cute chibi proportions.",
-  });
-
-  assert.match(prompt, /Face swap task/);
-  assert.match(prompt, /Preserve every costume and surface detail at full sharpness/);
-  assert.match(prompt, /never as a photorealistic person/);
-  assert.match(prompt, /Style guidance: Cute chibi proportions\./);
+test("template face swap sends the style prompt verbatim, defaulting when blank", () => {
+  assert.equal(
+    resolveTemplateFaceSwapPrompt("My exact swap instruction."),
+    "My exact swap instruction.",
+  );
+  assert.equal(
+    resolveTemplateFaceSwapPrompt("   "),
+    defaultTemplateFaceSwapPrompt,
+  );
+  assert.equal(
+    resolveTemplateFaceSwapPrompt(undefined),
+    defaultTemplateFaceSwapPrompt,
+  );
+  assert.match(
+    defaultTemplateFaceSwapPrompt,
+    /Preserve every costume and surface detail at full sharpness/,
+  );
 });
 
 test("nearest supported aspect ratio matches the exp-011 template shape", () => {

@@ -5,9 +5,10 @@ import {
   type ProofStyleMetadata,
 } from "./styleContracts.js";
 import { isFigurineStyle } from "./figurineWorkflow.js";
-import type {
-  WorkflowProofMode,
-  WorkflowStyleReferenceImage,
+import {
+  defaultTemplateFaceSwapPrompt,
+  type WorkflowProofMode,
+  type WorkflowStyleReferenceImage,
 } from "./figurineWorkflowConfig.js";
 
 export type PosterGenerationInput = {
@@ -432,7 +433,7 @@ async function generateTemplateFaceSwapProof(swap: {
         }
       : {}),
   };
-  const promptText = buildTemplateFaceSwapPrompt(swap.input);
+  const promptText = resolveTemplateFaceSwapPrompt(swap.input.stylePrompt);
   const vertexResponse = await generateVertexImage({
     apiKey: swap.apiKey,
     model: swap.model,
@@ -510,20 +511,14 @@ async function generateTemplateFaceSwapProof(swap: {
   };
 }
 
-export function buildTemplateFaceSwapPrompt(
-  input: Pick<PosterGenerationInput, "stylePrompt">,
+// The style prompt IS the Vertex instruction in swap mode — sent verbatim so
+// admins can see and control exactly what the model receives. The default is
+// only a safety net for a blank prompt.
+export function resolveTemplateFaceSwapPrompt(
+  stylePrompt: string | undefined,
 ): string {
-  const stylePrompt = input.stylePrompt?.trim();
-
-  return [
-    "Face swap task. The first image is the approved style template character. The second image is the customer photo.",
-    "Edit the first image so the character's facial identity becomes the person from the second image: face, head shape, skin tone, hair or baldness, facial hair, glasses, and expression cues come from the customer photo while staying rendered in the template's art style.",
-    "Preserve everything else in the template exactly: pose, body proportions, costume, props with their exact grip and angle, colors, materials, lighting, background treatment, and framing.",
-    "Preserve every costume and surface detail at full sharpness; do not soften, simplify, or repaint anything outside the swapped face and head.",
-    "The result must read as the same stylized character artwork with a new identity, never as a photorealistic person.",
-    ...(stylePrompt ? [`Style guidance: ${stylePrompt}`] : []),
-    "Output only the edited image.",
-  ].join("\n");
+  const trimmed = stylePrompt?.trim();
+  return trimmed || defaultTemplateFaceSwapPrompt;
 }
 
 const supportedAspectRatios = [

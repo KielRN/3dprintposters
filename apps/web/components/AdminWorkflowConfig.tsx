@@ -3,6 +3,7 @@
 import { getFirebaseClients } from "@/lib/firebase";
 import {
   defaultFigurineWorkflowConfig,
+  defaultTemplateFaceSwapPrompt,
   maxWorkflowStyleReferenceImageBytes,
   maxWorkflowStyleReferenceImages,
   normalizeFigurineWorkflowConfigResponse,
@@ -777,35 +778,47 @@ export function AdminWorkflowConfig({
               </div>
               <div className="mt-4 grid gap-2 sm:grid-cols-[minmax(220px,0.5fr)_minmax(0,1fr)] sm:items-end">
                 <label className="grid gap-2 text-sm font-bold">
-                  Proof mode
+                  Image generation mode
                   <select
                     className="h-12 rounded-lg border border-black/15 bg-white px-3 font-semibold"
                     value={style.proofMode}
-                    onChange={(event) =>
+                    onChange={(event) => {
+                      const proofMode = event.target
+                        .value as WorkflowProofMode;
                       updateStyle(index, {
-                        proofMode: event.target.value as WorkflowProofMode,
-                      })
-                    }
+                        proofMode,
+                        // Selecting face swap turns the prompt box into the
+                        // literal Vertex instruction, so load the full default
+                        // text for the admin to see and adjust.
+                        ...(proofMode === "template_face_swap"
+                          ? { prompt: defaultTemplateFaceSwapPrompt }
+                          : {}),
+                      });
+                    }}
                   >
                     <option value="generated_options">
-                      Generated proof options
+                      Style prompt proofs (multiple options)
                     </option>
                     <option value="template_face_swap">
-                      Template face swap
+                      Template face swap (single concept)
                     </option>
                   </select>
                 </label>
                 {style.proofMode === "template_face_swap" ? (
                   <p className="rounded-lg border border-[var(--gold)]/30 bg-[var(--gold)]/10 px-3 py-2 text-sm font-semibold">
-                    Uses the first enabled reference image below as the fixed
-                    style template: the customer photo replaces only the face,
-                    and the swapped image goes straight to the 3D provider. At
-                    least one enabled reference image is required.
+                    The first enabled reference image below is the fixed style
+                    template and the customer photo replaces only the face.
+                    The prompt below is sent to Vertex exactly as written —
+                    nothing else is added. The swapped image goes straight to
+                    the 3D provider. At least one enabled reference image is
+                    required.
                   </p>
                 ) : null}
               </div>
               <label className="mt-4 grid gap-2 text-sm font-bold">
-                Style prompt
+                {style.proofMode === "template_face_swap"
+                  ? "Vertex face-swap prompt (sent exactly as written)"
+                  : "Style prompt"}
                 <textarea
                   className="min-h-28 rounded-lg border border-black/15 px-3 py-3 text-sm font-normal leading-6 focus:outline-none focus:ring-2 focus:ring-[var(--teal)]/60"
                   value={style.prompt}

@@ -6,6 +6,7 @@ All notable project changes will be documented in this file.
 
 ### Changed
 
+- Changed the template-face-swap prompt contract on 2026-07-04 so the admin is never guessing what reaches the model: in face-swap mode the style prompt is sent to Vertex verbatim as the entire edit instruction (the built-in default is only a blank-prompt safety net), the `/admin` style card prefills the full default swap prompt when the mode is selected and relabels the field "Vertex face-swap prompt (sent exactly as written)", and the mode selector is now labeled "Image generation mode" with clearer option names.
 - Rebranded the user-facing surface from "3D Print Posters" / "3D Posters" to **3DPrintU** (page titles, PWA `manifest.webmanifest`, `appleWebApp.title`, header/footer wordmarks, theme color). This is a brand-surface change only: the repo name, Firebase project id `gen-lang-client-0675309660`, env keys, the Cloud Storage bucket, and all source-code identifiers are unchanged.
 - Moved the upload flow from `/` to `/start`. `/` is now the marketing landing page; the PWA `start_url` points to `/start`, and in-app "home" / "new order" links (admin, job, and order pages) follow. The `3dprintu.com` canonical domain is documented; production DNS/App Hosting custom-domain wiring and new brand icons/OG images remain follow-ups.
 
