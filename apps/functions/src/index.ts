@@ -3596,6 +3596,119 @@ export const operatorUpdateFulfillment = onCall(
   },
 );
 
+const adminJobIdSchema = z.object({ jobId: z.string().min(1) });
+
+export const adminRefundJob = onCall(
+  {
+    secrets: [adminSupportAllowlist, stripeSecretKey],
+  },
+  async (request) => {
+    const admin = requireAdminSupport(request);
+    const parsed = adminJobIdSchema.safeParse(request.data);
+    if (!parsed.success) {
+      throw new HttpsError("invalid-argument", "jobId is required.");
+    }
+
+    const { orderData } = await loadOperatorJobDocs(parsed.data.jobId);
+    const stage = (orderData.fulfillment as { stage?: unknown } | undefined)?.stage;
+    if (!canTransition(stage, "refunded")) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Only paid jobs that are not already refunded can be refunded.",
+      );
+    }
+    const paymentIntentId = orderData.stripePaymentIntentId;
+    if (typeof paymentIntentId !== "string" || !paymentIntentId) {
+      throw new HttpsError(
+        "failed-precondition",
+        "No Stripe payment intent is recorded for this order.",
+      );
+    }
+
+    const stripe = new Stripe(stripeSecretKey.value());
+    const refund = await stripe.refunds.create({ payment_intent: paymentIntentId });
+
+    await applyFulfillmentTransition({
+      jobId: parsed.data.jobId,
+      toStage: "refunded",
+      by: admin,
+      extraOrderFields: {
+        fulfillment: {
+          stage: "refunded",
+          refund: {
+            stripeRefundId: refund.id,
+            amountCents: refund.amount,
+            at: Timestamp.now(),
+            by: admin.email ?? admin.uid,
+          },
+        },
+      },
+    });
+    return { refundId: refund.id };
+  },
+);
+
+const adminSetFulfillmentSchema = z.object({
+  jobId: z.string().min(1),
+  action: z.enum(["complete", "requeue", "cancel"]),
+});
+
+export const adminSetFulfillment = onCall(
+  {
+    secrets: [adminSupportAllowlist],
+  },
+  async (request) => {
+    const admin = requireAdminSupport(request);
+    const parsed = adminSetFulfillmentSchema.safeParse(request.data);
+    if (!parsed.success) {
+      throw new HttpsError("invalid-argument", "jobId and action are required.");
+    }
+
+    if (parsed.data.action === "complete") {
+      await applyFulfillmentTransition({
+        jobId: parsed.data.jobId,
+        toStage: "completed",
+        by: admin,
+      });
+    } else if (parsed.data.action === "requeue") {
+      await applyFulfillmentTransition({
+        jobId: parsed.data.jobId,
+        toStage: "paid",
+        by: admin,
+        note: "Re-queued after operator rejection.",
+        extraOrderFields: {
+          fulfillment: { stage: "paid", rejection: null },
+          printBundle: { status: "not_built", storagePath: null, error: null },
+        },
+      });
+    } else {
+      // cancel: unpaid jobs only — there is no order/fulfillment doc to transition.
+      const orderSnap = await db.collection("orders").doc(parsed.data.jobId).get();
+      if (
+        orderSnap.exists &&
+        (orderSnap.data()?.paymentStatus === "paid" ||
+          orderSnap.data()?.status === "paid")
+      ) {
+        throw new HttpsError(
+          "failed-precondition",
+          "Paid jobs cannot be canceled — refund instead.",
+        );
+      }
+      const now = FieldValue.serverTimestamp();
+      await db.collection("jobs").doc(parsed.data.jobId).set(
+        {
+          status: "canceled",
+          pipelineStage: "canceled",
+          pipelineUpdatedAt: now,
+          updatedAt: now,
+        },
+        { merge: true },
+      );
+    }
+    return { ok: true };
+  },
+);
+
 async function runFigurinePrintToolingForJob(input: {
   jobRef: DocumentReference;
   jobId: string;
