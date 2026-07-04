@@ -190,6 +190,36 @@ test("an admin-disabled chibi style stays disabled and hidden", () => {
   );
 });
 
+test("style proof mode round-trips and defaults to generated_options", () => {
+  const config = normalizeFigurineWorkflowConfig({
+    styles: [
+      {
+        label: "Creative Lab Figure",
+        id: "creative_lab_figure",
+        prompt: "Smooth toy figure proof.",
+      },
+      {
+        label: "Chibi",
+        id: "chibi_figure",
+        prompt: "Chibi proof.",
+        proofMode: "template_face_swap",
+      },
+    ],
+  });
+
+  assert.equal(config.styles[0].proofMode, "generated_options");
+  assert.equal(
+    config.styles.find((style) => style.id === "chibi_figure")?.proofMode,
+    "template_face_swap",
+  );
+
+  const publicConfig = publicFigurineWorkflowConfig(config);
+  assert.equal(
+    publicConfig.styles.find((style) => style.id === "chibi_figure")?.proofMode,
+    "template_face_swap",
+  );
+});
+
 test("public workflow config strips prompt references and storage paths", () => {
   const config = normalizeFigurineWorkflowConfig({
     baseProofPrompt:

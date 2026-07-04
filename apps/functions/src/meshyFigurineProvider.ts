@@ -23,6 +23,7 @@ type MeshyTask = {
   model_urls?: Record<string, string | undefined>;
   thumbnail_url?: string;
   texture_urls?: Array<Record<string, string | undefined>>;
+  image_urls?: string[];
 };
 
 type MeshyJsonResponse = {
@@ -112,11 +113,24 @@ export async function generateCreativeLabFigurinePreview(
   }
 
   const imageUrl = `data:${sourceImage.contentType};base64,${sourceImage.buffer.toString("base64")}`;
-  const name = `job-${input.jobId}`.slice(0, 120);
-  const prototypeTaskId = await createPrototypeTask({
+  const { prototypeTaskId, prototypeTask } = await runPrototypePhase({
     apiKey: input.apiKey,
     imageUrl,
-    name,
+    name: `job-${input.jobId}`.slice(0, 120),
+  });
+
+  return runBuildPhase(input, prototypeTaskId, prototypeTask);
+}
+
+async function runPrototypePhase(input: {
+  apiKey: string;
+  imageUrl: string;
+  name: string;
+}): Promise<{ prototypeTaskId: string; prototypeTask: MeshyTask }> {
+  const prototypeTaskId = await createPrototypeTask({
+    apiKey: input.apiKey,
+    imageUrl: input.imageUrl,
+    name: input.name,
   });
   const prototypeTask = await pollMeshyTask({
     apiKey: input.apiKey,
@@ -133,6 +147,22 @@ export async function generateCreativeLabFigurinePreview(
     });
   }
 
+  return { prototypeTaskId, prototypeTask };
+}
+
+async function runBuildPhase(
+  input: {
+    jobId: string;
+    uid: string;
+    sourceImagePath?: string;
+    outputPrefix: string;
+    modelId: string;
+    apiKey: string;
+  },
+  prototypeTaskId: string,
+  prototypeTask: MeshyTask,
+): Promise<FigurineProviderOutput> {
+  const name = `job-${input.jobId}`.slice(0, 120);
   const buildTaskId = await createBuildTask({
     apiKey: input.apiKey,
     prototypeTaskId,
@@ -285,6 +315,155 @@ async function generateFixtureFigurinePreview(
     consumedCredits: 0,
     status: "preview_ready",
   };
+}
+
+export type FigurinePrototypeConceptInput = {
+  jobId: string;
+  uid: string;
+  sourceImagePath: string;
+  conceptOutputPrefix: string;
+  modelId: string;
+  apiKey: string;
+};
+
+export type FigurinePrototypeConceptOutput = {
+  provider: "meshy";
+  workflow: "creative_lab_figure";
+  prototypeTaskId: string;
+  conceptImagePaths: string[];
+  consumedCredits: number | null;
+  status: "concept_ready";
+};
+
+// Phase 1 of the split Creative Lab flow: run only the prototype task and
+// store Meshy's 2D concept image(s) so the customer can review the concept
+// before the build-phase credits are spent.
+export async function generateCreativeLabPrototypeConcept(
+  input: FigurinePrototypeConceptInput,
+): Promise<FigurinePrototypeConceptOutput> {
+  if (process.env.MESHY_FIGURINE_PROVIDER_MODE === "fixture") {
+    return generateFixturePrototypeConcept(input);
+  }
+
+  const sourceImage = await readStorageImage(input.sourceImagePath);
+  const imageByteLimit = resolvePositiveIntegerEnv(
+    "MESHY_MAX_SOURCE_IMAGE_BYTES",
+    defaultSourceImageByteLimit,
+  );
+  if (sourceImage.buffer.byteLength > imageByteLimit) {
+    throw new Error(
+      `Figurine source image is ${sourceImage.buffer.byteLength} bytes, which exceeds the configured Meshy inline image limit of ${imageByteLimit} bytes.`,
+    );
+  }
+
+  const imageUrl = `data:${sourceImage.contentType};base64,${sourceImage.buffer.toString("base64")}`;
+  const { prototypeTaskId, prototypeTask } = await runPrototypePhase({
+    apiKey: input.apiKey,
+    imageUrl,
+    name: `job-${input.jobId}`.slice(0, 120),
+  });
+
+  const conceptUrls = Array.isArray(prototypeTask.image_urls)
+    ? prototypeTask.image_urls.filter((url) => Boolean(url))
+    : [];
+  if (conceptUrls.length === 0) {
+    throw new Error(
+      `Meshy figure prototype task ${prototypeTaskId} returned no concept image URLs.`,
+    );
+  }
+
+  const conceptImagePaths: string[] = [];
+  for (let index = 0; index < conceptUrls.length; index += 1) {
+    const url = conceptUrls[index];
+    const extension = extensionFromUrl(url, ".png");
+    const storagePath = `${input.conceptOutputPrefix}/meshy-concept-${index + 1}${extension}`;
+    await saveRemoteFile({
+      url,
+      storagePath,
+      contentType: extension === ".jpg" ? "image/jpeg" : "image/png",
+      metadata: storageMetadata(input, "creative-lab-prototype-concept"),
+    });
+    conceptImagePaths.push(storagePath);
+  }
+
+  return {
+    provider: "meshy",
+    workflow: "creative_lab_figure",
+    prototypeTaskId,
+    conceptImagePaths,
+    consumedCredits: sumConsumedCredits(prototypeTask),
+    status: "concept_ready",
+  };
+}
+
+// Phase 2 of the split flow: build the 3D figure from an already-succeeded
+// prototype task. The prototype task is re-fetched so provider metadata and
+// credit totals stay complete, and so an expired prototype fails loudly here
+// instead of producing a confusing build error.
+export async function buildCreativeLabFigurineFromPrototype(
+  input: FigurineProviderInput & { prototypeTaskId: string },
+): Promise<FigurineProviderOutput> {
+  if (process.env.MESHY_FIGURINE_PROVIDER_MODE === "fixture") {
+    return generateFixtureFigurinePreview(input);
+  }
+
+  const prototypeTask = (await meshyJson(
+    input.apiKey,
+    `/creative-lab/figure/v1/prototype/${input.prototypeTaskId}`,
+    { method: "GET" },
+  )) as MeshyTask;
+
+  if (prototypeTask.status !== "SUCCEEDED") {
+    throw new MeshyProviderTaskError({
+      taskId: input.prototypeTaskId,
+      label: "figure prototype",
+      task: prototypeTask,
+    });
+  }
+
+  return runBuildPhase(input, input.prototypeTaskId, prototypeTask);
+}
+
+async function generateFixturePrototypeConcept(
+  input: FigurinePrototypeConceptInput,
+): Promise<FigurinePrototypeConceptOutput> {
+  // Fixture mode mirrors the swap image back as the concept so the full
+  // browser flow can run without paid Meshy calls.
+  const sourceImage = await readStorageImage(input.sourceImagePath);
+  const extension = sourceImage.contentType === "image/png" ? ".png" : ".jpg";
+  const storagePath = `${input.conceptOutputPrefix}/meshy-concept-1${extension}`;
+  const bucket = getConfiguredStorageBucket();
+
+  await bucket.file(storagePath).save(sourceImage.buffer, {
+    resumable: false,
+    metadata: {
+      contentType: sourceImage.contentType,
+      cacheControl: "private, max-age=3600",
+      metadata: storageMetadata(input, "creative-lab-fixture-concept"),
+    },
+  });
+
+  return {
+    provider: "meshy",
+    workflow: "creative_lab_figure",
+    prototypeTaskId: "fixture-prototype",
+    conceptImagePaths: [storagePath],
+    consumedCredits: 0,
+    status: "concept_ready",
+  };
+}
+
+function extensionFromUrl(url: string, fallback: string): string {
+  try {
+    const pathname = new URL(url).pathname;
+    const match = /\.(png|jpe?g)$/i.exec(pathname);
+    if (!match) {
+      return fallback;
+    }
+    return match[0].toLowerCase() === ".jpeg" ? ".jpg" : match[0].toLowerCase();
+  } catch {
+    return fallback;
+  }
 }
 
 async function createPrototypeTask(input: {
@@ -619,7 +798,7 @@ function formatSanitizedTaskError(
 }
 
 function storageMetadata(
-  input: FigurineProviderInput,
+  input: { jobId: string; uid: string; modelId: string },
   artifactRole: string,
 ): Record<string, string> {
   return {

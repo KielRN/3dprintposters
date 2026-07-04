@@ -20,7 +20,9 @@ import {
   isFigurineStyle,
 } from "./figurineWorkflow.js";
 import {
+  buildCreativeLabFigurineFromPrototype,
   generateCreativeLabFigurinePreview,
+  generateCreativeLabPrototypeConcept,
   MeshyProviderTaskError,
 } from "./meshyFigurineProvider.js";
 import { runMeshyFigurinePrintTooling } from "./meshyPrintTooling.js";
@@ -929,6 +931,7 @@ async function generateFigurinePreviewForApprovedJob(input: {
   jobId: string;
   uid: string;
   selectedImagePath: string;
+  prototypeTaskId?: string;
 }): Promise<Awaited<ReturnType<typeof generateCreativeLabFigurinePreview>>> {
   const startedAt = Date.now();
   const modelId = "creative-lab-original";
@@ -983,14 +986,24 @@ async function generateFigurinePreviewForApprovedJob(input: {
         consumedCredits: existingAsset.consumedCredits,
         status: "preview_ready" as const,
       }
-    : await generateCreativeLabFigurinePreview({
-        jobId: input.jobId,
-        uid: input.uid,
-        sourceImagePath: input.selectedImagePath,
-        outputPrefix,
-        modelId,
-        apiKey: resolveMeshyApiKeyForFigurine(),
-      });
+    : input.prototypeTaskId
+      ? await buildCreativeLabFigurineFromPrototype({
+          jobId: input.jobId,
+          uid: input.uid,
+          sourceImagePath: input.selectedImagePath,
+          outputPrefix,
+          modelId,
+          apiKey: resolveMeshyApiKeyForFigurine(),
+          prototypeTaskId: input.prototypeTaskId,
+        })
+      : await generateCreativeLabFigurinePreview({
+          jobId: input.jobId,
+          uid: input.uid,
+          sourceImagePath: input.selectedImagePath,
+          outputPrefix,
+          modelId,
+          apiKey: resolveMeshyApiKeyForFigurine(),
+        });
 
   await input.jobRef.set(
     {
@@ -1182,7 +1195,7 @@ export const saveFigurineWorkflowConfig = onCall(
 
 export const createGenerationJob = onCall(
   {
-    secrets: vertexRuntimeSecrets,
+    secrets: [...vertexRuntimeSecrets, meshyApiKey],
     timeoutSeconds: printFileGenerationTimeoutSeconds,
   },
   async (request) => {
@@ -1321,6 +1334,7 @@ export const createGenerationJob = onCall(
         proofGenerationCount: workflowConfig.proofGenerationCount,
         baseProofPrompt: workflowConfig.baseProofPrompt,
         stylePrompt: workflowStyle.prompt,
+        proofMode: workflowStyle.proofMode,
         referenceImages: styleReferenceImages,
       });
       const proofStoragePaths =
@@ -1337,6 +1351,72 @@ export const createGenerationJob = onCall(
 
       if (proofStoragePaths.length === 0) {
         throw new Error("AI provider returned no generated proof image path.");
+      }
+
+      // Template-face-swap styles skip the multi-proof review: the swapped
+      // image goes straight to a Meshy prototype, and the customer reviews
+      // Meshy's own figure concept before the build-phase credits are spent.
+      if (
+        productType === "figurine" &&
+        workflowStyle.proofMode === "template_face_swap" &&
+        generation.status !== "stubbed"
+      ) {
+        const faceSwapImagePath = proofStoragePaths[0];
+        const concept = await generateCreativeLabPrototypeConcept({
+          jobId: jobRef.id,
+          uid: request.auth.uid,
+          sourceImagePath: faceSwapImagePath,
+          conceptOutputPrefix: `generated/${request.auth.uid}/${jobRef.id}`,
+          modelId: "creative-lab-original",
+          apiKey: resolveMeshyApiKeyForFigurine(),
+        });
+
+        await jobRef.set(
+          {
+            status: "preview_ready",
+            generatedImages: concept.conceptImagePaths.map(
+              (conceptImagePath, index) => ({
+                id: `meshy-concept-${index + 1}`,
+                label: `${workflowStyle.label} figure concept`,
+                storagePath: conceptImagePath,
+                status: "ready",
+                isPlaceholder: false,
+              }),
+            ),
+            conceptSource: "meshy_prototype_concept",
+            figurineConcept: {
+              provider: concept.provider,
+              workflow: concept.workflow,
+              prototypeTaskId: concept.prototypeTaskId,
+              conceptImagePaths: concept.conceptImagePaths,
+              faceSwapImagePath,
+              consumedCredits: concept.consumedCredits,
+              status: concept.status,
+              createdAt: FieldValue.serverTimestamp(),
+            },
+            aiGeneration: {
+              provider: generation.provider,
+              status: generation.status,
+              generatedImagePaths: generation.generatedImagePaths,
+              metadata: generation.metadata,
+              completedAt: FieldValue.serverTimestamp(),
+            },
+            readinessStatus: "concept_ready",
+            checkoutEligibility: {
+              eligible: false,
+              reason:
+                "Generate the 3D figurine from the approved concept before checkout can be considered.",
+            },
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true },
+        );
+        await refreshJobCostFromFirestore(jobRef, "proof_generation_completed");
+
+        return {
+          jobId: jobRef.id,
+          status: "preview_ready",
+        };
       }
 
       await jobRef.set(
@@ -1536,11 +1616,20 @@ export const approveGeneratedImage = onCall(
 
     if (isFigurineJob) {
       try {
+        const figurineConcept = jobData.figurineConcept as
+          | { prototypeTaskId?: unknown }
+          | undefined;
+        const storedPrototypeTaskId =
+          typeof figurineConcept?.prototypeTaskId === "string" &&
+          figurineConcept.prototypeTaskId
+            ? figurineConcept.prototypeTaskId
+            : undefined;
         const figurinePreview = await generateFigurinePreviewForApprovedJob({
           jobRef,
           jobId: jobRef.id,
           uid: request.auth.uid,
           selectedImagePath: parsed.data.imagePath,
+          prototypeTaskId: storedPrototypeTaskId,
         });
 
         return {

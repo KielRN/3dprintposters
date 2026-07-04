@@ -6,6 +6,12 @@ import { z } from "zod";
 
 export type WorkflowProductType = "poster" | "figurine";
 
+// "generated_options": Vertex generates N proof options from the customer
+// photo (legacy flow). "template_face_swap": the style's first enabled
+// reference image is a fixed template; Vertex swaps the customer's face into
+// it and the single swapped image feeds the 3D provider directly.
+export type WorkflowProofMode = "generated_options" | "template_face_swap";
+
 export type WorkflowStyleReferenceImage = {
   id: string;
   label: string;
@@ -18,6 +24,7 @@ export type WorkflowStyleConfig = {
   id: string;
   label: string;
   productType: WorkflowProductType;
+  proofMode: WorkflowProofMode;
   prompt: string;
   enabled: boolean;
   referenceImages: WorkflowStyleReferenceImage[];
@@ -60,6 +67,7 @@ export const approvedChibiStyle: WorkflowStyleConfig = {
   id: "chibi_figure",
   label: "Chibi",
   productType: "figurine",
+  proofMode: "generated_options",
   prompt:
     "Fully stylized chibi character, never photorealistic: oversized head about one third of the total height, compact rounded body, large expressive eyes, a simplified friendly face that keeps the subject clearly recognizable, chunky simplified hands and shoes, smooth vinyl-toy surfaces, and broad clean color regions. The proof must read as a finished stylized character illustration, not a photo of a person.",
   enabled: true,
@@ -71,6 +79,7 @@ const defaultStyles: WorkflowStyleConfig[] = [
     id: "creative_lab_figure",
     label: "Creative Lab Figure",
     productType: "figurine",
+    proofMode: "generated_options",
     prompt:
       "Smooth chibi or emoji/avatar vinyl toy character, simplified expressive face, friendly proportions, clean silhouette, and broad color regions.",
     enabled: true,
@@ -81,6 +90,7 @@ const defaultStyles: WorkflowStyleConfig[] = [
     id: "emoji_avatar",
     label: "Emoji Avatar",
     productType: "figurine",
+    proofMode: "generated_options",
     prompt:
       "Bright emoji-avatar character with a rounded head, expressive simple face, toy-like body, clean clothing shapes, and a friendly natural standing pose.",
     enabled: true,
@@ -90,6 +100,7 @@ const defaultStyles: WorkflowStyleConfig[] = [
     id: "bobblehead",
     label: "Bobblehead",
     productType: "figurine",
+    proofMode: "generated_options",
     prompt:
       "Bobblehead-inspired proof with an oversized expressive head, smaller sturdy body, clear facial likeness, and feet placed flat for later base assembly.",
     enabled: true,
@@ -99,6 +110,7 @@ const defaultStyles: WorkflowStyleConfig[] = [
     id: "cartoon_figure",
     label: "Cartoon Figure",
     productType: "figurine",
+    proofMode: "generated_options",
     prompt:
       "Polished cartoon figurine with smooth simplified shapes, readable outfit colors, friendly expression, and a clean manufacturable silhouette.",
     enabled: true,
@@ -123,6 +135,7 @@ const rawStyleSchema = z.object({
   id: z.string().trim().min(1).max(80).optional(),
   label: z.string().trim().min(1).max(80),
   productType: z.enum(["poster", "figurine"]).optional(),
+  proofMode: z.enum(["generated_options", "template_face_swap"]).optional(),
   prompt: z.string().trim().min(1).max(4000),
   enabled: z.boolean().optional(),
   referenceImages: z
@@ -256,6 +269,7 @@ export function publicFigurineWorkflowConfig(
       id: style.id,
       label: style.label,
       productType: style.productType,
+      proofMode: style.proofMode,
       prompt: "Server-managed style prompt.",
       enabled: style.enabled,
       referenceImages: [],
@@ -333,6 +347,7 @@ function normalizeWorkflowStyle(
     id: id || `style_${index + 1}`,
     label,
     productType: rawStyle.productType ?? "figurine",
+    proofMode: rawStyle.proofMode ?? "generated_options",
     prompt,
     enabled: rawStyle.enabled ?? true,
     referenceImages: (rawStyle.referenceImages ?? [])

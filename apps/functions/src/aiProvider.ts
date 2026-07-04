@@ -5,7 +5,10 @@ import {
   type ProofStyleMetadata,
 } from "./styleContracts.js";
 import { isFigurineStyle } from "./figurineWorkflow.js";
-import type { WorkflowStyleReferenceImage } from "./figurineWorkflowConfig.js";
+import type {
+  WorkflowProofMode,
+  WorkflowStyleReferenceImage,
+} from "./figurineWorkflowConfig.js";
 
 export type PosterGenerationInput = {
   jobId: string;
@@ -17,6 +20,7 @@ export type PosterGenerationInput = {
   proofGenerationCount?: number;
   baseProofPrompt?: string;
   stylePrompt?: string;
+  proofMode?: WorkflowProofMode;
   referenceImages?: WorkflowStyleReferenceImage[];
 };
 
@@ -40,6 +44,9 @@ export type PosterGenerationOutput = {
     referenceImageIds?: string[];
     failedProofGenerationCount?: number;
     proofGenerationFailures?: string[];
+    proofMode?: WorkflowProofMode;
+    templateReferenceImageId?: string;
+    imageConfig?: Record<string, string>;
   };
 };
 
@@ -207,6 +214,19 @@ class VertexGeminiPosterAiProvider implements PosterAiProvider {
       input.referenceImages ?? [],
     );
 
+    if (input.proofMode === "template_face_swap") {
+      return generateTemplateFaceSwapProof({
+        apiKey,
+        model,
+        input,
+        styleMetadata,
+        customerImageBuffer: sourceImageBuffer,
+        customerMimeType: sourceMimeType,
+        templateImages: referenceImages,
+        referenceImageMetadata,
+      });
+    }
+
     const generationAttempts = await Promise.all(
       Array.from({ length: proofGenerationCount }, async (_, index) => {
         try {
@@ -370,6 +390,234 @@ class CloudflareGatewayPosterAiProvider implements PosterAiProvider {
         ],
       },
     };
+  }
+}
+
+// Template face swap keeps the style template's stylization and detail intact
+// (exp-019a: editing the source preserves detail; re-rendering destroys it)
+// and swaps only the identity, so the 3D provider receives an input with the
+// same quality characteristics as the approved exp-011 run.
+async function generateTemplateFaceSwapProof(swap: {
+  apiKey: string;
+  model: string;
+  input: PosterGenerationInput;
+  styleMetadata: ProofStyleMetadata;
+  customerImageBuffer: Buffer;
+  customerMimeType: string;
+  templateImages: VertexRequestReferenceImage[];
+  referenceImageMetadata: {
+    referenceImageCount?: number;
+    referenceImageIds?: string[];
+  };
+}): Promise<PosterGenerationOutput> {
+  const template = swap.templateImages[0];
+  if (!template) {
+    throw new Error(
+      "template_face_swap requires at least one enabled reference image on the selected style to use as the template.",
+    );
+  }
+
+  const templateDimensions = readImageDimensions(
+    template.imageBuffer,
+    template.mimeType,
+  );
+  const imageConfig: Record<string, string> = {
+    imageSize: "2K",
+    ...(templateDimensions
+      ? {
+          aspectRatio: nearestSupportedAspectRatio(
+            templateDimensions.width,
+            templateDimensions.height,
+          ),
+        }
+      : {}),
+  };
+  const promptText = buildTemplateFaceSwapPrompt(swap.input);
+  const vertexResponse = await generateVertexImage({
+    apiKey: swap.apiKey,
+    model: swap.model,
+    promptText,
+    sourceImageBuffer: template.imageBuffer,
+    sourceMimeType: template.mimeType,
+    referenceImages: [
+      {
+        id: "customer-photo",
+        mimeType:
+          swap.customerMimeType === "image/png" ? "image/png" : "image/jpeg",
+        imageBuffer: swap.customerImageBuffer,
+      },
+    ],
+    imageConfig,
+  });
+  const generatedImage = extractGeneratedImage(vertexResponse);
+  const generatedImageBuffer = Buffer.from(generatedImage.data, "base64");
+  const outputMimeType = generatedImage.mimeType ?? "image/png";
+  const outputStoragePath = `generated/${swap.input.uid}/${swap.input.jobId}/preview.${extensionForMimeType(outputMimeType)}`;
+  const bucket = getConfiguredStorageBucket();
+
+  await bucket.file(outputStoragePath).save(generatedImageBuffer, {
+    resumable: false,
+    metadata: {
+      contentType: outputMimeType,
+      cacheControl: "private, max-age=3600",
+      metadata: {
+        jobId: swap.input.jobId,
+        uid: swap.input.uid,
+        provider: "vertex-gemini-direct",
+        model: swap.model,
+        proofMode: "template_face_swap",
+        templateReferenceImageId: template.id,
+      },
+    },
+  });
+
+  const responseText = extractResponseText(vertexResponse);
+
+  return {
+    provider: "vertex-gemini-direct",
+    status: "succeeded",
+    generatedImagePaths: [outputStoragePath],
+    metadata: {
+      model: swap.model,
+      route: "direct-gcp-vertex-gemini-express",
+      outputMimeType,
+      outputMimeTypes: [outputMimeType],
+      proofGenerationCount: 1,
+      proofMode: "template_face_swap",
+      templateReferenceImageId: template.id,
+      imageConfig,
+      styleMetadata: swap.styleMetadata,
+      ...swap.referenceImageMetadata,
+      ...(swap.input.selectedStyleLabel
+        ? { selectedStyleLabel: swap.input.selectedStyleLabel }
+        : {}),
+      ...(responseText ? { responseText } : {}),
+      ...(vertexResponse.modelVersion
+        ? { modelVersion: vertexResponse.modelVersion }
+        : {}),
+      notes: [
+        "Generated through the direct Vertex/Gemini provider route in template_face_swap proof mode.",
+        "The style template reference image was edited to carry the customer's facial identity; costume, pose, and detail were preserved.",
+        ...(templateDimensions
+          ? [
+              `Template dimensions ${templateDimensions.width}x${templateDimensions.height}; requested ${imageConfig.imageSize} output at ${imageConfig.aspectRatio ?? "default"} aspect.`,
+            ]
+          : [
+              "Template dimensions could not be read; requested 2K output at the model default aspect.",
+            ]),
+      ],
+    },
+  };
+}
+
+export function buildTemplateFaceSwapPrompt(
+  input: Pick<PosterGenerationInput, "stylePrompt">,
+): string {
+  const stylePrompt = input.stylePrompt?.trim();
+
+  return [
+    "Face swap task. The first image is the approved style template character. The second image is the customer photo.",
+    "Edit the first image so the character's facial identity becomes the person from the second image: face, head shape, skin tone, hair or baldness, facial hair, glasses, and expression cues come from the customer photo while staying rendered in the template's art style.",
+    "Preserve everything else in the template exactly: pose, body proportions, costume, props with their exact grip and angle, colors, materials, lighting, background treatment, and framing.",
+    "Preserve every costume and surface detail at full sharpness; do not soften, simplify, or repaint anything outside the swapped face and head.",
+    "The result must read as the same stylized character artwork with a new identity, never as a photorealistic person.",
+    ...(stylePrompt ? [`Style guidance: ${stylePrompt}`] : []),
+    "Output only the edited image.",
+  ].join("\n");
+}
+
+const supportedAspectRatios = [
+  "1:1",
+  "2:3",
+  "3:2",
+  "3:4",
+  "4:3",
+  "4:5",
+  "5:4",
+  "9:16",
+  "16:9",
+  "21:9",
+] as const;
+
+export function nearestSupportedAspectRatio(
+  width: number,
+  height: number,
+): string {
+  const targetRatio = width / height;
+  let best: string = supportedAspectRatios[0];
+  let bestDistance = Number.POSITIVE_INFINITY;
+
+  for (const candidate of supportedAspectRatios) {
+    const [w, h] = candidate.split(":").map(Number);
+    const distance = Math.abs(Math.log(targetRatio / (w / h)));
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      best = candidate;
+    }
+  }
+
+  return best;
+}
+
+export function readImageDimensions(
+  buffer: Buffer,
+  mimeType: string,
+): { width: number; height: number } | null {
+  try {
+    if (mimeType === "image/png") {
+      const isPng =
+        buffer.length > 24 &&
+        buffer.readUInt32BE(0) === 0x89504e47 &&
+        buffer.readUInt32BE(4) === 0x0d0a1a0a;
+      if (!isPng) {
+        return null;
+      }
+      return {
+        width: buffer.readUInt32BE(16),
+        height: buffer.readUInt32BE(20),
+      };
+    }
+
+    if (mimeType === "image/jpeg") {
+      if (buffer.length < 4 || buffer.readUInt16BE(0) !== 0xffd8) {
+        return null;
+      }
+      let offset = 2;
+      while (offset + 9 < buffer.length) {
+        if (buffer[offset] !== 0xff) {
+          offset += 1;
+          continue;
+        }
+        const marker = buffer[offset + 1];
+        if (marker === 0xff) {
+          offset += 1;
+          continue;
+        }
+        // Start-of-frame markers carry dimensions; C4/C8/CC are not frames.
+        if (
+          marker >= 0xc0 &&
+          marker <= 0xcf &&
+          marker !== 0xc4 &&
+          marker !== 0xc8 &&
+          marker !== 0xcc
+        ) {
+          return {
+            height: buffer.readUInt16BE(offset + 5),
+            width: buffer.readUInt16BE(offset + 7),
+          };
+        }
+        if (marker === 0x01 || (marker >= 0xd0 && marker <= 0xd9)) {
+          offset += 2;
+          continue;
+        }
+        offset += 2 + buffer.readUInt16BE(offset + 2);
+      }
+      return null;
+    }
+
+    return null;
+  } catch {
+    return null;
   }
 }
 
@@ -590,6 +838,7 @@ function buildVertexGenerateContentEndpoint(
 async function generateVertexImage(input: {
   apiKey: string;
   model: string;
+  imageConfig?: Record<string, string>;
   promptText: string;
   sourceImageBuffer: Buffer;
   sourceMimeType: string;
@@ -599,10 +848,13 @@ async function generateVertexImage(input: {
     candidateCount: 1,
     responseModalities: ["TEXT", "IMAGE"],
   };
-  const aspectRatio = process.env.VERTEX_IMAGE_ASPECT_RATIO;
-  if (aspectRatio) {
+  const aspectRatio =
+    input.imageConfig?.aspectRatio ?? process.env.VERTEX_IMAGE_ASPECT_RATIO;
+  const imageSize = input.imageConfig?.imageSize;
+  if (aspectRatio || imageSize) {
     generationConfig.imageConfig = {
-      aspectRatio,
+      ...(aspectRatio ? { aspectRatio } : {}),
+      ...(imageSize ? { imageSize } : {}),
     };
   }
 

@@ -10,6 +10,7 @@ import {
   normalizeStyleId,
   type FigurineWorkflowConfig,
   type WorkflowProductType,
+  type WorkflowProofMode,
   type WorkflowStyleReferenceImage,
   type WorkflowStyleConfig,
 } from "@/lib/figurineWorkflowConfig";
@@ -295,6 +296,7 @@ export function AdminWorkflowConfig({
           id: `style_${styleNumber}`,
           label: `Style ${styleNumber}`,
           productType: "figurine" as WorkflowProductType,
+          proofMode: "generated_options" as WorkflowProofMode,
           prompt:
             "Clean full-body stylized figurine proof with smooth toy-like surfaces, clear identity, visible hands, legs, shoes, and no base.",
           enabled: true,
@@ -754,6 +756,35 @@ export function AdminWorkflowConfig({
                     <Trash2 size={16} aria-hidden="true" />
                   </button>
                 </div>
+              </div>
+              <div className="mt-4 grid gap-2 sm:grid-cols-[minmax(220px,0.5fr)_minmax(0,1fr)] sm:items-end">
+                <label className="grid gap-2 text-sm font-bold">
+                  Proof mode
+                  <select
+                    className="h-12 rounded-lg border border-black/15 bg-white px-3 font-semibold"
+                    value={style.proofMode}
+                    onChange={(event) =>
+                      updateStyle(index, {
+                        proofMode: event.target.value as WorkflowProofMode,
+                      })
+                    }
+                  >
+                    <option value="generated_options">
+                      Generated proof options
+                    </option>
+                    <option value="template_face_swap">
+                      Template face swap
+                    </option>
+                  </select>
+                </label>
+                {style.proofMode === "template_face_swap" ? (
+                  <p className="rounded-lg border border-[var(--gold)]/30 bg-[var(--gold)]/10 px-3 py-2 text-sm font-semibold">
+                    Uses the first enabled reference image below as the fixed
+                    style template: the customer photo replaces only the face,
+                    and the swapped image goes straight to the 3D provider. At
+                    least one enabled reference image is required.
+                  </p>
+                ) : null}
               </div>
               <label className="mt-4 grid gap-2 text-sm font-bold">
                 Style prompt

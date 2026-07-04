@@ -39,6 +39,7 @@ type JobDocument = {
   sourceImagePath: string;
   selectedStyle: string;
   selectedStyleLabel?: string;
+  conceptSource?: string;
   generatedImages?: GeneratedImage[];
   approvedImagePath?: string | null;
   figurinePreview?: FigurinePreview | null;
@@ -556,7 +557,10 @@ export function JobDetail({ jobId }: { jobId: string }) {
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-[var(--muted)]">
             {isFigurineJob
-              ? "Inspect the generated color model. Print files are still under review, so checkout stays locked."
+              ? job?.conceptSource === "meshy_prototype_concept" &&
+                !figurinePreviewUrl
+                ? "Review the figure concept below. Generate 3D figurine builds the printable color model from this concept."
+                : "Inspect the generated color model. Print files are still under review, so checkout stays locked."
               : "Approve the generated proof before payment. Checkout unlocks only after you approve the image for this poster."}
           </p>
         </div>
@@ -778,9 +782,11 @@ export function JobDetail({ jobId }: { jobId: string }) {
                       <p className="mt-1 text-sm text-[var(--muted)]">
                         {image.isPlaceholder
                           ? "Temporary source-photo proof"
-                          : isFigurineJob
-                            ? "Generated figurine proof"
-                            : "Generated poster proof"}
+                          : job.conceptSource === "meshy_prototype_concept"
+                            ? "Figure concept generated from your photo"
+                            : isFigurineJob
+                              ? "Generated figurine proof"
+                              : "Generated poster proof"}
                       </p>
                     </div>
                     {isApproved ? (

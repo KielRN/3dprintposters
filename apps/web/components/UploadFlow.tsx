@@ -239,12 +239,21 @@ export function UploadFlow() {
         },
       );
 
-      setStatusMessage("Creating generation job...");
+      setStatusMessage(
+        selectedStyle.proofMode === "template_face_swap"
+          ? "Creating your figure concept. This can take a few minutes..."
+          : "Creating generation job...",
+      );
 
+      // Template-face-swap styles run the face swap plus the Meshy prototype
+      // inside this callable, so the client timeout must cover minutes, not
+      // the SDK's 70-second default.
       const createJob = httpsCallable<
         CreateGenerationJobRequest,
         CreateGenerationJobResult
-      >(firebaseClients.functions, "createGenerationJob");
+      >(firebaseClients.functions, "createGenerationJob", {
+        timeout: 540_000,
+      });
       const result = await createJob({
         jobId: nextJobId,
         sourceImagePath,
@@ -495,9 +504,15 @@ export function UploadFlow() {
           </strong>
         </div>
         <div className="flex items-center justify-between gap-3">
-          <span className="text-[var(--muted)]">Proof options</span>
+          <span className="text-[var(--muted)]">
+            {selectedStyle.proofMode === "template_face_swap"
+              ? "Concept options"
+              : "Proof options"}
+          </span>
           <strong className="min-w-0 max-w-[58%] break-words text-right">
-            {workflowConfig.proofGenerationCount}
+            {selectedStyle.proofMode === "template_face_swap"
+              ? 1
+              : workflowConfig.proofGenerationCount}
           </strong>
         </div>
         <div className="flex items-center justify-between gap-3">
