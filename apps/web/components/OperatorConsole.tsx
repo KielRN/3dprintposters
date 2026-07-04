@@ -6,7 +6,10 @@ import {
   callWithTransientRetry,
 } from "@/lib/callableRetry";
 import { pipelineStageLabels, type FulfillmentStage } from "@/lib/pipeline";
+import { onAuthStateChanged, type User } from "firebase/auth";
+import { Home, Settings } from "lucide-react";
 import { httpsCallable } from "firebase/functions";
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 type OperatorTab = "available" | "mine" | "done";
@@ -73,6 +76,8 @@ function stageTone(stage: FulfillmentStage) {
 
 export function OperatorConsole() {
   const firebaseClients = useMemo(() => getFirebaseClients(), []);
+  const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(Boolean(firebaseClients));
   const [role, setRole] = useState<{ isOperator: boolean } | null>(null);
   const [tab, setTab] = useState<OperatorTab>("available");
   const [jobs, setJobs] = useState<OperatorJobSummary[]>([]);
@@ -88,6 +93,18 @@ export function OperatorConsole() {
 
   useEffect(() => {
     if (!firebaseClients) {
+      setAuthLoading(false);
+      return;
+    }
+    return onAuthStateChanged(firebaseClients.auth, (nextUser) => {
+      setUser(nextUser);
+      setAuthLoading(false);
+      setRole(null);
+    });
+  }, [firebaseClients]);
+
+  useEffect(() => {
+    if (!firebaseClients || authLoading || !user) {
       return;
     }
     const getRole = httpsCallable<Record<string, never>, { isOperator: boolean }>(
@@ -97,7 +114,7 @@ export function OperatorConsole() {
     callWithTransientRetry(() => getRole({}))
       .then((result) => setRole(result.data))
       .catch(() => setRole({ isOperator: false }));
-  }, [firebaseClients]);
+  }, [authLoading, firebaseClients, user]);
 
   async function loadJobs(nextTab: OperatorTab) {
     if (!firebaseClients) {
@@ -171,15 +188,29 @@ export function OperatorConsole() {
     }
   }
 
-  if (role === null) {
+  if (authLoading || (user && role === null)) {
     return <section className="panel rounded-lg p-6">Checking access…</section>;
   }
-  if (!role.isOperator) {
+  if (!user || !role?.isOperator) {
     return (
       <section className="panel rounded-lg p-6">
-        <h1 className="display text-2xl">Print Console</h1>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="display text-2xl">Print Console</h1>
+          <div className="flex items-center gap-2">
+            <Link className="secondary-button h-10 min-h-0 px-3" href="/">
+              <Home size={16} aria-hidden="true" />
+              Home
+            </Link>
+            <Link className="secondary-button h-10 min-h-0 px-3" href="/admin">
+              <Settings size={16} aria-hidden="true" />
+              Admin
+            </Link>
+          </div>
+        </div>
         <p className="mt-2 text-[var(--muted)]">
-          This account is not on the operator allowlist. Contact the site admin.
+          {user
+            ? "This account is not on the operator allowlist. Contact the site admin."
+            : "Sign in through the admin console before opening the print console."}
         </p>
       </section>
     );
@@ -187,7 +218,19 @@ export function OperatorConsole() {
 
   return (
     <section className="panel min-w-0 rounded-lg p-5 sm:p-6">
-      <h1 className="display text-2xl">Print Console</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="display text-2xl">Print Console</h1>
+        <div className="flex items-center gap-2">
+          <Link className="secondary-button h-10 min-h-0 px-3" href="/">
+            <Home size={16} aria-hidden="true" />
+            Home
+          </Link>
+          <Link className="secondary-button h-10 min-h-0 px-3" href="/admin">
+            <Settings size={16} aria-hidden="true" />
+            Admin
+          </Link>
+        </div>
+      </div>
       <div className="mt-4 flex gap-2">
         {tabs.map((entry) => (
           <button

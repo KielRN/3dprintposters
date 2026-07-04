@@ -1,6 +1,6 @@
 import { PwaInstallButton } from "@/components/PwaInstallButton";
 import { UploadFlow } from "@/components/UploadFlow";
-import { Settings } from "lucide-react";
+import { ClipboardList, Settings } from "lucide-react";
 import Link from "next/link";
 
 const steps = ["Upload", "Generate", "Relief", "Checkout"];
@@ -29,6 +29,13 @@ export default function StartPage() {
             ))}
           </nav>
           <div className="flex items-center gap-2">
+            <Link
+              className="secondary-button h-10 min-h-0 shrink-0 px-3"
+              href="/operator"
+            >
+              <ClipboardList size={16} aria-hidden="true" />
+              Operator
+            </Link>
             <Link
               className="secondary-button h-10 min-h-0 shrink-0 px-3"
               href="/admin"
