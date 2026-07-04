@@ -188,6 +188,7 @@ All notable project changes will be documented in this file.
 
 ### Verified
 
+- Verified the template-face-swap chibi flow end to end in the real browser workflow on 2026-07-04: customer photo upload -> Vertex face swap onto the admin template -> Meshy Creative Lab prototype concept review -> customer-triggered build -> textured GLB preview. Elliot approved the result ("works great"); the Chibi style runs in `template_face_swap` mode with the stylized template reference and the verbatim Vertex prompt saved in the workflow config.
 - Verified a live Meshy Image to 3D task succeeded from `.tmp/Profile-Pic-HIMSS.jpg`, downloaded GLB/STL/3MF artifacts under `.tmp/print-files`, and exposed slicer-readiness risks for the first raw-photo output.
 - Verified the first proof-driven Emoji/avatar Natural pose Meshy task `019e5c65-7b2b-7641-abd6-ed04fb4e3d2e` succeeded from a generated full-body concept, consumed `30` credits, downloaded GLB/STL/3MF artifacts under `.tmp/experiments/meshy/emoji-natural-2026-05-24T23-50-06-305Z`, and produced a visually complete stylized figurine.
 - Verified Meshy printability analysis task `019e5c69-3d55-76ec-aecf-7cd728e6ed38` consumed `0` credits and returned `error` because the model is not watertight and has non-manifold/degenerate geometry.
