@@ -11,6 +11,7 @@
     "test:admin-support": "npm run build && node --test test/adminSupport.test.mjs",
     "test:job-cost": "npm run build && node --test test/jobCost.test.mjs",
     "test:workflow-config": "npm run build && node --test test/figurineWorkflowConfig.test.mjs test/aiProviderReferenceImages.test.mjs",
+    "test:pipeline": "npm run build && node --test test/pipeline.test.mjs test/operatorConsole.test.mjs",
     "typecheck": "tsc --noEmit"
   },
   "engines": {
