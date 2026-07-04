@@ -139,7 +139,7 @@ const listOperatorJobsSchema = z.object({
   tab: z.enum(operatorTabs),
 });
 const operatorJobIdSchema = z.object({
-  jobId: z.string().min(1),
+  jobId: jobIdSchema,
 });
 
 const addAdminSupportNoteSchema = z.object({
@@ -3277,11 +3277,15 @@ async function operatorJobDetailPayload(jobId: string) {
 
   let bundleUrl: string | null = null;
   if (detail.bundle.status === "ready" && detail.bundle.storagePath) {
-    const signed = await signedModelUrl({
-      bucketName,
-      storagePath: detail.bundle.storagePath,
-    });
-    bundleUrl = signed.url;
+    try {
+      const signed = await signedModelUrl({
+        bucketName,
+        storagePath: detail.bundle.storagePath,
+      });
+      bundleUrl = signed.url;
+    } catch {
+      bundleUrl = null;
+    }
   }
 
   const extraFiles = await Promise.all(
