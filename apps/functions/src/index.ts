@@ -93,6 +93,11 @@ const operatorAllowlist = defineSecret("OPERATOR_ALLOWLIST");
 const figurineUnpaintedFallbackCents = 9900;
 const figurinePaintedFallbackCents = 14900;
 
+function optionalRuntimeValue(value: string | undefined): string | null {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+}
+
 const vertexRuntimeSecrets = [
   aiProviderRoute,
   appStorageBucket,
@@ -1908,10 +1913,10 @@ export const createCheckoutSession = onCall(
 
     const figurinePriceId =
       paintOption === "painted"
-        ? stripeFigurinePaintedPriceId.value() ||
-          process.env.STRIPE_FIGURINE_PAINTED_PRICE_ID
-        : stripeFigurineUnpaintedPriceId.value() ||
-          process.env.STRIPE_FIGURINE_UNPAINTED_PRICE_ID;
+        ? (optionalRuntimeValue(stripeFigurinePaintedPriceId.value()) ??
+          optionalRuntimeValue(process.env.STRIPE_FIGURINE_PAINTED_PRICE_ID))
+        : (optionalRuntimeValue(stripeFigurineUnpaintedPriceId.value()) ??
+          optionalRuntimeValue(process.env.STRIPE_FIGURINE_UNPAINTED_PRICE_ID));
     const figurineFallbackAmount =
       paintOption === "painted"
         ? figurinePaintedFallbackCents
