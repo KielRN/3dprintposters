@@ -3626,7 +3626,10 @@ export const adminRefundJob = onCall(
     }
 
     const stripe = new Stripe(stripeSecretKey.value());
-    const refund = await stripe.refunds.create({ payment_intent: paymentIntentId });
+    const refund = await stripe.refunds.create(
+      { payment_intent: paymentIntentId },
+      { idempotencyKey: `refund:${parsed.data.jobId}:${paymentIntentId}` },
+    );
 
     await applyFulfillmentTransition({
       jobId: parsed.data.jobId,
@@ -3683,27 +3686,35 @@ export const adminSetFulfillment = onCall(
       });
     } else {
       // cancel: unpaid jobs only — there is no order/fulfillment doc to transition.
-      const orderSnap = await db.collection("orders").doc(parsed.data.jobId).get();
-      if (
-        orderSnap.exists &&
-        (orderSnap.data()?.paymentStatus === "paid" ||
-          orderSnap.data()?.status === "paid")
-      ) {
-        throw new HttpsError(
-          "failed-precondition",
-          "Paid jobs cannot be canceled — refund instead.",
+      // Re-read orders/{jobId} inside the transaction (rather than before it) so this
+      // races safely against the Stripe webhook's "paid" write instead of against a
+      // stale pre-check snapshot.
+      const orderRef = db.collection("orders").doc(parsed.data.jobId);
+      const jobRef = db.collection("jobs").doc(parsed.data.jobId);
+      await db.runTransaction(async (tx) => {
+        const orderSnap = await tx.get(orderRef);
+        if (
+          orderSnap.exists &&
+          (orderSnap.data()?.paymentStatus === "paid" ||
+            orderSnap.data()?.status === "paid")
+        ) {
+          throw new HttpsError(
+            "failed-precondition",
+            "Paid jobs cannot be canceled — refund instead.",
+          );
+        }
+        const now = FieldValue.serverTimestamp();
+        tx.set(
+          jobRef,
+          {
+            status: "canceled",
+            pipelineStage: "canceled",
+            pipelineUpdatedAt: now,
+            updatedAt: now,
+          },
+          { merge: true },
         );
-      }
-      const now = FieldValue.serverTimestamp();
-      await db.collection("jobs").doc(parsed.data.jobId).set(
-        {
-          status: "canceled",
-          pipelineStage: "canceled",
-          pipelineUpdatedAt: now,
-          updatedAt: now,
-        },
-        { merge: true },
-      );
+      });
     }
     return { ok: true };
   },
