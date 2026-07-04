@@ -77,6 +77,7 @@ const stripeFigurineUnpaintedPriceId = defineSecret(
   "STRIPE_FIGURINE_UNPAINTED_PRICE_ID",
 );
 const adminSupportAllowlist = defineSecret("ADMIN_SUPPORT_ALLOWLIST");
+const operatorAllowlist = defineSecret("OPERATOR_ALLOWLIST");
 
 const figurineUnpaintedFallbackCents = 9900;
 const figurinePaintedFallbackCents = 14900;
@@ -2355,6 +2356,56 @@ function requireAdminSupport(request: {
   return principal;
 }
 
+function consolePrincipal(request: {
+  auth?: { uid: string; token?: Record<string, unknown> };
+}): { uid: string; email: string | null } {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Sign in first.");
+  }
+  return {
+    uid: request.auth.uid,
+    email:
+      typeof request.auth.token?.email === "string"
+        ? request.auth.token.email
+        : null,
+  };
+}
+
+function consoleRoles(request: {
+  auth?: { uid: string; token?: Record<string, unknown> };
+}): { principal: { uid: string; email: string | null }; isAdmin: boolean; isOperator: boolean } {
+  const principal = consolePrincipal(request);
+  if (adminSupportDevelopmentAccessReason(process.env)) {
+    return { principal, isAdmin: true, isOperator: true };
+  }
+  const adminList =
+    adminSupportAllowlist.value()?.trim() ||
+    process.env.ADMIN_SUPPORT_ALLOWLIST?.trim() ||
+    "";
+  const operatorList =
+    operatorAllowlist.value()?.trim() ||
+    process.env.OPERATOR_ALLOWLIST?.trim() ||
+    "";
+  const isAdmin = isAdminSupportAllowed({ allowlist: adminList, principal });
+  // Admins are implicitly operators so the owner can exercise the operator view.
+  const isOperator =
+    isAdmin || isAdminSupportAllowed({ allowlist: operatorList, principal });
+  return { principal, isAdmin, isOperator };
+}
+
+function requireOperator(request: {
+  auth?: { uid: string; token?: Record<string, unknown> };
+}): { uid: string; email: string | null } {
+  const roles = consoleRoles(request);
+  if (!roles.isOperator) {
+    throw new HttpsError(
+      "permission-denied",
+      "This account is not on the operator allowlist.",
+    );
+  }
+  return roles.principal;
+}
+
 function buildAdminSupportFilters(
   data: z.infer<typeof listAdminSupportJobsSchema>,
 ): AdminSupportFilters {
@@ -2731,6 +2782,16 @@ export const addAdminSupportNote = onCall(
         jobData: updatedJobData,
       }),
     };
+  },
+);
+
+export const getConsoleRole = onCall(
+  {
+    secrets: [adminSupportAllowlist, operatorAllowlist],
+  },
+  async (request) => {
+    const roles = consoleRoles(request);
+    return { isAdmin: roles.isAdmin, isOperator: roles.isOperator };
   },
 );
 
