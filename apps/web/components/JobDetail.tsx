@@ -55,6 +55,10 @@ type JobDocument = {
   printFileError?: {
     message?: string;
   } | null;
+  checkoutEligibility?: {
+    eligible?: boolean;
+    reason?: string;
+  } | null;
 };
 
 type FigurineBaseConfig = {
@@ -120,6 +124,7 @@ type ApproveGeneratedImageResult = {
 
 type CreateCheckoutSessionRequest = {
   jobId: string;
+  paintOption?: "painted" | "unpainted";
 };
 
 type CreateCheckoutSessionResult = {
@@ -272,6 +277,9 @@ export function JobDetail({
   const [operatorAssetUrls, setOperatorAssetUrls] = useState<Record<string, string>>({});
   const [approvalBusyPath, setApprovalBusyPath] = useState("");
   const [checkoutBusy, setCheckoutBusy] = useState(false);
+  const [paintOption, setPaintOption] = useState<"painted" | "unpainted">(
+    "unpainted",
+  );
   const [baseSignBusy, setBaseSignBusy] = useState(false);
   const [baseSignNotice, setBaseSignNotice] = useState("");
   const [baseSignError, setBaseSignError] = useState("");
@@ -284,13 +292,13 @@ export function JobDetail({
   );
   const isFigurineJob = job?.productType === "figurine";
   const approvedImagePath = job?.approvedImagePath ?? null;
-  const canCheckout =
-    !isFigurineJob &&
-    job?.status === "approved" &&
-    Boolean(approvedImagePath) &&
-    job.printFileStatus === "generated" &&
-    Boolean(job.printFileArtifacts?.modelStl) &&
-    Boolean(job.printFileArtifacts?.previewGlb);
+  const canCheckout = isFigurineJob
+    ? job?.status === "approved" && job?.checkoutEligibility?.eligible === true
+    : job?.status === "approved" &&
+      Boolean(approvedImagePath) &&
+      job.printFileStatus === "generated" &&
+      Boolean(job.printFileArtifacts?.modelStl) &&
+      Boolean(job.printFileArtifacts?.previewGlb);
   const approvedProofUrl = approvedImagePath
     ? imageUrls[approvedImagePath] ?? ""
     : "";
@@ -605,7 +613,9 @@ export function JobDetail({
         CreateCheckoutSessionRequest,
         CreateCheckoutSessionResult
       >(firebaseClients.functions, "createCheckoutSession");
-      const result = await createCheckout({ jobId });
+      const result = await createCheckout(
+        isFigurineJob ? { jobId, paintOption } : { jobId },
+      );
 
       if (result.data.checkoutUrl) {
         window.location.assign(result.data.checkoutUrl);
@@ -648,19 +658,44 @@ export function JobDetail({
           </p>
         </div>
         {!operatorMode ? (
-          <button
-            className="primary-button"
-            type="button"
-            disabled={!canCheckout || checkoutBusy}
-            onClick={startCheckout}
-          >
-            {checkoutBusy ? (
-              <Loader2 className="animate-spin" size={18} aria-hidden="true" />
-            ) : (
-              <CreditCard size={18} aria-hidden="true" />
-            )}
-            Checkout
-          </button>
+          <div>
+            {isFigurineJob ? (
+              <fieldset className="mt-4 rounded-lg border border-black/10 p-3">
+                <legend className="px-1 text-sm font-bold">Finish</legend>
+                <label className="mr-4 inline-flex items-center gap-2 text-sm">
+                  <input
+                    type="radio"
+                    name="paintOption"
+                    checked={paintOption === "unpainted"}
+                    onChange={() => setPaintOption("unpainted")}
+                  />
+                  Unpainted
+                </label>
+                <label className="inline-flex items-center gap-2 text-sm">
+                  <input
+                    type="radio"
+                    name="paintOption"
+                    checked={paintOption === "painted"}
+                    onChange={() => setPaintOption("painted")}
+                  />
+                  Painted &amp; finished
+                </label>
+              </fieldset>
+            ) : null}
+            <button
+              className="primary-button"
+              type="button"
+              disabled={!canCheckout || checkoutBusy}
+              onClick={startCheckout}
+            >
+              {checkoutBusy ? (
+                <Loader2 className="animate-spin" size={18} aria-hidden="true" />
+              ) : (
+                <CreditCard size={18} aria-hidden="true" />
+              )}
+              Checkout
+            </button>
+          </div>
         ) : null}
       </div>
 

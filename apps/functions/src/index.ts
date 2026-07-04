@@ -70,6 +70,12 @@ const meshyApiKey = defineSecret("MESHY_API_KEY");
 const stripeSecretKey = defineSecret("STRIPE_SECRET_KEY");
 const stripeWebhookSecret = defineSecret("STRIPE_WEBHOOK_SECRET");
 const stripePosterPriceId = defineSecret("STRIPE_POSTER_PRICE_ID");
+const stripeFigurinePaintedPriceId = defineSecret(
+  "STRIPE_FIGURINE_PAINTED_PRICE_ID",
+);
+const stripeFigurineUnpaintedPriceId = defineSecret(
+  "STRIPE_FIGURINE_UNPAINTED_PRICE_ID",
+);
 const adminSupportAllowlist = defineSecret("ADMIN_SUPPORT_ALLOWLIST");
 
 const vertexRuntimeSecrets = [
@@ -94,6 +100,7 @@ const createJobSchema = z.object({
 
 const checkoutSchema = z.object({
   jobId: jobIdSchema,
+  paintOption: z.enum(["painted", "unpainted"]).optional(),
 });
 
 const adminSupportStatusSchema = z.enum(adminSupportStatuses);
@@ -1748,7 +1755,13 @@ export const approveGeneratedImage = onCall(
 
 export const createCheckoutSession = onCall(
   {
-    secrets: [publicAppUrl, stripePosterPriceId, stripeSecretKey],
+    secrets: [
+      publicAppUrl,
+      stripePosterPriceId,
+      stripeFigurinePaintedPriceId,
+      stripeFigurineUnpaintedPriceId,
+      stripeSecretKey,
+    ],
   },
   async (request) => {
     if (!request.auth) {
@@ -1766,11 +1779,22 @@ export const createCheckoutSession = onCall(
       throw new HttpsError("not-found", "Job not found.");
     }
 
-    if (jobData.productType === "figurine") {
-      throw new HttpsError(
-        "failed-precondition",
-        "Figurine checkout is locked until print files are approved.",
-      );
+    const isFigurine = jobData.productType === "figurine";
+    const paintOption = isFigurine
+      ? (parsed.data.paintOption ?? "unpainted")
+      : null;
+    if (isFigurine) {
+      const eligibility = jobData.checkoutEligibility as
+        | { eligible?: unknown; reason?: unknown }
+        | undefined;
+      if (eligibility?.eligible !== true) {
+        throw new HttpsError(
+          "failed-precondition",
+          typeof eligibility?.reason === "string"
+            ? eligibility.reason
+            : "Figurine checkout is locked until print readiness review is complete.",
+        );
+      }
     }
 
     if (jobData.status !== "approved" || !jobData.approvedImagePath) {
@@ -1784,9 +1808,10 @@ export const createCheckoutSession = onCall(
       | Partial<PrintFileArtifacts>
       | undefined;
     if (
-      jobData.printFileStatus !== "generated" ||
-      typeof printFileArtifacts?.modelStl !== "string" ||
-      typeof printFileArtifacts.previewGlb !== "string"
+      !isFigurine &&
+      (jobData.printFileStatus !== "generated" ||
+        typeof printFileArtifacts?.modelStl !== "string" ||
+        typeof printFileArtifacts.previewGlb !== "string")
     ) {
       throw new HttpsError(
         "failed-precondition",
@@ -1835,7 +1860,60 @@ export const createCheckoutSession = onCall(
       parsed.data.jobId,
       String(jobData.approvedImagePath),
       checkoutAttempt,
+      paintOption ?? "none",
     ].join(":");
+
+    const figurinePriceId =
+      paintOption === "painted"
+        ? stripeFigurinePaintedPriceId.value() ||
+          process.env.STRIPE_FIGURINE_PAINTED_PRICE_ID
+        : stripeFigurineUnpaintedPriceId.value() ||
+          process.env.STRIPE_FIGURINE_UNPAINTED_PRICE_ID;
+    const figurineFallbackAmount = paintOption === "painted" ? 14900 : 9900;
+    const lineItems = isFigurine
+      ? figurinePriceId
+        ? [
+            {
+              quantity: 1,
+              price: figurinePriceId,
+            },
+          ]
+        : [
+            {
+              quantity: 1,
+              price_data: {
+                currency: "usd",
+                unit_amount: figurineFallbackAmount,
+                product_data: {
+                  name:
+                    paintOption === "painted"
+                      ? "Custom 3D Printed Figurine (painted)"
+                      : "Custom 3D Printed Figurine (unpainted)",
+                  description: "Custom figurine from your photo",
+                },
+              },
+            },
+          ]
+      : posterPriceId
+        ? [
+            {
+              quantity: 1,
+              price: posterPriceId,
+            },
+          ]
+        : [
+            {
+              quantity: 1,
+              price_data: {
+                currency: "usd",
+                unit_amount: 6000,
+                product_data: {
+                  name: "Custom 3D Print Poster",
+                  description: "5in x 7in physical relief poster",
+                },
+              },
+            },
+          ];
 
     const session = await stripe.checkout.sessions.create(
       {
@@ -1845,30 +1923,12 @@ export const createCheckoutSession = onCall(
         shipping_address_collection: {
           allowed_countries: ["US", "CA"],
         },
-        line_items: posterPriceId
-          ? [
-              {
-                quantity: 1,
-                price: posterPriceId,
-              },
-            ]
-          : [
-              {
-                quantity: 1,
-                price_data: {
-                  currency: "usd",
-                  unit_amount: 6000,
-                  product_data: {
-                    name: "Custom 3D Print Poster",
-                    description: "5in x 7in physical relief poster",
-                  },
-                },
-              },
-            ],
+        line_items: lineItems,
         metadata: {
           uid: request.auth.uid,
           jobId: parsed.data.jobId,
           orderId: orderRef.id,
+          paintOption: paintOption ?? "",
         },
       },
       {
@@ -1893,10 +1953,12 @@ export const createCheckoutSession = onCall(
         providerOrderId: null,
         checkoutAttempt,
         checkoutIdempotencyKey,
+        paintOption,
+        productType: jobData.productType ?? "poster",
         priceSnapshot: {
           currency: "usd",
-          unitAmount: 6000,
-          stripePriceId: posterPriceId ?? null,
+          unitAmount: isFigurine ? figurineFallbackAmount : 6000,
+          stripePriceId: (isFigurine ? figurinePriceId : posterPriceId) ?? null,
         },
         ...(existingOrder.exists
           ? {}
