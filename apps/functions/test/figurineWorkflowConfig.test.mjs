@@ -5,6 +5,7 @@ import {
   maxWorkflowStyleReferenceImages,
   normalizeFigurineWorkflowConfig,
   publicFigurineWorkflowConfig,
+  validateFigurineWorkflowConfigInput,
   visibleWorkflowStyles,
 } from "../lib/figurineWorkflowConfig.js";
 
@@ -218,6 +219,28 @@ test("style proof mode round-trips and defaults to generated_options", () => {
     publicConfig.styles.find((style) => style.id === "chibi_figure")?.proofMode,
     "template_face_swap",
   );
+});
+
+test("save-path validation rejects invalid payloads instead of defaulting", () => {
+  // A style with an empty prompt fails the schema; before this check, the
+  // save path silently replaced such payloads with the full defaults.
+  const invalidResult = validateFigurineWorkflowConfigInput({
+    styles: [{ label: "Chibi", id: "chibi_figure", prompt: "" }],
+  });
+  assert.ok(typeof invalidResult === "string" && invalidResult.length > 0);
+
+  const validResult = validateFigurineWorkflowConfigInput({
+    visibleStyleCount: 2,
+    styles: [
+      {
+        label: "Chibi",
+        id: "chibi_figure",
+        prompt: "Chibi proof.",
+        proofMode: "template_face_swap",
+      },
+    ],
+  });
+  assert.equal(validResult, null);
 });
 
 test("public workflow config strips prompt references and storage paths", () => {

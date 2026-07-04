@@ -165,6 +165,23 @@ const rawWorkflowConfigSchema = z.object({
   roleGate: rawRoleGateSchema.optional(),
 });
 
+// The save path must NOT inherit normalize's lenient defaults-fallback: a
+// payload that fails validation would silently overwrite the saved config
+// with defaults. Returns a short issue summary, or null when valid.
+export function validateFigurineWorkflowConfigInput(
+  rawConfig: unknown,
+): string | null {
+  const parsed = rawWorkflowConfigSchema.safeParse(rawConfig ?? {});
+  if (parsed.success) {
+    return null;
+  }
+
+  return parsed.error.issues
+    .slice(0, 3)
+    .map((issue) => `${issue.path.join(".") || "config"}: ${issue.message}`)
+    .join("; ");
+}
+
 export function normalizeFigurineWorkflowConfig(
   rawConfig: unknown,
 ): FigurineWorkflowConfig {

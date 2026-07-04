@@ -46,6 +46,7 @@ import {
   readFigurineWorkflowConfig,
   resolveVisibleWorkflowStyle,
   saveFigurineWorkflowConfig as persistFigurineWorkflowConfig,
+  validateFigurineWorkflowConfigInput,
   visibleWorkflowStyles,
 } from "./figurineWorkflowConfig.js";
 
@@ -1175,6 +1176,15 @@ export const saveFigurineWorkflowConfig = onCall(
       "config" in request.data
         ? (request.data as { config?: unknown }).config
         : request.data;
+
+    const validationError =
+      validateFigurineWorkflowConfigInput(requestedConfig);
+    if (validationError) {
+      throw new HttpsError(
+        "invalid-argument",
+        `Workflow config was not saved because the payload is invalid: ${validationError}`,
+      );
+    }
 
     const config = await persistFigurineWorkflowConfig({
       db,

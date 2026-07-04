@@ -82,6 +82,7 @@ export function AdminWorkflowConfig({
   );
   const [authBusy, setAuthBusy] = useState(false);
   const [configLoading, setConfigLoading] = useState(Boolean(firebaseClients));
+  const [configLoadFailed, setConfigLoadFailed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [referenceUploadBusyKey, setReferenceUploadBusyKey] = useState("");
   const [referenceImageUrls, setReferenceImageUrls] = useState<
@@ -140,10 +141,12 @@ export function AdminWorkflowConfig({
       .then((result) => {
         if (!cancelled) {
           setConfig(normalizeFigurineWorkflowConfigResponse(result.data));
+          setConfigLoadFailed(false);
         }
       })
       .catch((loadError) => {
         if (!cancelled) {
+          setConfigLoadFailed(true);
           setError(
             loadError instanceof Error
               ? loadError.message
@@ -251,6 +254,7 @@ export function AdminWorkflowConfig({
       >(firebaseClients.functions, "saveFigurineWorkflowConfig");
       const result = await saveWorkflowConfig({ config });
       setConfig(normalizeFigurineWorkflowConfigResponse(result.data));
+      setConfigLoadFailed(false);
       setNotice("Workflow configuration saved.");
     } catch (saveError) {
       setError(
@@ -540,8 +544,13 @@ export function AdminWorkflowConfig({
           <button
             className="primary-button h-10 min-h-0 px-3"
             type="button"
-            disabled={!user || saving}
+            disabled={!user || saving || configLoading || configLoadFailed}
             onClick={saveConfig}
+            title={
+              configLoadFailed
+                ? "Saving is disabled because the saved config could not be loaded."
+                : undefined
+            }
           >
             {saving ? (
               <Loader2 className="animate-spin" size={16} aria-hidden="true" />
@@ -571,6 +580,15 @@ export function AdminWorkflowConfig({
         <p className="mt-5 flex items-start gap-2 rounded-lg border border-[var(--coral)]/30 bg-[var(--coral)]/10 px-3 py-2 text-sm font-semibold text-[var(--coral)]">
           <AlertCircle className="mt-0.5 shrink-0" size={16} aria-hidden="true" />
           {error}
+        </p>
+      ) : null}
+
+      {configLoadFailed ? (
+        <p className="mt-3 flex items-start gap-2 rounded-lg border border-[var(--coral)]/30 bg-[var(--coral)]/10 px-3 py-2 text-sm font-semibold text-[var(--coral)]">
+          <AlertCircle className="mt-0.5 shrink-0" size={16} aria-hidden="true" />
+          The saved workflow config could not be loaded, so this page is
+          showing built-in defaults and saving is disabled — saving now would
+          overwrite the server config. Reload the page to retry.
         </p>
       ) : null}
 
