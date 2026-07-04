@@ -2,6 +2,7 @@ import { initializeApp } from "firebase-admin/app";
 import {
   FieldValue,
   getFirestore,
+  Timestamp,
   type DocumentReference,
   type Query,
   type QuerySnapshot,
@@ -28,6 +29,7 @@ import {
 } from "./meshyFigurineProvider.js";
 import { runMeshyFigurinePrintTooling } from "./meshyPrintTooling.js";
 import { calculateJobCost } from "./jobCost.js";
+import { customerFieldsFromSession } from "./operatorConsole.js";
 import {
   adminSupportDevelopmentAccessReason,
   adminSupportIssueTypes,
@@ -149,8 +151,19 @@ const printFileGeneratorFetchTimeoutMs = 480_000;
 const meshyModelDataUriByteLimit = 100 * 1024 * 1024;
 
 type CheckoutSessionWebhookObject = {
-  metadata?: Record<string, string> | null;
-  payment_intent?: string | null | object;
+  metadata?: { orderId?: string; jobId?: string; uid?: string } | null;
+  payment_intent?: string | { id?: string } | null;
+  customer_details?: { name?: string | null; email?: string | null } | null;
+  shipping_details?: {
+    name?: string | null;
+    address?: Record<string, string | null> | null;
+  } | null;
+  collected_information?: {
+    shipping_details?: {
+      name?: string | null;
+      address?: Record<string, string | null> | null;
+    } | null;
+  } | null;
 };
 
 type GeneratedImage = {
@@ -1935,23 +1948,56 @@ export const stripeWebhook = onRequest(
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as CheckoutSessionWebhookObject;
       const orderId = session.metadata?.orderId;
+      const jobId = session.metadata?.jobId ?? orderId;
 
       if (orderId) {
-        await db
-          .collection("orders")
-          .doc(orderId)
-          .set(
+        const customerFields = customerFieldsFromSession(
+          session as Record<string, unknown>,
+        );
+        const paidAt = FieldValue.serverTimestamp();
+        const batch = db.batch();
+        batch.set(
+          db.collection("orders").doc(orderId),
+          {
+            status: "paid",
+            paymentStatus: "paid",
+            stripePaymentIntentId:
+              typeof session.payment_intent === "string"
+                ? session.payment_intent
+                : null,
+            customerName: customerFields.customerName,
+            customerEmail: customerFields.customerEmail,
+            shippingAddress: customerFields.shippingAddress,
+            fulfillment: {
+              stage: "paid",
+              productionSubState: null,
+              acceptedAt: null,
+              acceptedBy: null,
+              rejection: null,
+              tracking: null,
+              refund: null,
+              history: FieldValue.arrayUnion({
+                stage: "paid",
+                at: Timestamp.now(),
+                by: "stripe_webhook",
+              }),
+            },
+            updatedAt: paidAt,
+          },
+          { merge: true },
+        );
+        if (jobId) {
+          batch.set(
+            db.collection("jobs").doc(jobId),
             {
-              status: "paid",
-              paymentStatus: "paid",
-              stripePaymentIntentId:
-                typeof session.payment_intent === "string"
-                  ? session.payment_intent
-                  : null,
-              updatedAt: FieldValue.serverTimestamp(),
+              pipelineStage: "paid",
+              pipelineUpdatedAt: paidAt,
+              updatedAt: paidAt,
             },
             { merge: true },
           );
+        }
+        await batch.commit();
       }
     }
 
