@@ -335,7 +335,7 @@ export function AdminSupportJobs({ active }: { active: boolean }) {
 
   async function loadJob(jobId: string) {
     if (!firebaseClients || !jobId) {
-      return;
+      return null;
     }
 
     setDetailLoading(true);
@@ -348,8 +348,15 @@ export function AdminSupportJobs({ active }: { active: boolean }) {
       );
       const result = await callWithTransientRetry(() => getJob({ jobId }));
       setSelectedJob(result.data.job);
+      setJobs((currentJobs) =>
+        currentJobs.map((job) =>
+          job.jobId === result.data.job.jobId ? result.data.job : job,
+        ),
+      );
+      return result.data.job;
     } catch (loadError) {
       setError(callableErrorMessage(loadError, "Job detail did not load."));
+      return null;
     } finally {
       setDetailLoading(false);
     }
@@ -399,6 +406,7 @@ export function AdminSupportJobs({ active }: { active: boolean }) {
     }
     setFulfillmentBusy(true);
     setError("");
+    setNotice("");
     try {
       const refund = httpsCallable<{ jobId: string }, { refundId: string }>(
         firebaseClients.functions,
@@ -420,6 +428,7 @@ export function AdminSupportJobs({ active }: { active: boolean }) {
     }
     setFulfillmentBusy(true);
     setError("");
+    setNotice("");
     try {
       const update = httpsCallable<{ jobId: string; action: string }, { ok: boolean }>(
         firebaseClients.functions,
