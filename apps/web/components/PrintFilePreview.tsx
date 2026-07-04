@@ -48,7 +48,6 @@ type PrintFileStatusPanelProps = {
 };
 
 type FigurineBaseSignPanelProps = {
-  signEnabled: boolean;
   signText: string;
   namedBaseStatus?: string;
   normalizedName?: string;
@@ -57,6 +56,7 @@ type FigurineBaseSignPanelProps = {
   busy: boolean;
   error?: string;
   notice?: string;
+  readOnly?: boolean;
   onSave: (input: { signEnabled: boolean; signText: string }) => void;
 };
 
@@ -460,7 +460,6 @@ export function FigurineArtifactPreview({
 }
 
 export function FigurineBaseSignPanel({
-  signEnabled,
   signText,
   namedBaseStatus,
   normalizedName,
@@ -469,15 +468,11 @@ export function FigurineBaseSignPanel({
   busy,
   error,
   notice,
+  readOnly = false,
   onSave,
 }: FigurineBaseSignPanelProps) {
-  const [enabled, setEnabled] = useState(signEnabled);
   const [text, setText] = useState(signText);
   const [validationError, setValidationError] = useState("");
-
-  useEffect(() => {
-    setEnabled(signEnabled);
-  }, [signEnabled]);
 
   useEffect(() => {
     setText(signText);
@@ -486,9 +481,7 @@ export function FigurineBaseSignPanel({
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!enabled) {
-      setValidationError("");
-      onSave({ signEnabled: false, signText: "" });
+    if (readOnly) {
       return;
     }
 
@@ -530,41 +523,28 @@ export function FigurineBaseSignPanel({
       </div>
 
       <form className="grid gap-4 p-4" onSubmit={handleSubmit}>
-        <label className="flex items-center gap-3 text-sm font-semibold">
+        <div className="grid gap-2">
+          <label
+            className="text-sm font-semibold text-[var(--muted)]"
+            htmlFor="base-sign-name"
+          >
+            Name on the base
+          </label>
           <input
-            checked={enabled}
-            className="h-4 w-4 accent-[var(--teal)]"
-            disabled={busy}
-            onChange={(event) => setEnabled(event.target.checked)}
-            type="checkbox"
+            className="min-h-11 rounded-lg border border-black/15 px-3 text-base focus:outline-none focus:ring-2 focus:ring-[var(--teal)]/60"
+            disabled={busy || readOnly}
+            id="base-sign-name"
+            maxLength={SIGN_NAME_MAX_CHARACTERS}
+            onChange={(event) => setText(event.target.value)}
+            placeholder="Elliott"
+            type="text"
+            value={text}
           />
-          Add a name to the front of the base
-        </label>
-
-        {enabled ? (
-          <div className="grid gap-2">
-            <label
-              className="text-sm font-semibold text-[var(--muted)]"
-              htmlFor="base-sign-name"
-            >
-              Name on the base
-            </label>
-            <input
-              className="min-h-11 rounded-lg border border-black/15 px-3 text-base focus:outline-none focus:ring-2 focus:ring-[var(--teal)]/60"
-              disabled={busy}
-              id="base-sign-name"
-              maxLength={SIGN_NAME_MAX_CHARACTERS}
-              onChange={(event) => setText(event.target.value)}
-              placeholder="Elliott"
-              type="text"
-              value={text}
-            />
-            <p className="text-sm text-[var(--muted)]">
-              Up to {SIGN_NAME_MAX_CHARACTERS} characters: letters, numbers,
-              spaces, hyphens, apostrophes, and periods.
-            </p>
-          </div>
-        ) : null}
+          <p className="text-sm text-[var(--muted)]">
+            Up to {SIGN_NAME_MAX_CHARACTERS} characters: letters, numbers,
+            spaces, hyphens, apostrophes, and periods.
+          </p>
+        </div>
 
         {visibleError ? (
           <p className="flex items-start gap-2 rounded-lg border border-[var(--coral)]/30 bg-[var(--coral)]/10 px-3 py-2 text-sm font-semibold text-[var(--coral)]">
@@ -588,18 +568,18 @@ export function FigurineBaseSignPanel({
           </p>
         ) : null}
 
-        <button className="primary-button" disabled={busy} type="submit">
-          {busy ? (
-            <Loader2 className="animate-spin" size={18} aria-hidden="true" />
-          ) : (
-            <Tag size={18} aria-hidden="true" />
-          )}
-          {busy
-            ? "Generating base sign"
-            : enabled
-              ? "Save name and generate base"
-              : "Save base without a name"}
-        </button>
+        {!readOnly ? (
+          <button className="primary-button" disabled={busy} type="submit">
+            {busy ? (
+              <Loader2 className="animate-spin" size={18} aria-hidden="true" />
+            ) : (
+              <Tag size={18} aria-hidden="true" />
+            )}
+            {busy
+              ? "Generating base sign"
+              : "Save name and generate base"}
+          </button>
+        ) : null}
       </form>
 
       {namedBaseStatus ? (

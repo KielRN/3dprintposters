@@ -2,15 +2,22 @@
 
 import { getFirebaseClients } from "@/lib/firebase";
 import {
+  callableErrorMessage,
+  callWithTransientRetry,
+} from "@/lib/callableRetry";
+import {
   AlertCircle,
+  Box,
   CheckCircle2,
   Clock3,
   Loader2,
   MessageSquarePlus,
   RefreshCw,
   Search,
+  Wrench,
 } from "lucide-react";
 import { httpsCallable } from "firebase/functions";
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 type SupportStatus = "open" | "watching" | "blocked" | "resolved";
@@ -201,6 +208,27 @@ function statusTone(status: string | null | undefined) {
   return "border-[var(--gold)]/30 bg-[var(--gold)]/10 text-[#8a6412]";
 }
 
+function hasPreviewPageAssets(job: JobSummary) {
+  return (
+    job.generatedImageCount > 0 ||
+    job.printFileStatus === "generated" ||
+    job.figurinePreviewStatus === "preview_ready"
+  );
+}
+
+function hasPrintReadinessAssets(job: JobSummary) {
+  return (
+    job.productType === "figurine" &&
+    Boolean(
+      job.figurinePreviewStatus ||
+        job.figurinePrintReadiness ||
+        job.figurineAssemblyStatus ||
+        job.figurinePrintToolingStatus ||
+        job.figurineReviewStatus,
+    )
+  );
+}
+
 export function AdminSupportJobs({ active }: { active: boolean }) {
   const firebaseClients = useMemo(() => getFirebaseClients(), []);
   const [jobs, setJobs] = useState<JobSummary[]>([]);
@@ -243,20 +271,27 @@ export function AdminSupportJobs({ active }: { active: boolean }) {
         ListAdminSupportJobsRequest,
         ListAdminSupportJobsResult
       >(firebaseClients.functions, "listAdminSupportJobs");
-      const result = await listJobs(
-        compactRequest({
-          search,
-          productType: productType || undefined,
-          jobStatus: jobStatus.trim() || undefined,
-          supportStatus: supportStatus || undefined,
-          issueType: issueType || undefined,
-          pageSize: 25,
-          cursor: options.cursor,
-        }),
+      const request = compactRequest({
+        search,
+        productType: productType || undefined,
+        jobStatus: jobStatus.trim() || undefined,
+        supportStatus: supportStatus || undefined,
+        issueType: issueType || undefined,
+        pageSize: 25,
+        cursor: options.cursor,
+      });
+      const result = await callWithTransientRetry(
+        () => listJobs(request),
+        {
+          onRetry: () => {
+            setNotice("Operator console is starting. Retrying...");
+          },
+        },
       );
       const items = result.data.items ?? [];
       setJobs((currentJobs) => (options.append ? [...currentJobs, ...items] : items));
       setNextCursor(result.data.nextCursor ?? null);
+      setNotice("");
       if (!selectedJobId && items[0]) {
         setSelectedJobId(items[0].jobId);
       }
@@ -265,7 +300,7 @@ export function AdminSupportJobs({ active }: { active: boolean }) {
         setSelectedJob(null);
       }
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Support jobs did not load.");
+      setError(callableErrorMessage(loadError, "Support jobs did not load."));
     } finally {
       setJobsLoading(false);
     }
@@ -284,10 +319,10 @@ export function AdminSupportJobs({ active }: { active: boolean }) {
         firebaseClients.functions,
         "getAdminSupportJob",
       );
-      const result = await getJob({ jobId });
+      const result = await callWithTransientRetry(() => getJob({ jobId }));
       setSelectedJob(result.data.job);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Job detail did not load.");
+      setError(callableErrorMessage(loadError, "Job detail did not load."));
     } finally {
       setDetailLoading(false);
     }
@@ -322,7 +357,7 @@ export function AdminSupportJobs({ active }: { active: boolean }) {
       setNoteStatus("");
       setNotice("Support note saved.");
     } catch (noteError) {
-      setError(noteError instanceof Error ? noteError.message : "Support note did not save.");
+      setError(callableErrorMessage(noteError, "Support note did not save."));
     } finally {
       setNoteBusy(false);
     }
@@ -500,9 +535,29 @@ export function AdminSupportJobs({ active }: { active: boolean }) {
                   <h2 className="mt-1 break-all text-xl font-semibold">{selectedJob.jobId}</h2>
                   <p className="mt-1 break-all text-sm font-semibold text-[var(--muted)]">{selectedJob.uid}</p>
                 </div>
-                <span className={`rounded-full border px-3 py-1 text-sm font-black ${statusTone(selectedJob.supportSummary.status)}`}>
-                  {label(selectedJob.supportSummary.status)}
-                </span>
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  {hasPreviewPageAssets(selectedJob) ? (
+                    <Link
+                      className="secondary-button h-10 min-h-0 px-3"
+                      href={`/jobs/${selectedJob.jobId}?operator=1`}
+                    >
+                      <Box size={16} aria-hidden="true" />
+                      Preview Page
+                    </Link>
+                  ) : null}
+                  {hasPrintReadinessAssets(selectedJob) ? (
+                    <Link
+                      className="primary-button h-10 min-h-0 px-3"
+                      href={`/jobs/${selectedJob.jobId}/print-readiness?operator=1`}
+                    >
+                      <Wrench size={16} aria-hidden="true" />
+                      Print Readiness
+                    </Link>
+                  ) : null}
+                  <span className={`rounded-full border px-3 py-1 text-sm font-black ${statusTone(selectedJob.supportSummary.status)}`}>
+                    {label(selectedJob.supportSummary.status)}
+                  </span>
+                </div>
               </div>
 
               <div className="grid gap-3 md:grid-cols-3">

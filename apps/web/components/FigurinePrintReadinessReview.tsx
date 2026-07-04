@@ -2,12 +2,15 @@
 
 import { getFirebaseClients } from "@/lib/firebase";
 import {
+  callableErrorMessage,
+  callWithTransientRetry,
+} from "@/lib/callableRetry";
+import {
   AlertCircle,
   ArrowLeft,
   CheckCircle2,
   FileCheck2,
   Loader2,
-  PackageCheck,
   Play,
   RefreshCw,
   TriangleAlert,
@@ -114,6 +117,12 @@ type CallableJobResult = {
   status: string;
 };
 
+type GetAdminJobPreviewResult = {
+  jobId: string;
+  job: JobDocument;
+  assetUrls: Record<string, string>;
+};
+
 const CALLABLE_TIMEOUT_MS = 540_000;
 
 function labelize(value: string | undefined, fallback: string) {
@@ -169,16 +178,35 @@ function analyzeStatus(stage: PrintToolingStage | undefined | null) {
   );
 }
 
-export function FigurinePrintReadinessReview({ jobId }: { jobId: string }) {
+function signedAssetUrlMap(
+  paths: string[],
+  assetUrls: Record<string, string>,
+) {
+  const entries: Array<[string, string]> = [];
+  for (const path of paths) {
+    const url = assetUrls[path];
+    if (url) {
+      entries.push([path, url]);
+    }
+  }
+  return Object.fromEntries(entries);
+}
+
+export function FigurinePrintReadinessReview({
+  jobId,
+  operatorMode = false,
+}: {
+  jobId: string;
+  operatorMode?: boolean;
+}) {
   const firebaseClients = useMemo(() => getFirebaseClients(), []);
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(Boolean(firebaseClients));
   const [job, setJob] = useState<JobDocument | null>(null);
   const [jobLoading, setJobLoading] = useState(Boolean(firebaseClients));
   const [artifactUrls, setArtifactUrls] = useState<Record<string, string>>({});
-  const [busyAction, setBusyAction] = useState<"assemble" | "tooling" | null>(
-    null,
-  );
+  const [operatorAssetUrls, setOperatorAssetUrls] = useState<Record<string, string>>({});
+  const [busyAction, setBusyAction] = useState<"tooling" | null>(null);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
 
@@ -192,7 +220,6 @@ export function FigurinePrintReadinessReview({ jobId }: { jobId: string }) {
   const namedBaseReady =
     job?.figurineNamedBase?.status === "generated" &&
     Boolean(job.figurineNamedBase.artifacts?.stl);
-  const canAssemble = previewReady && namedBaseReady && busyAction === null;
   const canRunTooling =
     assembly?.status === "assembled" &&
     Boolean(assembly.artifacts?.assembledPreviewGlb) &&
@@ -233,7 +260,49 @@ export function FigurinePrintReadinessReview({ jobId }: { jobId: string }) {
   }, [firebaseClients]);
 
   useEffect(() => {
-    if (!firebaseClients || !user) {
+    if (!firebaseClients || !user || !operatorMode) {
+      return;
+    }
+
+    let cancelled = false;
+    setJobLoading(true);
+    setError("");
+
+    const getPreview = httpsCallable<
+      { jobId: string },
+      GetAdminJobPreviewResult
+    >(firebaseClients.functions, "getAdminJobPreview");
+
+    void callWithTransientRetry(() => getPreview({ jobId }))
+      .then((result) => {
+        if (cancelled) {
+          return;
+        }
+        setJob(result.data.job);
+        setOperatorAssetUrls(result.data.assetUrls ?? {});
+        setJobLoading(false);
+      })
+      .catch((previewError) => {
+        if (cancelled) {
+          return;
+        }
+        setError(
+          callableErrorMessage(
+            previewError,
+            "Operator print-readiness state did not load.",
+          ),
+        );
+        setJob(null);
+        setJobLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [firebaseClients, jobId, operatorMode, user]);
+
+  useEffect(() => {
+    if (!firebaseClients || !user || operatorMode) {
       return;
     }
 
@@ -264,6 +333,11 @@ export function FigurinePrintReadinessReview({ jobId }: { jobId: string }) {
       return;
     }
 
+    if (operatorMode) {
+      setArtifactUrls(signedAssetUrlMap(artifactPaths, operatorAssetUrls));
+      return;
+    }
+
     let cancelled = false;
     void Promise.all(
       artifactPaths.map(async (path) => {
@@ -289,11 +363,11 @@ export function FigurinePrintReadinessReview({ jobId }: { jobId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [artifactPaths, firebaseClients]);
+  }, [artifactPaths, firebaseClients, operatorAssetUrls, operatorMode]);
 
   async function callJobFunction(
-    name: "generateFigurineAssembly" | "runFigurinePrintTooling",
-    action: "assemble" | "tooling",
+    name: "runFigurinePrintTooling",
+    action: "tooling",
   ) {
     if (!firebaseClients) {
       setError("Firebase Functions are not configured yet.");
@@ -310,17 +384,15 @@ export function FigurinePrintReadinessReview({ jobId }: { jobId: string }) {
         name,
         { timeout: CALLABLE_TIMEOUT_MS },
       );
-      const result = await callable({ jobId });
+      const result = await callWithTransientRetry(() => callable({ jobId }));
       setNotice(
-        result.data.status === "assembled"
-          ? "Assembled package is ready for print-tooling review."
-          : "Print tooling completed. Review the provider outputs before changing checkout eligibility.",
+        result.data.status === "completed"
+          ? "Print tooling completed. Review the provider outputs before changing checkout eligibility."
+          : "Print-readiness action completed.",
       );
     } catch (callError) {
       setError(
-        callError instanceof Error
-          ? callError.message
-          : "Print-readiness action failed.",
+        callableErrorMessage(callError, "Print-readiness action failed."),
       );
     } finally {
       setBusyAction(null);
@@ -333,7 +405,7 @@ export function FigurinePrintReadinessReview({ jobId }: { jobId: string }) {
         <div>
           <Link
             className="inline-flex items-center gap-2 text-sm font-bold text-[var(--muted)]"
-            href={`/jobs/${jobId}`}
+            href={`/jobs/${jobId}${operatorMode ? "?operator=1" : ""}`}
           >
             <ArrowLeft size={16} aria-hidden="true" />
             Job preview
@@ -346,19 +418,6 @@ export function FigurinePrintReadinessReview({ jobId }: { jobId: string }) {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button
-            className="secondary-button"
-            disabled={!canAssemble}
-            onClick={() => callJobFunction("generateFigurineAssembly", "assemble")}
-            type="button"
-          >
-            {busyAction === "assemble" ? (
-              <Loader2 className="animate-spin" size={18} aria-hidden="true" />
-            ) : (
-              <PackageCheck size={18} aria-hidden="true" />
-            )}
-            Assemble package
-          </button>
           <button
             className="primary-button"
             disabled={!canRunTooling}
@@ -435,7 +494,9 @@ export function FigurinePrintReadinessReview({ jobId }: { jobId: string }) {
         <div className="mt-8 rounded-lg border border-black/10 bg-white p-5">
           <p className="font-bold">Sign in to view this job.</p>
           <p className="mt-2 text-sm text-[var(--muted)]">
-            Use the same account or guest session that created the upload.
+            {operatorMode
+              ? "Use an operator or admin account."
+              : "Use the same account or guest session that created the upload."}
           </p>
         </div>
       ) : null}

@@ -4,6 +4,7 @@ import {
   getFirestore,
   type DocumentReference,
   type Query,
+  type QuerySnapshot,
 } from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
 import { defineSecret } from "firebase-functions/params";
@@ -107,6 +108,10 @@ const listAdminSupportJobsSchema = z.object({
 });
 
 const getAdminSupportJobSchema = z.object({
+  jobId: jobIdSchema,
+});
+
+const getAdminJobPreviewSchema = z.object({
   jobId: jobIdSchema,
 });
 
@@ -2213,15 +2218,18 @@ function requireAdminSupport(request: {
     uid: request.auth.uid,
     email,
   };
+  const developmentAccessReason = adminSupportDevelopmentAccessReason(
+    process.env,
+  );
+  if (developmentAccessReason) {
+    return principal;
+  }
+
   const secretAllowlist = adminSupportAllowlist.value()?.trim();
   const allowlist =
     secretAllowlist || process.env.ADMIN_SUPPORT_ALLOWLIST?.trim() || "";
 
-  const developmentAccessReason = adminSupportDevelopmentAccessReason(
-    process.env,
-  );
   if (
-    !developmentAccessReason &&
     !isAdminSupportAllowed({ allowlist, principal })
   ) {
     throw new HttpsError(
@@ -2258,6 +2266,39 @@ function applyPrimaryAdminSupportFilter(
     return query.where("supportSummary.status", "==", filters.supportStatus);
   }
   return query;
+}
+
+function isFirestoreMissingIndexError(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+  const candidate = error as {
+    code?: unknown;
+    details?: unknown;
+    message?: unknown;
+  };
+  const code = candidate.code;
+  const text = [candidate.details, candidate.message]
+    .filter((value): value is string => typeof value === "string")
+    .join(" ")
+    .toLowerCase();
+  return (
+    (code === 9 || code === "9" || code === "failed-precondition") &&
+    text.includes("requires an index")
+  );
+}
+
+function rethrowAdminSupportListError(error: unknown): never {
+  if (error instanceof HttpsError) {
+    throw error;
+  }
+  if (isFirestoreMissingIndexError(error)) {
+    throw new HttpsError(
+      "failed-precondition",
+      "Admin support job filters need a Firestore index. Deploy the repo's Firestore indexes to the dev project, then retry after the index finishes building.",
+    );
+  }
+  throw error;
 }
 
 function orderHasPaymentIssue(orderData: Record<string, unknown> | undefined) {
@@ -2340,82 +2381,113 @@ export const listAdminSupportJobs = onCall(
     secrets: [adminSupportAllowlist],
   },
   async (request) => {
-    requireAdminSupport(request);
-    const parsed = listAdminSupportJobsSchema.safeParse(request.data ?? {});
-    if (!parsed.success) {
-      throw new HttpsError(
-        "invalid-argument",
-        "Support job filters are invalid.",
+    try {
+      requireAdminSupport(request);
+      const parsed = listAdminSupportJobsSchema.safeParse(request.data ?? {});
+      if (!parsed.success) {
+        throw new HttpsError(
+          "invalid-argument",
+          "Support job filters are invalid.",
+        );
+      }
+
+      const filters = buildAdminSupportFilters(parsed.data);
+      const search = parsed.data.search?.trim();
+      if (search) {
+        const snapshots = new Map<string, Record<string, unknown>>();
+        const directJob = await db.collection("jobs").doc(search).get();
+        if (directJob.exists) {
+          snapshots.set(
+            directJob.id,
+            directJob.data() as Record<string, unknown>,
+          );
+        }
+
+        const uidMatches = await db
+          .collection("jobs")
+          .where("uid", "==", search)
+          .limit(parsed.data.pageSize)
+          .get();
+        for (const jobSnap of uidMatches.docs) {
+          snapshots.set(jobSnap.id, jobSnap.data() as Record<string, unknown>);
+        }
+
+        const summaries = await Promise.all(
+          Array.from(snapshots.entries()).map(([jobId, jobData]) =>
+            adminSupportSummaryForJobDoc({ jobId, jobData }),
+          ),
+        );
+        return {
+          items: summaries
+            .filter((summary) => jobMatchesAdminSupportFilters(summary, filters))
+            .slice(0, parsed.data.pageSize),
+          nextCursor: null,
+        };
+      }
+
+      const scanLimit =
+        Object.keys(filters).length > 0
+          ? Math.min(parsed.data.pageSize * 5, 250)
+          : parsed.data.pageSize;
+      let query = applyPrimaryAdminSupportFilter(
+        db.collection("jobs").orderBy("updatedAt", "desc"),
+        filters,
       );
-    }
-
-    const filters = buildAdminSupportFilters(parsed.data);
-    const search = parsed.data.search?.trim();
-    if (search) {
-      const snapshots = new Map<string, Record<string, unknown>>();
-      const directJob = await db.collection("jobs").doc(search).get();
-      if (directJob.exists) {
-        snapshots.set(directJob.id, directJob.data() as Record<string, unknown>);
+      if (parsed.data.cursor) {
+        const cursorSnap = await db
+          .collection("jobs")
+          .doc(parsed.data.cursor)
+          .get();
+        if (cursorSnap.exists) {
+          query = query.startAfter(cursorSnap);
+        }
       }
 
-      const uidMatches = await db
-        .collection("jobs")
-        .where("uid", "==", search)
-        .orderBy("updatedAt", "desc")
-        .limit(parsed.data.pageSize)
-        .get();
-      for (const jobSnap of uidMatches.docs) {
-        snapshots.set(jobSnap.id, jobSnap.data() as Record<string, unknown>);
+      let jobsSnap: QuerySnapshot;
+      try {
+        jobsSnap = await query.limit(scanLimit).get();
+      } catch (error) {
+        if (!isFirestoreMissingIndexError(error)) {
+          throw error;
+        }
+        console.warn(
+          "admin support indexed query missing index; falling back to recent scan",
+          { filters },
+        );
+        let fallbackQuery = db.collection("jobs").orderBy("updatedAt", "desc");
+        if (parsed.data.cursor) {
+          const cursorSnap = await db
+            .collection("jobs")
+            .doc(parsed.data.cursor)
+            .get();
+          if (cursorSnap.exists) {
+            fallbackQuery = fallbackQuery.startAfter(cursorSnap);
+          }
+        }
+        jobsSnap = await fallbackQuery.limit(scanLimit).get();
       }
-
       const summaries = await Promise.all(
-        Array.from(snapshots.entries()).map(([jobId, jobData]) =>
-          adminSupportSummaryForJobDoc({ jobId, jobData }),
+        jobsSnap.docs.map((jobSnap) =>
+          adminSupportSummaryForJobDoc({
+            jobId: jobSnap.id,
+            jobData: jobSnap.data() as Record<string, unknown>,
+          }),
         ),
       );
+      const filteredSummaries = summaries
+        .filter((summary) => jobMatchesAdminSupportFilters(summary, filters))
+        .slice(0, parsed.data.pageSize);
+
       return {
-        items: summaries
-          .filter((summary) => jobMatchesAdminSupportFilters(summary, filters))
-          .slice(0, parsed.data.pageSize),
-        nextCursor: null,
+        items: filteredSummaries,
+        nextCursor:
+          jobsSnap.docs.length === scanLimit
+            ? jobsSnap.docs[jobsSnap.docs.length - 1]?.id ?? null
+            : null,
       };
+    } catch (error) {
+      rethrowAdminSupportListError(error);
     }
-
-    const scanLimit =
-      Object.keys(filters).length > 0
-        ? Math.min(parsed.data.pageSize * 5, 250)
-        : parsed.data.pageSize;
-    let query = applyPrimaryAdminSupportFilter(
-      db.collection("jobs").orderBy("updatedAt", "desc"),
-      filters,
-    );
-    if (parsed.data.cursor) {
-      const cursorSnap = await db.collection("jobs").doc(parsed.data.cursor).get();
-      if (cursorSnap.exists) {
-        query = query.startAfter(cursorSnap);
-      }
-    }
-
-    const jobsSnap = await query.limit(scanLimit).get();
-    const summaries = await Promise.all(
-      jobsSnap.docs.map((jobSnap) =>
-        adminSupportSummaryForJobDoc({
-          jobId: jobSnap.id,
-          jobData: jobSnap.data() as Record<string, unknown>,
-        }),
-      ),
-    );
-    const filteredSummaries = summaries
-      .filter((summary) => jobMatchesAdminSupportFilters(summary, filters))
-      .slice(0, parsed.data.pageSize);
-
-    return {
-      items: filteredSummaries,
-      nextCursor:
-        jobsSnap.docs.length === scanLimit
-          ? jobsSnap.docs[jobsSnap.docs.length - 1]?.id ?? null
-          : null,
-    };
   },
 );
 
@@ -2441,6 +2513,38 @@ export const getAdminSupportJob = onCall(
         jobId: parsed.data.jobId,
         jobData,
       }),
+    };
+  },
+);
+
+export const getAdminJobPreview = onCall(
+  {
+    secrets: [adminSupportAllowlist, appStorageBucket],
+  },
+  async (request) => {
+    requireAdminSupport(request);
+    const parsed = getAdminJobPreviewSchema.safeParse(request.data);
+    if (!parsed.success) {
+      throw new HttpsError("invalid-argument", "jobId is required.");
+    }
+
+    const jobSnap = await db.collection("jobs").doc(parsed.data.jobId).get();
+    const jobData = jobSnap.data() as Record<string, unknown> | undefined;
+    if (!jobSnap.exists || !jobData) {
+      throw new HttpsError("not-found", "Job not found.");
+    }
+
+    const job = sanitizeOperatorJobDocument(jobData);
+    const bucketName = resolveRequiredEnv("APP_STORAGE_BUCKET");
+    const assetUrls = await operatorAssetUrls({
+      bucketName,
+      storagePaths: Array.from(new Set(collectStoragePaths(job))),
+    });
+
+    return {
+      jobId: parsed.data.jobId,
+      job,
+      assetUrls,
     };
   },
 );
@@ -2516,9 +2620,154 @@ export const addAdminSupportNote = onCall(
   },
 );
 
+const operatorPreviewJobFields = [
+  "uid",
+  "productType",
+  "status",
+  "sourceImagePath",
+  "selectedStyle",
+  "selectedStyleLabel",
+  "conceptSource",
+  "generatedImages",
+  "approvedImagePath",
+  "figurinePreview",
+  "baseConfig",
+  "figurineNamedBase",
+  "figurineAssembly",
+  "figurinePrintTooling",
+  "figurineReview",
+  "jobCost",
+  "printFileStatus",
+  "printFileArtifacts",
+  "printability",
+  "printFileError",
+] as const;
+
+const storagePathPrefixes = ["uploads/", "generated/", "print-files/", "stl/"];
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function isFirestoreTimestamp(value: unknown): value is { toDate: () => Date } {
+  return isPlainRecord(value) && typeof value.toDate === "function";
+}
+
+function callableSafeValue(value: unknown): unknown {
+  if (value === undefined) {
+    return null;
+  }
+  if (isFirestoreTimestamp(value)) {
+    return value.toDate().toISOString();
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => callableSafeValue(item));
+  }
+  if (isPlainRecord(value)) {
+    return Object.fromEntries(
+      Object.entries(value)
+        .filter(([, entryValue]) => entryValue !== undefined)
+        .map(([key, entryValue]) => [key, callableSafeValue(entryValue)]),
+    );
+  }
+  return value;
+}
+
+function sanitizeOperatorJobDocument(
+  jobData: Record<string, unknown>,
+): Record<string, unknown> {
+  const selected = Object.fromEntries(
+    operatorPreviewJobFields.map((field) => [field, jobData[field]]),
+  );
+  return callableSafeValue(selected) as Record<string, unknown>;
+}
+
+function isStoragePath(value: string): boolean {
+  return storagePathPrefixes.some((prefix) => value.startsWith(prefix));
+}
+
+function isLikelyStorageFilePath(value: string): boolean {
+  const fileName = value.split("/").pop() ?? "";
+  return isStoragePath(value) && fileName.includes(".");
+}
+
+function firebaseDownloadUrl(input: {
+  bucketName: string;
+  storagePath: string;
+  token: string;
+}): string {
+  return (
+    `https://firebasestorage.googleapis.com/v0/b/${encodeURIComponent(input.bucketName)}` +
+    `/o/${encodeURIComponent(input.storagePath)}?alt=media&token=${encodeURIComponent(input.token)}`
+  );
+}
+
+function metadataDownloadToken(metadata: Record<string, unknown>): string | null {
+  const rawToken = metadata.firebaseStorageDownloadTokens;
+  if (typeof rawToken !== "string" || rawToken.trim().length === 0) {
+    return null;
+  }
+  return rawToken.split(",")[0]?.trim() || null;
+}
+
+async function operatorAssetUrls(input: {
+  bucketName: string;
+  storagePaths: string[];
+}): Promise<Record<string, string>> {
+  const entries = await Promise.all(
+    input.storagePaths.map(async (storagePath) => {
+      const file = getStorage().bucket(input.bucketName).file(storagePath);
+      try {
+        const [metadata] = await file.getMetadata();
+        const customMetadata =
+          (metadata.metadata as Record<string, unknown> | undefined) ?? {};
+        const existingToken = metadataDownloadToken(customMetadata);
+        if (existingToken) {
+          return [
+            storagePath,
+            firebaseDownloadUrl({
+              bucketName: input.bucketName,
+              storagePath,
+              token: existingToken,
+            }),
+          ] as const;
+        }
+
+        const token = randomUUID();
+        await file.setMetadata({
+          metadata: {
+            ...customMetadata,
+            firebaseStorageDownloadTokens: token,
+          },
+        });
+        return [
+          storagePath,
+          firebaseDownloadUrl({
+            bucketName: input.bucketName,
+            storagePath,
+            token,
+          }),
+        ] as const;
+      } catch (error) {
+        console.warn("operator storage asset URL failed", {
+          storagePath,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        return null;
+      }
+    }),
+  );
+
+  return Object.fromEntries(
+    entries.filter(
+      (entry): entry is readonly [string, string] => entry !== null,
+    ),
+  );
+}
+
 function collectStoragePaths(value: unknown): string[] {
   if (typeof value === "string") {
-    return value.startsWith("print-files/") ? [value] : [];
+    return isLikelyStorageFilePath(value) ? [value] : [];
   }
   if (Array.isArray(value)) {
     return value.flatMap((item) => collectStoragePaths(item));
@@ -2894,7 +3143,7 @@ async function runFigurinePrintToolingForJob(input: {
 export const updateFigurineBaseConfig = onCall(
   {
     secrets: printFileRuntimeSecrets,
-    timeoutSeconds: 300,
+    timeoutSeconds: 540,
   },
   async (request) => {
     if (!request.auth) {
@@ -3000,9 +3249,54 @@ export const updateFigurineBaseConfig = onCall(
       );
     }
 
+    let assembly: Record<string, unknown>;
+    try {
+      assembly = await generateFigurineAssemblyForJob({
+        jobRef,
+        jobId: parsed.data.jobId,
+        uid: request.auth.uid,
+        jobData: {
+          ...jobData,
+          baseConfig,
+          figurineNamedBase: {
+            status: "generated",
+            baseId: parsed.data.baseId,
+            outputPrefix: namedBase.outputPrefix,
+            artifacts: namedBase.artifacts,
+          },
+        },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error("figurine automatic assembly failed", {
+        jobId: parsed.data.jobId,
+        error: message,
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+      await jobRef.set(
+        {
+          figurineAssembly: {
+            status: "failed",
+            error: { message: message.slice(0, 500) },
+            failedAt: FieldValue.serverTimestamp(),
+          },
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+      await refreshJobCostFromFirestore(jobRef, "figurine_assembly_failed");
+      if (error instanceof HttpsError) {
+        throw error;
+      }
+      throw new HttpsError(
+        "internal",
+        `Figurine assembly failed: ${message.slice(0, 200)}`,
+      );
+    }
+
     return {
       jobId: parsed.data.jobId,
-      status: "generated",
+      status: "assembled",
       baseConfig: {
         shape: parsed.data.baseShape,
         baseId: parsed.data.baseId,
@@ -3015,6 +3309,7 @@ export const updateFigurineBaseConfig = onCall(
         artifacts: namedBase.artifacts,
         lettering: namedBase.lettering,
       },
+      assembly,
     };
   },
 );
@@ -3094,7 +3389,7 @@ export const generateFigurineAssembly = onCall(
 
 export const runFigurinePrintTooling = onCall(
   {
-    secrets: [appStorageBucket, meshyApiKey],
+    secrets: [appStorageBucket, meshyApiKey, adminSupportAllowlist],
     timeoutSeconds: 540,
   },
   async (request) => {
@@ -3113,8 +3408,12 @@ export const runFigurinePrintTooling = onCall(
     const jobRef = db.collection("jobs").doc(parsed.data.jobId);
     const jobSnap = await jobRef.get();
     const jobData = jobSnap.data() as Record<string, unknown> | undefined;
-    if (!jobSnap.exists || jobData?.uid !== request.auth.uid) {
+    if (!jobSnap.exists || !jobData) {
       throw new HttpsError("not-found", "Job not found.");
+    }
+    const jobUid = typeof jobData.uid === "string" ? jobData.uid : null;
+    if (jobUid !== request.auth.uid) {
+      requireAdminSupport(request);
     }
     if (!jobDataIsFigurine(jobData)) {
       throw new HttpsError(
@@ -3127,7 +3426,7 @@ export const runFigurinePrintTooling = onCall(
       const tooling = await runFigurinePrintToolingForJob({
         jobRef,
         jobId: parsed.data.jobId,
-        uid: request.auth.uid,
+        uid: jobUid ?? request.auth.uid,
         jobData,
       });
       return {

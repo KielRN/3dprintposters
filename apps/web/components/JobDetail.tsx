@@ -2,6 +2,10 @@
 
 import { getFirebaseClients } from "@/lib/firebase";
 import {
+  callableErrorMessage,
+  callWithTransientRetry,
+} from "@/lib/callableRetry";
+import {
   AlertCircle,
   ArrowLeft,
   CheckCircle2,
@@ -92,6 +96,13 @@ type UpdateFigurineBaseConfigResult = {
     outputPrefix: string;
     artifacts: Record<string, string>;
   } | null;
+  assembly?: Record<string, unknown>;
+};
+
+type GetAdminJobPreviewResult = {
+  jobId: string;
+  job: JobDocument;
+  assetUrls: Record<string, string>;
 };
 
 type ApproveGeneratedImageRequest = {
@@ -148,7 +159,7 @@ type PrintabilitySummary = {
 };
 
 const PRINT_FILE_GENERATION_TIMEOUT_MS = 540_000;
-const BASE_SIGN_GENERATION_TIMEOUT_MS = 300_000;
+const BASE_SIGN_GENERATION_TIMEOUT_MS = 540_000;
 
 const styleLabels: Record<string, string> = {
   "gallery-relief": "Gallery Relief",
@@ -230,7 +241,27 @@ function statusCopy(job: JobDocument) {
   return job.status.replaceAll("_", " ");
 }
 
-export function JobDetail({ jobId }: { jobId: string }) {
+function signedAssetUrlMap(
+  paths: string[],
+  assetUrls: Record<string, string>,
+) {
+  const entries: Array<[string, string]> = [];
+  for (const path of paths) {
+    const url = assetUrls[path];
+    if (url) {
+      entries.push([path, url]);
+    }
+  }
+  return Object.fromEntries(entries);
+}
+
+export function JobDetail({
+  jobId,
+  operatorMode = false,
+}: {
+  jobId: string;
+  operatorMode?: boolean;
+}) {
   const firebaseClients = useMemo(() => getFirebaseClients(), []);
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(Boolean(firebaseClients));
@@ -238,6 +269,7 @@ export function JobDetail({ jobId }: { jobId: string }) {
   const [jobLoading, setJobLoading] = useState(Boolean(firebaseClients));
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
   const [artifactUrls, setArtifactUrls] = useState<Record<string, string>>({});
+  const [operatorAssetUrls, setOperatorAssetUrls] = useState<Record<string, string>>({});
   const [approvalBusyPath, setApprovalBusyPath] = useState("");
   const [checkoutBusy, setCheckoutBusy] = useState(false);
   const [baseSignBusy, setBaseSignBusy] = useState(false);
@@ -308,7 +340,46 @@ export function JobDetail({ jobId }: { jobId: string }) {
   }, [approvalBusyPath, job?.printFileStatus]);
 
   useEffect(() => {
-    if (!firebaseClients || !user) {
+    if (!firebaseClients || !user || !operatorMode) {
+      return;
+    }
+
+    let cancelled = false;
+    setJobLoading(true);
+    setError("");
+
+    const getPreview = httpsCallable<
+      { jobId: string },
+      GetAdminJobPreviewResult
+    >(firebaseClients.functions, "getAdminJobPreview");
+
+    void callWithTransientRetry(() => getPreview({ jobId }))
+      .then((result) => {
+        if (cancelled) {
+          return;
+        }
+        setJob(result.data.job);
+        setOperatorAssetUrls(result.data.assetUrls ?? {});
+        setJobLoading(false);
+      })
+      .catch((previewError) => {
+        if (cancelled) {
+          return;
+        }
+        setError(
+          callableErrorMessage(previewError, "Operator preview did not load."),
+        );
+        setJob(null);
+        setJobLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [firebaseClients, jobId, operatorMode, user]);
+
+  useEffect(() => {
+    if (!firebaseClients || !user || operatorMode) {
       return;
     }
 
@@ -348,6 +419,11 @@ export function JobDetail({ jobId }: { jobId: string }) {
       ]),
     );
 
+    if (operatorMode) {
+      setImageUrls(signedAssetUrlMap(paths, operatorAssetUrls));
+      return;
+    }
+
     void Promise.all(
       paths.map(async (path) => {
         const url = await getDownloadURL(ref(firebaseClients.storage, path));
@@ -372,7 +448,7 @@ export function JobDetail({ jobId }: { jobId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [firebaseClients, generatedImages, job]);
+  }, [firebaseClients, generatedImages, job, operatorAssetUrls, operatorMode]);
 
   useEffect(() => {
     const artifacts = job?.printFileArtifacts;
@@ -396,6 +472,11 @@ export function JobDetail({ jobId }: { jobId: string }) {
 
     if (paths.length === 0) {
       setArtifactUrls({});
+      return;
+    }
+
+    if (operatorMode) {
+      setArtifactUrls(signedAssetUrlMap(paths, operatorAssetUrls));
       return;
     }
 
@@ -429,6 +510,8 @@ export function JobDetail({ jobId }: { jobId: string }) {
     job?.figurineNamedBase?.artifacts?.previewGlb,
     job?.figurinePreview?.previewGlb,
     job?.printFileArtifacts,
+    operatorAssetUrls,
+    operatorMode,
   ]);
 
   async function approveImage(imagePath: string) {
@@ -484,24 +567,24 @@ export function JobDetail({ jobId }: { jobId: string }) {
       >(firebaseClients.functions, "updateFigurineBaseConfig", {
         timeout: BASE_SIGN_GENERATION_TIMEOUT_MS,
       });
-      const result = await updateFigurineBaseConfig({
-        jobId,
-        baseShape: "square",
-        baseId: "figurine-square-v1",
-        signEnabled: input.signEnabled,
-        signText: input.signEnabled ? input.signText : undefined,
-      });
+      const result = await callWithTransientRetry(() =>
+        updateFigurineBaseConfig({
+          jobId,
+          baseShape: "square",
+          baseId: "figurine-square-v1",
+          signEnabled: input.signEnabled,
+          signText: input.signEnabled ? input.signText : undefined,
+        }),
+      );
 
       setBaseSignNotice(
-        result.data.status === "generated" && result.data.namedBase
-          ? `Base sign "${result.data.namedBase.normalizedName}" was generated.`
+        result.data.namedBase
+          ? `Base sign "${result.data.namedBase.normalizedName}" was generated and assembled.`
           : "Base saved without a name sign.",
       );
     } catch (baseSignSaveError) {
       setBaseSignError(
-        baseSignSaveError instanceof Error
-          ? baseSignSaveError.message
-          : "Saving the base sign failed.",
+        callableErrorMessage(baseSignSaveError, "Saving the base sign failed."),
       );
     } finally {
       setBaseSignBusy(false);
@@ -564,19 +647,21 @@ export function JobDetail({ jobId }: { jobId: string }) {
               : "Approve the generated proof before payment. Checkout unlocks only after you approve the image for this poster."}
           </p>
         </div>
-        <button
-          className="primary-button"
-          type="button"
-          disabled={!canCheckout || checkoutBusy}
-          onClick={startCheckout}
-        >
-          {checkoutBusy ? (
-            <Loader2 className="animate-spin" size={18} aria-hidden="true" />
-          ) : (
-            <CreditCard size={18} aria-hidden="true" />
-          )}
-          Checkout
-        </button>
+        {!operatorMode ? (
+          <button
+            className="primary-button"
+            type="button"
+            disabled={!canCheckout || checkoutBusy}
+            onClick={startCheckout}
+          >
+            {checkoutBusy ? (
+              <Loader2 className="animate-spin" size={18} aria-hidden="true" />
+            ) : (
+              <CreditCard size={18} aria-hidden="true" />
+            )}
+            Checkout
+          </button>
+        ) : null}
       </div>
 
       {!firebaseClients ? (
@@ -646,7 +731,6 @@ export function JobDetail({ jobId }: { jobId: string }) {
             warnings={job?.figurinePreview?.warnings}
           />
           <FigurineBaseSignPanel
-            signEnabled={job?.baseConfig?.sign?.enabled ?? false}
             signText={job?.baseConfig?.sign?.text ?? ""}
             namedBaseStatus={job?.figurineNamedBase?.status}
             normalizedName={job?.figurineNamedBase?.normalizedName}
@@ -655,6 +739,7 @@ export function JobDetail({ jobId }: { jobId: string }) {
             busy={baseSignBusy}
             error={baseSignError}
             notice={baseSignNotice}
+            readOnly={operatorMode}
             onSave={saveBaseSign}
           />
           {namedBasePreviewPath ? (
@@ -669,11 +754,11 @@ export function JobDetail({ jobId }: { jobId: string }) {
                   </h2>
                 </div>
                 <Link
-                  className="secondary-button"
-                  href={`/jobs/${jobId}/print-readiness`}
+                  className="primary-button w-full justify-center sm:w-auto"
+                  href={`/jobs/${jobId}/print-readiness${operatorMode ? "?operator=1" : ""}`}
                 >
                   <Wrench size={18} aria-hidden="true" />
-                  Open review
+                  Print Readiness
                 </Link>
               </div>
             </section>
@@ -713,7 +798,9 @@ export function JobDetail({ jobId }: { jobId: string }) {
         <div className="mt-8 rounded-lg border border-black/10 bg-white p-5">
           <p className="font-bold">Sign in to view this job.</p>
           <p className="mt-2 text-sm text-[var(--muted)]">
-            Use the same account or guest session that created the upload.
+            {operatorMode
+              ? "Use an operator or admin account."
+              : "Use the same account or guest session that created the upload."}
           </p>
         </div>
       ) : null}
@@ -796,29 +883,31 @@ export function JobDetail({ jobId }: { jobId: string }) {
                       </span>
                     ) : null}
                   </div>
-                  <button
-                    className={
-                      isApproved && !canRunPrintFiles
-                        ? "secondary-button"
-                        : "primary-button"
-                    }
-                    type="button"
-                    disabled={(isApproved && !canRunPrintFiles) || isBusy}
-                    onClick={() => approveImage(image.storagePath)}
-                  >
-                    {isBusy ? (
-                      <Loader2
-                        className="animate-spin"
-                        size={18}
-                        aria-hidden="true"
-                      />
-                    ) : canRunPrintFiles ? (
-                      <RefreshCw size={18} aria-hidden="true" />
-                    ) : (
-                      <FileCheck2 size={18} aria-hidden="true" />
-                    )}
-                    {approvalLabel}
-                  </button>
+                  {!operatorMode ? (
+                    <button
+                      className={
+                        isApproved && !canRunPrintFiles
+                          ? "secondary-button"
+                          : "primary-button"
+                      }
+                      type="button"
+                      disabled={(isApproved && !canRunPrintFiles) || isBusy}
+                      onClick={() => approveImage(image.storagePath)}
+                    >
+                      {isBusy ? (
+                        <Loader2
+                          className="animate-spin"
+                          size={18}
+                          aria-hidden="true"
+                        />
+                      ) : canRunPrintFiles ? (
+                        <RefreshCw size={18} aria-hidden="true" />
+                      ) : (
+                        <FileCheck2 size={18} aria-hidden="true" />
+                      )}
+                      {approvalLabel}
+                    </button>
+                  ) : null}
                 </div>
               </article>
             );

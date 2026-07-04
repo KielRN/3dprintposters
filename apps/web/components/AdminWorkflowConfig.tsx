@@ -2,6 +2,10 @@
 
 import { getFirebaseClients } from "@/lib/firebase";
 import {
+  callableErrorMessage,
+  callWithTransientRetry,
+} from "@/lib/callableRetry";
+import {
   defaultFigurineWorkflowConfig,
   defaultTemplateFaceSwapPrompt,
   maxWorkflowStyleReferenceImageBytes,
@@ -138,7 +142,7 @@ export function AdminWorkflowConfig({
     setConfigLoading(true);
     setError("");
 
-    void getWorkflowConfig({})
+    void callWithTransientRetry(() => getWorkflowConfig({}))
       .then((result) => {
         if (!cancelled) {
           setConfig(normalizeFigurineWorkflowConfigResponse(result.data));
@@ -149,9 +153,7 @@ export function AdminWorkflowConfig({
         if (!cancelled) {
           setConfigLoadFailed(true);
           setError(
-            loadError instanceof Error
-              ? loadError.message
-              : "Workflow config did not load.",
+            callableErrorMessage(loadError, "Workflow config did not load."),
           );
         }
       })
@@ -253,15 +255,15 @@ export function AdminWorkflowConfig({
         SaveWorkflowConfigRequest,
         unknown
       >(firebaseClients.functions, "saveFigurineWorkflowConfig");
-      const result = await saveWorkflowConfig({ config });
+      const result = await callWithTransientRetry(() =>
+        saveWorkflowConfig({ config }),
+      );
       setConfig(normalizeFigurineWorkflowConfigResponse(result.data));
       setConfigLoadFailed(false);
       setNotice("Workflow configuration saved.");
     } catch (saveError) {
       setError(
-        saveError instanceof Error
-          ? saveError.message
-          : "Workflow configuration did not save.",
+        callableErrorMessage(saveError, "Workflow configuration did not save."),
       );
     } finally {
       setSaving(false);
