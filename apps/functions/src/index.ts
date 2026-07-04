@@ -3415,6 +3415,9 @@ async function buildPrintBundle(input: { jobId: string }): Promise<void> {
       contentType: "application/zip",
       resumable: false,
     });
+    archive.on("error", (archiveError) => {
+      passthrough.destroy(archiveError);
+    });
     archive.pipe(passthrough);
 
     archive.append(
@@ -3440,6 +3443,7 @@ async function buildPrintBundle(input: { jobId: string }): Promise<void> {
       { merge: true },
     );
   } catch (error) {
+    console.error("buildPrintBundle failed", { jobId: input.jobId, error });
     await orderRef.set(
       {
         printBundle: {
@@ -3515,6 +3519,8 @@ export const operatorUpdateFulfillment = onCall(
           "Sub-state can only change while the job is in production.",
         );
       }
+      // Same-stage substate toggle (no stage-machine invariant at risk); intentionally
+      // non-transactional — the frontend disables this control while a request is in flight.
       const previousFulfillment = (orderData.fulfillment ?? {}) as Record<string, unknown>;
       await orderRef.set(
         {
