@@ -164,24 +164,14 @@ export function normalizeFigurineWorkflowConfig(
     .slice(0, maxWorkflowStyles);
   const normalizedStyles =
     styles.length > 0 ? styles : defaultFigurineWorkflowConfig.styles;
-  // Saved configs that predate the 2026-07-03 chibi style approval must still
-  // offer it, so a missing chibi style is reinserted and made visible. Admins
-  // keep control through the style's `enabled` flag, not by deleting it.
-  const hasChibiStyle = normalizedStyles.some(
-    (style) => style.id === approvedChibiStyle.id,
-  );
-  const safeStyles = hasChibiStyle
-    ? normalizedStyles
-    : [
-        ...normalizedStyles.slice(0, 1),
-        approvedChibiStyle,
-        ...normalizedStyles.slice(1),
-      ].slice(0, maxWorkflowStyles);
-  const visibleStyleCount = clampInteger(
-    source.visibleStyleCount,
-    1,
-    safeStyles.length,
-    defaultFigurineWorkflowConfig.visibleStyleCount,
+  const { styles: safeStyles, visibleStyleCount } = ensureApprovedChibiStyle(
+    normalizedStyles,
+    clampInteger(
+      source.visibleStyleCount,
+      1,
+      normalizedStyles.length,
+      defaultFigurineWorkflowConfig.visibleStyleCount,
+    ),
   );
 
   return {
@@ -193,9 +183,7 @@ export function normalizeFigurineWorkflowConfig(
     ),
     baseProofPrompt:
       source.baseProofPrompt ?? defaultFigurineWorkflowConfig.baseProofPrompt,
-    visibleStyleCount: hasChibiStyle
-      ? visibleStyleCount
-      : Math.max(visibleStyleCount, Math.min(2, safeStyles.length)),
+    visibleStyleCount,
     styles: safeStyles,
     roleGate: {
       enabled:
@@ -285,6 +273,48 @@ export function resolveVisibleWorkflowStyle(
       (style) => normalizeStyleId(style.id) === normalizedStyle,
     ) ?? null
   );
+}
+
+// Chibi is a user-approved product style (2026-07-03), so saved configs must
+// keep offering it: a missing style is reinserted, and an enabled style buried
+// outside the visible window is moved into view right after the lead style.
+// Admins hide it through the style's `enabled` flag, not by deleting or
+// burying it.
+function ensureApprovedChibiStyle(
+  styles: WorkflowStyleConfig[],
+  visibleStyleCount: number,
+): { styles: WorkflowStyleConfig[]; visibleStyleCount: number } {
+  const chibi = styles.find((style) => style.id === approvedChibiStyle.id);
+
+  if (!chibi) {
+    const withChibi = [
+      ...styles.slice(0, 1),
+      approvedChibiStyle,
+      ...styles.slice(1),
+    ].slice(0, maxWorkflowStyles);
+    return {
+      styles: withChibi,
+      visibleStyleCount: Math.max(
+        visibleStyleCount,
+        Math.min(2, withChibi.length),
+      ),
+    };
+  }
+
+  const chibiVisibleIndex = styles
+    .filter((style) => style.enabled)
+    .findIndex((style) => style.id === approvedChibiStyle.id);
+  if (!chibi.enabled || chibiVisibleIndex < visibleStyleCount) {
+    return { styles, visibleStyleCount };
+  }
+
+  const withoutChibi = styles.filter(
+    (style) => style.id !== approvedChibiStyle.id,
+  );
+  return {
+    styles: [...withoutChibi.slice(0, 1), chibi, ...withoutChibi.slice(1)],
+    visibleStyleCount: Math.max(visibleStyleCount, 2),
+  };
 }
 
 function normalizeWorkflowStyle(

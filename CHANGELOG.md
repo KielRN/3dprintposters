@@ -11,6 +11,7 @@ All notable project changes will be documented in this file.
 
 ### Fixed
 
+- Fixed the Chibi style being rejected with `Selected style is not available in the current workflow configuration` when the saved `adminConfig/figurineWorkflow` Firestore doc predates the chibi approval but already lists `chibi_figure` among its styles (the old defaults did) with `visibleStyleCount: 1`. The migration rule previously only reinserted a *missing* chibi style; it now also moves an enabled-but-buried chibi style into the visible window right after the lead style and raises the visible count to 2. An admin-set `enabled: false` still hides it.
 - Seated assembled figurine provider meshes slightly into the deterministic square base using a robust support-footprint plane, so provider outputs that include their own plinth no longer hover above the square base because of low outlier geometry or exact butt-joint placement.
 - Allowed signed-in dev users to access `/admin` support/workflow callables in the local Functions emulator and documented dev Firebase project while keeping non-dev deployments on `ADMIN_SUPPORT_ALLOWLIST`.
 - Moved deployed Firebase Functions runtime config values such as `APP_STORAGE_BUCKET`, `PRINT_FILE_GENERATOR_URL`, Vertex settings, and checkout URL/price config behind `defineSecret` / Secret Manager bindings so deploys no longer push local `.env` keys as plain Cloud Run environment variables.

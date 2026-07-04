@@ -119,6 +119,48 @@ test("saved configs that predate the chibi approval get it back and visible", ()
   );
 });
 
+test("saved configs with chibi buried outside the visible window move it into view", () => {
+  // Mirrors the real adminConfig/figurineWorkflow doc saved 2026-06-19: all
+  // five old default styles including chibi_figure, with visibleStyleCount 1.
+  const config = normalizeFigurineWorkflowConfig({
+    visibleStyleCount: 1,
+    styles: [
+      {
+        label: "Creative Lab Figure",
+        id: "creative_lab_figure",
+        prompt: "Smooth toy figure proof.",
+      },
+      {
+        label: "Emoji Avatar",
+        id: "emoji_avatar",
+        prompt: "Emoji avatar proof.",
+      },
+      {
+        label: "Chibi Figure",
+        id: "chibi_figure",
+        prompt: "Chibi proof.",
+      },
+      {
+        label: "Bobblehead",
+        id: "bobblehead",
+        prompt: "Bobblehead proof.",
+      },
+      {
+        label: "Cartoon Figure",
+        id: "cartoon_figure",
+        prompt: "Cartoon proof.",
+      },
+    ],
+  });
+
+  assert.deepEqual(
+    visibleWorkflowStyles(config).map((style) => style.id),
+    ["creative_lab_figure", "chibi_figure"],
+  );
+  assert.equal(config.visibleStyleCount, 2);
+  assert.equal(config.styles.length, 5);
+});
+
 test("an admin-disabled chibi style stays disabled and hidden", () => {
   const config = normalizeFigurineWorkflowConfig({
     visibleStyleCount: 1,
