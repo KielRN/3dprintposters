@@ -19,6 +19,7 @@ Source-of-truth split:
 - 🟢 Product focus — active priority is customer acquisition through a PrintU-like personalized figurine workflow. Poster relief remains parked R&D.
 - 🟢 Creative Lab preview pipeline — validated on 2026-06-07 with job `cfc9039a-d83c-48d7-9ed5-39f214fce6c6`: upload photo -> 2D proof -> approval -> Meshy Creative Lab Figure -> Storage-backed textured GLB preview.
 - 🟢 Upstream 3D figure generation — Experiment 009 is the approved upstream milestone: three Creative Lab Figure API passes produced smooth no-base GLBs, and Blender inspection confirmed feet-sized bottom footprints rather than broad pedestal geometry.
+- 🟢 Figurine style families — two approved tracks as of 2026-07-03: **Chibi** via the Creative Lab Figure pipeline (Experiment 011, best fed a stylized 2D image) and **faithful identity** via direct Multi-Image-to-3D with a single Nano Banana Pro 2K identity-locked front image (Experiment 019a). Recipes are in `DECISIONS.md`. Chibi is wired into the customer workflow config and UI as of 2026-07-03; wiring the faithful direct Multi-Image-to-3D style is the remaining follow-up.
 - 🟢 Checkout honesty — figurine checkout remains locked in UI and backend until print files or an explicit preorder/manual-fulfillment path are approved.
 
 ## Phase B — Figurine Print-Decision Workflow
@@ -58,8 +59,8 @@ Source-of-truth split:
 ## Phase F — Parked Or Later Work
 
 - ⚪ Poster-relief tuning — deferred unless the relief product is reactivated. The current relief path has a real server-side generator, 400px mesh output, color packages, surface-intent metadata, and GLB inspection UI.
-- ⚪ Additional figurine styles — evaluate Bobblehead, Chibi, Cartoon, Image pose, and T-pose only after Creative Lab Figure + Natural pose stays reliable.
-- ⚪ Multi-Image-to-3D revisit — resume only if Creative Lab print conversion fails or business/API constraints block it.
+- ⚪ Additional figurine styles — evaluate Bobblehead, Cartoon, Image pose, and T-pose only after the two approved style families stay reliable. Chibi graduated to an approved Phase A style track on 2026-07-03.
+- 🟢 Multi-Image-to-3D revisit — resolved 2026-07-03: direct Multi-Image-to-3D is no longer a Creative-Lab fallback; it is the approved pipeline for the faithful-identity style track (Phase A).
 - ⚪ Native mobile packaging — defer until the web PWA proves the workflow.
 - ⚪ Additional fulfillment providers — add after the first path has real evidence.
 

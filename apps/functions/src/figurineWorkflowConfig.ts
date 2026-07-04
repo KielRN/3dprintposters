@@ -53,6 +53,19 @@ const defaultBaseProofPrompt = [
   "The result should feel like a product-ready figurine proof that can guide a later 3D model generation step.",
 ].join("\n");
 
+// User-approved product style (2026-07-03, Experiment 011): Creative Lab builds
+// its best chibi figures from a decisively stylized 2D proof, so this prompt
+// must force a fully stylized illustration rather than a photorealistic render.
+export const approvedChibiStyle: WorkflowStyleConfig = {
+  id: "chibi_figure",
+  label: "Chibi",
+  productType: "figurine",
+  prompt:
+    "Fully stylized chibi character, never photorealistic: oversized head about one third of the total height, compact rounded body, large expressive eyes, a simplified friendly face that keeps the subject clearly recognizable, chunky simplified hands and shoes, smooth vinyl-toy surfaces, and broad clean color regions. The proof must read as a finished stylized character illustration, not a photo of a person.",
+  enabled: true,
+  referenceImages: [],
+};
+
 const defaultStyles: WorkflowStyleConfig[] = [
   {
     id: "creative_lab_figure",
@@ -63,21 +76,13 @@ const defaultStyles: WorkflowStyleConfig[] = [
     enabled: true,
     referenceImages: [],
   },
+  approvedChibiStyle,
   {
     id: "emoji_avatar",
     label: "Emoji Avatar",
     productType: "figurine",
     prompt:
       "Bright emoji-avatar character with a rounded head, expressive simple face, toy-like body, clean clothing shapes, and a friendly natural standing pose.",
-    enabled: true,
-    referenceImages: [],
-  },
-  {
-    id: "chibi_figure",
-    label: "Chibi Figure",
-    productType: "figurine",
-    prompt:
-      "Cute chibi figurine proportions with a larger head, compact body, soft features, clean hands and shoes, and a balanced full-body stance.",
     enabled: true,
     referenceImages: [],
   },
@@ -104,7 +109,7 @@ const defaultStyles: WorkflowStyleConfig[] = [
 export const defaultFigurineWorkflowConfig: FigurineWorkflowConfig = {
   proofGenerationCount: 4,
   baseProofPrompt: defaultBaseProofPrompt,
-  visibleStyleCount: 1,
+  visibleStyleCount: 2,
   styles: defaultStyles,
   roleGate: {
     enabled: false,
@@ -157,8 +162,27 @@ export function normalizeFigurineWorkflowConfig(
     .map(normalizeWorkflowStyle)
     .filter((style): style is WorkflowStyleConfig => Boolean(style))
     .slice(0, maxWorkflowStyles);
-  const safeStyles =
+  const normalizedStyles =
     styles.length > 0 ? styles : defaultFigurineWorkflowConfig.styles;
+  // Saved configs that predate the 2026-07-03 chibi style approval must still
+  // offer it, so a missing chibi style is reinserted and made visible. Admins
+  // keep control through the style's `enabled` flag, not by deleting it.
+  const hasChibiStyle = normalizedStyles.some(
+    (style) => style.id === approvedChibiStyle.id,
+  );
+  const safeStyles = hasChibiStyle
+    ? normalizedStyles
+    : [
+        ...normalizedStyles.slice(0, 1),
+        approvedChibiStyle,
+        ...normalizedStyles.slice(1),
+      ].slice(0, maxWorkflowStyles);
+  const visibleStyleCount = clampInteger(
+    source.visibleStyleCount,
+    1,
+    safeStyles.length,
+    defaultFigurineWorkflowConfig.visibleStyleCount,
+  );
 
   return {
     proofGenerationCount: clampInteger(
@@ -169,12 +193,9 @@ export function normalizeFigurineWorkflowConfig(
     ),
     baseProofPrompt:
       source.baseProofPrompt ?? defaultFigurineWorkflowConfig.baseProofPrompt,
-    visibleStyleCount: clampInteger(
-      source.visibleStyleCount,
-      1,
-      safeStyles.length,
-      defaultFigurineWorkflowConfig.visibleStyleCount,
-    ),
+    visibleStyleCount: hasChibiStyle
+      ? visibleStyleCount
+      : Math.max(visibleStyleCount, Math.min(2, safeStyles.length)),
     styles: safeStyles,
     roleGate: {
       enabled:

@@ -996,7 +996,6 @@ async function generateFigurinePreviewForApprovedJob(input: {
     {
       status: "approved",
       productType: "figurine",
-      figurineStyle: "creative_lab_figure",
       postureMode: "natural",
       conceptSource: "approved_2d_proof",
       generated3dProvider: generation.provider,

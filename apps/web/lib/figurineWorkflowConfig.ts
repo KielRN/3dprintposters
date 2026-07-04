@@ -49,7 +49,7 @@ export const defaultFigurineWorkflowConfig: FigurineWorkflowConfig = {
     "Use the uploaded photo as the identity and outfit reference. Preserve recognizable facial likeness, broad head shape, glasses or facial hair if present, and the main clothing color impression.",
     "The result should feel like a product-ready figurine proof that can guide a later 3D model generation step.",
   ].join("\n"),
-  visibleStyleCount: 1,
+  visibleStyleCount: 2,
   styles: [
     {
       id: "creative_lab_figure",
@@ -61,20 +61,20 @@ export const defaultFigurineWorkflowConfig: FigurineWorkflowConfig = {
       referenceImages: [],
     },
     {
+      id: "chibi_figure",
+      label: "Chibi",
+      productType: "figurine",
+      prompt:
+        "Fully stylized chibi character, never photorealistic: oversized head about one third of the total height, compact rounded body, large expressive eyes, a simplified friendly face that keeps the subject clearly recognizable, chunky simplified hands and shoes, smooth vinyl-toy surfaces, and broad clean color regions. The proof must read as a finished stylized character illustration, not a photo of a person.",
+      enabled: true,
+      referenceImages: [],
+    },
+    {
       id: "emoji_avatar",
       label: "Emoji Avatar",
       productType: "figurine",
       prompt:
         "Bright emoji-avatar character with a rounded head, expressive simple face, toy-like body, clean clothing shapes, and a friendly natural standing pose.",
-      enabled: true,
-      referenceImages: [],
-    },
-    {
-      id: "chibi_figure",
-      label: "Chibi Figure",
-      productType: "figurine",
-      prompt:
-        "Cute chibi figurine proportions with a larger head, compact body, soft features, clean hands and shoes, and a balanced full-body stance.",
       enabled: true,
       referenceImages: [],
     },

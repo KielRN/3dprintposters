@@ -157,7 +157,7 @@ const styleLabels: Record<string, string> = {
   creative_lab_figure: "Creative Lab Figure",
   "creative-lab-figure": "Creative Lab Figure",
   emoji_avatar: "Emoji Avatar",
-  chibi_figure: "Chibi Figure",
+  chibi_figure: "Chibi",
   bobblehead: "Bobblehead",
   cartoon_figure: "Cartoon Figure",
 };

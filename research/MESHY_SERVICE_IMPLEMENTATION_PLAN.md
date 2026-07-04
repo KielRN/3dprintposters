@@ -724,6 +724,29 @@ Product implication:
 - Downstream print tooling is unresolved: Meshy Repair is the topology winner but loses texture; Meshy Remesh is the texture/format winner but remains non-watertight.
 - Human Blender/slicer review should decide whether the textureless repaired GLB is acceptable for the first fulfillment path, whether textured remesh outputs can be slicer-repaired, or whether a deterministic/local repair and conversion stage is required.
 
+### Experiments 011-019: Style Cycle, Direct-3D Modes, And Identity Bake-Off (2026-07-03)
+
+The 2026-07-03 experiment cycle tested figurine styles and input strategies using the stylized test image `HeMan-ChatGPT.png` (local desktop asset, not tracked) with subject reference photos for identity passes. Runner support landed in commit `867c0b9` (`--skip-multiview` "direct-3d" mode submits the source image straight to `POST /openapi/v1/multi-image-to-3d` as a single `image_urls` data URI; `--direct-images` submits caller-provided view images) plus `ab358fa` (archives all `--direct-images` views under the run input folder). Runs live under `.tmp/experiments/meshy/standard/20260703-*`.
+
+Key runs:
+
+- Experiment 011 (Creative Lab Figure, stylized input): run folder `.tmp/experiments/meshy/standard/20260703-0853-exp-011-style-heman-creative-lab`. Prototype and build succeeded, no generated base, and raw printability returned `warning` with `is_watertight: true` — the series-best raw printability. **User-approved on 2026-07-03 as the Chibi product style**: "turned out great as a chibi style, way better than what we were doing before for chibi." Creative Lab chibi-fies any input, so style fidelity is impossible there — it stays the chibi/toy line only. Feeding a *stylized* image (not a raw photo) produced better chibi than prior raw-photo Creative Lab runs.
+- Experiment 014 (direct-3d from the stylized source): the user's detail/quality benchmark — the most detailed, cleanest GLB of the series.
+- Experiments 015/017 (Nano Banana Pro identity images -> direct-3d): NB Pro (`gemini-3-pro-image-preview` on Vertex, existing `VERTEX_API_KEY`, express endpoint) gives excellent subject likeness in 2D that survives into the 3D texture, but both GLBs were judged lower-detail than 014. Exp 017's two-view input (`--direct-images`) also drifted the sword pose and expression between views; the side view was hallucinated from scratch and carried visibly less effective detail than the source-edited front.
+- Experiments 018a/b (direct-3d repro): direct-3d quality is stable run-to-run — poly counts within `0.2%` (~87k verts / ~104k faces) and equivalent crispness in Blender renders (`.tmp/experiments/meshy/standard/exp-018-comparison/compare-*.png`). Variance shows only in the interpretation of ambiguous details, not mesh fidelity. Conclusion: the 015/017 quality loss came from the NB input images, not Meshy variance, so best-of-N generation is unnecessary.
+- Experiment 019 (NB Pro view-strategy bake-off, identity locked in all arms; inputs/judging under `.tmp/experiments/meshy/standard/exp-019-inputs/`): **arm 019a won and resolved the identity-vs-detail tradeoff** — a single NB Pro 2K identity-locked front image into direct-3d kept `111%` of source Laplacian sharpness (exp-015's ~1K input kept only `63%`, so input resolution was the detail killer) and rendered at `96-119%` of the 014/018a benchmark sharpness with full subject likeness. Arm 019b (front + separate-call strict-profile side, 4K->2K) matched benchmark detail but introduced a left-eye texture artifact and added no geometry benefit over Meshy's own hallucinated profile — not worth the extra call/cost/risk. Arm 019c (single-canvas 4K turnaround sheet, cropped) had the best cross-view consistency but re-renders the character instead of editing the source: `35%` source sharpness and the flattest GLB.
+
+Supporting findings:
+
+- NB Pro prompt language that preserved detail: "preserve every costume/surface detail at full sharpness; do not soften, simplify, or repaint anything," plus explicit dynamic-attribute pinning (identical expression, prop grip/angle, stance) when multiple views are requested.
+- Meshy Repair reliably takes direct-3d output from `error` to `warning` watertight without visible detail loss but strips textures; Remesh keeps base color but leaves holes on the raw mesh, so any provider-tooling sequence must run repair before remesh. The user visually prefers the raw un-repaired GLB.
+- Realistic wide-stance figures miss the `printu-round-v1` 18mm foot placement zone (about `19-19.9mm` at `75mm` review height); base fit needs a per-style check for the faithful track.
+- Qwen-Image-Edit and FLUX.2 were evaluated as NB Pro alternatives and rejected for now: neither is serverless on Vertex (Model Garden requires self-deployed GPU endpoints the express key cannot reach; MaaS Qwen is text-only) and neither is on OpenRouter's image catalog. HF Inference Providers (`HF_TOKEN`) remains the future route if NB Pro plateaus.
+
+Product implication:
+
+- The figurine product now has two approved style families: (1) **Chibi** through the Creative Lab Figure prototype/build pipeline, best fed a stylized 2D image; (2) **Faithful/realistic identity** through direct Multi-Image-to-3D (`--skip-multiview`), with the production recipe being a single NB Pro 2K identity-locked front image. This supersedes the earlier "Multi-Image-to-3D only if Creative Lab fails" framing: the two paths serve different styles rather than competing for one.
+
 ## Official Preview Pipeline v1
 
 Status: validated in the normal browser workflow on 2026-06-07.
