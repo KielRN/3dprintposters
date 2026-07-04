@@ -78,6 +78,9 @@ const stripeFigurineUnpaintedPriceId = defineSecret(
 );
 const adminSupportAllowlist = defineSecret("ADMIN_SUPPORT_ALLOWLIST");
 
+const figurineUnpaintedFallbackCents = 9900;
+const figurinePaintedFallbackCents = 14900;
+
 const vertexRuntimeSecrets = [
   aiProviderRoute,
   appStorageBucket,
@@ -1869,7 +1872,10 @@ export const createCheckoutSession = onCall(
           process.env.STRIPE_FIGURINE_PAINTED_PRICE_ID
         : stripeFigurineUnpaintedPriceId.value() ||
           process.env.STRIPE_FIGURINE_UNPAINTED_PRICE_ID;
-    const figurineFallbackAmount = paintOption === "painted" ? 14900 : 9900;
+    const figurineFallbackAmount =
+      paintOption === "painted"
+        ? figurinePaintedFallbackCents
+        : figurineUnpaintedFallbackCents;
     const lineItems = isFigurine
       ? figurinePriceId
         ? [

@@ -653,7 +653,9 @@ export function JobDetail({
               ? job?.conceptSource === "meshy_prototype_concept" &&
                 !figurinePreviewUrl
                 ? "Review the figure concept below. Generate 3D figurine builds the printable color model from this concept."
-                : "Inspect the generated color model. Print files are still under review, so checkout stays locked."
+                : canCheckout
+                  ? "Your figurine is ready. Choose a finish and check out below."
+                  : "Inspect the generated color model. Print files are still under review, so checkout stays locked."
               : "Approve the generated proof before payment. Checkout unlocks only after you approve the image for this poster."}
           </p>
         </div>
