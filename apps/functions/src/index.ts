@@ -29,7 +29,14 @@ import {
 } from "./meshyFigurineProvider.js";
 import { runMeshyFigurinePrintTooling } from "./meshyPrintTooling.js";
 import { calculateJobCost } from "./jobCost.js";
-import { customerFieldsFromSession } from "./operatorConsole.js";
+import {
+  customerFieldsFromSession,
+  operatorTabStages,
+  operatorTabs,
+  sanitizeOperatorJobDetail,
+  sanitizeOperatorJobSummary,
+  selectBundleFiles,
+} from "./operatorConsole.js";
 import {
   adminSupportDevelopmentAccessReason,
   adminSupportIssueTypes,
@@ -126,6 +133,13 @@ const getAdminSupportJobSchema = z.object({
 
 const getAdminJobPreviewSchema = z.object({
   jobId: jobIdSchema,
+});
+
+const listOperatorJobsSchema = z.object({
+  tab: z.enum(operatorTabs),
+});
+const operatorJobIdSchema = z.object({
+  jobId: z.string().min(1),
 });
 
 const addAdminSupportNoteSchema = z.object({
@@ -2795,6 +2809,39 @@ export const getConsoleRole = onCall(
   },
 );
 
+export const listOperatorJobs = onCall(
+  {
+    secrets: [adminSupportAllowlist, operatorAllowlist],
+  },
+  async (request) => {
+    requireOperator(request);
+    const parsed = listOperatorJobsSchema.safeParse(request.data);
+    if (!parsed.success) {
+      throw new HttpsError("invalid-argument", "A valid tab is required.");
+    }
+
+    const stages = operatorTabStages[parsed.data.tab];
+    const jobsSnap = await db
+      .collection("jobs")
+      .where("pipelineStage", "in", stages)
+      .limit(200)
+      .get();
+
+    const items = await Promise.all(
+      jobsSnap.docs.map(async (jobDoc) => {
+        const orderSnap = await db.collection("orders").doc(jobDoc.id).get();
+        return sanitizeOperatorJobSummary({
+          jobId: jobDoc.id,
+          jobData: jobDoc.data() as Record<string, unknown>,
+          orderData: (orderSnap.data() ?? {}) as Record<string, unknown>,
+        });
+      }),
+    );
+    items.sort((a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? ""));
+    return { items };
+  },
+);
+
 const operatorPreviewJobFields = [
   "uid",
   "productType",
@@ -3190,6 +3237,80 @@ async function signedModelUrl(input: {
     return storageModelDataUri(input);
   }
 }
+
+async function loadOperatorJobDocs(jobId: string) {
+  const jobRef = db.collection("jobs").doc(jobId);
+  const orderRef = db.collection("orders").doc(jobId);
+  const [jobSnap, orderSnap] = await Promise.all([jobRef.get(), orderRef.get()]);
+  const jobData = jobSnap.data() as Record<string, unknown> | undefined;
+  if (!jobSnap.exists || !jobData) {
+    throw new HttpsError("not-found", "Job not found.");
+  }
+  return {
+    jobRef,
+    orderRef,
+    jobData,
+    orderData: (orderSnap.data() ?? {}) as Record<string, unknown>,
+  };
+}
+
+async function operatorJobDetailPayload(jobId: string) {
+  const { jobData, orderData } = await loadOperatorJobDocs(jobId);
+  const detail = sanitizeOperatorJobDetail({ jobId, jobData, orderData });
+
+  const bucketName = resolveRequiredEnv("APP_STORAGE_BUCKET");
+  let previewUrl: string | null = null;
+  const thumbnailPath =
+    (jobData.figurinePreview as { thumbnailPath?: string } | undefined)
+      ?.thumbnailPath ??
+    (typeof jobData.approvedImagePath === "string"
+      ? jobData.approvedImagePath
+      : null);
+  if (thumbnailPath) {
+    try {
+      const signed = await signedModelUrl({ bucketName, storagePath: thumbnailPath });
+      previewUrl = signed.url;
+    } catch {
+      previewUrl = null;
+    }
+  }
+
+  let bundleUrl: string | null = null;
+  if (detail.bundle.status === "ready" && detail.bundle.storagePath) {
+    const signed = await signedModelUrl({
+      bucketName,
+      storagePath: detail.bundle.storagePath,
+    });
+    bundleUrl = signed.url;
+  }
+
+  const extraFiles = await Promise.all(
+    selectBundleFiles({ jobId, jobData }).map(async (file) => {
+      try {
+        const signed = await signedModelUrl({ bucketName, storagePath: file.storagePath });
+        return { name: file.name, url: signed.url };
+      } catch {
+        return { name: file.name, url: null };
+      }
+    }),
+  );
+
+  return { job: { ...detail, previewUrl, bundleUrl, files: extraFiles } };
+}
+
+export const getOperatorJob = onCall(
+  {
+    secrets: [adminSupportAllowlist, operatorAllowlist, appStorageBucket],
+  },
+  async (request) => {
+    requireOperator(request);
+    const parsed = operatorJobIdSchema.safeParse(request.data);
+    if (!parsed.success) {
+      throw new HttpsError("invalid-argument", "jobId is required.");
+    }
+    return operatorJobDetailPayload(parsed.data.jobId);
+  },
+);
 
 async function runFigurinePrintToolingForJob(input: {
   jobRef: DocumentReference;
