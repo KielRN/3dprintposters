@@ -195,3 +195,35 @@ test("job detail includes order, audit, and notes without asset URLs", () => {
   assert.equal(detail.artifactSummary.proofCount, 2);
   assert.equal(JSON.stringify(detail).includes("generated/customer-1"), false);
 });
+
+test("job summary exposes a derived pipeline stage and label", () => {
+  const summary = sanitizeAdminSupportJobSummary({
+    jobId: "job-1",
+    jobData: { ...baseJob(), status: "approved" },
+  });
+  assert.equal(summary.pipelineStage, "2d_approved");
+  assert.equal(summary.pipelineStageLabel, "2D Approved");
+});
+
+test("stamped pipelineStage wins over derivation", () => {
+  const summary = sanitizeAdminSupportJobSummary({
+    jobId: "job-1",
+    jobData: { ...baseJob(), status: "approved", pipelineStage: "in_production" },
+  });
+  assert.equal(summary.pipelineStage, "in_production");
+});
+
+test("pipelineStage filter matches derived stage", () => {
+  const job = sanitizeAdminSupportJobSummary({
+    jobId: "job-1",
+    jobData: { ...baseJob(), status: "approved" },
+  });
+  assert.equal(
+    jobMatchesAdminSupportFilters(job, { pipelineStage: "2d_approved" }),
+    true,
+  );
+  assert.equal(
+    jobMatchesAdminSupportFilters(job, { pipelineStage: "paid" }),
+    false,
+  );
+});

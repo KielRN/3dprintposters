@@ -1,3 +1,9 @@
+import {
+  derivePipelineStage,
+  pipelineStageLabels,
+  type PipelineStage,
+} from "./pipeline.js";
+
 export const adminSupportStatuses = [
   "open",
   "watching",
@@ -27,6 +33,7 @@ export type AdminSupportFilters = {
   jobStatus?: string;
   supportStatus?: AdminSupportStatus;
   issueType?: AdminSupportIssueType;
+  pipelineStage?: PipelineStage;
 };
 
 export type AdminSupportJobSummary = {
@@ -63,6 +70,8 @@ export type AdminSupportJobSummary = {
     message: string | null;
   } | null;
   issueTypes: AdminSupportIssueType[];
+  pipelineStage: PipelineStage;
+  pipelineStageLabel: string;
   createdAt: string | null;
   updatedAt: string | null;
 };
@@ -226,6 +235,7 @@ export function sanitizeAdminSupportJobSummary(input: {
   const figurinePrintTooling = asRecord(jobData.figurinePrintTooling);
   const figurineReview = asRecord(jobData.figurineReview);
   const error = summarizeError(jobData.error);
+  const pipelineStage = derivePipelineStage({ job: jobData });
   const summary: AdminSupportJobSummary = {
     jobId: input.jobId,
     uid: asString(jobData.uid),
@@ -262,6 +272,8 @@ export function sanitizeAdminSupportJobSummary(input: {
     },
     error,
     issueTypes: [],
+    pipelineStage,
+    pipelineStageLabel: pipelineStageLabels[pipelineStage],
     createdAt: toIsoString(jobData.createdAt),
     updatedAt: toIsoString(jobData.updatedAt),
   };
@@ -363,6 +375,9 @@ export function jobMatchesAdminSupportFilters(
     filters.issueType &&
     !summary.issueTypes.includes(filters.issueType)
   ) {
+    return false;
+  }
+  if (filters.pipelineStage && summary.pipelineStage !== filters.pipelineStage) {
     return false;
   }
   return true;

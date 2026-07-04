@@ -40,7 +40,7 @@ import {
   sanitizeOperatorJobSummary,
   selectBundleFiles,
 } from "./operatorConsole.js";
-import { canTransition, displayJobId } from "./pipeline.js";
+import { canTransition, displayJobId, pipelineStages } from "./pipeline.js";
 import {
   adminSupportDevelopmentAccessReason,
   adminSupportIssueTypes,
@@ -126,6 +126,7 @@ const listAdminSupportJobsSchema = z.object({
   jobStatus: z.string().trim().min(1).max(80).optional(),
   supportStatus: adminSupportStatusSchema.optional(),
   issueType: adminSupportIssueTypeSchema.optional(),
+  pipelineStage: z.enum(pipelineStages).optional(),
   search: z.string().trim().max(120).optional(),
   pageSize: z.coerce.number().int().min(1).max(50).default(25),
   cursor: jobIdSchema.optional(),
@@ -2452,6 +2453,7 @@ function buildAdminSupportFilters(
     ...(data.jobStatus ? { jobStatus: data.jobStatus } : {}),
     ...(data.supportStatus ? { supportStatus: data.supportStatus } : {}),
     ...(data.issueType ? { issueType: data.issueType } : {}),
+    ...(data.pipelineStage ? { pipelineStage: data.pipelineStage } : {}),
   };
 }
 
