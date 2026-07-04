@@ -3290,45 +3290,34 @@ async function operatorJobDetailPayload(jobId: string) {
   const detail = sanitizeOperatorJobDetail({ jobId, jobData, orderData });
 
   const bucketName = resolveRequiredEnv("APP_STORAGE_BUCKET");
-  let previewUrl: string | null = null;
   const thumbnailPath =
     (jobData.figurinePreview as { thumbnailPath?: string } | undefined)
       ?.thumbnailPath ??
     (typeof jobData.approvedImagePath === "string"
       ? jobData.approvedImagePath
       : null);
-  if (thumbnailPath) {
-    try {
-      const signed = await signedModelUrl({ bucketName, storagePath: thumbnailPath });
-      previewUrl = signed.url;
-    } catch {
-      previewUrl = null;
-    }
-  }
+  const bundlePath =
+    detail.bundle.status === "ready" ? detail.bundle.storagePath : null;
+  const bundleFiles = selectBundleFiles({ jobId, jobData });
+  const assetUrls = await operatorAssetUrls({
+    bucketName,
+    storagePaths: Array.from(
+      new Set(
+        [thumbnailPath, bundlePath, ...bundleFiles.map((file) => file.storagePath)]
+          .filter(
+            (storagePath): storagePath is string =>
+              typeof storagePath === "string" && storagePath.length > 0,
+          ),
+      ),
+    ),
+  });
 
-  let bundleUrl: string | null = null;
-  if (detail.bundle.status === "ready" && detail.bundle.storagePath) {
-    try {
-      const signed = await signedModelUrl({
-        bucketName,
-        storagePath: detail.bundle.storagePath,
-      });
-      bundleUrl = signed.url;
-    } catch {
-      bundleUrl = null;
-    }
-  }
-
-  const extraFiles = await Promise.all(
-    selectBundleFiles({ jobId, jobData }).map(async (file) => {
-      try {
-        const signed = await signedModelUrl({ bucketName, storagePath: file.storagePath });
-        return { name: file.name, url: signed.url };
-      } catch {
-        return { name: file.name, url: null };
-      }
-    }),
-  );
+  const previewUrl = thumbnailPath ? (assetUrls[thumbnailPath] ?? null) : null;
+  const bundleUrl = bundlePath ? (assetUrls[bundlePath] ?? null) : null;
+  const extraFiles = bundleFiles.map((file) => ({
+    name: file.name,
+    url: assetUrls[file.storagePath] ?? null,
+  }));
 
   return { job: { ...detail, previewUrl, bundleUrl, files: extraFiles } };
 }
