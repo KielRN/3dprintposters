@@ -142,6 +142,35 @@ The first implementation should isolate provider logic behind a small interface:
 - Receive provider status callback.
 - Retry or flag manual review.
 
+### Fulfillment Pipeline
+
+The operator console and post-payment lifecycle are implemented today (not parked), independent of which physical fulfillment provider is eventually chosen above. The stage vocabulary, transition rules, and derivation logic live in a single module mirrored between `apps/functions/src/pipeline.ts` and `apps/web/lib/pipeline.ts` (same copy-in-sync pattern as `figurineWorkflowConfig.ts`); the two files must be kept identical.
+
+**Stage list.** The full pipeline stage vocabulary, in order:
+
+`draft -> generating -> preview_ready -> 2d_approved -> 3d_ready -> paid -> accepted -> in_production -> shipped -> completed`
+
+with side paths off the fulfillment portion of the lifecycle (`paid` and later): `rejected_by_operator` and `refunded`, plus the pre-existing `canceled` and `failed` terminal states available at any point. The narrower `paid | accepted | in_production | shipped | completed | rejected_by_operator | refunded` set is the "fulfillment stage" subset with its own legal-transition table (for example `accepted` can move to `in_production`, `rejected_by_operator`, or `refunded`, but not directly to `shipped`); `canTransition(from, to)` enforces this before any operator/admin mutation is written.
+
+**`orders/{jobId}.fulfillment` object shape:**
+
+- `stage` - one of the fulfillment stages above.
+- `productionSubState` - free-form sub-status while `stage: "in_production"` (for example `"printing"`), settable via `operatorUpdateFulfillment`'s `set_production_substate` action.
+- `acceptedAt` / `acceptedBy` - set when an operator claims the job via `operatorAcceptJob`.
+- `rejection` - populated when an operator rejects a job (also posts a note into the admin-support notes system); cleared on re-queue.
+- `tracking` - shipping tracking details set on the `ship` action.
+- `refund` - Stripe refund metadata set by `adminRefundJob`.
+- `history` - append-only array of `{ stage, at, by }` entries, seeded by the Stripe webhook with the initial `paid` event and appended to on every subsequent transition.
+
+**`pipelineStage` on `jobs/{jobId}`.** The Stripe webhook and every operator/admin fulfillment mutation also stamp a denormalized `pipelineStage` (plus `pipelineUpdatedAt`) directly onto the job document, so the `/admin` and `/operator` work-queue lists can filter and sort on one field instead of joining the order doc per row. `derivePipelineStage` is the single source of truth for reading effective stage: it prefers the stamped `jobs/{jobId}.pipelineStage`, falls back to `orders/{jobId}.fulfillment.stage`, falls back to legacy paid-order detection (orders paid before this pipeline existed), and finally derives a pre-payment stage from job status/product-type fields for jobs that never reached checkout.
+
+**Operator allowlist.** A new `OPERATOR_ALLOWLIST` secret (same shape as `ADMIN_SUPPORT_ALLOWLIST`: UIDs or case-insensitive emails) gates the `/operator` route and its callables, separately from the admin support allowlist. Admins on `ADMIN_SUPPORT_ALLOWLIST` are implicitly treated as operators as well, so the product owner does not need a second allowlist entry to exercise the operator view; a plain operator is not implicitly an admin.
+
+**Required new secrets/env:**
+
+- `OPERATOR_ALLOWLIST` - operator console access, see above.
+- `STRIPE_FIGURINE_PAINTED_PRICE_ID` / `STRIPE_FIGURINE_UNPAINTED_PRICE_ID` - Stripe price ids selected by the customer's painted/unpainted figurine choice at checkout; both fall back to hardcoded prices if unset.
+
 ## Data Flow
 
 Active figurine target flow:

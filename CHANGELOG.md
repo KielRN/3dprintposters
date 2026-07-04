@@ -2,7 +2,15 @@
 
 All notable project changes will be documented in this file.
 
-## [Unreleased] - 2026-05-06
+## [Unreleased] - 2026-07-04
+
+### Added
+
+- Added an operator console at `/operator`, gated by a new `OPERATOR_ALLOWLIST` secret (admins on `ADMIN_SUPPORT_ALLOWLIST` are implicitly operators too, so the owner can exercise the operator view without a second allowlist entry). The console has three work-queue tabs (Available, My jobs, Shipped & Done) backed by read-only `listOperatorJobs`/`getOperatorJob` callables that return sanitized job summaries and signed preview/bundle/file URLs, plus a detail pane with stage-gated action buttons. Ship-to name/address and customer email stay hidden in both the list and detail views until a job reaches "accepted" or later, so operators cannot see customer PII on jobs they have not claimed.
+- Added the fulfillment pipeline: a Paid -> Accepted -> In Production -> Shipped -> Completed lifecycle with reject/refund side paths, implemented as a shared stage/transition module (mirrored between `apps/functions/src/pipeline.ts` and `apps/web/lib/pipeline.ts`) exposing the full pipeline stage vocabulary, the narrower fulfillment sub-stage vocabulary, legal-transition rules, and a `derivePipelineStage` helper that prefers a stamped `jobs/{jobId}.pipelineStage`, then falls back to `orders/{jobId}.fulfillment.stage`, then legacy paid-order detection, then job status/product-type fields for pre-payment stages. `operatorAcceptJob` claims a paid job and builds a curated downloadable print-bundle zip (via `archiver`) of the approved proof, generated model, and print files. `operatorUpdateFulfillment` is a single discriminated-union callable covering start_production, set_production_substate, reject, and ship; rejecting a job also posts a note into the existing admin-support notes system so support has visibility. `adminRefundJob` issues a real, idempotency-key-protected Stripe refund (admin-only), and `adminSetFulfillment` is an admin escape hatch to force-complete, re-queue, or cancel a job outside the normal operator flow.
+- Added the figurine paint option to figurine checkout: customers now choose painted or unpainted before paying, which selects between the `STRIPE_FIGURINE_PAINTED_PRICE_ID` and `STRIPE_FIGURINE_UNPAINTED_PRICE_ID` Stripe prices (falling back to hardcoded prices if the secrets are unset). Figurine checkout itself is unlocked for the first time behind `checkoutEligibility`; it was previously hard-blocked regardless of readiness.
+- Added shipping-address and customer name/email persistence on payment. The Stripe `checkout.session.completed` webhook now reads customer/shipping details off the completed session and writes them onto `orders/{jobId}` alongside a freshly initialized `fulfillment` object (`stage: "paid"`, with `productionSubState`/`acceptedAt`/`acceptedBy`/`rejection`/`tracking`/`refund` all null and a `history` array seeded with the paid event); it also stamps `pipelineStage: "paid"` onto `jobs/{jobId}` so job-list queries can filter/sort on a single denormalized field instead of joining the order doc. None of this was captured before this change.
+- Added a friendly pipeline-stage label and filter to the `/admin` Support jobs tab, plus a Fulfillment panel with Refund, Re-queue, and Mark-completed buttons wired to the new admin-only callables.
 
 ### Changed
 
