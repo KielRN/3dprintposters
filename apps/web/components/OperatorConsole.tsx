@@ -7,7 +7,7 @@ import {
 } from "@/lib/callableRetry";
 import { pipelineStageLabels, type FulfillmentStage } from "@/lib/pipeline";
 import { onAuthStateChanged, type User } from "firebase/auth";
-import { Home, Settings } from "lucide-react";
+import { Box, Home, Settings, Wrench } from "lucide-react";
 import { httpsCallable } from "firebase/functions";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -302,11 +302,29 @@ export function OperatorConsole() {
                 <h2 className="text-lg font-black">
                   {detail.customerName} — #{detail.displayId}
                 </h2>
-                <span
-                  className={`rounded-full border px-3 py-1 text-sm font-black ${stageTone(detail.stage)}`}
-                >
-                  {pipelineStageLabels[detail.stage]}
-                </span>
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <Link
+                    className="secondary-button h-10 min-h-0 px-3"
+                    href={`/jobs/${detail.jobId}?operator=1`}
+                  >
+                    <Box size={16} aria-hidden="true" />
+                    Preview Page
+                  </Link>
+                  {detail.productType === "figurine" ? (
+                    <Link
+                      className="primary-button h-10 min-h-0 px-3"
+                      href={`/jobs/${detail.jobId}/print-readiness?operator=1`}
+                    >
+                      <Wrench size={16} aria-hidden="true" />
+                      Print Readiness
+                    </Link>
+                  ) : null}
+                  <span
+                    className={`rounded-full border px-3 py-1 text-sm font-black ${stageTone(detail.stage)}`}
+                  >
+                    {pipelineStageLabels[detail.stage]}
+                  </span>
+                </div>
               </div>
               <p className="text-sm text-[var(--muted)]">
                 {detail.productType ?? "product"} ·{" "}
