@@ -95,6 +95,18 @@ export type AdminSupportJobDetail = AdminSupportJobSummary & {
     priceUnitAmount: number | null;
     updatedAt: string | null;
     createdAt: string | null;
+    customerName: string | null;
+    shippingAddress: Record<string, string | null> | null;
+    paintOption: string | null;
+    fulfillment: {
+      stage: string | null;
+      productionSubState: string | null;
+      acceptedByEmail: string | null;
+      trackingCarrier: string | null;
+      trackingNumber: string | null;
+      rejectionReason: string | null;
+      history: Array<{ stage: string | null; at: string | null; by: string | null; note: string | null }>;
+    } | null;
   } | null;
   aiGeneration: {
     provider: string | null;
@@ -385,6 +397,12 @@ export function jobMatchesAdminSupportFilters(
 
 function sanitizeOrder(orderData: Record<string, unknown>) {
   const priceSnapshot = asRecord(orderData.priceSnapshot);
+  const fulfillment = asRecord(orderData.fulfillment);
+  const acceptedBy = asRecord(fulfillment?.acceptedBy);
+  const tracking = asRecord(fulfillment?.tracking);
+  const rejection = asRecord(fulfillment?.rejection);
+  const shippingAddress = asRecord(orderData.shippingAddress);
+  const historyRaw = Array.isArray(fulfillment?.history) ? fulfillment.history : [];
   return {
     status: asString(orderData.status),
     paymentStatus: asString(orderData.paymentStatus),
@@ -394,6 +412,38 @@ function sanitizeOrder(orderData: Record<string, unknown>) {
     priceUnitAmount: asNumber(priceSnapshot?.unitAmount),
     updatedAt: toIsoString(orderData.updatedAt),
     createdAt: toIsoString(orderData.createdAt),
+    customerName: asString(orderData.customerName),
+    shippingAddress: shippingAddress
+      ? {
+          name: asString(shippingAddress.name),
+          line1: asString(shippingAddress.line1),
+          line2: asString(shippingAddress.line2),
+          city: asString(shippingAddress.city),
+          state: asString(shippingAddress.state),
+          postalCode: asString(shippingAddress.postalCode),
+          country: asString(shippingAddress.country),
+        }
+      : null,
+    paintOption: asString(orderData.paintOption),
+    fulfillment: fulfillment
+      ? {
+          stage: asString(fulfillment.stage),
+          productionSubState: asString(fulfillment.productionSubState),
+          acceptedByEmail: asString(acceptedBy?.email),
+          trackingCarrier: asString(tracking?.carrier),
+          trackingNumber: asString(tracking?.number),
+          rejectionReason: asString(rejection?.reason),
+          history: historyRaw.map((entry) => {
+            const item = asRecord(entry as Record<string, unknown>);
+            return {
+              stage: asString(item?.stage),
+              at: toIsoString(item?.at),
+              by: asString(item?.by),
+              note: asString(item?.note),
+            };
+          }),
+        }
+      : null,
   };
 }
 

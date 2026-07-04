@@ -19,6 +19,7 @@ import {
 import { httpsCallable } from "firebase/functions";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { pipelineStageLabels, pipelineStages, type PipelineStage } from "@/lib/pipeline";
 
 type SupportStatus = "open" | "watching" | "blocked" | "resolved";
 type ProductType = "poster" | "figurine";
@@ -65,6 +66,8 @@ type JobSummary = {
   jobCost: JobCostSummary;
   error: { stage: string | null; message: string | null } | null;
   issueTypes: IssueType[];
+  pipelineStage: PipelineStage;
+  pipelineStageLabel: string;
   createdAt: string | null;
   updatedAt: string | null;
 };
@@ -88,6 +91,18 @@ type JobDetail = JobSummary & {
     priceUnitAmount: number | null;
     updatedAt: string | null;
     createdAt: string | null;
+    customerName: string | null;
+    shippingAddress: Record<string, string | null> | null;
+    paintOption: string | null;
+    fulfillment: {
+      stage: string | null;
+      productionSubState: string | null;
+      acceptedByEmail: string | null;
+      trackingCarrier: string | null;
+      trackingNumber: string | null;
+      rejectionReason: string | null;
+      history: Array<{ stage: string | null; at: string | null; by: string | null; note: string | null }>;
+    } | null;
   } | null;
   aiGeneration: {
     provider: string | null;
@@ -126,6 +141,7 @@ type ListAdminSupportJobsRequest = {
   jobStatus?: string;
   supportStatus?: SupportStatus;
   issueType?: IssueType;
+  pipelineStage?: PipelineStage;
   search?: string;
   pageSize?: number;
   cursor?: string;
@@ -199,10 +215,17 @@ function compactRequest(input: ListAdminSupportJobsRequest) {
 }
 
 function statusTone(status: string | null | undefined) {
-  if (status === "resolved" || status === "paid" || status === "generated") {
+  if (
+    status === "resolved" || status === "paid" || status === "generated" ||
+    status === "accepted" || status === "in_production" || status === "shipped" ||
+    status === "completed" || status === "3d_ready"
+  ) {
     return "border-[var(--teal)]/30 bg-[var(--teal)]/10 text-[var(--teal)]";
   }
-  if (status === "blocked" || status === "failed" || status === "expired") {
+  if (
+    status === "blocked" || status === "failed" || status === "expired" ||
+    status === "rejected_by_operator" || status === "refunded" || status === "canceled"
+  ) {
     return "border-[var(--coral)]/30 bg-[var(--coral)]/10 text-[var(--coral)]";
   }
   return "border-[var(--gold)]/30 bg-[var(--gold)]/10 text-[#8a6412]";
@@ -240,11 +263,13 @@ export function AdminSupportJobs({ active }: { active: boolean }) {
   const [jobStatus, setJobStatus] = useState("");
   const [supportStatus, setSupportStatus] = useState<"" | SupportStatus>("");
   const [issueType, setIssueType] = useState<"" | IssueType>("");
+  const [pipelineStage, setPipelineStage] = useState<"" | PipelineStage>("");
   const [jobsLoading, setJobsLoading] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [noteBusy, setNoteBusy] = useState(false);
   const [noteBody, setNoteBody] = useState("");
   const [noteStatus, setNoteStatus] = useState<"" | SupportStatus>("");
+  const [fulfillmentBusy, setFulfillmentBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
 
@@ -254,6 +279,7 @@ export function AdminSupportJobs({ active }: { active: boolean }) {
     jobStatus,
     supportStatus,
     issueType,
+    pipelineStage,
   ].join("|");
 
   async function loadJobs(options: { append?: boolean; cursor?: string } = {}) {
@@ -277,6 +303,7 @@ export function AdminSupportJobs({ active }: { active: boolean }) {
         jobStatus: jobStatus.trim() || undefined,
         supportStatus: supportStatus || undefined,
         issueType: issueType || undefined,
+        pipelineStage: pipelineStage || undefined,
         pageSize: 25,
         cursor: options.cursor,
       });
@@ -363,6 +390,51 @@ export function AdminSupportJobs({ active }: { active: boolean }) {
     }
   }
 
+  async function refundJob() {
+    if (!firebaseClients || !selectedJob) {
+      return;
+    }
+    if (!window.confirm("Refund this job in Stripe? This cannot be undone.")) {
+      return;
+    }
+    setFulfillmentBusy(true);
+    setError("");
+    try {
+      const refund = httpsCallable<{ jobId: string }, { refundId: string }>(
+        firebaseClients.functions,
+        "adminRefundJob",
+      );
+      await refund({ jobId: selectedJob.jobId });
+      setNotice("Refund issued.");
+      await loadJob(selectedJob.jobId);
+    } catch (refundError) {
+      setError(callableErrorMessage(refundError, "Refund failed."));
+    } finally {
+      setFulfillmentBusy(false);
+    }
+  }
+
+  async function setFulfillment(action: "complete" | "requeue" | "cancel") {
+    if (!firebaseClients || !selectedJob) {
+      return;
+    }
+    setFulfillmentBusy(true);
+    setError("");
+    try {
+      const update = httpsCallable<{ jobId: string; action: string }, { ok: boolean }>(
+        firebaseClients.functions,
+        "adminSetFulfillment",
+      );
+      await update({ jobId: selectedJob.jobId, action });
+      setNotice("Fulfillment updated.");
+      await loadJob(selectedJob.jobId);
+    } catch (updateError) {
+      setError(callableErrorMessage(updateError, "Updating fulfillment failed."));
+    } finally {
+      setFulfillmentBusy(false);
+    }
+  }
+
   useEffect(() => {
     if (active) {
       void loadJobs();
@@ -378,7 +450,7 @@ export function AdminSupportJobs({ active }: { active: boolean }) {
   return (
     <section className="grid gap-5">
       <div className="panel rounded-lg p-4">
-        <div className="grid gap-3 lg:grid-cols-[minmax(180px,1.2fr)_150px_150px_150px_180px_auto]">
+        <div className="grid gap-3 lg:grid-cols-[minmax(180px,1.2fr)_150px_150px_150px_150px_180px_auto]">
           <label className="grid gap-1 text-xs font-bold uppercase text-[var(--muted)]">
             Search
             <div className="relative">
@@ -426,6 +498,23 @@ export function AdminSupportJobs({ active }: { active: boolean }) {
               {issueTypes.map((issue) => (
                 <option value={issue} key={issue}>
                   {label(issue)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="grid gap-1 text-xs font-bold uppercase text-[var(--muted)]">
+            Pipeline stage
+            <select
+              className="text-input"
+              value={pipelineStage}
+              onChange={(event) =>
+                setPipelineStage(event.target.value as "" | PipelineStage)
+              }
+            >
+              <option value="">All stages</option>
+              {pipelineStages.map((stage) => (
+                <option value={stage} key={stage}>
+                  {pipelineStageLabels[stage]}
                 </option>
               ))}
             </select>
@@ -478,8 +567,8 @@ export function AdminSupportJobs({ active }: { active: boolean }) {
                       {job.uid ?? "No UID"}
                     </p>
                   </div>
-                  <span className={`shrink-0 rounded-full border px-2 py-1 text-xs font-black ${statusTone(job.status)}`}>
-                    {label(job.status)}
+                  <span className={`shrink-0 rounded-full border px-2 py-1 text-xs font-black ${statusTone(job.pipelineStage)}`}>
+                    {job.pipelineStageLabel}
                   </span>
                 </div>
                 <div className="flex flex-wrap gap-1">
@@ -571,7 +660,8 @@ export function AdminSupportJobs({ active }: { active: boolean }) {
                   title="Job state"
                   rows={[
                     ["Product", label(selectedJob.productType)],
-                    ["Job", label(selectedJob.status)],
+                    ["Pipeline", selectedJob.pipelineStageLabel],
+                    ["Internal status", label(selectedJob.status)],
                     ["Readiness", label(selectedJob.readinessStatus)],
                     ["Print files", label(selectedJob.printFileStatus)],
                     ["Checkout", selectedJob.checkoutEligible === true ? "Eligible" : selectedJob.checkoutReason ?? "Not eligible"],
@@ -612,6 +702,66 @@ export function AdminSupportJobs({ active }: { active: boolean }) {
                   ]}
                 />
               </div>
+
+              {selectedJob.order?.fulfillment ? (
+                <div className="mt-4 rounded-lg border border-black/10 p-3">
+                  <h3 className="text-sm font-black">Fulfillment</h3>
+                  <dl className="mt-2 grid grid-cols-2 gap-2 text-sm">
+                    <dt className="text-[var(--muted)]">Stage</dt>
+                    <dd>{label(selectedJob.order.fulfillment.stage)}</dd>
+                    <dt className="text-[var(--muted)]">Operator</dt>
+                    <dd>{label(selectedJob.order.fulfillment.acceptedByEmail)}</dd>
+                    <dt className="text-[var(--muted)]">Sub-state</dt>
+                    <dd>{label(selectedJob.order.fulfillment.productionSubState)}</dd>
+                    <dt className="text-[var(--muted)]">Tracking</dt>
+                    <dd>
+                      {selectedJob.order.fulfillment.trackingNumber
+                        ? `${selectedJob.order.fulfillment.trackingCarrier ?? ""} ${selectedJob.order.fulfillment.trackingNumber}`
+                        : "Not shipped"}
+                    </dd>
+                    {selectedJob.order.fulfillment.rejectionReason ? (
+                      <>
+                        <dt className="text-[var(--muted)]">Rejected</dt>
+                        <dd>{selectedJob.order.fulfillment.rejectionReason}</dd>
+                      </>
+                    ) : null}
+                  </dl>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {["paid", "accepted", "in_production", "shipped", "completed"].includes(
+                      selectedJob.order.fulfillment.stage ?? "",
+                    ) ? (
+                      <button
+                        type="button"
+                        disabled={fulfillmentBusy}
+                        onClick={() => void refundJob()}
+                        className="rounded-lg border border-[var(--coral)] px-3 py-2 text-sm font-black text-[var(--coral)] disabled:opacity-50"
+                      >
+                        Refund
+                      </button>
+                    ) : null}
+                    {selectedJob.order.fulfillment.stage === "rejected_by_operator" ? (
+                      <button
+                        type="button"
+                        disabled={fulfillmentBusy}
+                        onClick={() => void setFulfillment("requeue")}
+                        className="rounded-lg border border-[var(--teal)] px-3 py-2 text-sm font-black text-[var(--teal)] disabled:opacity-50"
+                      >
+                        Re-queue for operator
+                      </button>
+                    ) : null}
+                    {selectedJob.order.fulfillment.stage === "shipped" ? (
+                      <button
+                        type="button"
+                        disabled={fulfillmentBusy}
+                        onClick={() => void setFulfillment("complete")}
+                        className="rounded-lg border border-[var(--teal)] px-3 py-2 text-sm font-black text-[var(--teal)] disabled:opacity-50"
+                      >
+                        Mark completed
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
 
               {selectedJob.error ? (
                 <div className="rounded-lg border border-[var(--coral)]/30 bg-[var(--coral)]/10 p-3 text-sm">
