@@ -10,8 +10,10 @@ import {
 import { getStorage } from "firebase-admin/storage";
 import { defineSecret } from "firebase-functions/params";
 import { HttpsError, onCall, onRequest } from "firebase-functions/v2/https";
+import archiver from "archiver";
 import { access, mkdir, writeFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
+import { PassThrough } from "node:stream";
 import path from "node:path";
 import Stripe from "stripe";
 import { z } from "zod";
@@ -30,6 +32,7 @@ import {
 import { runMeshyFigurinePrintTooling } from "./meshyPrintTooling.js";
 import { calculateJobCost } from "./jobCost.js";
 import {
+  buildJobSheet,
   customerFieldsFromSession,
   operatorTabStages,
   operatorTabs,
@@ -37,6 +40,7 @@ import {
   sanitizeOperatorJobSummary,
   selectBundleFiles,
 } from "./operatorConsole.js";
+import { canTransition, displayJobId } from "./pipeline.js";
 import {
   adminSupportDevelopmentAccessReason,
   adminSupportIssueTypes,
@@ -141,6 +145,26 @@ const listOperatorJobsSchema = z.object({
 const operatorJobIdSchema = z.object({
   jobId: jobIdSchema,
 });
+
+const operatorUpdateFulfillmentSchema = z.discriminatedUnion("action", [
+  z.object({ action: z.literal("start_production"), jobId: jobIdSchema }),
+  z.object({
+    action: z.literal("set_production_substate"),
+    jobId: jobIdSchema,
+    subState: z.enum(["printing", "painting"]),
+  }),
+  z.object({
+    action: z.literal("reject"),
+    jobId: jobIdSchema,
+    reason: z.string().min(5).max(2000),
+  }),
+  z.object({
+    action: z.literal("ship"),
+    jobId: jobIdSchema,
+    carrier: z.string().min(2).max(60),
+    trackingNumber: z.string().min(4).max(120),
+  }),
+]);
 
 const addAdminSupportNoteSchema = z.object({
   jobId: jobIdSchema,
@@ -3313,6 +3337,256 @@ export const getOperatorJob = onCall(
       throw new HttpsError("invalid-argument", "jobId is required.");
     }
     return operatorJobDetailPayload(parsed.data.jobId);
+  },
+);
+
+async function applyFulfillmentTransition(input: {
+  jobId: string;
+  toStage: string;
+  by: { uid: string; email: string | null };
+  note?: string;
+  extraOrderFields?: Record<string, unknown>;
+}) {
+  const jobRef = db.collection("jobs").doc(input.jobId);
+  const orderRef = db.collection("orders").doc(input.jobId);
+
+  await db.runTransaction(async (tx) => {
+    const orderSnap = await tx.get(orderRef);
+    const orderData = orderSnap.data();
+    if (!orderSnap.exists || !orderData) {
+      throw new HttpsError("failed-precondition", "This job has no paid order.");
+    }
+    const currentStage = (orderData.fulfillment as { stage?: unknown } | undefined)
+      ?.stage;
+    if (!canTransition(currentStage, input.toStage)) {
+      throw new HttpsError(
+        "failed-precondition",
+        `Cannot move this job from "${String(currentStage)}" to "${input.toStage}".`,
+      );
+    }
+    const now = FieldValue.serverTimestamp();
+    const extra = (input.extraOrderFields ?? {}) as Record<string, unknown>;
+    const extraFulfillment = (extra.fulfillment ?? {}) as Record<string, unknown>;
+    const { fulfillment: _ignored, ...extraTopLevel } = extra;
+    const previousFulfillment = (orderData.fulfillment ?? {}) as Record<string, unknown>;
+    tx.set(
+      orderRef,
+      {
+        fulfillment: {
+          ...previousFulfillment,
+          stage: input.toStage,
+          ...extraFulfillment,
+          history: FieldValue.arrayUnion({
+            stage: input.toStage,
+            at: Timestamp.now(),
+            by: input.by.email ?? input.by.uid,
+            ...(input.note ? { note: input.note } : {}),
+          }),
+        },
+        ...extraTopLevel,
+        updatedAt: now,
+      },
+      { merge: true },
+    );
+    tx.set(
+      jobRef,
+      { pipelineStage: input.toStage, pipelineUpdatedAt: now, updatedAt: now },
+      { merge: true },
+    );
+  });
+}
+
+async function buildPrintBundle(input: { jobId: string }): Promise<void> {
+  const orderRef = db.collection("orders").doc(input.jobId);
+  try {
+    const { jobData, orderData } = await loadOperatorJobDocs(input.jobId);
+    const files = selectBundleFiles({ jobId: input.jobId, jobData });
+    if (files.length === 0) {
+      throw new Error("No print artifacts found for this job.");
+    }
+    const bucketName = resolveRequiredEnv("APP_STORAGE_BUCKET");
+    const bucket = getStorage().bucket(bucketName);
+    const uid = typeof jobData.uid === "string" ? jobData.uid : "unknown";
+    const bundlePath = `print-files/${uid}/${input.jobId}/operator/print-bundle-${displayJobId(input.jobId).toLowerCase()}.zip`;
+
+    const archive = archiver("zip", { zlib: { level: 6 } });
+    const passthrough = new PassThrough();
+    const upload = bucket.file(bundlePath).save(passthrough, {
+      contentType: "application/zip",
+      resumable: false,
+    });
+    archive.pipe(passthrough);
+
+    archive.append(
+      buildJobSheet({ jobId: input.jobId, jobData, orderData }),
+      { name: "job-sheet.txt" },
+    );
+    for (const file of files) {
+      const [buffer] = await bucket.file(file.storagePath).download();
+      archive.append(buffer, { name: file.name });
+    }
+    await archive.finalize();
+    await upload;
+
+    await orderRef.set(
+      {
+        printBundle: {
+          status: "ready",
+          storagePath: bundlePath,
+          error: null,
+          builtAt: FieldValue.serverTimestamp(),
+        },
+      },
+      { merge: true },
+    );
+  } catch (error) {
+    await orderRef.set(
+      {
+        printBundle: {
+          status: "failed",
+          error: String(error).slice(0, 500),
+          builtAt: FieldValue.serverTimestamp(),
+        },
+      },
+      { merge: true },
+    );
+  }
+}
+
+export const operatorAcceptJob = onCall(
+  {
+    secrets: [adminSupportAllowlist, operatorAllowlist, appStorageBucket],
+    timeoutSeconds: 300,
+    memory: "1GiB",
+  },
+  async (request) => {
+    const operator = requireOperator(request);
+    const parsed = operatorJobIdSchema.safeParse(request.data);
+    if (!parsed.success) {
+      throw new HttpsError("invalid-argument", "jobId is required.");
+    }
+
+    await applyFulfillmentTransition({
+      jobId: parsed.data.jobId,
+      toStage: "accepted",
+      by: operator,
+      extraOrderFields: {
+        fulfillment: {
+          stage: "accepted",
+          acceptedAt: FieldValue.serverTimestamp(),
+          acceptedBy: { uid: operator.uid, email: operator.email },
+        },
+        printBundle: { status: "building", error: null },
+      },
+    });
+
+    await buildPrintBundle({ jobId: parsed.data.jobId });
+    return operatorJobDetailPayload(parsed.data.jobId);
+  },
+);
+
+export const operatorUpdateFulfillment = onCall(
+  {
+    secrets: [adminSupportAllowlist, operatorAllowlist, appStorageBucket],
+  },
+  async (request) => {
+    const operator = requireOperator(request);
+    const parsed = operatorUpdateFulfillmentSchema.safeParse(request.data);
+    if (!parsed.success) {
+      throw new HttpsError("invalid-argument", "Invalid fulfillment action.");
+    }
+    const data = parsed.data;
+
+    if (data.action === "start_production") {
+      await applyFulfillmentTransition({
+        jobId: data.jobId,
+        toStage: "in_production",
+        by: operator,
+        extraOrderFields: {
+          fulfillment: { stage: "in_production", productionSubState: "printing" },
+        },
+      });
+    } else if (data.action === "set_production_substate") {
+      const { orderRef, orderData } = await loadOperatorJobDocs(data.jobId);
+      const stage = (orderData.fulfillment as { stage?: unknown } | undefined)?.stage;
+      if (stage !== "in_production") {
+        throw new HttpsError(
+          "failed-precondition",
+          "Sub-state can only change while the job is in production.",
+        );
+      }
+      const previousFulfillment = (orderData.fulfillment ?? {}) as Record<string, unknown>;
+      await orderRef.set(
+        {
+          fulfillment: { ...previousFulfillment, productionSubState: data.subState },
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+    } else if (data.action === "reject") {
+      await applyFulfillmentTransition({
+        jobId: data.jobId,
+        toStage: "rejected_by_operator",
+        by: operator,
+        note: data.reason,
+        extraOrderFields: {
+          fulfillment: {
+            stage: "rejected_by_operator",
+            rejection: {
+              reason: data.reason,
+              at: Timestamp.now(),
+              by: operator.email ?? operator.uid,
+            },
+          },
+        },
+      });
+      // Surface the rejection in the existing admin-support workflow.
+      const jobRef = db.collection("jobs").doc(data.jobId);
+      const noteRef = jobRef.collection("supportNotes").doc();
+      const batch = db.batch();
+      batch.set(noteRef, {
+        body: `Print service rejected this job: ${data.reason}`,
+        statusChange: "open",
+        createdAt: FieldValue.serverTimestamp(),
+        createdByUid: operator.uid,
+        createdByEmail: operator.email,
+      });
+      batch.set(
+        jobRef,
+        {
+          supportSummary: {
+            status: "open",
+            noteCount: FieldValue.increment(1),
+            lastNoteAt: FieldValue.serverTimestamp(),
+            lastNoteByUid: operator.uid,
+            lastNoteByEmail: operator.email,
+            lastNotePreview: `Print service rejected: ${data.reason}`.slice(0, 160),
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+      await batch.commit();
+    } else {
+      await applyFulfillmentTransition({
+        jobId: data.jobId,
+        toStage: "shipped",
+        by: operator,
+        extraOrderFields: {
+          fulfillment: {
+            stage: "shipped",
+            tracking: {
+              carrier: data.carrier,
+              number: data.trackingNumber,
+              at: Timestamp.now(),
+            },
+          },
+        },
+      });
+    }
+
+    return operatorJobDetailPayload(data.jobId);
   },
 );
 
