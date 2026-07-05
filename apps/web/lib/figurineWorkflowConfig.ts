@@ -1,6 +1,9 @@
 export type WorkflowProductType = "poster" | "figurine";
 
 export type WorkflowProofMode = "generated_options" | "template_face_swap";
+export type WorkflowGenerationWorkflow =
+  | "creative_lab_figure"
+  | "direct_multi_image_to_3d";
 
 // Mirrors the Functions-side default: in template_face_swap mode this text is
 // sent to Vertex VERBATIM as the entire edit instruction, so the admin UI
@@ -28,6 +31,7 @@ export type WorkflowStyleConfig = {
   label: string;
   productType: WorkflowProductType;
   proofMode: WorkflowProofMode;
+  generationWorkflow: WorkflowGenerationWorkflow;
   prompt: string;
   enabled: boolean;
   referenceImages: WorkflowStyleReferenceImage[];
@@ -63,8 +67,20 @@ const approvedChibiStyle: WorkflowStyleConfig = {
   label: "Chibi",
   productType: "figurine",
   proofMode: "generated_options",
+  generationWorkflow: "creative_lab_figure",
   prompt:
     "Fully stylized chibi character, never photorealistic: oversized head about one third of the total height, compact rounded body, large expressive eyes, a simplified friendly face that keeps the subject clearly recognizable, chunky simplified hands and shoes, smooth vinyl-toy surfaces, and broad clean color regions. The proof must read as a finished stylized character illustration, not a photo of a person.",
+  enabled: true,
+  referenceImages: [],
+};
+
+const approvedHeroicFantasyMaleStyle: WorkflowStyleConfig = {
+  id: "heroic_fantasy_male",
+  label: "Heroic fantasy male",
+  productType: "figurine",
+  proofMode: "template_face_swap",
+  generationWorkflow: "direct_multi_image_to_3d",
+  prompt: defaultTemplateFaceSwapPrompt,
   enabled: true,
   referenceImages: [],
 };
@@ -76,24 +92,27 @@ export const defaultFigurineWorkflowConfig: FigurineWorkflowConfig = {
     "Use the uploaded photo as the identity and outfit reference. Preserve recognizable facial likeness, broad head shape, glasses or facial hair if present, and the main clothing color impression.",
     "The result should feel like a product-ready figurine proof that can guide a later 3D model generation step.",
   ].join("\n"),
-  visibleStyleCount: 2,
+  visibleStyleCount: 3,
   styles: [
     {
       id: "creative_lab_figure",
       label: "Creative Lab Figure",
       productType: "figurine",
       proofMode: "generated_options",
+      generationWorkflow: "creative_lab_figure",
       prompt:
         "Smooth chibi or emoji/avatar vinyl toy character, simplified expressive face, friendly proportions, clean silhouette, and broad color regions.",
       enabled: true,
       referenceImages: [],
     },
     approvedChibiStyle,
+    approvedHeroicFantasyMaleStyle,
     {
       id: "emoji_avatar",
       label: "Emoji Avatar",
       productType: "figurine",
       proofMode: "generated_options",
+      generationWorkflow: "creative_lab_figure",
       prompt:
         "Bright emoji-avatar character with a rounded head, expressive simple face, toy-like body, clean clothing shapes, and a friendly natural standing pose.",
       enabled: false,
@@ -104,6 +123,7 @@ export const defaultFigurineWorkflowConfig: FigurineWorkflowConfig = {
       label: "Bobblehead",
       productType: "figurine",
       proofMode: "generated_options",
+      generationWorkflow: "creative_lab_figure",
       prompt:
         "Bobblehead-inspired proof with an oversized expressive head, smaller sturdy body, clear facial likeness, and feet placed flat for later base assembly.",
       enabled: false,
@@ -114,6 +134,7 @@ export const defaultFigurineWorkflowConfig: FigurineWorkflowConfig = {
       label: "Cartoon Figure",
       productType: "figurine",
       proofMode: "generated_options",
+      generationWorkflow: "creative_lab_figure",
       prompt:
         "Polished cartoon figurine with smooth simplified shapes, readable outfit colors, friendly expression, and a clean manufacturable silhouette.",
       enabled: false,
@@ -154,9 +175,13 @@ export function normalizeFigurineWorkflowConfig(
     safeStyles,
     requestedVisibleStyleCount,
   );
-  const publicSafeStyles = applyLegacyVisibleStyleWindow(
+  const heroicSafeConfig = ensureApprovedHeroicFantasyMaleStyle(
     chibiSafeConfig.styles,
     chibiSafeConfig.visibleStyleCount,
+  );
+  const publicSafeStyles = applyLegacyVisibleStyleWindow(
+    heroicSafeConfig.styles,
+    heroicSafeConfig.visibleStyleCount,
   );
   const roleGate =
     config.roleGate && typeof config.roleGate === "object"
@@ -259,6 +284,10 @@ function normalizeWorkflowStyle(
       style.proofMode === "template_face_swap"
         ? "template_face_swap"
         : "generated_options",
+    generationWorkflow:
+      style.generationWorkflow === "direct_multi_image_to_3d"
+        ? "direct_multi_image_to_3d"
+        : "creative_lab_figure",
     prompt,
     enabled: style.enabled !== false,
     referenceImages: Array.isArray(style.referenceImages)
@@ -348,6 +377,59 @@ function ensureApprovedChibiStyle(
   return {
     styles: [...withoutChibi.slice(0, 1), chibi, ...withoutChibi.slice(1)],
     visibleStyleCount: Math.max(visibleStyleCount, 2),
+  };
+}
+
+function ensureApprovedHeroicFantasyMaleStyle(
+  styles: WorkflowStyleConfig[],
+  visibleStyleCount: number,
+): { styles: WorkflowStyleConfig[]; visibleStyleCount: number } {
+  const heroic = styles.find(
+    (style) => style.id === approvedHeroicFantasyMaleStyle.id,
+  );
+
+  if (!heroic) {
+    const chibiIndex = styles.findIndex(
+      (style) => style.id === approvedChibiStyle.id,
+    );
+    const insertIndex = chibiIndex >= 0 ? chibiIndex + 1 : Math.min(2, styles.length);
+    const withHeroic = [
+      ...styles.slice(0, insertIndex),
+      approvedHeroicFantasyMaleStyle,
+      ...styles.slice(insertIndex),
+    ].slice(0, 12);
+    return {
+      styles: withHeroic,
+      visibleStyleCount: Math.max(
+        visibleStyleCount,
+        Math.min(insertIndex + 1, withHeroic.length),
+      ),
+    };
+  }
+
+  const heroicVisibleIndex = styles
+    .filter((style) => style.enabled)
+    .findIndex((style) => style.id === approvedHeroicFantasyMaleStyle.id);
+  if (!heroic.enabled || heroicVisibleIndex < visibleStyleCount) {
+    return { styles, visibleStyleCount };
+  }
+
+  const withoutHeroic = styles.filter(
+    (style) => style.id !== approvedHeroicFantasyMaleStyle.id,
+  );
+  const chibiIndex = withoutHeroic.findIndex(
+    (style) => style.id === approvedChibiStyle.id,
+  );
+  const insertIndex =
+    chibiIndex >= 0 ? chibiIndex + 1 : Math.min(2, withoutHeroic.length);
+
+  return {
+    styles: [
+      ...withoutHeroic.slice(0, insertIndex),
+      heroic,
+      ...withoutHeroic.slice(insertIndex),
+    ],
+    visibleStyleCount: Math.max(visibleStyleCount, insertIndex + 1),
   };
 }
 

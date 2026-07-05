@@ -25,6 +25,7 @@ import {
 } from "./figurineWorkflow.js";
 import {
   buildCreativeLabFigurineFromPrototype,
+  generateDirectMultiImageFigurinePreview,
   generateCreativeLabFigurinePreview,
   generateCreativeLabPrototypeConcept,
   MeshyProviderTaskError,
@@ -62,6 +63,7 @@ import {
   saveFigurineWorkflowConfig as persistFigurineWorkflowConfig,
   validateFigurineWorkflowConfigInput,
   visibleWorkflowStyles,
+  type WorkflowGenerationWorkflow,
 } from "./figurineWorkflowConfig.js";
 
 initializeApp();
@@ -364,8 +366,12 @@ type ExistingFigurinePreviewAsset = {
   previewGlb: string;
   thumbnailPath: string | null;
   metadataPath: string;
-  prototypeTaskId: string;
-  buildTaskId: string;
+  workflow?: WorkflowGenerationWorkflow;
+  prototypeTaskId?: string;
+  buildTaskId?: string;
+  modelTaskId?: string;
+  printabilityTaskId?: string;
+  printabilityStatus?: string;
   availableFormats: string[];
   consumedCredits: number | null;
 };
@@ -928,9 +934,16 @@ async function tryReadExistingFigurinePreviewAsset(input: {
   try {
     const [metadataBytes] = await bucket.file(metadataPath).download();
     const metadata = JSON.parse(metadataBytes.toString("utf8")) as {
+      workflow?: unknown;
       thumbnailPath?: unknown;
       prototypeTask?: { id?: unknown; consumed_credits?: unknown };
       buildTask?: { id?: unknown; consumed_credits?: unknown };
+      modelTask?: { id?: unknown; consumed_credits?: unknown };
+      printabilityTask?: {
+        id?: unknown;
+        consumed_credits?: unknown;
+        printability?: { status?: unknown };
+      };
       availableFormats?: unknown;
     };
     const availableFormats = Array.isArray(metadata.availableFormats)
@@ -946,6 +959,18 @@ async function tryReadExistingFigurinePreviewAsset(input: {
       typeof metadata.buildTask?.consumed_credits === "number"
         ? metadata.buildTask.consumed_credits
         : 0;
+    const modelCredits =
+      typeof metadata.modelTask?.consumed_credits === "number"
+        ? metadata.modelTask.consumed_credits
+        : 0;
+    const printabilityCredits =
+      typeof metadata.printabilityTask?.consumed_credits === "number"
+        ? metadata.printabilityTask.consumed_credits
+        : 0;
+    const workflow =
+      metadata.workflow === "direct_multi_image_to_3d"
+        ? "direct_multi_image_to_3d"
+        : "creative_lab_figure";
 
     return {
       previewGlb,
@@ -954,18 +979,31 @@ async function tryReadExistingFigurinePreviewAsset(input: {
           ? metadata.thumbnailPath
           : null,
       metadataPath,
+      workflow,
       prototypeTaskId:
         typeof metadata.prototypeTask?.id === "string"
           ? metadata.prototypeTask.id
-          : "recovered-existing-prototype",
+          : undefined,
       buildTaskId:
         typeof metadata.buildTask?.id === "string"
           ? metadata.buildTask.id
-          : "recovered-existing-build",
+          : undefined,
+      modelTaskId:
+        typeof metadata.modelTask?.id === "string"
+          ? metadata.modelTask.id
+          : undefined,
+      printabilityTaskId:
+        typeof metadata.printabilityTask?.id === "string"
+          ? metadata.printabilityTask.id
+          : undefined,
+      printabilityStatus:
+        typeof metadata.printabilityTask?.printability?.status === "string"
+          ? metadata.printabilityTask.printability.status
+          : undefined,
       availableFormats,
       consumedCredits:
-        prototypeCredits || buildCredits
-          ? prototypeCredits + buildCredits
+        prototypeCredits || buildCredits || modelCredits || printabilityCredits
+          ? prototypeCredits + buildCredits + modelCredits + printabilityCredits
           : null,
     };
   } catch (error) {
@@ -977,8 +1015,7 @@ async function tryReadExistingFigurinePreviewAsset(input: {
       previewGlb,
       thumbnailPath: null,
       metadataPath,
-      prototypeTaskId: "recovered-existing-prototype",
-      buildTaskId: "recovered-existing-build",
+      workflow: "creative_lab_figure",
       availableFormats: ["glb"],
       consumedCredits: null,
     };
@@ -1005,10 +1042,14 @@ async function generateFigurinePreviewForApprovedJob(input: {
   jobId: string;
   uid: string;
   selectedImagePath: string;
+  generationWorkflow: WorkflowGenerationWorkflow;
   prototypeTaskId?: string;
 }): Promise<Awaited<ReturnType<typeof generateCreativeLabFigurinePreview>>> {
   const startedAt = Date.now();
-  const modelId = "creative-lab-original";
+  const modelId =
+    input.generationWorkflow === "direct_multi_image_to_3d"
+      ? "direct-multi-image-original"
+      : "creative-lab-original";
   const outputPrefix = `print-files/${input.uid}/${input.jobId}/figurine/${modelId}`;
   const bucketName = resolveRequiredEnv("APP_STORAGE_BUCKET");
 
@@ -1028,7 +1069,7 @@ async function generateFigurinePreviewForApprovedJob(input: {
       },
       figurineGeneration: {
         provider: "meshy",
-        workflow: "creative_lab_figure",
+        workflow: input.generationWorkflow,
         modelId,
         outputPrefix,
         status: "generating",
@@ -1049,35 +1090,104 @@ async function generateFigurinePreviewForApprovedJob(input: {
   const generation = existingAsset
     ? {
         provider: "meshy" as const,
-        workflow: "creative_lab_figure" as const,
+        workflow: existingAsset.workflow ?? input.generationWorkflow,
         modelId,
         previewGlb: existingAsset.previewGlb,
         thumbnailPath: existingAsset.thumbnailPath,
         metadataPath: existingAsset.metadataPath,
         prototypeTaskId: existingAsset.prototypeTaskId,
         buildTaskId: existingAsset.buildTaskId,
+        modelTaskId: existingAsset.modelTaskId,
+        printabilityTaskId: existingAsset.printabilityTaskId,
+        printabilityStatus: existingAsset.printabilityStatus,
         availableFormats: existingAsset.availableFormats,
         consumedCredits: existingAsset.consumedCredits,
         status: "preview_ready" as const,
       }
-    : input.prototypeTaskId
-      ? await buildCreativeLabFigurineFromPrototype({
+    : input.generationWorkflow === "direct_multi_image_to_3d"
+      ? await generateDirectMultiImageFigurinePreview({
           jobId: input.jobId,
           uid: input.uid,
           sourceImagePath: input.selectedImagePath,
           outputPrefix,
           modelId,
           apiKey: resolveMeshyApiKeyForFigurine(),
-          prototypeTaskId: input.prototypeTaskId,
         })
-      : await generateCreativeLabFigurinePreview({
-          jobId: input.jobId,
-          uid: input.uid,
-          sourceImagePath: input.selectedImagePath,
-          outputPrefix,
-          modelId,
-          apiKey: resolveMeshyApiKeyForFigurine(),
-        });
+      : input.prototypeTaskId
+        ? await buildCreativeLabFigurineFromPrototype({
+            jobId: input.jobId,
+            uid: input.uid,
+            sourceImagePath: input.selectedImagePath,
+            outputPrefix,
+            modelId,
+            apiKey: resolveMeshyApiKeyForFigurine(),
+            prototypeTaskId: input.prototypeTaskId,
+          })
+        : await generateCreativeLabFigurinePreview({
+            jobId: input.jobId,
+            uid: input.uid,
+            sourceImagePath: input.selectedImagePath,
+            outputPrefix,
+            modelId,
+            apiKey: resolveMeshyApiKeyForFigurine(),
+          });
+
+  const modelRecord = {
+    modelId: generation.modelId,
+    provider: generation.provider,
+    workflow: generation.workflow,
+    ...(generation.buildTaskId
+      ? { providerTaskId: generation.buildTaskId }
+      : generation.modelTaskId
+        ? { providerTaskId: generation.modelTaskId }
+        : {}),
+    ...(generation.prototypeTaskId
+      ? { prototypeTaskId: generation.prototypeTaskId }
+      : {}),
+    ...(generation.modelTaskId ? { modelTaskId: generation.modelTaskId } : {}),
+    ...(generation.printabilityTaskId
+      ? { printabilityTaskId: generation.printabilityTaskId }
+      : {}),
+    ...(generation.printabilityStatus
+      ? { printabilityStatus: generation.printabilityStatus }
+      : {}),
+    status: "preview_ready",
+    requestedFormats:
+      generation.workflow === "direct_multi_image_to_3d"
+        ? ["glb", "stl", "3mf"]
+        : ["glb"],
+    availableFormats: generation.availableFormats,
+    storagePaths: {
+      previewGlb: generation.previewGlb,
+      thumbnail: generation.thumbnailPath,
+      metadataJson: generation.metadataPath,
+    },
+    warnings: figurinePreviewWarnings,
+    consumedCredits: generation.consumedCredits,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  const figurineGeneration = {
+    provider: generation.provider,
+    workflow: generation.workflow,
+    modelId: generation.modelId,
+    status: existingAsset ? "recovered_existing_preview" : generation.status,
+    outputPrefix,
+    ...(generation.prototypeTaskId
+      ? { prototypeTaskId: generation.prototypeTaskId }
+      : {}),
+    ...(generation.buildTaskId ? { buildTaskId: generation.buildTaskId } : {}),
+    ...(generation.modelTaskId ? { modelTaskId: generation.modelTaskId } : {}),
+    ...(generation.printabilityTaskId
+      ? { printabilityTaskId: generation.printabilityTaskId }
+      : {}),
+    ...(generation.printabilityStatus
+      ? { printabilityStatus: generation.printabilityStatus }
+      : {}),
+    availableFormats: generation.availableFormats,
+    consumedCredits: generation.consumedCredits,
+    completedAt: FieldValue.serverTimestamp(),
+  };
 
   await input.jobRef.set(
     {
@@ -1095,26 +1205,7 @@ async function generateFigurinePreviewForApprovedJob(input: {
         reason:
           "Figurine checkout is locked until printability and slicer review are complete.",
       },
-      models: [
-        {
-          modelId: generation.modelId,
-          provider: generation.provider,
-          providerTaskId: generation.buildTaskId,
-          prototypeTaskId: generation.prototypeTaskId,
-          status: "preview_ready",
-          requestedFormats: ["glb"],
-          availableFormats: generation.availableFormats,
-          storagePaths: {
-            previewGlb: generation.previewGlb,
-            thumbnail: generation.thumbnailPath,
-            metadataJson: generation.metadataPath,
-          },
-          warnings: figurinePreviewWarnings,
-          consumedCredits: generation.consumedCredits,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-      ],
+      models: [modelRecord],
       figurinePreview: {
         status: "preview_ready",
         previewGlb: generation.previewGlb,
@@ -1127,25 +1218,16 @@ async function generateFigurinePreviewForApprovedJob(input: {
         thumbnail: generation.thumbnailPath,
         updatedAt: FieldValue.serverTimestamp(),
       },
-      figurineGeneration: {
-        provider: generation.provider,
-        workflow: generation.workflow,
-        modelId: generation.modelId,
-        status: existingAsset
-          ? "recovered_existing_preview"
-          : generation.status,
-        outputPrefix,
-        prototypeTaskId: generation.prototypeTaskId,
-        buildTaskId: generation.buildTaskId,
-        availableFormats: generation.availableFormats,
-        consumedCredits: generation.consumedCredits,
-        completedAt: FieldValue.serverTimestamp(),
-      },
+      figurineGeneration,
       printFileStatus: "not_applicable",
       printFileArtifacts: null,
       printability: {
         status: "needs_review",
-        checks: ["Creative Lab original textured GLB stored for preview only."],
+        checks: [
+          generation.workflow === "direct_multi_image_to_3d"
+            ? "Direct Multi-Image-to-3D textured GLB stored for preview only."
+            : "Creative Lab original textured GLB stored for preview only.",
+        ],
         warnings: figurinePreviewWarnings,
       },
       printFileError: null,
@@ -1370,6 +1452,7 @@ export const createGenerationJob = onCall(
         roleGateEnabled: workflowConfig.roleGate.enabled,
         styleReferenceImageCount: styleReferenceImages.length,
         styleReferenceImageIds: styleReferenceImages.map((image) => image.id),
+        generationWorkflow: workflowStyle.generationWorkflow,
       },
       ...(productType === "figurine"
         ? {
@@ -1377,7 +1460,7 @@ export const createGenerationJob = onCall(
             postureMode: "natural",
             conceptSource: "generated_2d_proof",
             generated3dProvider: "meshy",
-            generated3dWorkflow: "creative_lab_figure",
+            generated3dWorkflow: workflowStyle.generationWorkflow,
             readinessStatus: "concept_generating",
             checkoutEligibility: {
               eligible: false,
@@ -1436,15 +1519,57 @@ export const createGenerationJob = onCall(
         throw new Error("AI provider returned no generated proof image path.");
       }
 
-      // Template-face-swap styles skip the multi-proof review: the swapped
-      // image goes straight to a Meshy prototype, and the customer reviews
-      // Meshy's own figure concept before the build-phase credits are spent.
+      // Template-face-swap styles skip the multi-proof review. Creative Lab
+      // styles still use Meshy's concept gate; direct-3D styles review the
+      // swapped image before spending Multi-Image-to-3D credits.
       if (
         productType === "figurine" &&
         workflowStyle.proofMode === "template_face_swap" &&
         generation.status !== "stubbed"
       ) {
         const faceSwapImagePath = proofStoragePaths[0];
+        if (workflowStyle.generationWorkflow === "direct_multi_image_to_3d") {
+          await jobRef.set(
+            {
+              status: "preview_ready",
+              generatedImages: [
+                {
+                  id: "direct-3d-input-1",
+                  label: `${workflowStyle.label} direct-3D input`,
+                  storagePath: faceSwapImagePath,
+                  status: "ready",
+                  isPlaceholder: false,
+                },
+              ],
+              conceptSource: "direct_multi_image_to_3d_input",
+              aiGeneration: {
+                provider: generation.provider,
+                status: generation.status,
+                generatedImagePaths: generation.generatedImagePaths,
+                metadata: generation.metadata,
+                completedAt: FieldValue.serverTimestamp(),
+              },
+              readinessStatus: "concept_ready",
+              checkoutEligibility: {
+                eligible: false,
+                reason:
+                  "Generate the 3D figurine from the approved direct-3D input before checkout can be considered.",
+              },
+              updatedAt: FieldValue.serverTimestamp(),
+            },
+            { merge: true },
+          );
+          await refreshJobCostFromFirestore(
+            jobRef,
+            "proof_generation_completed",
+          );
+
+          return {
+            jobId: jobRef.id,
+            status: "preview_ready",
+          };
+        }
+
         const concept = await generateCreativeLabPrototypeConcept({
           jobId: jobRef.id,
           uid: request.auth.uid,
@@ -1698,6 +1823,10 @@ export const approveGeneratedImage = onCall(
     );
 
     if (isFigurineJob) {
+      const generationWorkflow: WorkflowGenerationWorkflow =
+        jobData.generated3dWorkflow === "direct_multi_image_to_3d"
+          ? "direct_multi_image_to_3d"
+          : "creative_lab_figure";
       try {
         const figurineConcept = jobData.figurineConcept as
           | { prototypeTaskId?: unknown }
@@ -1712,6 +1841,7 @@ export const approveGeneratedImage = onCall(
           jobId: jobRef.id,
           uid: request.auth.uid,
           selectedImagePath: parsed.data.imagePath,
+          generationWorkflow,
           prototypeTaskId: storedPrototypeTaskId,
         });
 
@@ -1742,7 +1872,7 @@ export const approveGeneratedImage = onCall(
             },
             figurineGeneration: {
               provider: "meshy",
-              workflow: "creative_lab_figure",
+              workflow: generationWorkflow,
               status: "failed",
               failedAt: FieldValue.serverTimestamp(),
             },

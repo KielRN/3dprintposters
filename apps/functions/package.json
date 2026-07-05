@@ -10,9 +10,10 @@
     "deploy": "firebase deploy --only functions",
     "test:admin-support": "npm run build && node --test test/adminSupport.test.mjs",
     "test:job-cost": "npm run build && node --test test/jobCost.test.mjs",
-    "test:workflow-config": "npm run build && node --test test/figurineWorkflowConfig.test.mjs test/aiProviderReferenceImages.test.mjs",
+    "test:workflow-config": "npm run build && node --test test/figurineWorkflowConfig.test.mjs test/aiProviderReferenceImages.test.mjs test/meshyFigurineProvider.test.mjs",
     "test:pipeline": "npm run build && node --test test/pipeline.test.mjs test/operatorConsole.test.mjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "seed:heroic-workflow": "node scripts/seed-heroic-workflow.mjs"
   },
   "engines": {
     "node": "22"

@@ -10,5 +10,9 @@ export function normalizeSelectedStyle(selectedStyle: string): string {
 }
 
 export function isFigurineStyle(selectedStyle: string): boolean {
-  return normalizeSelectedStyle(selectedStyle) === "creative_lab_figure";
+  return new Set([
+    "creative_lab_figure",
+    "chibi_figure",
+    "heroic_fantasy_male",
+  ]).has(normalizeSelectedStyle(selectedStyle));
 }

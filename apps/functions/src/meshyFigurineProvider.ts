@@ -24,6 +24,7 @@ type MeshyTask = {
   thumbnail_url?: string;
   texture_urls?: Array<Record<string, string | undefined>>;
   image_urls?: string[];
+  printability?: unknown;
 };
 
 type MeshyJsonResponse = {
@@ -82,16 +83,33 @@ export type FigurineProviderInput = {
 
 export type FigurineProviderOutput = {
   provider: "meshy";
-  workflow: "creative_lab_figure";
+  workflow: "creative_lab_figure" | "direct_multi_image_to_3d";
   modelId: string;
   previewGlb: string;
   thumbnailPath: string | null;
   metadataPath: string;
-  prototypeTaskId: string;
-  buildTaskId: string;
+  prototypeTaskId?: string;
+  buildTaskId?: string;
+  modelTaskId?: string;
+  printabilityTaskId?: string;
+  printabilityStatus?: string;
   availableFormats: string[];
   consumedCredits: number | null;
   status: "preview_ready";
+};
+
+export type DirectMultiImageTo3dRequest = {
+  image_urls: string[];
+  ai_model: "meshy-6";
+  should_texture: true;
+  enable_pbr: false;
+  should_remesh: true;
+  image_enhancement: true;
+  remove_lighting: true;
+  moderation: true;
+  target_formats: ["glb", "stl", "3mf"];
+  target_polycount: 100000;
+  save_pre_remeshed_model: true;
 };
 
 export async function generateCreativeLabFigurinePreview(
@@ -120,6 +138,138 @@ export async function generateCreativeLabFigurinePreview(
   });
 
   return runBuildPhase(input, prototypeTaskId, prototypeTask);
+}
+
+export function buildDirectMultiImageTo3dRequest(
+  imageUrls: string[],
+): DirectMultiImageTo3dRequest {
+  return {
+    image_urls: imageUrls,
+    ai_model: "meshy-6",
+    should_texture: true,
+    enable_pbr: false,
+    should_remesh: true,
+    image_enhancement: true,
+    remove_lighting: true,
+    moderation: true,
+    target_formats: ["glb", "stl", "3mf"],
+    target_polycount: 100000,
+    save_pre_remeshed_model: true,
+  };
+}
+
+export async function generateDirectMultiImageFigurinePreview(
+  input: FigurineProviderInput,
+): Promise<FigurineProviderOutput> {
+  if (process.env.MESHY_FIGURINE_PROVIDER_MODE === "fixture") {
+    return generateFixtureFigurinePreview(input, "direct_multi_image_to_3d");
+  }
+
+  const sourceImage = await readStorageImage(input.sourceImagePath);
+  const imageByteLimit = resolvePositiveIntegerEnv(
+    "MESHY_MAX_SOURCE_IMAGE_BYTES",
+    defaultSourceImageByteLimit,
+  );
+  if (sourceImage.buffer.byteLength > imageByteLimit) {
+    throw new Error(
+      `Figurine source image is ${sourceImage.buffer.byteLength} bytes, which exceeds the configured Meshy inline image limit of ${imageByteLimit} bytes.`,
+    );
+  }
+
+  const imageUrl = `data:${sourceImage.contentType};base64,${sourceImage.buffer.toString("base64")}`;
+  const modelTaskId = await createDirectMultiImageTo3dTask({
+    apiKey: input.apiKey,
+    imageUrls: [imageUrl],
+  });
+  const modelTask = await pollMeshyTask({
+    apiKey: input.apiKey,
+    endpoint: "/multi-image-to-3d",
+    taskId: modelTaskId,
+    label: "direct multi-image-to-3d",
+  });
+
+  if (modelTask.status !== "SUCCEEDED") {
+    throw new MeshyProviderTaskError({
+      taskId: modelTaskId,
+      label: "direct multi-image-to-3d",
+      task: modelTask,
+    });
+  }
+
+  const glbUrl = modelTask.model_urls?.glb;
+  if (!glbUrl) {
+    throw new Error("Meshy direct Multi-Image-to-3D returned no GLB model URL.");
+  }
+
+  const savedAssets = await saveDirectModelTaskAssets(input, modelTask);
+  let printabilityTaskId: string | undefined;
+  let printabilityTask: MeshyTask | undefined;
+  try {
+    printabilityTaskId = await createPrintabilityTask({
+      apiKey: input.apiKey,
+      inputTaskId: modelTaskId,
+    });
+    printabilityTask = await pollMeshyTask({
+      apiKey: input.apiKey,
+      endpoint: "/print/analyze",
+      taskId: printabilityTaskId,
+      label: "direct multi-image printability",
+    });
+  } catch (error) {
+    console.warn("Meshy direct Multi-Image-to-3D printability analysis failed", {
+      jobId: input.jobId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  const previewGlb = `${input.outputPrefix}/model.glb`;
+  const metadataPath = `${input.outputPrefix}/metadata.json`;
+  const bucket = getConfiguredStorageBucket();
+  const availableFormats = Object.entries(modelTask.model_urls ?? {})
+    .filter(([, url]) => Boolean(url))
+    .map(([format]) => format);
+  const providerMetadata = {
+    provider: "meshy",
+    workflow: "direct_multi_image_to_3d",
+    modelId: input.modelId,
+    sourceImagePath: input.sourceImagePath,
+    previewGlb,
+    thumbnailPath: savedAssets.thumbnailPath,
+    modelTask: sanitizeTask(modelTask),
+    printabilityTask: printabilityTask ? sanitizePrintabilityTask(printabilityTask) : null,
+    availableFormats,
+    savedAssets: savedAssets.assets,
+    canonicalUpstreamAsset: "model.glb",
+    downstreamPrintTooling: "not_run",
+    printReadiness: "needs_review",
+    createdAt: new Date().toISOString(),
+  };
+  await bucket.file(metadataPath).save(JSON.stringify(providerMetadata, null, 2), {
+    resumable: false,
+    metadata: {
+      contentType: "application/json",
+      cacheControl: "private, max-age=3600",
+      metadata: storageMetadata(input, "direct-multi-image-metadata", "direct_multi_image_to_3d"),
+    },
+  });
+
+  return {
+    provider: "meshy",
+    workflow: "direct_multi_image_to_3d",
+    modelId: input.modelId,
+    previewGlb,
+    thumbnailPath: savedAssets.thumbnailPath,
+    metadataPath,
+    modelTaskId,
+    printabilityTaskId,
+    printabilityStatus: printabilityStatus(printabilityTask),
+    availableFormats,
+    consumedCredits: sumConsumedCredits(
+      modelTask,
+      ...(printabilityTask ? [printabilityTask] : []),
+    ),
+    status: "preview_ready",
+  };
 }
 
 async function runPrototypePhase(input: {
@@ -254,6 +404,7 @@ async function runBuildPhase(
 
 async function generateFixtureFigurinePreview(
   input: FigurineProviderInput,
+  workflow: FigurineProviderOutput["workflow"] = "creative_lab_figure",
 ): Promise<FigurineProviderOutput> {
   const fixturePath = process.env.MESHY_FIGURINE_FIXTURE_GLB_PATH?.trim();
   if (!fixturePath) {
@@ -272,14 +423,14 @@ async function generateFixtureFigurinePreview(
     metadata: {
       contentType: "model/gltf-binary",
       cacheControl: "private, max-age=3600",
-      metadata: storageMetadata(input, "creative-lab-fixture-glb"),
+      metadata: storageMetadata(input, `${workflow}-fixture-glb`, workflow),
     },
   });
   await bucket.file(metadataPath).save(
     JSON.stringify(
       {
         provider: "meshy",
-        workflow: "creative_lab_figure",
+        workflow,
         modelId: input.modelId,
         sourceImagePath: input.sourceImagePath,
         previewGlb,
@@ -297,20 +448,24 @@ async function generateFixtureFigurinePreview(
       metadata: {
         contentType: "application/json",
         cacheControl: "private, max-age=3600",
-        metadata: storageMetadata(input, "creative-lab-fixture-metadata"),
+        metadata: storageMetadata(input, `${workflow}-fixture-metadata`, workflow),
       },
     },
   );
 
   return {
     provider: "meshy",
-    workflow: "creative_lab_figure",
+    workflow,
     modelId: input.modelId,
     previewGlb,
     thumbnailPath: null,
     metadataPath,
-    prototypeTaskId: "fixture-prototype",
-    buildTaskId: "fixture-build",
+    ...(workflow === "creative_lab_figure"
+      ? {
+          prototypeTaskId: "fixture-prototype",
+          buildTaskId: "fixture-build",
+        }
+      : { modelTaskId: "fixture-direct-model", printabilityTaskId: "fixture-analyze" }),
     availableFormats: ["glb"],
     consumedCredits: 0,
     status: "preview_ready",
@@ -514,6 +669,38 @@ async function createBuildTask(input: {
   return response.result;
 }
 
+async function createDirectMultiImageTo3dTask(input: {
+  apiKey: string;
+  imageUrls: string[];
+}): Promise<string> {
+  const response = (await meshyJson(input.apiKey, "/multi-image-to-3d", {
+    method: "POST",
+    body: buildDirectMultiImageTo3dRequest(input.imageUrls),
+  })) as MeshyJsonResponse;
+
+  if (!response.result) {
+    throw new Error("Meshy did not return a direct Multi-Image-to-3D task id.");
+  }
+
+  return response.result;
+}
+
+async function createPrintabilityTask(input: {
+  apiKey: string;
+  inputTaskId: string;
+}): Promise<string> {
+  const response = (await meshyJson(input.apiKey, "/print/analyze", {
+    method: "POST",
+    body: { input_task_id: input.inputTaskId },
+  })) as MeshyJsonResponse;
+
+  if (!response.result) {
+    throw new Error("Meshy did not return a printability task id.");
+  }
+
+  return response.result;
+}
+
 async function pollMeshyTask(input: {
   apiKey: string;
   endpoint: string;
@@ -702,6 +889,89 @@ async function saveRemoteFile(input: {
   });
 }
 
+async function saveDirectModelTaskAssets(
+  input: FigurineProviderInput,
+  task: MeshyTask,
+): Promise<{
+  assets: Array<{
+    kind: "model" | "thumbnail" | "texture";
+    format?: string;
+    map?: string;
+    storagePath: string;
+  }>;
+  thumbnailPath: string | null;
+}> {
+  const assets: Array<{
+    kind: "model" | "thumbnail" | "texture";
+    format?: string;
+    map?: string;
+    storagePath: string;
+  }> = [];
+
+  for (const [format, url] of Object.entries(task.model_urls ?? {})) {
+    if (!url) {
+      continue;
+    }
+    const filename =
+      format === "pre_remeshed_glb" ? "model.pre-remeshed.glb" : `model.${format}`;
+    const storagePath = `${input.outputPrefix}/${filename}`;
+    await saveRemoteFile({
+      url,
+      storagePath,
+      contentType: contentTypeForModelFormat(format),
+      metadata: storageMetadata(
+        input,
+        `direct-multi-image-${format}`,
+        "direct_multi_image_to_3d",
+      ),
+    });
+    assets.push({ kind: "model", format, storagePath });
+  }
+
+  const thumbnailPath = task.thumbnail_url
+    ? `${input.outputPrefix}/thumbnail.png`
+    : null;
+  if (task.thumbnail_url && thumbnailPath) {
+    await saveRemoteFile({
+      url: task.thumbnail_url,
+      storagePath: thumbnailPath,
+      contentType: "image/png",
+      metadata: storageMetadata(
+        input,
+        "direct-multi-image-thumbnail",
+        "direct_multi_image_to_3d",
+      ),
+    });
+    assets.push({ kind: "thumbnail", storagePath: thumbnailPath });
+  }
+
+  if (Array.isArray(task.texture_urls)) {
+    for (let index = 0; index < task.texture_urls.length; index += 1) {
+      const textureSet = task.texture_urls[index] ?? {};
+      for (const [mapName, url] of Object.entries(textureSet)) {
+        if (!url) {
+          continue;
+        }
+        const extension = extensionFromUrl(url, ".png");
+        const storagePath = `${input.outputPrefix}/textures/texture-${index}-${mapName}${extension}`;
+        await saveRemoteFile({
+          url,
+          storagePath,
+          contentType: extension === ".jpg" ? "image/jpeg" : "image/png",
+          metadata: storageMetadata(
+            input,
+            `direct-multi-image-texture-${mapName}`,
+            "direct_multi_image_to_3d",
+          ),
+        });
+        assets.push({ kind: "texture", map: mapName, storagePath });
+      }
+    }
+  }
+
+  return { assets, thumbnailPath };
+}
+
 function sanitizeTask(task: MeshyTask) {
   return {
     id: task.id,
@@ -723,6 +993,31 @@ function sanitizeTask(task: MeshyTask) {
       ? task.texture_urls.length
       : 0,
   };
+}
+
+function sanitizePrintabilityTask(task: MeshyTask) {
+  return {
+    id: task.id,
+    type: task.type,
+    status: task.status,
+    progress: task.progress,
+    created_at: task.created_at,
+    started_at: task.started_at,
+    finished_at: task.finished_at,
+    expires_at: task.expires_at,
+    consumed_credits: task.consumed_credits,
+    preceding_tasks: task.preceding_tasks,
+    task_error: task.task_error,
+    printability: task.printability,
+  };
+}
+
+function printabilityStatus(task: MeshyTask | undefined): string | undefined {
+  if (!task?.printability || typeof task.printability !== "object") {
+    return undefined;
+  }
+  const printability = task.printability as { status?: unknown };
+  return typeof printability.status === "string" ? printability.status : undefined;
 }
 
 export function sanitizeMeshyTaskError(
@@ -800,15 +1095,32 @@ function formatSanitizedTaskError(
 function storageMetadata(
   input: { jobId: string; uid: string; modelId: string },
   artifactRole: string,
+  workflow: FigurineProviderOutput["workflow"] = "creative_lab_figure",
 ): Record<string, string> {
   return {
     jobId: input.jobId,
     uid: input.uid,
     provider: "meshy",
-    workflow: "creative_lab_figure",
+    workflow,
     modelId: input.modelId,
     artifactRole,
   };
+}
+
+function contentTypeForModelFormat(format: string): string {
+  if (format === "glb" || format === "pre_remeshed_glb") {
+    return "model/gltf-binary";
+  }
+  if (format === "stl") {
+    return "model/stl";
+  }
+  if (format === "3mf") {
+    return "model/3mf";
+  }
+  if (format === "obj") {
+    return "model/obj";
+  }
+  return "application/octet-stream";
 }
 
 function sumConsumedCredits(...tasks: MeshyTask[]): number | null {

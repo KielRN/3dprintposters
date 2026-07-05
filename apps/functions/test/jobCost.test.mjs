@@ -44,6 +44,28 @@ function creativeLabJob() {
   };
 }
 
+function directMultiImageJob() {
+  return {
+    ...baseFigurineJob(),
+    figurineGeneration: {
+      provider: "meshy",
+      workflow: "direct_multi_image_to_3d",
+      status: "preview_ready",
+      modelTaskId: "direct-model-task",
+      printabilityTaskId: "analyze-direct",
+      consumedCredits: 30,
+    },
+    models: [
+      {
+        workflow: "direct_multi_image_to_3d",
+        modelTaskId: "direct-model-task",
+        status: "preview_ready",
+        consumedCredits: 30,
+      },
+    ],
+  };
+}
+
 function printToolingJob() {
   return {
     ...creativeLabJob(),
@@ -120,6 +142,21 @@ test("summarizes Creative Lab prototype and build credits", () => {
     [6, 30],
   );
 });
+
+test("summarizes direct Multi-Image-to-3D as one generation task", () => {
+  const cost = calculateJobCost(directMultiImageJob(), { now });
+
+  assert.equal(summarizeProviderCredits(cost).meshy, 30);
+  assert.equal(cost.totalsByProvider.meshy?.estimatedUsd, 0.6);
+  assert.deepEqual(
+    cost
+      .items
+      .filter((item) => item.phase === "figurine_generation")
+      .map((item) => [item.modelOrEndpoint, item.credits]),
+    [["Direct Multi-Image-to-3D", 30]],
+  );
+});
+
 
 test("totals successful print tooling without double-counting analyze rows", () => {
   const cost = calculateJobCost(printToolingJob(), { now });

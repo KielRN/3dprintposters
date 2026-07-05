@@ -77,6 +77,7 @@ const pricing = {
   geminiTextAllowanceUsd: 0.005,
   meshyCreativeLabPrototypeFallbackCredits: 6,
   meshyCreativeLabBuildFallbackCredits: 30,
+  meshyDirectMultiImageFallbackCredits: 30,
   meshyAnalyzeFallbackCredits: 0,
   meshyRepairFallbackCredits: 10,
   meshyRemeshFallbackCredits: 5,
@@ -99,6 +100,7 @@ export function calculateJobCost(
 
   addGeminiProofItems(state, jobData);
   addCreativeLabItems(state, jobData);
+  addDirectMultiImageItems(state, jobData);
   addPrintToolingItems(state, jobData);
   addFailedProviderTaskItems(state, jobData);
 
@@ -286,6 +288,11 @@ function addCreativeLabItems(
   jobData: Record<string, unknown>,
 ): void {
   const figurineGeneration = asRecord(jobData.figurineGeneration);
+  if (
+    asString(figurineGeneration?.workflow) === "direct_multi_image_to_3d"
+  ) {
+    return;
+  }
   const modelRows = Array.isArray(jobData.models) ? jobData.models : [];
   const modelRecords = modelRows
     .map((entry) => asRecord(entry))
@@ -357,6 +364,56 @@ function addCreativeLabItems(
       generationTotalCredits === undefined
         ? "Build task-level credits are not stored on this job; using configured fallback credits."
         : "GLB remains the canonical upstream preview asset; USD is estimated from credit price.",
+  });
+}
+
+function addDirectMultiImageItems(
+  state: MutableCostState,
+  jobData: Record<string, unknown>,
+): void {
+  const figurineGeneration = asRecord(jobData.figurineGeneration);
+  const modelRows = Array.isArray(jobData.models) ? jobData.models : [];
+  const modelRecords = modelRows
+    .map((entry) => asRecord(entry))
+    .filter((entry): entry is Record<string, unknown> => Boolean(entry));
+  const modelRecord =
+    modelRecords.find(
+      (entry) => asString(entry.workflow) === "direct_multi_image_to_3d",
+    ) ?? modelRecords.find((entry) => asString(entry.modelTaskId));
+
+  if (
+    asString(figurineGeneration?.workflow) !== "direct_multi_image_to_3d" &&
+    asString(modelRecord?.workflow) !== "direct_multi_image_to_3d"
+  ) {
+    return;
+  }
+
+  const credits =
+    asNumber(figurineGeneration?.consumedCredits) ??
+    asNumber(modelRecord?.consumedCredits) ??
+    pricing.meshyDirectMultiImageFallbackCredits;
+  const usedFallback =
+    asNumber(figurineGeneration?.consumedCredits) === undefined &&
+    asNumber(modelRecord?.consumedCredits) === undefined;
+
+  addMeshyItem(state, {
+    phase: "figurine_generation",
+    modelOrEndpoint: "Direct Multi-Image-to-3D",
+    taskId:
+      asString(figurineGeneration?.modelTaskId) ??
+      asString(modelRecord?.modelTaskId) ??
+      asString(modelRecord?.providerTaskId),
+    status: normalizeStatus(
+      asString(figurineGeneration?.status) ??
+        asString(modelRecord?.status) ??
+        "unknown",
+    ),
+    credits,
+    usedFallback,
+    pricingBasis:
+      "Meshy direct Multi-Image-to-3D generation is treated as the 30-credit task proven in Experiments 014 and 018a/b unless stored metadata says otherwise.",
+    notes:
+      "Analyze Printability is free and preview success does not imply print readiness.",
   });
 }
 

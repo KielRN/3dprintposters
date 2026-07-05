@@ -14,6 +14,7 @@ import {
   normalizeReferenceImageId,
   normalizeStyleId,
   type FigurineWorkflowConfig,
+  type WorkflowGenerationWorkflow,
   type WorkflowProductType,
   type WorkflowProofMode,
   type WorkflowStyleReferenceImage,
@@ -316,6 +317,7 @@ export function AdminWorkflowConfig({
           label: `Style ${styleNumber}`,
           productType: "figurine" as WorkflowProductType,
           proofMode: "generated_options" as WorkflowProofMode,
+          generationWorkflow: "creative_lab_figure" as WorkflowGenerationWorkflow,
           prompt:
             "Clean full-body stylized figurine proof with smooth toy-like surfaces, clear identity, visible hands, legs, shoes, and no base.",
           enabled: false,
@@ -805,7 +807,7 @@ export function AdminWorkflowConfig({
                   </button>
                 </div>
               </div>
-              <div className="mt-4 grid gap-2 sm:grid-cols-[minmax(220px,0.5fr)_minmax(0,1fr)] sm:items-end">
+              <div className="mt-4 grid gap-2 lg:grid-cols-[minmax(220px,0.35fr)_minmax(220px,0.35fr)_minmax(0,1fr)] lg:items-end">
                 <label className="grid gap-2 text-sm font-bold">
                   Image generation mode
                   <select
@@ -833,13 +835,34 @@ export function AdminWorkflowConfig({
                     </option>
                   </select>
                 </label>
+                <label className="grid gap-2 text-sm font-bold">
+                  3D workflow
+                  <select
+                    className="h-12 rounded-lg border border-black/15 bg-white px-3 font-semibold"
+                    value={style.generationWorkflow}
+                    onChange={(event) =>
+                      updateStyle(index, {
+                        generationWorkflow: event.target
+                          .value as WorkflowGenerationWorkflow,
+                      })
+                    }
+                  >
+                    <option value="creative_lab_figure">Creative Lab API</option>
+                    <option value="direct_multi_image_to_3d">
+                      Multi-Image-to-3D direct
+                    </option>
+                  </select>
+                </label>
                 {style.proofMode === "template_face_swap" ? (
                   <p className="rounded-lg border border-[var(--gold)]/30 bg-[var(--gold)]/10 px-3 py-2 text-sm font-semibold">
                     The first enabled reference image below is the fixed style
                     template and the customer photo replaces only the face.
                     The prompt below is sent to Vertex exactly as written —
-                    nothing else is added. The swapped image goes straight to
-                    the 3D provider. At least one enabled reference image is
+                    nothing else is added.
+                    {style.generationWorkflow === "direct_multi_image_to_3d"
+                      ? " The swapped image is the customer-reviewed direct Multi-Image-to-3D input."
+                      : " The swapped image goes through Meshy's Creative Lab concept gate before build."}
+                    {" "}At least one enabled reference image is
                     required.
                   </p>
                 ) : null}

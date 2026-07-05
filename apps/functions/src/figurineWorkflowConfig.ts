@@ -11,6 +11,9 @@ export type WorkflowProductType = "poster" | "figurine";
 // reference image is a fixed template; Vertex swaps the customer's face into
 // it and the single swapped image feeds the 3D provider directly.
 export type WorkflowProofMode = "generated_options" | "template_face_swap";
+export type WorkflowGenerationWorkflow =
+  | "creative_lab_figure"
+  | "direct_multi_image_to_3d";
 
 // In template_face_swap mode the style prompt is sent to Vertex VERBATIM as
 // the entire edit instruction — nothing is added or hidden. This is the
@@ -38,6 +41,7 @@ export type WorkflowStyleConfig = {
   label: string;
   productType: WorkflowProductType;
   proofMode: WorkflowProofMode;
+  generationWorkflow: WorkflowGenerationWorkflow;
   prompt: string;
   enabled: boolean;
   referenceImages: WorkflowStyleReferenceImage[];
@@ -81,8 +85,20 @@ export const approvedChibiStyle: WorkflowStyleConfig = {
   label: "Chibi",
   productType: "figurine",
   proofMode: "generated_options",
+  generationWorkflow: "creative_lab_figure",
   prompt:
     "Fully stylized chibi character, never photorealistic: oversized head about one third of the total height, compact rounded body, large expressive eyes, a simplified friendly face that keeps the subject clearly recognizable, chunky simplified hands and shoes, smooth vinyl-toy surfaces, and broad clean color regions. The proof must read as a finished stylized character illustration, not a photo of a person.",
+  enabled: true,
+  referenceImages: [],
+};
+
+export const approvedHeroicFantasyMaleStyle: WorkflowStyleConfig = {
+  id: "heroic_fantasy_male",
+  label: "Heroic fantasy male",
+  productType: "figurine",
+  proofMode: "template_face_swap",
+  generationWorkflow: "direct_multi_image_to_3d",
+  prompt: defaultTemplateFaceSwapPrompt,
   enabled: true,
   referenceImages: [],
 };
@@ -93,17 +109,20 @@ const defaultStyles: WorkflowStyleConfig[] = [
     label: "Creative Lab Figure",
     productType: "figurine",
     proofMode: "generated_options",
+    generationWorkflow: "creative_lab_figure",
     prompt:
       "Smooth chibi or emoji/avatar vinyl toy character, simplified expressive face, friendly proportions, clean silhouette, and broad color regions.",
     enabled: true,
     referenceImages: [],
   },
   approvedChibiStyle,
+  approvedHeroicFantasyMaleStyle,
   {
     id: "emoji_avatar",
     label: "Emoji Avatar",
     productType: "figurine",
     proofMode: "generated_options",
+    generationWorkflow: "creative_lab_figure",
     prompt:
       "Bright emoji-avatar character with a rounded head, expressive simple face, toy-like body, clean clothing shapes, and a friendly natural standing pose.",
     enabled: false,
@@ -114,6 +133,7 @@ const defaultStyles: WorkflowStyleConfig[] = [
     label: "Bobblehead",
     productType: "figurine",
     proofMode: "generated_options",
+    generationWorkflow: "creative_lab_figure",
     prompt:
       "Bobblehead-inspired proof with an oversized expressive head, smaller sturdy body, clear facial likeness, and feet placed flat for later base assembly.",
     enabled: false,
@@ -124,6 +144,7 @@ const defaultStyles: WorkflowStyleConfig[] = [
     label: "Cartoon Figure",
     productType: "figurine",
     proofMode: "generated_options",
+    generationWorkflow: "creative_lab_figure",
     prompt:
       "Polished cartoon figurine with smooth simplified shapes, readable outfit colors, friendly expression, and a clean manufacturable silhouette.",
     enabled: false,
@@ -134,7 +155,7 @@ const defaultStyles: WorkflowStyleConfig[] = [
 export const defaultFigurineWorkflowConfig: FigurineWorkflowConfig = {
   proofGenerationCount: 4,
   baseProofPrompt: defaultBaseProofPrompt,
-  visibleStyleCount: 2,
+  visibleStyleCount: 3,
   styles: defaultStyles,
   roleGate: {
     enabled: false,
@@ -149,6 +170,9 @@ const rawStyleSchema = z.object({
   label: z.string().trim().min(1).max(80),
   productType: z.enum(["poster", "figurine"]).optional(),
   proofMode: z.enum(["generated_options", "template_face_swap"]).optional(),
+  generationWorkflow: z
+    .enum(["creative_lab_figure", "direct_multi_image_to_3d"])
+    .optional(),
   prompt: z.string().trim().min(1).max(4000),
   enabled: z.boolean().optional(),
   referenceImages: z
@@ -212,18 +236,22 @@ export function normalizeFigurineWorkflowConfig(
     .slice(0, maxWorkflowStyles);
   const normalizedStyles =
     styles.length > 0 ? styles : defaultFigurineWorkflowConfig.styles;
-  const { styles: chibiSafeStyles, visibleStyleCount } =
-    ensureApprovedChibiStyle(
-      normalizedStyles,
-      clampInteger(
-        source.visibleStyleCount,
-        1,
-        normalizedStyles.length,
-        defaultFigurineWorkflowConfig.visibleStyleCount,
-      ),
+  const chibiSafeConfig = ensureApprovedChibiStyle(
+    normalizedStyles,
+    clampInteger(
+      source.visibleStyleCount,
+      1,
+      normalizedStyles.length,
+      defaultFigurineWorkflowConfig.visibleStyleCount,
+    ),
+  );
+  const { styles: approvedStyles, visibleStyleCount } =
+    ensureApprovedHeroicFantasyMaleStyle(
+      chibiSafeConfig.styles,
+      chibiSafeConfig.visibleStyleCount,
     );
   const safeStyles = applyLegacyVisibleStyleWindow(
-    chibiSafeStyles,
+    approvedStyles,
     visibleStyleCount,
   );
 
@@ -308,6 +336,7 @@ export function publicFigurineWorkflowConfig(
       label: style.label,
       productType: style.productType,
       proofMode: style.proofMode,
+      generationWorkflow: style.generationWorkflow,
       prompt: "Server-managed style prompt.",
       enabled: style.enabled,
       referenceImages: [],
@@ -368,6 +397,62 @@ function ensureApprovedChibiStyle(
   };
 }
 
+// Heroic fantasy male is the first approved direct Multi-Image-to-3D style.
+// Saved configs should gain it automatically unless an admin has explicitly
+// disabled an existing style with this id.
+function ensureApprovedHeroicFantasyMaleStyle(
+  styles: WorkflowStyleConfig[],
+  visibleStyleCount: number,
+): { styles: WorkflowStyleConfig[]; visibleStyleCount: number } {
+  const heroic = styles.find(
+    (style) => style.id === approvedHeroicFantasyMaleStyle.id,
+  );
+
+  if (!heroic) {
+    const chibiIndex = styles.findIndex(
+      (style) => style.id === approvedChibiStyle.id,
+    );
+    const insertIndex = chibiIndex >= 0 ? chibiIndex + 1 : Math.min(2, styles.length);
+    const withHeroic = [
+      ...styles.slice(0, insertIndex),
+      approvedHeroicFantasyMaleStyle,
+      ...styles.slice(insertIndex),
+    ].slice(0, maxWorkflowStyles);
+    return {
+      styles: withHeroic,
+      visibleStyleCount: Math.max(
+        visibleStyleCount,
+        Math.min(insertIndex + 1, withHeroic.length),
+      ),
+    };
+  }
+
+  const heroicVisibleIndex = styles
+    .filter((style) => style.enabled)
+    .findIndex((style) => style.id === approvedHeroicFantasyMaleStyle.id);
+  if (!heroic.enabled || heroicVisibleIndex < visibleStyleCount) {
+    return { styles, visibleStyleCount };
+  }
+
+  const withoutHeroic = styles.filter(
+    (style) => style.id !== approvedHeroicFantasyMaleStyle.id,
+  );
+  const chibiIndex = withoutHeroic.findIndex(
+    (style) => style.id === approvedChibiStyle.id,
+  );
+  const insertIndex =
+    chibiIndex >= 0 ? chibiIndex + 1 : Math.min(2, withoutHeroic.length);
+
+  return {
+    styles: [
+      ...withoutHeroic.slice(0, insertIndex),
+      heroic,
+      ...withoutHeroic.slice(insertIndex),
+    ],
+    visibleStyleCount: Math.max(visibleStyleCount, insertIndex + 1),
+  };
+}
+
 function applyLegacyVisibleStyleWindow(
   styles: WorkflowStyleConfig[],
   visibleStyleCount: number,
@@ -409,6 +494,7 @@ function normalizeWorkflowStyle(
     label,
     productType: rawStyle.productType ?? "figurine",
     proofMode: rawStyle.proofMode ?? "generated_options",
+    generationWorkflow: rawStyle.generationWorkflow ?? "creative_lab_figure",
     prompt,
     enabled: rawStyle.enabled ?? true,
     referenceImages: (rawStyle.referenceImages ?? [])
