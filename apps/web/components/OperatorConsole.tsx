@@ -12,7 +12,7 @@ import { httpsCallable } from "firebase/functions";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
-type OperatorTab = "available" | "mine" | "done";
+type OperatorTab = "all" | "available" | "mine" | "done";
 
 type OperatorJobSummary = {
   jobId: string;
@@ -46,6 +46,7 @@ type OperatorJobDetail = OperatorJobSummary & {
 };
 
 const tabs: Array<{ id: OperatorTab; label: string }> = [
+  { id: "all", label: "All Jobs" },
   { id: "available", label: "Available" },
   { id: "mine", label: "My jobs" },
   { id: "done", label: "Shipped & Done" },

@@ -71,6 +71,15 @@ function paidJob() {
 }
 
 test("operator tabs map to fulfillment stages", () => {
+  assert.deepEqual(operatorTabStages.all, [
+    "paid",
+    "accepted",
+    "in_production",
+    "shipped",
+    "completed",
+    "rejected_by_operator",
+    "refunded",
+  ]);
   assert.deepEqual(operatorTabStages.available, ["paid"]);
   assert.deepEqual(operatorTabStages.mine, [
     "accepted",

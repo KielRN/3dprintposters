@@ -1,5 +1,6 @@
 import {
   displayJobId,
+  fulfillmentStages,
   isFulfillmentStage,
   type FulfillmentStage,
 } from "./pipeline.js";
@@ -24,10 +25,11 @@ function isoDate(value: unknown): string | null {
   return null;
 }
 
-export const operatorTabs = ["available", "mine", "done"] as const;
+export const operatorTabs = ["all", "available", "mine", "done"] as const;
 export type OperatorTab = (typeof operatorTabs)[number];
 
 export const operatorTabStages: Record<OperatorTab, FulfillmentStage[]> = {
+  all: [...fulfillmentStages],
   available: ["paid"],
   mine: ["accepted", "in_production", "rejected_by_operator"],
   done: ["shipped", "completed", "refunded"],
