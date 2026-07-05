@@ -106,7 +106,7 @@ const defaultStyles: WorkflowStyleConfig[] = [
     proofMode: "generated_options",
     prompt:
       "Bright emoji-avatar character with a rounded head, expressive simple face, toy-like body, clean clothing shapes, and a friendly natural standing pose.",
-    enabled: true,
+    enabled: false,
     referenceImages: [],
   },
   {
@@ -116,7 +116,7 @@ const defaultStyles: WorkflowStyleConfig[] = [
     proofMode: "generated_options",
     prompt:
       "Bobblehead-inspired proof with an oversized expressive head, smaller sturdy body, clear facial likeness, and feet placed flat for later base assembly.",
-    enabled: true,
+    enabled: false,
     referenceImages: [],
   },
   {
@@ -126,7 +126,7 @@ const defaultStyles: WorkflowStyleConfig[] = [
     proofMode: "generated_options",
     prompt:
       "Polished cartoon figurine with smooth simplified shapes, readable outfit colors, friendly expression, and a clean manufacturable silhouette.",
-    enabled: true,
+    enabled: false,
     referenceImages: [],
   },
 ];
@@ -185,14 +185,19 @@ export function validateFigurineWorkflowConfigInput(
   rawConfig: unknown,
 ): string | null {
   const parsed = rawWorkflowConfigSchema.safeParse(rawConfig ?? {});
-  if (parsed.success) {
-    return null;
+  if (!parsed.success) {
+    return parsed.error.issues
+      .slice(0, 3)
+      .map((issue) => `${issue.path.join(".") || "config"}: ${issue.message}`)
+      .join("; ");
   }
 
-  return parsed.error.issues
-    .slice(0, 3)
-    .map((issue) => `${issue.path.join(".") || "config"}: ${issue.message}`)
-    .join("; ");
+  const config = normalizeFigurineWorkflowConfig(parsed.data);
+  if (visibleWorkflowStyles(config).length === 0) {
+    return "styles: At least one style must be shown publicly.";
+  }
+
+  return null;
 }
 
 export function normalizeFigurineWorkflowConfig(
@@ -207,14 +212,19 @@ export function normalizeFigurineWorkflowConfig(
     .slice(0, maxWorkflowStyles);
   const normalizedStyles =
     styles.length > 0 ? styles : defaultFigurineWorkflowConfig.styles;
-  const { styles: safeStyles, visibleStyleCount } = ensureApprovedChibiStyle(
-    normalizedStyles,
-    clampInteger(
-      source.visibleStyleCount,
-      1,
-      normalizedStyles.length,
-      defaultFigurineWorkflowConfig.visibleStyleCount,
-    ),
+  const { styles: chibiSafeStyles, visibleStyleCount } =
+    ensureApprovedChibiStyle(
+      normalizedStyles,
+      clampInteger(
+        source.visibleStyleCount,
+        1,
+        normalizedStyles.length,
+        defaultFigurineWorkflowConfig.visibleStyleCount,
+      ),
+    );
+  const safeStyles = applyLegacyVisibleStyleWindow(
+    chibiSafeStyles,
+    visibleStyleCount,
   );
 
   return {
@@ -226,7 +236,7 @@ export function normalizeFigurineWorkflowConfig(
     ),
     baseProofPrompt:
       source.baseProofPrompt ?? defaultFigurineWorkflowConfig.baseProofPrompt,
-    visibleStyleCount,
+    visibleStyleCount: publicStyleCount(safeStyles),
     styles: safeStyles,
     roleGate: {
       enabled:
@@ -276,9 +286,7 @@ export async function saveFigurineWorkflowConfig(input: {
 export function visibleWorkflowStyles(
   config: FigurineWorkflowConfig,
 ): WorkflowStyleConfig[] {
-  return config.styles
-    .filter((style) => style.enabled)
-    .slice(0, config.visibleStyleCount);
+  return config.styles.filter((style) => style.enabled);
 }
 
 export function enabledWorkflowStyleReferenceImages(
@@ -321,9 +329,8 @@ export function resolveVisibleWorkflowStyle(
 
 // Chibi is a user-approved product style (2026-07-03), so saved configs must
 // keep offering it: a missing style is reinserted, and an enabled style buried
-// outside the visible window is moved into view right after the lead style.
-// Admins hide it through the style's `enabled` flag, not by deleting or
-// burying it.
+// outside a legacy visibleStyleCount window is moved right after the lead style.
+// Admins hide it through the style's `enabled` flag, not by deleting it.
 function ensureApprovedChibiStyle(
   styles: WorkflowStyleConfig[],
   visibleStyleCount: number,
@@ -359,6 +366,30 @@ function ensureApprovedChibiStyle(
     styles: [...withoutChibi.slice(0, 1), chibi, ...withoutChibi.slice(1)],
     visibleStyleCount: Math.max(visibleStyleCount, 2),
   };
+}
+
+function applyLegacyVisibleStyleWindow(
+  styles: WorkflowStyleConfig[],
+  visibleStyleCount: number,
+): WorkflowStyleConfig[] {
+  const enabledIndexes = styles
+    .map((style, index) => (style.enabled ? index : -1))
+    .filter((index) => index >= 0);
+
+  if (enabledIndexes.length <= visibleStyleCount) {
+    return styles;
+  }
+
+  const publicIndexes = new Set(enabledIndexes.slice(0, visibleStyleCount));
+  return styles.map((style, index) =>
+    style.enabled && !publicIndexes.has(index)
+      ? { ...style, enabled: false }
+      : style,
+  );
+}
+
+function publicStyleCount(styles: WorkflowStyleConfig[]): number {
+  return styles.filter((style) => style.enabled).length;
 }
 
 function normalizeWorkflowStyle(

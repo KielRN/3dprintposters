@@ -58,6 +58,17 @@ export const maxWorkflowStyleReferenceImageBytes = 5 * 1024 * 1024;
 const referenceImageStoragePathPattern =
   /^admin\/workflow-style-references\/[a-z0-9_]{1,80}\/[a-zA-Z0-9_-]{8,80}\.(?:jpe?g|png)$/;
 
+const approvedChibiStyle: WorkflowStyleConfig = {
+  id: "chibi_figure",
+  label: "Chibi",
+  productType: "figurine",
+  proofMode: "generated_options",
+  prompt:
+    "Fully stylized chibi character, never photorealistic: oversized head about one third of the total height, compact rounded body, large expressive eyes, a simplified friendly face that keeps the subject clearly recognizable, chunky simplified hands and shoes, smooth vinyl-toy surfaces, and broad clean color regions. The proof must read as a finished stylized character illustration, not a photo of a person.",
+  enabled: true,
+  referenceImages: [],
+};
+
 export const defaultFigurineWorkflowConfig: FigurineWorkflowConfig = {
   proofGenerationCount: 4,
   baseProofPrompt: [
@@ -77,16 +88,7 @@ export const defaultFigurineWorkflowConfig: FigurineWorkflowConfig = {
       enabled: true,
       referenceImages: [],
     },
-    {
-      id: "chibi_figure",
-      label: "Chibi",
-      productType: "figurine",
-      proofMode: "generated_options",
-      prompt:
-        "Fully stylized chibi character, never photorealistic: oversized head about one third of the total height, compact rounded body, large expressive eyes, a simplified friendly face that keeps the subject clearly recognizable, chunky simplified hands and shoes, smooth vinyl-toy surfaces, and broad clean color regions. The proof must read as a finished stylized character illustration, not a photo of a person.",
-      enabled: true,
-      referenceImages: [],
-    },
+    approvedChibiStyle,
     {
       id: "emoji_avatar",
       label: "Emoji Avatar",
@@ -94,7 +96,7 @@ export const defaultFigurineWorkflowConfig: FigurineWorkflowConfig = {
       proofMode: "generated_options",
       prompt:
         "Bright emoji-avatar character with a rounded head, expressive simple face, toy-like body, clean clothing shapes, and a friendly natural standing pose.",
-      enabled: true,
+      enabled: false,
       referenceImages: [],
     },
     {
@@ -104,7 +106,7 @@ export const defaultFigurineWorkflowConfig: FigurineWorkflowConfig = {
       proofMode: "generated_options",
       prompt:
         "Bobblehead-inspired proof with an oversized expressive head, smaller sturdy body, clear facial likeness, and feet placed flat for later base assembly.",
-      enabled: true,
+      enabled: false,
       referenceImages: [],
     },
     {
@@ -114,7 +116,7 @@ export const defaultFigurineWorkflowConfig: FigurineWorkflowConfig = {
       proofMode: "generated_options",
       prompt:
         "Polished cartoon figurine with smooth simplified shapes, readable outfit colors, friendly expression, and a clean manufacturable silhouette.",
-      enabled: true,
+      enabled: false,
       referenceImages: [],
     },
   ],
@@ -142,6 +144,20 @@ export function normalizeFigurineWorkflowConfig(
     : defaultFigurineWorkflowConfig.styles;
   const safeStyles =
     styles.length > 0 ? styles : defaultFigurineWorkflowConfig.styles;
+  const requestedVisibleStyleCount = clampInteger(
+    config.visibleStyleCount,
+    1,
+    safeStyles.length,
+    defaultFigurineWorkflowConfig.visibleStyleCount,
+  );
+  const chibiSafeConfig = ensureApprovedChibiStyle(
+    safeStyles,
+    requestedVisibleStyleCount,
+  );
+  const publicSafeStyles = applyLegacyVisibleStyleWindow(
+    chibiSafeConfig.styles,
+    chibiSafeConfig.visibleStyleCount,
+  );
   const roleGate =
     config.roleGate && typeof config.roleGate === "object"
       ? config.roleGate
@@ -159,13 +175,8 @@ export function normalizeFigurineWorkflowConfig(
       config.baseProofPrompt.trim().length >= 20
         ? config.baseProofPrompt.trim()
         : defaultFigurineWorkflowConfig.baseProofPrompt,
-    visibleStyleCount: clampInteger(
-      config.visibleStyleCount,
-      1,
-      safeStyles.length,
-      defaultFigurineWorkflowConfig.visibleStyleCount,
-    ),
-    styles: safeStyles,
+    visibleStyleCount: publicStyleCount(publicSafeStyles),
+    styles: publicSafeStyles,
     roleGate: {
       enabled: Boolean(roleGate.enabled),
       requiredRole:
@@ -183,9 +194,7 @@ export function normalizeFigurineWorkflowConfig(
 export function visibleWorkflowStyles(
   config: FigurineWorkflowConfig,
 ): WorkflowStyleConfig[] {
-  return config.styles
-    .filter((style) => style.enabled)
-    .slice(0, config.visibleStyleCount);
+  return config.styles.filter((style) => style.enabled);
 }
 
 export function normalizeFigurineWorkflowConfigResponse(
@@ -303,6 +312,67 @@ function normalizeWorkflowStyleReferenceImage(
     mimeType,
     enabled: image.enabled !== false,
   };
+}
+
+function ensureApprovedChibiStyle(
+  styles: WorkflowStyleConfig[],
+  visibleStyleCount: number,
+): { styles: WorkflowStyleConfig[]; visibleStyleCount: number } {
+  const chibi = styles.find((style) => style.id === approvedChibiStyle.id);
+
+  if (!chibi) {
+    const withChibi = [
+      ...styles.slice(0, 1),
+      approvedChibiStyle,
+      ...styles.slice(1),
+    ].slice(0, 12);
+    return {
+      styles: withChibi,
+      visibleStyleCount: Math.max(
+        visibleStyleCount,
+        Math.min(2, withChibi.length),
+      ),
+    };
+  }
+
+  const chibiVisibleIndex = styles
+    .filter((style) => style.enabled)
+    .findIndex((style) => style.id === approvedChibiStyle.id);
+  if (!chibi.enabled || chibiVisibleIndex < visibleStyleCount) {
+    return { styles, visibleStyleCount };
+  }
+
+  const withoutChibi = styles.filter(
+    (style) => style.id !== approvedChibiStyle.id,
+  );
+  return {
+    styles: [...withoutChibi.slice(0, 1), chibi, ...withoutChibi.slice(1)],
+    visibleStyleCount: Math.max(visibleStyleCount, 2),
+  };
+}
+
+function applyLegacyVisibleStyleWindow(
+  styles: WorkflowStyleConfig[],
+  visibleStyleCount: number,
+): WorkflowStyleConfig[] {
+  const enabledIndexes = styles
+    .map((style, index) => (style.enabled ? index : -1))
+    .filter((index) => index >= 0);
+
+  if (enabledIndexes.length <= visibleStyleCount) {
+    return styles;
+  }
+
+  const publicIndexes = new Set(enabledIndexes.slice(0, visibleStyleCount));
+  return styles.map((style, index) =>
+    style.enabled && !publicIndexes.has(index)
+      ? { ...style, enabled: false }
+      : style,
+  );
+}
+
+function publicStyleCount(styles: WorkflowStyleConfig[]): number {
+  return styles.filter((style) => style.enabled).length;
 }
 
 function clampInteger(

@@ -2,7 +2,7 @@
 
 All notable project changes will be documented in this file.
 
-## [Unreleased] - 2026-07-04
+## [Unreleased] - 2026-07-05
 
 ### Added
 
@@ -24,6 +24,7 @@ All notable project changes will be documented in this file.
 ### Fixed
 
 - Fixed first-open `/admin` transient callable failures by retrying warm-up style Firebase Functions errors (`internal`, `unavailable`, and `deadline-exceeded`) with backoff for Support jobs, Workflow controls, and operator preview pages instead of requiring a manual browser refresh.
+- Fixed Workflow controls style visibility so the per-style `Show publicly` checkbox is the customer-facing visibility flag. Legacy configs with `visibleStyleCount` windows now normalize into real per-style public flags, defaults expose only Creative Lab Figure and Chibi while keeping future styles hidden/editable, and saves reject configs with no public styles.
 - Fixed `/operator` calling `getConsoleRole` before Firebase Auth finished restoring the signed-in user, which could show a false "not on the operator allowlist" message even though the guest/dev account was valid. The print console now waits for `onAuthStateChanged` before checking console role.
 - Fixed `/admin` Support jobs filtered lists showing a generic `INTERNAL` error when Firestore composite indexes were missing or still building. The support callable now detects missing-index failures, falls back to a recent-job scan for dev usability, and returns an actionable index message for unrecoverable cases.
 - Fixed the admin workflow-config clobber path found on 2026-07-04: when `getAdminFigurineWorkflowConfig` failed (emulator restart, transient error), the `/admin` Workflow controls page silently showed built-in defaults with Save enabled, and saving overwrote the real `adminConfig/figurineWorkflow` doc with defaults — wiping saved prompts, reference images, and proof modes. The page now flags the fallback state, disables Save until a real config loads, and the save callable rejects invalid payloads with `invalid-argument` instead of normalizing them to defaults.

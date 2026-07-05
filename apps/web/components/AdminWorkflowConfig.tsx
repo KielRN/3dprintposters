@@ -51,8 +51,8 @@ type AdminWorkflowConfigProps = {
   user?: User | null;
 };
 
-function enabledStyleCount(styles: WorkflowStyleConfig[]) {
-  return Math.max(1, styles.filter((style) => style.enabled).length);
+function countPublicStyles(styles: WorkflowStyleConfig[]) {
+  return styles.filter((style) => style.enabled).length;
 }
 
 function referenceImageStoragePath(input: {
@@ -246,6 +246,12 @@ export function AdminWorkflowConfig({
       return;
     }
 
+    const publicStyles = countPublicStyles(config.styles);
+    if (publicStyles === 0) {
+      setError("Show at least one public style before saving.");
+      return;
+    }
+
     setSaving(true);
     setNotice("");
     setError("");
@@ -255,8 +261,12 @@ export function AdminWorkflowConfig({
         SaveWorkflowConfigRequest,
         unknown
       >(firebaseClients.functions, "saveFigurineWorkflowConfig");
+      const configToSave = {
+        ...config,
+        visibleStyleCount: publicStyles,
+      };
       const result = await callWithTransientRetry(() =>
-        saveWorkflowConfig({ config }),
+        saveWorkflowConfig({ config: configToSave }),
       );
       setConfig(normalizeFigurineWorkflowConfigResponse(result.data));
       setConfigLoadFailed(false);
@@ -282,13 +292,15 @@ export function AdminWorkflowConfig({
       const styles = currentConfig.styles.map((style, styleIndex) =>
         styleIndex === index ? { ...style, ...patch } : style,
       );
+      const publicStyles = countPublicStyles(styles);
+
+      if (publicStyles === 0) {
+        return currentConfig;
+      }
 
       return {
         ...currentConfig,
-        visibleStyleCount: Math.min(
-          currentConfig.visibleStyleCount,
-          enabledStyleCount(styles),
-        ),
+        visibleStyleCount: publicStyles,
         styles,
       };
     });
@@ -306,17 +318,14 @@ export function AdminWorkflowConfig({
           proofMode: "generated_options" as WorkflowProofMode,
           prompt:
             "Clean full-body stylized figurine proof with smooth toy-like surfaces, clear identity, visible hands, legs, shoes, and no base.",
-          enabled: true,
+          enabled: false,
           referenceImages: [],
         },
       ];
 
       return {
         ...currentConfig,
-        visibleStyleCount: Math.min(
-          Math.max(currentConfig.visibleStyleCount, 1),
-          enabledStyleCount(styles),
-        ),
+        visibleStyleCount: countPublicStyles(styles),
         styles,
       };
     });
@@ -331,13 +340,15 @@ export function AdminWorkflowConfig({
       const styles = currentConfig.styles.filter(
         (_style, styleIndex) => styleIndex !== index,
       );
+      const publicStyles = countPublicStyles(styles);
+
+      if (publicStyles === 0) {
+        return currentConfig;
+      }
 
       return {
         ...currentConfig,
-        visibleStyleCount: Math.min(
-          currentConfig.visibleStyleCount,
-          enabledStyleCount(styles),
-        ),
+        visibleStyleCount: publicStyles,
         styles,
       };
     });
@@ -472,7 +483,14 @@ export function AdminWorkflowConfig({
     }
   }
 
-  const maxVisibleStyles = enabledStyleCount(config.styles);
+  const publicStyles = config.styles.filter((style) => style.enabled);
+  const publicStyleNames = publicStyles.map((style) => style.label).join(", ");
+  const saveDisabled =
+    !user ||
+    saving ||
+    configLoading ||
+    configLoadFailed ||
+    publicStyles.length === 0;
 
   return (
     <section
@@ -547,11 +565,13 @@ export function AdminWorkflowConfig({
           <button
             className="primary-button h-10 min-h-0 px-3"
             type="button"
-            disabled={!user || saving || configLoading || configLoadFailed}
+            disabled={saveDisabled}
             onClick={saveConfig}
             title={
               configLoadFailed
                 ? "Saving is disabled because the saved config could not be loaded."
+                : publicStyles.length === 0
+                  ? "Show at least one public style before saving."
                 : undefined
             }
           >
@@ -621,24 +641,12 @@ export function AdminWorkflowConfig({
                 }
               />
             </label>
-            <label className="grid gap-2 text-sm font-bold">
-              Visible styles
-              <input
-                className="text-input"
-                min={1}
-                max={maxVisibleStyles}
-                type="number"
-                value={config.visibleStyleCount}
-                onChange={(event) =>
-                  updateConfig({
-                    visibleStyleCount: Number.parseInt(
-                      event.target.value,
-                      10,
-                    ),
-                  })
-                }
-              />
-            </label>
+            <div className="grid gap-2 rounded-lg border border-black/10 bg-white px-3 py-2 text-sm font-bold">
+              <span>Public styles</span>
+              <strong className="min-w-0 break-words">
+                {publicStyles.length}: {publicStyleNames || "None"}
+              </strong>
+            </div>
           </div>
 
           <label className="mt-5 grid gap-2 text-sm font-bold">
@@ -756,23 +764,42 @@ export function AdminWorkflowConfig({
                   </select>
                 </label>
                 <div className="flex items-end gap-2">
-                  <label className="flex h-12 flex-1 items-center justify-center gap-2 rounded-lg border border-black/10 px-3 text-sm font-bold">
+                  <label
+                    className={`flex h-12 flex-1 items-center justify-center gap-2 rounded-lg border border-black/10 px-3 text-sm font-bold ${
+                      style.enabled && publicStyles.length <= 1
+                        ? "opacity-60"
+                        : ""
+                    }`}
+                    title={
+                      style.enabled && publicStyles.length <= 1
+                        ? "At least one style must stay public."
+                        : "Show on the public style selector."
+                    }
+                  >
                     <input
                       className="h-4 w-4 accent-[var(--teal)]"
                       checked={style.enabled}
+                      disabled={style.enabled && publicStyles.length <= 1}
                       type="checkbox"
                       onChange={(event) =>
                         updateStyle(index, { enabled: event.target.checked })
                       }
                     />
-                    Show
+                    Show publicly
                   </label>
                   <button
                     className="secondary-button h-12 min-h-0 w-12 px-0"
                     type="button"
-                    disabled={config.styles.length <= 1}
+                    disabled={
+                      config.styles.length <= 1 ||
+                      (style.enabled && publicStyles.length <= 1)
+                    }
                     onClick={() => removeStyle(index)}
-                    title="Remove style"
+                    title={
+                      style.enabled && publicStyles.length <= 1
+                        ? "At least one style must stay public."
+                        : "Remove style"
+                    }
                   >
                     <Trash2 size={16} aria-hidden="true" />
                   </button>

@@ -88,11 +88,24 @@ test("workflow config drops invalid reference image paths and MIME types", () =>
   );
 });
 
-test("default workflow config exposes the approved chibi style in the UI", () => {
+test("default workflow config exposes only the approved public styles", () => {
   const config = normalizeFigurineWorkflowConfig({});
   const visibleIds = visibleWorkflowStyles(config).map((style) => style.id);
 
-  assert.ok(visibleIds.includes("chibi_figure"));
+  assert.deepEqual(visibleIds, ["creative_lab_figure", "chibi_figure"]);
+  assert.equal(config.visibleStyleCount, 2);
+  assert.equal(
+    config.styles.find((style) => style.id === "emoji_avatar")?.enabled,
+    false,
+  );
+  assert.equal(
+    config.styles.find((style) => style.id === "bobblehead")?.enabled,
+    false,
+  );
+  assert.equal(
+    config.styles.find((style) => style.id === "cartoon_figure")?.enabled,
+    false,
+  );
 });
 
 test("saved configs that predate the chibi approval get it back and visible", () => {
@@ -118,13 +131,17 @@ test("saved configs that predate the chibi approval get it back and visible", ()
     visibleWorkflowStyles(config).map((style) => style.id),
     ["creative_lab_figure", "chibi_figure"],
   );
+  assert.equal(
+    config.styles.find((style) => style.id === "emoji_avatar")?.enabled,
+    false,
+  );
 });
 
-test("saved configs with chibi buried outside the visible window move it into view", () => {
+test("legacy configs with chibi buried outside the visible window move it into view", () => {
   // Mirrors the real adminConfig/figurineWorkflow doc saved 2026-06-19: all
-  // five old default styles including chibi_figure, with visibleStyleCount 1.
+  // five old default styles including chibi_figure, with visibleStyleCount 2.
   const config = normalizeFigurineWorkflowConfig({
-    visibleStyleCount: 1,
+    visibleStyleCount: 2,
     styles: [
       {
         label: "Creative Lab Figure",
@@ -160,6 +177,16 @@ test("saved configs with chibi buried outside the visible window move it into vi
   );
   assert.equal(config.visibleStyleCount, 2);
   assert.equal(config.styles.length, 5);
+  assert.deepEqual(
+    config.styles.map((style) => [style.id, style.enabled]),
+    [
+      ["creative_lab_figure", true],
+      ["chibi_figure", true],
+      ["emoji_avatar", false],
+      ["bobblehead", false],
+      ["cartoon_figure", false],
+    ],
+  );
 });
 
 test("an admin-disabled chibi style stays disabled and hidden", () => {
@@ -241,6 +268,28 @@ test("save-path validation rejects invalid payloads instead of defaulting", () =
     ],
   });
   assert.equal(validResult, null);
+});
+
+test("save-path validation rejects configs with no public styles", () => {
+  const result = validateFigurineWorkflowConfigInput({
+    visibleStyleCount: 2,
+    styles: [
+      {
+        label: "Creative Lab Figure",
+        id: "creative_lab_figure",
+        prompt: "Smooth toy figure proof.",
+        enabled: false,
+      },
+      {
+        label: "Chibi",
+        id: "chibi_figure",
+        prompt: "Chibi proof.",
+        enabled: false,
+      },
+    ],
+  });
+
+  assert.match(result ?? "", /At least one style/);
 });
 
 test("public workflow config strips prompt references and storage paths", () => {
