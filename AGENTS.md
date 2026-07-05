@@ -58,6 +58,12 @@ npm run graphify:update:global  # also merge this repo into the user-level globa
 - The skill lives at `.agents/skills/cloudflare-3dprintyou/SKILL.md` and includes the account-scoped token verification pattern, known project zone IDs, and safe commands that do not print secrets.
 - Prefer read-only Cloudflare inspection before mutating live DNS or Worker configuration. State the intended external change before applying it, and ask first if it could disrupt live traffic.
 
+## Dev Seeding Skill
+
+- Use the repo-scoped `$seed-dev-paid-order` skill when a dev/test job must appear in the Print Console by being seeded as a paid order.
+- The skill lives at `.agents/skills/seed-dev-paid-order/SKILL.md` and wraps `npm run dev:seed-paid-order -- <jobId>`.
+- The seeder mirrors the Stripe webhook's paid-order shape for dev data: `jobs/{jobId}.pipelineStage = "paid"` plus paid `orders/{jobId}` status, payment status, and fulfillment stage. Do not use it as proof of a real payment.
+
 ## Project Shape
 
 - Web app: `apps/web`, Next.js PWA.

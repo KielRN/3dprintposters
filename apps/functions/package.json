@@ -13,6 +13,7 @@
     "test:workflow-config": "npm run build && node --test test/figurineWorkflowConfig.test.mjs test/aiProviderReferenceImages.test.mjs test/meshyFigurineProvider.test.mjs",
     "test:pipeline": "npm run build && node --test test/pipeline.test.mjs test/operatorConsole.test.mjs",
     "typecheck": "tsc --noEmit",
+    "seed:dev-paid-order": "node scripts/seed-dev-paid-order.mjs",
     "seed:heroic-workflow": "node scripts/seed-heroic-workflow.mjs"
   },
   "engines": {

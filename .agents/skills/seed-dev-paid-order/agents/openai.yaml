@@ -1,0 +1,4 @@
+interface:
+  display_name: "Seed Dev Paid Order"
+  short_description: "Seed dev jobs into Print Console"
+  default_prompt: "Use $seed-dev-paid-order to mark a dev 3DPrintPosters job as paid for Print Console testing."
