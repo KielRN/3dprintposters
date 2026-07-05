@@ -16,6 +16,7 @@ All notable project changes will be documented in this file.
 
 ### Changed
 
+- Documented the live standalone `3DPrintYou` coming-soon deployment: `https://3dprintyou.com` is now the canonical public SEO apex on Railway/Cloudflare from `KielRN/3dprintyou`, while `api.3dprintyou.com` remains the Meshy webhook Worker and `www.3dprintyou.com` still needs the Railway custom-domain or Cloudflare redirect follow-up.
 - Changed the figurine base-name action so "Save name and generate base" always keeps the front name enabled and automatically generates the body/base assembly package after the named base is created. The print-readiness page no longer exposes a separate "Assemble package" action.
 - Changed the job preview page's print-readiness CTA from "Open review" to a larger primary "Print Readiness" button.
 - Changed the template-face-swap prompt contract on 2026-07-04 so the admin is never guessing what reaches the model: in face-swap mode the style prompt is sent to Vertex verbatim as the entire edit instruction (the built-in default is only a blank-prompt safety net), the `/admin` style card prefills the full default swap prompt when the mode is selected and relabels the field "Vertex face-swap prompt (sent exactly as written)", and the mode selector is now labeled "Image generation mode" with clearer option names.

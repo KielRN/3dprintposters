@@ -40,7 +40,7 @@ Source-of-truth split:
 
 ## Phase D — First Purchase-Intent Funnel
 
-- 🟢 Marketing landing surface — `/` is the 3DPrintU scroll-scrubbed hero landing page (committed WebP frame sequence, Fraunces/Inter, warm token system, reduced-motion fallback); the creation flow moved to `/start` and the PWA `start_url` follows. Real gallery photography, brand icons/OG art, a bespoke wordmark, and `3dprintu.com` production DNS are follow-ups.
+- 🟢 Marketing landing surface — `/` in this app remains the scroll-scrubbed hero landing page (committed WebP frame sequence, Fraunces/Inter, warm token system, reduced-motion fallback); the creation flow moved to `/start` and the PWA `start_url` follows. The public SEO coming-soon surface is now the standalone 3DPrintYou Railway site at `https://3dprintyou.com`, reusing the same hero pattern without app functions.
 - 🟡 Purchase-intent direction — target automated checkout for full-color partner fulfillment; implementation remains blocked on partner requirements, backend eligibility, and print-readiness validation.
 - ⚪ Backend eligibility rules — wire checkout/preorder eligibility to backend job state, not only browser UI.
 - ⚪ User credit ledger — track customer creation credits with atomic reserve/consume/refund adjustments, show remaining credits before generation, and tie usage back to `jobCost`.
@@ -50,7 +50,7 @@ Source-of-truth split:
 
 ## Phase E — Public Exposure And Ops
 
-- 🟡 Domains — `3dprintu.com` is the canonical public marketing domain (brand surface live, production DNS/App Hosting custom-domain wiring still pending); `api.3dprintyou.com` remains the live Meshy webhook custom domain. Public app hosting/staging is not the main validated path yet.
+- 🟡 Domains — `https://3dprintyou.com` is live as the canonical public coming-soon domain from `KielRN/3dprintyou` on Railway/Cloudflare. `api.3dprintyou.com` remains the live Meshy webhook custom domain. `www.3dprintyou.com` has DNS but returned `404` on 2026-07-05, so finish the Railway `www` custom domain or Cloudflare redirect. Full Firebase app hosting/staging is still deferred until the product flow is ready to expose honestly.
 - ⚪ Staging/production hosting — create staging and production hosting only after the figurine funnel is ready enough to expose honestly.
 - 🟡 Admin/support view — v1 support jobs tab exists inside `/admin` with dev operator access for the local emulator/dev Firebase project, sanitized job/order/cost/error/audit visibility, and support notes/status markers. Before production, replace the dev bypass/allowlist path with server-enforced roles or custom claims. Refunds, retries, usage-credit adjustments, and fulfillment holds remain open.
 - ⚪ Print-partner portal — add scoped partner access for approved print-package downloads, download audit events, and partner cost capture for margin review.

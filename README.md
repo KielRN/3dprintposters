@@ -2,7 +2,7 @@
 
 3D Print Posters is a mobile-first web app for personalized AI print products. As of 2026-05-23, the active business priority is no longer perfecting the 5x7 poster-relief generator first; it is proving demand with a PrintU-like customer flow for personalized figurines. The target MVP lets a user upload a photo, choose a figurine style and posture, approve a 2D proof, review a generated 3D figurine, and either check out or enter a preorder/manual-fulfillment funnel.
 
-The existing poster-relief path still works as R&D: it turns controlled stylized art into a 5in x 7in relief window inside a 5.5in x 7.5in physical object. The Super Dad proof remains the north star if that line resumes, but relief quality is not the next customer-acquisition blocker. `3dprintyou.com` is the better-fit public domain candidate for the figurine pivot; `3dprintposters.com` can stay attached to the parked poster-relief line or become a redirect later.
+The existing poster-relief path still works as R&D: it turns controlled stylized art into a 5in x 7in relief window inside a 5.5in x 7.5in physical object. The Super Dad proof remains the north star if that line resumes, but relief quality is not the next customer-acquisition blocker. `3dprintyou.com` is the live standalone public coming-soon domain for the figurine pivot; `3dprintposters.com` can stay attached to the parked poster-relief line or become a redirect later.
 
 This project is still in local MVP development. It is not production-ready yet.
 
@@ -17,6 +17,7 @@ Working now:
 - Direct Vertex/Gemini proof-generation adapter in `apps/functions`
 - Dev `/admin` workflow controls for the base proof prompt, four default proof options, visible Style count, per-style prompts, and per-style proof reference images; role-based access is a placeholder during local MVP development
 - New product direction documented in `research/FIGURINE_PROVIDER_RESEARCH.md`: PrintU-like figurine workflow first, Meshy.ai as the first image-to-3D provider candidate, relief parked as R&D
+- Standalone public coming-soon site deployed from `KielRN/3dprintyou` to Railway at `https://3dprintyou.com`; this repo still owns the full app, Functions, provider orchestration, and print-file services
 - Local root `.env` has `MESHY_API_KEY` for a paid Meshy account; never print or commit the value
 - Preview-only Meshy Creative Lab figurine workflow: proof approval can call the server-side Meshy provider adapter, store the original textured `model.glb` under `print-files/{uid}/{jobId}/figurine/creative-lab-original/`, show it on the job page, and keep checkout locked while `printReadiness` is `needs_review`
 - Planned user model: customer accounts, admin/operator users, and print-partner users with separate server-enforced permissions
@@ -43,7 +44,7 @@ Not done yet:
 - Deployed Cloud Run print-file generator endpoint
 - Fulfillment partner integration
 - Production Firebase projects
-- Public App Hosting deployment
+- Full public app hosting deployment for this repo
 - Production monitoring, quotas, moderation, and cleanup jobs
 
 ## The Big Picture
@@ -462,12 +463,14 @@ Use Stripe test mode until payment, webhook, and fulfillment state transitions a
 - [ ] Enable Cloud Storage.
 - [ ] Deploy Firestore and Storage rules to staging.
 - [ ] Deploy Firestore and Storage rules to production.
+- [x] Deploy standalone static coming-soon site from `KielRN/3dprintyou` to Railway for `https://3dprintyou.com`.
+- [x] Point apex `3dprintyou.com` to Railway through Cloudflare.
+- [ ] Finish `www.3dprintyou.com` Railway custom-domain or Cloudflare redirect; DNS exists but HTTP returned `404` on 2026-07-05.
 - [ ] Create Firebase App Hosting backend for `apps/web` staging.
 - [ ] Create Firebase App Hosting backend for `apps/web` production.
 - [ ] Configure public Firebase web env values for each App Hosting backend.
 - [ ] Point a staging hostname such as `staging.3dprintyou.com` to staging App Hosting.
-- [ ] Point `www.3dprintyou.com` to production App Hosting.
-- [ ] Configure apex `3dprintyou.com` redirect or flattening.
+- [ ] Decide when the full app should replace or redirect the standalone coming-soon Railway surface.
 - [ ] Decide whether `3dprintposters.com` remains a separate poster-relief domain or redirects into the new offer.
 
 ### Backend and AI
