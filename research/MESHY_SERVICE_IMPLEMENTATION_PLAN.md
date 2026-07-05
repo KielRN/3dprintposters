@@ -29,6 +29,8 @@ Current validated preview workflow:
 7. Job page renders the standalone figurine preview with `printReadiness: "needs_review"`.
 8. Checkout remains locked.
 
+Current Chibi diverges from that generated-options baseline. The up-to-date Chibi flow is `template_face_swap` plus Meshy Creative Lab prototype/build, with one Meshy concept image reviewed by the customer. Keep the detailed Chibi source of truth in `docs/Workflows/chibi-face-swap-creative-lab-workflow.md`.
+
 Current open work:
 
 - Finish deterministic Meshy-body-to-named-base assembly at `150mm` target body height.
@@ -44,7 +46,7 @@ Target production flow:
 
 1. User uploads a source photo.
 2. Backend validates image ownership, file type, size, decode, and suitability.
-3. Backend creates or selects a figurine-friendly 2D concept proof. The current validated preview target is Creative Lab Figure with `Natural pose` as the default product posture.
+3. Backend creates or selects the reviewable concept for the selected style. Generated-options styles use Vertex/Gemini proof options; current Chibi uses the face-swap plus Meshy prototype concept path documented in `docs/Workflows/chibi-face-swap-creative-lab-workflow.md`.
 4. User approves the concept.
 5. Backend submits the approved job to Meshy Creative Lab Figure through the provider adapter.
 6. Backend tracks Meshy status through polling and/or webhook events.
@@ -745,7 +747,7 @@ Supporting findings:
 
 Product implication:
 
-- The figurine product now has two approved style families: (1) **Chibi** through the Creative Lab Figure prototype/build pipeline, best fed a stylized 2D image; (2) **Faithful/realistic identity** through direct Multi-Image-to-3D (`--skip-multiview`), with the production recipe being a single NB Pro 2K identity-locked front image. This supersedes the earlier "Multi-Image-to-3D only if Creative Lab fails" framing: the two paths serve different styles rather than competing for one.
+- The figurine product now has two approved style families: (1) **Chibi** through the Creative Lab Figure prototype/build family, now documented in detail at `docs/Workflows/chibi-face-swap-creative-lab-workflow.md`; (2) **Faithful/realistic identity** through direct Multi-Image-to-3D (`--skip-multiview`), with the production recipe being a single NB Pro 2K identity-locked front image. This supersedes the earlier "Multi-Image-to-3D only if Creative Lab fails" framing: the two paths serve different styles rather than competing for one.
 
 ## Official Preview Pipeline v1
 
@@ -757,7 +759,7 @@ Validated job:
 
 - `cfc9039a-d83c-48d7-9ed5-39f214fce6c6`
 
-Pipeline:
+Pipeline for the older generated-options Creative Lab baseline:
 
 1. User uploads a source photo in the normal app flow.
 2. User selects `Creative Lab Figure`.
@@ -943,8 +945,8 @@ For local experiments, continue using:
 
 Current preview implementation:
 
-- `createGenerationJob` accepts/infers `productType: "figurine"` from the server-read workflow style config, defaults to four proof options, and persists the selected style label/prompt metadata on the job.
-- `approveGeneratedImage` approves the 2D proof and dispatches Creative Lab Figure generation for figurine jobs.
+- `createGenerationJob` accepts/infers `productType: "figurine"` from the server-read workflow style config and persists selected style metadata. Generated-options styles can create multiple proof options; current Chibi creates one face-swapped identity image, sends it to Meshy prototype, and stores one Meshy concept image for review.
+- `approveGeneratedImage` approves the selected review image and dispatches the configured 3D workflow. For current Chibi, it continues Meshy Creative Lab build from the stored prototype task; see `docs/Workflows/chibi-face-swap-creative-lab-workflow.md`.
 - `createCheckoutSession` rejects figurine jobs until a future print-ready fulfillment path exists.
 
 Future split-out callable/API surface:

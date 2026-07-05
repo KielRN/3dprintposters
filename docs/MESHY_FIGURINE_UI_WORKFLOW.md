@@ -6,7 +6,7 @@ Source screenshots: `docs/archive/human-tasks-archived-2026-06-11/printu-1.png` 
 
 This document maps the desired customer-facing workflow for the new standalone figurine product. The UI reference is MakerWorld PrintU; the implementation target is 3DPrintPosters / 3DPrintYou with Meshy behind a server-side provider boundary. Meshy should remain an implementation detail in the customer UI except where we need honest warnings about provider status, printability, file formats, or manual fulfillment.
 
-Immediate implementation target: first recreate the smooth no-base Creative Lab Figure workflow proven by Experiment 009, starting from the existing uploaded-photo flow and preserving `Natural pose` as the default product posture when exposed. This preview path was validated in the normal app workflow on 2026-06-07 with job `cfc9039a-d83c-48d7-9ed5-39f214fce6c6`: upload photo -> Creative Lab Figure style -> generated 2D proof -> proof approval -> server-side Meshy Creative Lab Figure -> Storage-backed original textured GLB -> color figurine preview with checkout locked. As of 2026-06-19, the proof stage defaults to four generated 2D concept options, and the dev `/admin` page can edit the base proof prompt, visible Style count, per-style prompts, and per-style admin reference images through server-read workflow configuration. When reference images are present, they own the overall art direction: visual style, render style, character design language, proportions, outfit/costume/body styling, materials, and accessories, while the customer source photo owns face identity. Local emulator runs mirror the preview `model.glb`, `metadata.json`, and optional `thumbnail.png` to `.tmp/print-files/{uid}/{jobId}/figurine/creative-lab-original/` for Blender/slicer inspection. Other styles and posture modes should be evaluated after this path stays reliable end to end.
+Immediate implementation target: keep the Creative Lab figurine preview path honest and preview-only while the public Chibi path uses the newer face-swap concept gate. The older generated-options Creative Lab path remains useful as a generic baseline, but current Chibi behavior is documented in `docs/Workflows/chibi-face-swap-creative-lab-workflow.md`: `/start` upload -> Vertex/Gemini face swap against the Chibi template -> Meshy Creative Lab prototype concept -> customer approval -> Meshy build -> Storage-backed original textured GLB preview with checkout locked. Local emulator runs mirror the preview `model.glb`, `metadata.json`, and optional `thumbnail.png` to `.tmp/print-files/{uid}/{jobId}/figurine/creative-lab-original/` for Blender/slicer inspection.
 
 ## Product Goal
 
@@ -115,9 +115,9 @@ Our equivalent should use the same mental model but phrase the options around ou
 MVP style options to evaluate:
 
 - Bobblehead: oversized head, toy-like proportions, strong likeness emphasis.
-- Chibi: small body, cute stylized proportions, soft features.
+- Chibi: small body, cute stylized proportions, soft features. Current public Chibi details live in `docs/Workflows/chibi-face-swap-creative-lab-workflow.md`.
 - Cartoon: more natural body proportions with simplified facial features.
-- Emoji / avatar: simplified full-body character with expressive face. This is the first implementation target.
+- Emoji / avatar: simplified full-body character with expressive face.
 
 Expected UI elements:
 
@@ -465,7 +465,7 @@ Recommended MVP:
 
 ## End-To-End Customer Path
 
-The official preview pipeline v1 is:
+The older generated-options Creative Lab preview pipeline is:
 
 1. User starts a new figurine project.
 2. User uploads one clear image.
@@ -478,6 +478,8 @@ The official preview pipeline v1 is:
 9. Backend updates `figurinePreview.status` to `preview_ready` and `figurinePreview.printReadiness` to `needs_review`.
 10. User reviews the Storage-backed color GLB preview and preview-only warning copy.
 11. Checkout remains locked until a future print-ready fulfillment path is validated.
+
+The current Chibi path does not use multiple proof options. It uses `template_face_swap` and a Meshy prototype concept gate; see `docs/Workflows/chibi-face-swap-creative-lab-workflow.md`.
 
 The future public MVP flow should add:
 
@@ -583,7 +585,7 @@ Track the funnel at these points:
 
 ## Open Product Decisions
 
-- Whether Emoji/avatar should remain the public default after the first Meshy validation workflow, or whether Bobblehead, Chibi, or Cartoon performs better.
+- Whether Bobblehead, Cartoon, Emoji/avatar, or additional posture modes should become public after Chibi and faithful-identity stay reliable.
 - Which full-color partner is the first automated checkout target, including file formats, quote rules, order handoff, shipping, policy constraints, and final invoice reconciliation.
 - Customer credit rules: initial balance, paid/free credit policy, step pricing, retry/refund behavior, and admin grant/adjustment rules.
 - Whether customers should be allowed to export model files.
