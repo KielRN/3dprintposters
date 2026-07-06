@@ -1,7 +1,4 @@
-import {
-  FieldValue,
-  type Firestore,
-} from "firebase-admin/firestore";
+import { FieldValue, type Firestore } from "firebase-admin/firestore";
 import { z } from "zod";
 
 export type WorkflowProductType = "poster" | "figurine";
@@ -103,6 +100,17 @@ export const approvedHeroicFantasyMaleStyle: WorkflowStyleConfig = {
   referenceImages: [],
 };
 
+export const approvedChibiFemaleStyle: WorkflowStyleConfig = {
+  id: "chibi_female",
+  label: "Chibi female",
+  productType: "figurine",
+  proofMode: "template_face_swap",
+  generationWorkflow: "creative_lab_figure",
+  prompt: defaultTemplateFaceSwapPrompt,
+  enabled: true,
+  referenceImages: [],
+};
+
 const defaultStyles: WorkflowStyleConfig[] = [
   {
     id: "creative_lab_figure",
@@ -116,6 +124,7 @@ const defaultStyles: WorkflowStyleConfig[] = [
     referenceImages: [],
   },
   approvedChibiStyle,
+  approvedChibiFemaleStyle,
   approvedHeroicFantasyMaleStyle,
   {
     id: "emoji_avatar",
@@ -155,13 +164,12 @@ const defaultStyles: WorkflowStyleConfig[] = [
 export const defaultFigurineWorkflowConfig: FigurineWorkflowConfig = {
   proofGenerationCount: 4,
   baseProofPrompt: defaultBaseProofPrompt,
-  visibleStyleCount: 3,
+  visibleStyleCount: 4,
   styles: defaultStyles,
   roleGate: {
     enabled: false,
     requiredRole: "admin",
-    note:
-      "Placeholder only during dev. The save callable requires a signed-in user, but custom-claim role enforcement is not active yet.",
+    note: "Placeholder only during dev. The save callable requires a signed-in user, but custom-claim role enforcement is not active yet.",
   },
 };
 
@@ -245,10 +253,14 @@ export function normalizeFigurineWorkflowConfig(
       defaultFigurineWorkflowConfig.visibleStyleCount,
     ),
   );
+  const chibiFemaleSafeConfig = ensureApprovedChibiFemaleStyle(
+    chibiSafeConfig.styles,
+    chibiSafeConfig.visibleStyleCount,
+  );
   const { styles: approvedStyles, visibleStyleCount } =
     ensureApprovedHeroicFantasyMaleStyle(
-      chibiSafeConfig.styles,
-      chibiSafeConfig.visibleStyleCount,
+      chibiFemaleSafeConfig.styles,
+      chibiFemaleSafeConfig.visibleStyleCount,
     );
   const safeStyles = applyLegacyVisibleStyleWindow(
     approvedStyles,
@@ -397,6 +409,63 @@ function ensureApprovedChibiStyle(
   };
 }
 
+// Chibi female is the female Creative Lab face-swap counterpart to the Chibi
+// path. Saved configs keep it near the base Chibi style unless an admin has
+// explicitly disabled an existing style with this id.
+function ensureApprovedChibiFemaleStyle(
+  styles: WorkflowStyleConfig[],
+  visibleStyleCount: number,
+): { styles: WorkflowStyleConfig[]; visibleStyleCount: number } {
+  const chibiFemale = styles.find(
+    (style) => style.id === approvedChibiFemaleStyle.id,
+  );
+
+  if (!chibiFemale) {
+    const chibiIndex = styles.findIndex(
+      (style) => style.id === approvedChibiStyle.id,
+    );
+    const insertIndex =
+      chibiIndex >= 0 ? chibiIndex + 1 : Math.min(2, styles.length);
+    const withChibiFemale = [
+      ...styles.slice(0, insertIndex),
+      approvedChibiFemaleStyle,
+      ...styles.slice(insertIndex),
+    ].slice(0, maxWorkflowStyles);
+    return {
+      styles: withChibiFemale,
+      visibleStyleCount: Math.max(
+        visibleStyleCount,
+        Math.min(insertIndex + 1, withChibiFemale.length),
+      ),
+    };
+  }
+
+  const chibiFemaleVisibleIndex = styles
+    .filter((style) => style.enabled)
+    .findIndex((style) => style.id === approvedChibiFemaleStyle.id);
+  if (!chibiFemale.enabled || chibiFemaleVisibleIndex < visibleStyleCount) {
+    return { styles, visibleStyleCount };
+  }
+
+  const withoutChibiFemale = styles.filter(
+    (style) => style.id !== approvedChibiFemaleStyle.id,
+  );
+  const chibiIndex = withoutChibiFemale.findIndex(
+    (style) => style.id === approvedChibiStyle.id,
+  );
+  const insertIndex =
+    chibiIndex >= 0 ? chibiIndex + 1 : Math.min(2, withoutChibiFemale.length);
+
+  return {
+    styles: [
+      ...withoutChibiFemale.slice(0, insertIndex),
+      chibiFemale,
+      ...withoutChibiFemale.slice(insertIndex),
+    ],
+    visibleStyleCount: Math.max(visibleStyleCount, insertIndex + 1),
+  };
+}
+
 // Heroic fantasy male is the first approved direct Multi-Image-to-3D style.
 // Saved configs should gain it automatically unless an admin has explicitly
 // disabled an existing style with this id.
@@ -409,10 +478,18 @@ function ensureApprovedHeroicFantasyMaleStyle(
   );
 
   if (!heroic) {
+    const chibiFemaleIndex = styles.findIndex(
+      (style) => style.id === approvedChibiFemaleStyle.id,
+    );
     const chibiIndex = styles.findIndex(
       (style) => style.id === approvedChibiStyle.id,
     );
-    const insertIndex = chibiIndex >= 0 ? chibiIndex + 1 : Math.min(2, styles.length);
+    const insertIndex =
+      chibiFemaleIndex >= 0
+        ? chibiFemaleIndex + 1
+        : chibiIndex >= 0
+          ? chibiIndex + 1
+          : Math.min(2, styles.length);
     const withHeroic = [
       ...styles.slice(0, insertIndex),
       approvedHeroicFantasyMaleStyle,
@@ -437,11 +514,18 @@ function ensureApprovedHeroicFantasyMaleStyle(
   const withoutHeroic = styles.filter(
     (style) => style.id !== approvedHeroicFantasyMaleStyle.id,
   );
+  const chibiFemaleIndex = withoutHeroic.findIndex(
+    (style) => style.id === approvedChibiFemaleStyle.id,
+  );
   const chibiIndex = withoutHeroic.findIndex(
     (style) => style.id === approvedChibiStyle.id,
   );
   const insertIndex =
-    chibiIndex >= 0 ? chibiIndex + 1 : Math.min(2, withoutHeroic.length);
+    chibiFemaleIndex >= 0
+      ? chibiFemaleIndex + 1
+      : chibiIndex >= 0
+        ? chibiIndex + 1
+        : Math.min(2, withoutHeroic.length);
 
   return {
     styles: [

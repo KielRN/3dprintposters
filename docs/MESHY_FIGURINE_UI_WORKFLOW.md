@@ -6,7 +6,7 @@ Source screenshots: `docs/archive/human-tasks-archived-2026-06-11/printu-1.png` 
 
 This document maps the desired customer-facing workflow for the new standalone figurine product. The UI reference is MakerWorld PrintU; the implementation target is 3DPrintPosters / 3DPrintYou with Meshy behind a server-side provider boundary. Meshy should remain an implementation detail in the customer UI except where we need honest warnings about provider status, printability, file formats, or manual fulfillment.
 
-Immediate implementation target: keep the Creative Lab figurine preview path honest and preview-only while the public Chibi path uses the newer face-swap concept gate. The older generated-options Creative Lab path remains useful as a generic baseline, but current Chibi behavior is documented in `docs/Workflows/chibi-face-swap-creative-lab-workflow.md`: `/start` upload -> Vertex/Gemini face swap against the Chibi template -> Meshy Creative Lab prototype concept -> customer approval -> Meshy build -> Storage-backed original textured GLB preview with checkout locked. Local emulator runs mirror the preview `model.glb`, `metadata.json`, and optional `thumbnail.png` to `.tmp/print-files/{uid}/{jobId}/figurine/creative-lab-original/` for Blender/slicer inspection.
+Immediate implementation target: keep the Creative Lab figurine preview path honest and preview-only while the public Chibi paths use the newer face-swap concept gate. The older generated-options Creative Lab path remains useful as a generic baseline, but current Chibi behavior is documented in `docs/Workflows/chibi-face-swap-creative-lab-workflow.md` and `docs/Workflows/chibi-female-face-swap-creative-lab-workflow.md`: `/start` upload -> Vertex/Gemini face swap against the Chibi template -> Meshy Creative Lab prototype concept -> customer approval -> Meshy build -> Storage-backed original textured GLB preview with checkout locked. Local emulator runs mirror the preview `model.glb`, `metadata.json`, and optional `thumbnail.png` to `.tmp/print-files/{uid}/{jobId}/figurine/creative-lab-original/` for Blender/slicer inspection.
 
 ## Product Goal
 
@@ -115,7 +115,7 @@ Our equivalent should use the same mental model but phrase the options around ou
 MVP style options to evaluate:
 
 - Bobblehead: oversized head, toy-like proportions, strong likeness emphasis.
-- Chibi: small body, cute stylized proportions, soft features. Current public Chibi details live in `docs/Workflows/chibi-face-swap-creative-lab-workflow.md`.
+- Chibi: small body, cute stylized proportions, soft features. Current public Chibi details live in `docs/Workflows/chibi-face-swap-creative-lab-workflow.md` and `docs/Workflows/chibi-female-face-swap-creative-lab-workflow.md`.
 - Cartoon: more natural body proportions with simplified facial features.
 - Emoji / avatar: simplified full-body character with expressive face.
 
@@ -479,7 +479,7 @@ The older generated-options Creative Lab preview pipeline is:
 10. User reviews the Storage-backed color GLB preview and preview-only warning copy.
 11. Checkout remains locked until a future print-ready fulfillment path is validated.
 
-The current Chibi path does not use multiple proof options. It uses `template_face_swap` and a Meshy prototype concept gate; see `docs/Workflows/chibi-face-swap-creative-lab-workflow.md`.
+The current Chibi paths do not use multiple proof options. They use `template_face_swap` and a Meshy prototype concept gate; see `docs/Workflows/chibi-face-swap-creative-lab-workflow.md` and `docs/Workflows/chibi-female-face-swap-creative-lab-workflow.md`.
 
 The future public MVP flow should add:
 

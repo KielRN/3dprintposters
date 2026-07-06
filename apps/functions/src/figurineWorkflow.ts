@@ -13,6 +13,7 @@ export function isFigurineStyle(selectedStyle: string): boolean {
   return new Set([
     "creative_lab_figure",
     "chibi_figure",
+    "chibi_female",
     "heroic_fantasy_male",
   ]).has(normalizeSelectedStyle(selectedStyle));
 }

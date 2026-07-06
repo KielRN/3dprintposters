@@ -27,7 +27,7 @@ In the generated-options figurine path:
 13. The customer sees the Storage-backed GLB preview on `/jobs/{jobId}`.
 14. Checkout stays locked for figurines until print readiness and fulfillment are explicitly approved later.
 
-Current Chibi uses `template_face_swap` and is different: Vertex/Gemini creates one identity image, Meshy creates one reviewable concept image, and approval continues the Meshy build from the stored prototype task. See [Chibi Face Swap Creative Lab Workflow](./chibi-face-swap-creative-lab-workflow.md).
+Current Chibi uses `template_face_swap` and is different: Vertex/Gemini creates one identity image, Meshy creates one reviewable concept image, and approval continues the Meshy build from the stored prototype task. See [Chibi Face Swap Creative Lab Workflow](./chibi-face-swap-creative-lab-workflow.md) and [Chibi Female Face Swap Creative Lab Workflow](./chibi-female-face-swap-creative-lab-workflow.md).
 
 The important split:
 
@@ -108,11 +108,15 @@ Proof image storage:
 
 ## Workflow 3: Chibi Face Swap Into Meshy Creative Lab
 
-Detailed source of truth: [Chibi Face Swap Creative Lab Workflow](./chibi-face-swap-creative-lab-workflow.md)
+Detailed source of truth:
 
-Use that document for the full Chibi sequence and job-state examples. This overview only records the contract:
+- [Chibi Face Swap Creative Lab Workflow](./chibi-face-swap-creative-lab-workflow.md)
+- [Chibi Female Face Swap Creative Lab Workflow](./chibi-female-face-swap-creative-lab-workflow.md)
+
+Use those documents for the full Chibi sequence and job-state examples. This overview only records the contract:
 
 - Style ID: `chibi_figure`
+- Female style ID: `chibi_female`
 - Proof mode: `template_face_swap`
 - 3D workflow: `creative_lab_figure`
 - Customer sees one Meshy-generated concept image, not multiple Chibi proofs.
@@ -130,10 +134,11 @@ graph LR
 
 ## Workflow 4: Template Face Swap Style Paths
 
-This is the faithful/detail style family. The default visible example is `Heroic fantasy male`, which uses direct Multi-Image-to-3D. The code also supports a Creative Lab variant if an admin pairs `template_face_swap` with `creative_lab_figure`.
+This is the faithful/detail style family. The default visible examples include `Chibi female`, which uses Creative Lab, and `Heroic fantasy male`, which uses direct Multi-Image-to-3D. The code also supports either 3D workflow if an admin pairs `template_face_swap` with the matching style reference image.
 
 It is used by:
 
+- `Chibi female` in the default config
 - `Heroic fantasy male` in the default config
 - Any admin-created style with `proofMode: template_face_swap`
 
@@ -274,6 +279,7 @@ Current operator actions:
 | --- | --- | --- | --- | --- | --- | --- |
 | Creative Lab Figure | Yes | `generated_options` | `creative_lab_figure` | Creates up to 4 toy/chibi/emoji-like 2D proof options from the customer photo and optional style references. | Creative Lab prototype/build creates original textured GLB. | Multiple 2D proofs, then GLB preview after approval. |
 | Chibi | Yes | `template_face_swap` | `creative_lab_figure` | Edits the enabled Chibi reference/template image with the customer's face/head identity. Prompt is sent exactly as written. | Creative Lab prototype creates the reviewable 2D concept, then build creates the original textured GLB after approval. | One Meshy concept image, then GLB preview after approval. |
+| Chibi female | Yes | `template_face_swap` | `creative_lab_figure` | Edits the enabled SheRa/Christina-style female template image with the customer's face/head identity. Prompt is sent exactly as written. | Creative Lab prototype creates the reviewable 2D concept, then build creates the original textured GLB after approval. | One Meshy concept image, then GLB preview after approval. |
 | Heroic fantasy male | Yes | `template_face_swap` | `direct_multi_image_to_3d` | Edits first enabled template reference image with the customer's face/head identity. Prompt is sent exactly as written. | Direct Multi-Image-to-3D creates GLB/STL/3MF candidates, then print analysis may run. | One swapped direct-3D input, then GLB preview after approval. |
 | Emoji Avatar | No | `generated_options` | `creative_lab_figure` | Creates emoji/avatar proof options if enabled. | Creative Lab prototype/build. | Same as Creative Lab flow if made public. |
 | Bobblehead | No | `generated_options` | `creative_lab_figure` | Creates bobblehead proof options if enabled. | Creative Lab prototype/build. | Same as Creative Lab flow if made public. |

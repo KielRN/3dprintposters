@@ -14,6 +14,8 @@
     "test:pipeline": "npm run build && node --test test/pipeline.test.mjs test/operatorConsole.test.mjs",
     "typecheck": "tsc --noEmit",
     "seed:dev-paid-order": "node scripts/seed-dev-paid-order.mjs",
+    "seed:chibi-female-workflow": "node scripts/seed-chibi-female-workflow.mjs",
+    "seed:chibi-female-workflow:dry-run": "node scripts/seed-chibi-female-workflow.mjs --dry-run",
     "seed:heroic-workflow": "node scripts/seed-heroic-workflow.mjs"
   },
   "engines": {
