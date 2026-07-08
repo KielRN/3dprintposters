@@ -47,16 +47,19 @@ export const directMultiImageProviderCatalog: Record<
   hi3d: {
     label: "Hi3D (Hitem3D)",
     defaultModel: "hitem3dv2.1",
+    // Labels and resolution names mirror the Hi3D console usage table
+    // (platform.hi3d.ai). Portrait @ 1536³ Pro Fast won Elliot's 2026-07-08
+    // face-quality comparison; admins select it per style.
     models: {
       "hitem3dv2.1": {
-        label: "Hitem3D v2.1 — general",
+        label: "hitem3d v2.1",
         summary:
-          "1536fast · texture, no PBR · GLB · 25 credits (~$0.50) · ~7 min",
+          "1536³ Fast · Geometry + Texture · no PBR · GLB · 25 credits (~$0.50) · ~7 min",
       },
       "scene-portraitv2.1": {
-        label: "Hitem3D v2.1 — portrait",
+        label: "scene-portrait v2.1",
         summary:
-          "1536pro · texture, no PBR · GLB · 30-45 credits (~$0.60-0.90) · ~7 min",
+          "1536³ Pro Fast · Geometry + Texture · no PBR · GLB · 25 credits (~$0.50) · ~7 min",
       },
     },
   },

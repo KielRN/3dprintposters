@@ -25,9 +25,9 @@ const hi3dModelRequestDefaults: Record<
   { resolution: string; creditCost: number }
 > = {
   "hitem3dv2.1": { resolution: "1536fast", creditCost: 25 },
-  // 1536pro is the portrait quality tier (30-45 credits vs 25 for profast),
-  // chosen 2026-07-08 to evaluate portrait mode at its best.
-  "scene-portraitv2.1": { resolution: "1536pro", creditCost: 30 },
+  // Elliot's face-quality verdict 2026-07-08: portrait @ 1536profast wins
+  // (judged against 1536pro and 4K-input variants; 2K input is sufficient).
+  "scene-portraitv2.1": { resolution: "1536profast", creditCost: 25 },
 };
 
 export type Hi3dFigurineProviderInput = {
