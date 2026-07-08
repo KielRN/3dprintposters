@@ -30,6 +30,10 @@ import {
   generateCreativeLabPrototypeConcept,
   MeshyProviderTaskError,
 } from "./meshyFigurineProvider.js";
+import {
+  generateHi3dDirectImageFigurinePreview,
+  Hi3dProviderTaskError,
+} from "./hi3dFigurineProvider.js";
 import { runMeshyFigurinePrintTooling } from "./meshyPrintTooling.js";
 import { calculateJobCost } from "./jobCost.js";
 import {
@@ -63,6 +67,8 @@ import {
   saveFigurineWorkflowConfig as persistFigurineWorkflowConfig,
   validateFigurineWorkflowConfigInput,
   visibleWorkflowStyles,
+  normalizeDirectMultiImageProviderSelection,
+  type WorkflowFigurineProvider,
   type WorkflowGenerationWorkflow,
 } from "./figurineWorkflowConfig.js";
 
@@ -80,6 +86,8 @@ const vertexImageModel = defineSecret("VERTEX_IMAGE_MODEL");
 const vertexMaxSourceImageBytes = defineSecret("VERTEX_MAX_SOURCE_IMAGE_BYTES");
 const vertexApiKey = defineSecret("VERTEX_API_KEY");
 const meshyApiKey = defineSecret("MESHY_API_KEY");
+const hi3dAccessKey = defineSecret("HI3D_ACCESS_KEY");
+const hi3dSecretKey = defineSecret("HI3D_SECRET_KEY");
 const stripeSecretKey = defineSecret("STRIPE_SECRET_KEY");
 const stripeWebhookSecret = defineSecret("STRIPE_WEBHOOK_SECRET");
 const stripePosterPriceId = defineSecret("STRIPE_POSTER_PRICE_ID");
@@ -405,7 +413,10 @@ function buildFigurineGenerationError(error: unknown) {
         ? `${error.message} (cause: ${cause.message})`
         : error.message;
   }
-  if (error instanceof MeshyProviderTaskError) {
+  if (
+    error instanceof MeshyProviderTaskError ||
+    error instanceof Hi3dProviderTaskError
+  ) {
     return {
       message,
       stage: "figurine_preview_generation",
@@ -1037,18 +1048,43 @@ function resolveMeshyApiKeyForFigurine(): string {
   return value;
 }
 
+function resolveHi3dCredentialsForFigurine(): {
+  accessKey: string;
+  secretKey: string;
+} {
+  const accessKey = hi3dAccessKey.value()?.trim();
+  const secretKey = hi3dSecretKey.value()?.trim();
+  if (!accessKey || !secretKey) {
+    throw new Error(
+      "HI3D_ACCESS_KEY and HI3D_SECRET_KEY are required for Hi3D figurine preview generation.",
+    );
+  }
+
+  return { accessKey, secretKey };
+}
+
 async function generateFigurinePreviewForApprovedJob(input: {
   jobRef: DocumentReference;
   jobId: string;
   uid: string;
   selectedImagePath: string;
   generationWorkflow: WorkflowGenerationWorkflow;
+  provider: WorkflowFigurineProvider;
+  providerModel: string;
   prototypeTaskId?: string;
 }): Promise<Awaited<ReturnType<typeof generateCreativeLabFigurinePreview>>> {
   const startedAt = Date.now();
+  // Fixture mode always runs through the Meshy fixture generator so emulator
+  // and test flows never call a paid provider.
+  const useHi3dDirect =
+    input.generationWorkflow === "direct_multi_image_to_3d" &&
+    input.provider === "hi3d" &&
+    process.env.MESHY_FIGURINE_PROVIDER_MODE !== "fixture";
   const modelId =
     input.generationWorkflow === "direct_multi_image_to_3d"
-      ? "direct-multi-image-original"
+      ? useHi3dDirect
+        ? "hi3d-direct-original"
+        : "direct-multi-image-original"
       : "creative-lab-original";
   const outputPrefix = `print-files/${input.uid}/${input.jobId}/figurine/${modelId}`;
   const bucketName = resolveRequiredEnv("APP_STORAGE_BUCKET");
@@ -1071,9 +1107,12 @@ async function generateFigurinePreviewForApprovedJob(input: {
         warnings: requestWarnings,
       },
       figurineGeneration: {
-        provider: "meshy",
+        provider: useHi3dDirect ? "hi3d" : "meshy",
         workflow: input.generationWorkflow,
         modelId,
+        ...(input.generationWorkflow === "direct_multi_image_to_3d"
+          ? { providerModel: input.providerModel }
+          : {}),
         outputPrefix,
         status: "generating",
         startedAt: FieldValue.serverTimestamp(),
@@ -1092,7 +1131,7 @@ async function generateFigurinePreviewForApprovedJob(input: {
   });
   const generation = existingAsset
     ? {
-        provider: "meshy" as const,
+        provider: (useHi3dDirect ? "hi3d" : "meshy") as "meshy" | "hi3d",
         workflow: existingAsset.workflow ?? input.generationWorkflow,
         modelId,
         previewGlb: existingAsset.previewGlb,
@@ -1107,15 +1146,25 @@ async function generateFigurinePreviewForApprovedJob(input: {
         consumedCredits: existingAsset.consumedCredits,
         status: "preview_ready" as const,
       }
-    : input.generationWorkflow === "direct_multi_image_to_3d"
-      ? await generateDirectMultiImageFigurinePreview({
+    : useHi3dDirect
+      ? await generateHi3dDirectImageFigurinePreview({
           jobId: input.jobId,
           uid: input.uid,
           sourceImagePath: input.selectedImagePath,
           outputPrefix,
           modelId,
-          apiKey: resolveMeshyApiKeyForFigurine(),
+          providerModel: input.providerModel,
+          ...resolveHi3dCredentialsForFigurine(),
         })
+      : input.generationWorkflow === "direct_multi_image_to_3d"
+        ? await generateDirectMultiImageFigurinePreview({
+            jobId: input.jobId,
+            uid: input.uid,
+            sourceImagePath: input.selectedImagePath,
+            outputPrefix,
+            modelId,
+            apiKey: resolveMeshyApiKeyForFigurine(),
+          })
       : input.prototypeTaskId
         ? await buildCreativeLabFigurineFromPrototype({
             jobId: input.jobId,
@@ -1160,7 +1209,9 @@ async function generateFigurinePreviewForApprovedJob(input: {
     status: "preview_ready",
     requestedFormats:
       generation.workflow === "direct_multi_image_to_3d"
-        ? ["glb", "stl", "3mf"]
+        ? generation.provider === "hi3d"
+          ? ["glb"]
+          : ["glb", "stl", "3mf"]
         : ["glb"],
     availableFormats: generation.availableFormats,
     storagePaths: {
@@ -1465,7 +1516,16 @@ export const createGenerationJob = onCall(
             figurineStyle: workflowStyle.id,
             postureMode: "natural",
             conceptSource: "generated_2d_proof",
-            generated3dProvider: "meshy",
+            ...(workflowStyle.generationWorkflow === "direct_multi_image_to_3d"
+              ? (() => {
+                  const selection =
+                    normalizeDirectMultiImageProviderSelection(workflowStyle);
+                  return {
+                    generated3dProvider: selection.provider,
+                    generated3dProviderModel: selection.providerModel,
+                  };
+                })()
+              : { generated3dProvider: "meshy" }),
             generated3dWorkflow: workflowStyle.generationWorkflow,
             readinessStatus: "concept_generating",
             checkoutEligibility: {
@@ -1702,8 +1762,16 @@ export const createGenerationJob = onCall(
 
 export const approveGeneratedImage = onCall(
   {
-    secrets: [appStorageBucket, printFileGeneratorUrl, meshyApiKey],
-    timeoutSeconds: printFileGenerationTimeoutSeconds,
+    secrets: [
+      appStorageBucket,
+      printFileGeneratorUrl,
+      meshyApiKey,
+      hi3dAccessKey,
+      hi3dSecretKey,
+    ],
+    // Hi3D v2.1 generations run ~7-8 minutes plus asset transfer, which does
+    // not fit the shared 540s print-file budget.
+    timeoutSeconds: 1200,
   },
   async (request) => {
     if (!request.auth) {
@@ -1835,6 +1903,15 @@ export const approveGeneratedImage = onCall(
         jobData.generated3dWorkflow === "direct_multi_image_to_3d"
           ? "direct_multi_image_to_3d"
           : "creative_lab_figure";
+      // Jobs created before provider selection existed have no provider
+      // fields; the normalizer resolves those to the current default (Hi3D).
+      const providerSelection =
+        generationWorkflow === "direct_multi_image_to_3d"
+          ? normalizeDirectMultiImageProviderSelection({
+              provider: jobData.generated3dProvider,
+              providerModel: jobData.generated3dProviderModel,
+            })
+          : { provider: "meshy" as const, providerModel: "" };
       try {
         const figurineConcept = jobData.figurineConcept as
           | { prototypeTaskId?: unknown }
@@ -1850,6 +1927,8 @@ export const approveGeneratedImage = onCall(
           uid: request.auth.uid,
           selectedImagePath: parsed.data.imagePath,
           generationWorkflow,
+          provider: providerSelection.provider,
+          providerModel: providerSelection.providerModel,
           prototypeTaskId: storedPrototypeTaskId,
         });
 
@@ -1879,7 +1958,7 @@ export const approveGeneratedImage = onCall(
               warnings: figurinePreviewWarningsForWorkflow(generationWorkflow),
             },
             figurineGeneration: {
-              provider: "meshy",
+              provider: providerSelection.provider,
               workflow: generationWorkflow,
               status: "failed",
               failedAt: FieldValue.serverTimestamp(),

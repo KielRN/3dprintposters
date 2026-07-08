@@ -85,7 +85,7 @@ export type FigurineProviderInput = {
 };
 
 export type FigurineProviderOutput = {
-  provider: "meshy";
+  provider: "meshy" | "hi3d";
   workflow: "creative_lab_figure" | "direct_multi_image_to_3d";
   modelId: string;
   previewGlb: string;

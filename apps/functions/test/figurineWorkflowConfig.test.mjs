@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   maxWorkflowStyleReferenceImages,
+  normalizeDirectMultiImageProviderSelection,
   normalizeFigurineWorkflowConfig,
   publicFigurineWorkflowConfig,
   validateFigurineWorkflowConfigInput,
@@ -574,4 +575,119 @@ test("public workflow config strips prompt references and storage paths", () => 
   assert.equal(publicConfig.baseProofPrompt, "Server-managed proof prompt.");
   assert.equal(publicConfig.styles[0].prompt, "Server-managed style prompt.");
   assert.deepEqual(publicConfig.styles[0].referenceImages, []);
+});
+
+test("direct styles default to the Hi3D provider with its default model", () => {
+  const config = normalizeFigurineWorkflowConfig({
+    styles: [
+      {
+        id: "heroic_fantasy_male",
+        label: "Heroic fantasy male",
+        proofMode: "template_face_swap",
+        generationWorkflow: "direct_multi_image_to_3d",
+        prompt: "Face swap task prompt.",
+      },
+    ],
+  });
+  const heroic = config.styles.find(
+    (style) => style.id === "heroic_fantasy_male",
+  );
+
+  assert.equal(heroic.provider, "hi3d");
+  assert.equal(heroic.providerModel, "hitem3dv2.1");
+});
+
+test("direct styles keep an explicit Meshy provider selection", () => {
+  const config = normalizeFigurineWorkflowConfig({
+    styles: [
+      {
+        id: "heroic_fantasy_male",
+        label: "Heroic fantasy male",
+        proofMode: "template_face_swap",
+        generationWorkflow: "direct_multi_image_to_3d",
+        provider: "meshy",
+        providerModel: "meshy-6",
+        prompt: "Face swap task prompt.",
+      },
+    ],
+  });
+  const heroic = config.styles.find(
+    (style) => style.id === "heroic_fantasy_male",
+  );
+
+  assert.equal(heroic.provider, "meshy");
+  assert.equal(heroic.providerModel, "meshy-6");
+});
+
+test("direct styles coerce unknown providers and models to valid defaults", () => {
+  const config = normalizeFigurineWorkflowConfig({
+    styles: [
+      {
+        id: "heroic_fantasy_male",
+        label: "Heroic fantasy male",
+        proofMode: "template_face_swap",
+        generationWorkflow: "direct_multi_image_to_3d",
+        provider: "tripo",
+        providerModel: "tripo-v3.1",
+        prompt: "Face swap task prompt.",
+      },
+      {
+        id: "heroic_fantasy_female",
+        label: "Heroic fantasy female",
+        proofMode: "template_face_swap",
+        generationWorkflow: "direct_multi_image_to_3d",
+        provider: "hi3d",
+        providerModel: "not-a-model",
+        prompt: "Face swap task prompt.",
+      },
+    ],
+  });
+  const male = config.styles.find(
+    (style) => style.id === "heroic_fantasy_male",
+  );
+  const female = config.styles.find(
+    (style) => style.id === "heroic_fantasy_female",
+  );
+
+  assert.equal(male.provider, "hi3d");
+  assert.equal(male.providerModel, "hitem3dv2.1");
+  assert.equal(female.provider, "hi3d");
+  assert.equal(female.providerModel, "hitem3dv2.1");
+});
+
+test("creative lab styles carry no provider fields", () => {
+  const config = normalizeFigurineWorkflowConfig({
+    styles: [
+      {
+        id: "chibi_figure",
+        label: "Chibi",
+        generationWorkflow: "creative_lab_figure",
+        provider: "hi3d",
+        providerModel: "hitem3dv2.1",
+        prompt: "Chibi prompt.",
+      },
+    ],
+  });
+  const chibi = config.styles.find((style) => style.id === "chibi_figure");
+
+  assert.equal(chibi.provider, undefined);
+  assert.equal(chibi.providerModel, undefined);
+});
+
+test("normalizeDirectMultiImageProviderSelection resets model on provider switch", () => {
+  assert.deepEqual(
+    normalizeDirectMultiImageProviderSelection({ provider: "meshy" }),
+    { provider: "meshy", providerModel: "meshy-6" },
+  );
+  assert.deepEqual(
+    normalizeDirectMultiImageProviderSelection({
+      provider: "hi3d",
+      providerModel: "scene-portraitv2.1",
+    }),
+    { provider: "hi3d", providerModel: "scene-portraitv2.1" },
+  );
+  assert.deepEqual(normalizeDirectMultiImageProviderSelection({}), {
+    provider: "hi3d",
+    providerModel: "hitem3dv2.1",
+  });
 });

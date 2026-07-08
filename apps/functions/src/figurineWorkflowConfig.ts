@@ -12,6 +12,75 @@ export type WorkflowGenerationWorkflow =
   | "creative_lab_figure"
   | "direct_multi_image_to_3d";
 
+// 3D providers selectable for the direct Multi-Image-to-3D workflow. Creative
+// Lab styles always run on Meshy's Creative Lab API and carry no provider
+// fields. Hi3D is the decided production path for direct styles (Hitem3D v2.1,
+// validated 2026-07-08); Meshy remains selectable as the rollback lever.
+export type WorkflowFigurineProvider = "meshy" | "hi3d";
+
+export type FigurineProviderModelInfo = {
+  label: string;
+  // Read-only config indicator shown in the admin UI. Runtime request
+  // parameters live with each provider implementation, not here.
+  summary: string;
+};
+
+export const directMultiImageProviderCatalog: Record<
+  WorkflowFigurineProvider,
+  {
+    label: string;
+    defaultModel: string;
+    models: Record<string, FigurineProviderModelInfo>;
+  }
+> = {
+  meshy: {
+    label: "Meshy",
+    defaultModel: "meshy-6",
+    models: {
+      "meshy-6": {
+        label: "Meshy 6",
+        summary:
+          "Multi-Image-to-3D · texture on, PBR off · remesh to 100k faces · GLB+STL+3MF · Meshy credits",
+      },
+    },
+  },
+  hi3d: {
+    label: "Hi3D (Hitem3D)",
+    defaultModel: "hitem3dv2.1",
+    models: {
+      "hitem3dv2.1": {
+        label: "Hitem3D v2.1 — general",
+        summary:
+          "1536fast · one-shot geometry+texture · GLB · 25 credits (~$0.50) · ~7 min",
+      },
+      "scene-portraitv2.1": {
+        label: "Hitem3D v2.1 — portrait",
+        summary:
+          "1536profast · one-shot geometry+texture · GLB · 25 credits (~$0.50) · ~7 min",
+      },
+    },
+  },
+};
+
+export const defaultDirectMultiImageProvider: WorkflowFigurineProvider = "hi3d";
+
+export function normalizeDirectMultiImageProviderSelection(input: {
+  provider?: unknown;
+  providerModel?: unknown;
+}): { provider: WorkflowFigurineProvider; providerModel: string } {
+  const provider =
+    input.provider === "meshy" || input.provider === "hi3d"
+      ? input.provider
+      : defaultDirectMultiImageProvider;
+  const catalogEntry = directMultiImageProviderCatalog[provider];
+  const providerModel =
+    typeof input.providerModel === "string" &&
+    input.providerModel in catalogEntry.models
+      ? input.providerModel
+      : catalogEntry.defaultModel;
+  return { provider, providerModel };
+}
+
 // In template_face_swap mode the style prompt is sent to Vertex VERBATIM as
 // the entire edit instruction — nothing is added or hidden. This is the
 // default text the admin UI prefills so admins can see and adjust exactly
@@ -39,6 +108,10 @@ export type WorkflowStyleConfig = {
   productType: WorkflowProductType;
   proofMode: WorkflowProofMode;
   generationWorkflow: WorkflowGenerationWorkflow;
+  // Set only when generationWorkflow is "direct_multi_image_to_3d"; validated
+  // against directMultiImageProviderCatalog during normalization.
+  provider?: WorkflowFigurineProvider;
+  providerModel?: string;
   prompt: string;
   enabled: boolean;
   referenceImages: WorkflowStyleReferenceImage[];
@@ -95,6 +168,8 @@ export const approvedHeroicFantasyMaleStyle: WorkflowStyleConfig = {
   productType: "figurine",
   proofMode: "template_face_swap",
   generationWorkflow: "direct_multi_image_to_3d",
+  provider: "hi3d",
+  providerModel: "hitem3dv2.1",
   prompt: defaultTemplateFaceSwapPrompt,
   enabled: true,
   referenceImages: [],
@@ -106,6 +181,8 @@ export const approvedHeroicFantasyFemaleStyle: WorkflowStyleConfig = {
   productType: "figurine",
   proofMode: "template_face_swap",
   generationWorkflow: "direct_multi_image_to_3d",
+  provider: "hi3d",
+  providerModel: "hitem3dv2.1",
   prompt: defaultTemplateFaceSwapPrompt,
   enabled: true,
   referenceImages: [],
@@ -193,6 +270,8 @@ const rawStyleSchema = z.object({
   generationWorkflow: z
     .enum(["creative_lab_figure", "direct_multi_image_to_3d"])
     .optional(),
+  provider: z.string().trim().max(40).optional(),
+  providerModel: z.string().trim().max(80).optional(),
   prompt: z.string().trim().min(1).max(4000),
   enabled: z.boolean().optional(),
   referenceImages: z
@@ -669,12 +748,21 @@ function normalizeWorkflowStyle(
     return null;
   }
 
+  const generationWorkflow =
+    rawStyle.generationWorkflow ?? "creative_lab_figure";
+
   return {
     id: id || `style_${index + 1}`,
     label,
     productType: rawStyle.productType ?? "figurine",
     proofMode: rawStyle.proofMode ?? "generated_options",
-    generationWorkflow: rawStyle.generationWorkflow ?? "creative_lab_figure",
+    generationWorkflow,
+    ...(generationWorkflow === "direct_multi_image_to_3d"
+      ? normalizeDirectMultiImageProviderSelection({
+          provider: rawStyle.provider,
+          providerModel: rawStyle.providerModel,
+        })
+      : {}),
     prompt,
     enabled: rawStyle.enabled ?? true,
     referenceImages: (rawStyle.referenceImages ?? [])

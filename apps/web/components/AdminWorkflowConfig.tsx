@@ -8,8 +8,10 @@ import {
 import {
   defaultFigurineWorkflowConfig,
   defaultTemplateFaceSwapPrompt,
+  directMultiImageProviderCatalog,
   maxWorkflowStyleReferenceImageBytes,
   maxWorkflowStyleReferenceImages,
+  normalizeDirectMultiImageProviderSelection,
   normalizeFigurineWorkflowConfigResponse,
   normalizeReferenceImageId,
   normalizeStyleId,
@@ -840,12 +842,19 @@ export function AdminWorkflowConfig({
                   <select
                     className="h-12 rounded-lg border border-black/15 bg-white px-3 font-semibold"
                     value={style.generationWorkflow}
-                    onChange={(event) =>
+                    onChange={(event) => {
+                      const generationWorkflow = event.target
+                        .value as WorkflowGenerationWorkflow;
                       updateStyle(index, {
-                        generationWorkflow: event.target
-                          .value as WorkflowGenerationWorkflow,
-                      })
-                    }
+                        generationWorkflow,
+                        // Provider selection only exists for the direct
+                        // workflow; entering it fills the defaults, leaving it
+                        // clears the fields.
+                        ...(generationWorkflow === "direct_multi_image_to_3d"
+                          ? normalizeDirectMultiImageProviderSelection(style)
+                          : { provider: undefined, providerModel: undefined }),
+                      });
+                    }}
                   >
                     <option value="creative_lab_figure">Creative Lab API</option>
                     <option value="direct_multi_image_to_3d">
@@ -867,6 +876,72 @@ export function AdminWorkflowConfig({
                   </p>
                 ) : null}
               </div>
+              {style.generationWorkflow === "direct_multi_image_to_3d"
+                ? (() => {
+                    const selection =
+                      normalizeDirectMultiImageProviderSelection(style);
+                    const providerEntry =
+                      directMultiImageProviderCatalog[selection.provider];
+                    const modelInfo =
+                      providerEntry.models[selection.providerModel];
+                    return (
+                      <div className="mt-4 grid gap-2 lg:grid-cols-[minmax(220px,0.35fr)_minmax(220px,0.35fr)_minmax(0,1fr)] lg:items-end">
+                        <label className="grid gap-2 text-sm font-bold">
+                          3D provider
+                          <select
+                            className="h-12 rounded-lg border border-black/15 bg-white px-3 font-semibold"
+                            value={selection.provider}
+                            onChange={(event) =>
+                              updateStyle(
+                                index,
+                                // Switching providers resets the model to
+                                // that provider's default.
+                                normalizeDirectMultiImageProviderSelection({
+                                  provider: event.target.value,
+                                }),
+                              )
+                            }
+                          >
+                            {Object.entries(directMultiImageProviderCatalog).map(
+                              ([providerId, entry]) => (
+                                <option key={providerId} value={providerId}>
+                                  {entry.label}
+                                </option>
+                              ),
+                            )}
+                          </select>
+                        </label>
+                        <label className="grid gap-2 text-sm font-bold">
+                          Provider model
+                          <select
+                            className="h-12 rounded-lg border border-black/15 bg-white px-3 font-semibold"
+                            value={selection.providerModel}
+                            onChange={(event) =>
+                              updateStyle(
+                                index,
+                                normalizeDirectMultiImageProviderSelection({
+                                  provider: selection.provider,
+                                  providerModel: event.target.value,
+                                }),
+                              )
+                            }
+                          >
+                            {Object.entries(providerEntry.models).map(
+                              ([modelId, model]) => (
+                                <option key={modelId} value={modelId}>
+                                  {model.label}
+                                </option>
+                              ),
+                            )}
+                          </select>
+                        </label>
+                        <p className="rounded-lg border border-black/10 bg-black/5 px-3 py-2 text-sm font-semibold">
+                          {modelInfo?.summary ?? "No config summary available."}
+                        </p>
+                      </div>
+                    );
+                  })()
+                : null}
               <label className="mt-4 grid gap-2 text-sm font-bold">
                 {style.proofMode === "template_face_swap"
                   ? "Vertex face-swap prompt (sent exactly as written)"

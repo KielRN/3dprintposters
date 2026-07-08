@@ -2,6 +2,19 @@
 
 All notable project changes will be documented in this file.
 
+## [Unreleased] - 2026-07-08
+
+### Added
+
+- Added Hi3D (Hitem3D) as the production 3D provider for direct Multi-Image-to-3D figurine styles. New `apps/functions/src/hi3dFigurineProvider.ts` implements the existing figurine provider contract against `api.hitem3d.ai` (Basic-auth token exchange, multipart `submit-task`, `query-task` polling, immediate GLB/cover download into Storage because result URLs expire after 1 hour). Live-validated 2026-07-08: `hitem3dv2.1` @ `1536fast` and `scene-portraitv2.1` @ `1536profast` both cost 25 Hi3D credits (~$0.50) and take ~7 minutes. Requires the new `HI3D_ACCESS_KEY`/`HI3D_SECRET_KEY` Functions secrets (set in Secret Manager and `apps/functions/.secret.local`).
+- Added per-style 3D provider and model selection for direct Multi-Image-to-3D styles. Workflow styles now carry optional `provider` (`meshy` | `hi3d`) and `providerModel` fields validated against a shared `directMultiImageProviderCatalog` (Meshy: `meshy-6`; Hi3D: `hitem3dv2.1` general, `scene-portraitv2.1` portrait). The `/admin` Workflow controls show a `3D provider` dropdown, a `Provider model` dropdown, and a read-only config summary (resolution, texture mode, output format, credit cost, generation time) whenever a style uses `Multi-Image-to-3D direct`. Legacy saved styles without provider fields normalize to Hi3D `hitem3dv2.1`, making Hi3D the default path for `heroic_fantasy_male` and `heroic_fantasy_female`; selecting Meshy in the dropdown is the no-deploy rollback lever.
+- Jobs now stamp `generated3dProvider` and `generated3dProviderModel` from the style config at creation, and `approveGeneratedImage` routes the 3D generation to the stamped provider. `figurineGeneration` and provider `metadata.json` record the provider and model; Hi3D outputs report `availableFormats: ["glb"]` with `printabilityTask: null` (Meshy printability analysis is Meshy-specific; the assembled-package Meshy print tooling still works on Hi3D GLBs because it takes a signed `model_url`).
+
+### Changed
+
+- Raised the `approveGeneratedImage` timeout from the shared 540s print-file budget to 1200s (server and matching web callable timeout) because Hi3D v2.1 generations run ~7-8 minutes plus asset transfer.
+- `seed:heroic-workflow` and `seed:heroic-female-workflow` now seed `provider: "hi3d"` / `providerModel: "hitem3dv2.1"` on their styles.
+
 ## [Unreleased] - 2026-07-06
 
 ### Added

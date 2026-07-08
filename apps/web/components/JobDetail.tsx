@@ -163,7 +163,9 @@ type PrintabilitySummary = {
   warnings?: string[];
 };
 
-const PRINT_FILE_GENERATION_TIMEOUT_MS = 540_000;
+// Matches the approveGeneratedImage callable's 1200s server timeout: Hi3D
+// v2.1 figurine generations run ~7-8 minutes plus asset transfer.
+const PRINT_FILE_GENERATION_TIMEOUT_MS = 1_200_000;
 const BASE_SIGN_GENERATION_TIMEOUT_MS = 540_000;
 
 const styleLabels: Record<string, string> = {

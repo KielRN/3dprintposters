@@ -25,6 +25,8 @@ const heroicFemaleStyle = {
   productType: "figurine",
   proofMode: "template_face_swap",
   generationWorkflow: "direct_multi_image_to_3d",
+  provider: "hi3d",
+  providerModel: "hitem3dv2.1",
   prompt: defaultTemplateFaceSwapPrompt,
   enabled: true,
   referenceImages: [

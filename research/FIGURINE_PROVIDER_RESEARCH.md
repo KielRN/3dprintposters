@@ -1,7 +1,16 @@
 # Figurine Provider And PrintU Workflow Research
 
 Date: 2026-05-23
-Last updated: 2026-05-24
+Last updated: 2026-07-08
+
+## 2026-07-08 Update: Hi3D (Hitem3D v2.1) Replaces Meshy For Direct Multi-Image-to-3D
+
+Elliot judged Hitem3D v2.1 the best current image-to-3D engine for figurine quality (validated manually on MakerWorld, then via API). Provider landscape verified 2026-07-08:
+
+- **Hi3D official API** (`https://api.hitem3d.ai`, docs at `https://docs.hi3d.ai`) exposes General `hitem3dv1.5/2.0/2.1` and Portrait `scene-portraitv1.5/2.0/2.1`. v2.1 resolutions: `1536fast`/`1536pro` (General), `1536profast`/`1536pro` (Portrait). Output formats obj/glb/stl/fbx/usdz; image and multi-view (up to 4) input; multipart upload; Basic-auth token exchange; result URLs expire in 1 hour; 25 credits (~$0.50) and ~7 minutes per v2.1 generation (live-validated twice). This is now the production provider for direct Multi-Image-to-3D styles.
+- **3D AI Studio** (aggregator, evaluated first) does NOT expose Hitem3D via API — only Hunyuan 3D, TRELLIS.2, Tripo v3.0/v3.1, and Tripo P1. Tripo v3.1 image-to-3D was live-validated there (60 credits, valid GLB); the account (~1140 credits) remains useful for its mesh tools (convert to STL/3MF at 10 credits, repair, optimize) and as a Tripo/TRELLIS fallback.
+- **Hugging Face is not a path**: only Sparc3D research demos (the method behind Hitem3D); production weights are proprietary.
+- Meshy is demoted to the Creative Lab workflow plus the selectable rollback provider for direct styles; the Meshy webhook receiver stays parked. Meshy print tooling (repair/remesh/analyze) still works on Hi3D GLBs because it takes a signed `model_url`, not a Meshy task id.
 
 ## Executive Decision
 
