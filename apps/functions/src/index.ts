@@ -1569,6 +1569,7 @@ export const createGenerationJob = onCall(
         baseProofPrompt: workflowConfig.baseProofPrompt,
         stylePrompt: workflowStyle.prompt,
         proofMode: workflowStyle.proofMode,
+        proofRendering: workflowStyle.proofRendering,
         referenceImages: styleReferenceImages,
       });
       const proofStoragePaths =

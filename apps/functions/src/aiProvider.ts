@@ -8,6 +8,7 @@ import { isFigurineStyle } from "./figurineWorkflow.js";
 import {
   defaultTemplateFaceSwapPrompt,
   type WorkflowProofMode,
+  type WorkflowProofRendering,
   type WorkflowStyleReferenceImage,
 } from "./figurineWorkflowConfig.js";
 
@@ -22,6 +23,7 @@ export type PosterGenerationInput = {
   baseProofPrompt?: string;
   stylePrompt?: string;
   proofMode?: WorkflowProofMode;
+  proofRendering?: WorkflowProofRendering;
   referenceImages?: WorkflowStyleReferenceImage[];
 };
 
@@ -681,12 +683,32 @@ function buildPosterPrompt(input: PosterGenerationInput): string {
   ].join("\n");
 }
 
-function buildFigurineProofPrompt(input: PosterGenerationInput): string {
+export function buildFigurineProofPrompt(input: PosterGenerationInput): string {
   const selectedStyle = (input.selectedStyleLabel ?? input.selectedStyle)
     .trim()
     .slice(0, 120);
   const baseProofPrompt = input.baseProofPrompt?.trim();
   const stylePrompt = input.stylePrompt?.trim();
+
+  // realistic_person proofs deliberately skip baseProofPrompt and the
+  // stylized-figurine directives below: the downstream 3D provider (Meshy
+  // Creative Lab prototype) does all character stylization, so the proof must
+  // stay a clean realistic person. Validated 2026-07-08 — a style prompt alone
+  // cannot override the stylized scaffold, hence this separate branch.
+  if (input.proofRendering === "realistic_person") {
+    return [
+      "Create a clean, realistic full-body studio portrait of the person in the uploaded photo, as the proof image for a personalized 3D printed figurine. The later 3D step handles all character stylization, so this proof must stay a realistic person, never a stylized, cartoon, or figurine character.",
+      "Preserve the person's identity exactly: face, head shape, skin tone, hairstyle, facial hair (beard, mustache, stubble) exactly as in the photo, glasses if present, body build, and their actual clothing.",
+      "If parts of the outfit are not visible in the photo, complete them naturally with matching pieces (pants and shoes that fit the visible outfit) so the person is fully dressed head to toe.",
+      `Selected figurine style: ${selectedStyle}.`,
+      ...(stylePrompt ? [`Style prompt: ${stylePrompt}`] : []),
+      "Pose: standing tall in a confident, relaxed pose, front-facing, shoulders back, slight natural smile, arms relaxed and slightly away from the torso with both hands visible, feet flat on an invisible ground plane.",
+      "CRITICAL FRAMING: show the ENTIRE person head to feet with clear margin above the head and below the shoes. Do not crop any part of the body.",
+      "Composition: single person centered on a seamless neutral gray studio background with soft even lighting. No environment, furniture, props, freestanding text, or watermark.",
+      "No base, pedestal, platform, stand, plaque, nameplate, sign, ground disk, scenery, or support prop.",
+      "Output only the proof image.",
+    ].join("\n");
+  }
   const referenceImageCount = enabledReferenceImages(input.referenceImages).length;
 
   return [

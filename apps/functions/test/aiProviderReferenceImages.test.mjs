@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  buildFigurineProofPrompt,
   buildReferenceImageGenerationMetadata,
   buildVertexImageGenerationConfig,
   buildVertexInteractionsResponseFormat,
@@ -142,4 +143,31 @@ test("image dimensions parse from PNG and JPEG headers", () => {
   });
 
   assert.equal(readImageDimensions(Buffer.from("not an image"), "image/png"), null);
+});
+
+test("realistic_person proof rendering replaces the stylized figurine scaffold", () => {
+  const baseInput = {
+    jobId: "job-1",
+    uid: "uid-1",
+    sourceImagePath: "uploads/uid-1/job-1/source.jpg",
+    selectedStyle: "chibi_photo_male",
+    selectedStyleLabel: "Chibi male",
+    baseProofPrompt: "Create a clean full-body 2D concept image.",
+    stylePrompt: "The subject is male; preserve his facial hair exactly.",
+  };
+
+  const realistic = buildFigurineProofPrompt({
+    ...baseInput,
+    proofRendering: "realistic_person",
+  });
+  assert.match(realistic, /realistic full-body studio portrait/);
+  assert.match(realistic, /neutral gray studio background/);
+  assert.match(realistic, /Style prompt: The subject is male/);
+  assert.doesNotMatch(realistic, /figurine concept image/);
+  assert.doesNotMatch(realistic, /Create a clean full-body 2D concept image/);
+
+  const stylized = buildFigurineProofPrompt(baseInput);
+  assert.match(stylized, /figurine concept image/);
+  assert.match(stylized, /plain white studio background/);
+  assert.doesNotMatch(stylized, /realistic full-body studio portrait/);
 });

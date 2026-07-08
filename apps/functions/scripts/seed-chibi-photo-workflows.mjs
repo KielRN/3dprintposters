@@ -3,16 +3,11 @@ import { FieldValue, getFirestore } from "firebase-admin/firestore";
 
 // Renames the template-face-swap chibi pair to "Chibi heroic fantasy male/
 // female" and adds the photo-driven "Chibi male/female" styles: no reference
-// template, generated_options proofs (Vertex cleans up the customer photo —
-// identity, own clothing, standardized pose) feeding Meshy Creative Lab.
-
-const chibiPrompt = (subjectLine) =>
-  [
-    "Fully stylized chibi character, never photorealistic: oversized head about one third of the total height, compact rounded body, large expressive eyes, a simplified friendly face that keeps the subject clearly recognizable, chunky simplified hands and shoes, smooth vinyl-toy surfaces, and broad clean color regions.",
-    subjectLine,
-    "Keep the subject's own hairstyle, glasses if present, and real clothing from the photo, simplified into clean toy-like shapes with tidy color regions.",
-    "The proof must read as a finished stylized character illustration, not a photo of a person.",
-  ].join(" ");
+// template. Their generated_options proofs use proofRendering
+// "realistic_person" — Vertex renders a clean realistic full-body person
+// (identity + own clothing, gray studio background, confident pose; the
+// scaffold lives in buildFigurineProofPrompt) and Meshy Creative Lab's
+// prototype phase does all chibi stylization downstream.
 
 const newStyles = [
   {
@@ -20,10 +15,10 @@ const newStyles = [
     label: "Chibi male",
     productType: "figurine",
     proofMode: "generated_options",
+    proofRendering: "realistic_person",
     generationWorkflow: "creative_lab_figure",
-    prompt: chibiPrompt(
-      "The subject is male; keep his facial hair if present and masculine proportions.",
-    ),
+    prompt:
+      "The subject is male; preserve his facial hair (beard, mustache, stubble, or clean-shaven) exactly as in the photo.",
     enabled: true,
     referenceImages: [],
   },
@@ -32,8 +27,10 @@ const newStyles = [
     label: "Chibi female",
     productType: "figurine",
     proofMode: "generated_options",
+    proofRendering: "realistic_person",
     generationWorkflow: "creative_lab_figure",
-    prompt: chibiPrompt("The subject is female; keep feminine proportions."),
+    prompt:
+      "The subject is female; preserve her hairstyle and hair length exactly as in the photo.",
     enabled: true,
     referenceImages: [],
   },

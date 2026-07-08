@@ -8,6 +8,13 @@ export type WorkflowProductType = "poster" | "figurine";
 // reference image is a fixed template; Vertex swaps the customer's face into
 // it and the single swapped image feeds the 3D provider directly.
 export type WorkflowProofMode = "generated_options" | "template_face_swap";
+
+// How generated_options proofs are rendered. "stylized" (default) asks Vertex
+// for a decisively stylized figurine concept. "realistic_person" asks Vertex
+// for a clean realistic full-body person (identity + own clothing, gray
+// studio background) and leaves all character stylization to the downstream
+// 3D provider (e.g. Meshy Creative Lab's prototype phase).
+export type WorkflowProofRendering = "stylized" | "realistic_person";
 export type WorkflowGenerationWorkflow =
   | "creative_lab_figure"
   | "direct_multi_image_to_3d";
@@ -110,6 +117,8 @@ export type WorkflowStyleConfig = {
   label: string;
   productType: WorkflowProductType;
   proofMode: WorkflowProofMode;
+  // Only meaningful for proofMode "generated_options"; absent means "stylized".
+  proofRendering?: WorkflowProofRendering;
   generationWorkflow: WorkflowGenerationWorkflow;
   // Set only when generationWorkflow is "direct_multi_image_to_3d"; validated
   // against directMultiImageProviderCatalog during normalization.
@@ -270,6 +279,7 @@ const rawStyleSchema = z.object({
   label: z.string().trim().min(1).max(80),
   productType: z.enum(["poster", "figurine"]).optional(),
   proofMode: z.enum(["generated_options", "template_face_swap"]).optional(),
+  proofRendering: z.enum(["stylized", "realistic_person"]).optional(),
   generationWorkflow: z
     .enum(["creative_lab_figure", "direct_multi_image_to_3d"])
     .optional(),
@@ -759,6 +769,9 @@ function normalizeWorkflowStyle(
     label,
     productType: rawStyle.productType ?? "figurine",
     proofMode: rawStyle.proofMode ?? "generated_options",
+    ...(rawStyle.proofRendering === "realistic_person"
+      ? { proofRendering: "realistic_person" as const }
+      : {}),
     generationWorkflow,
     ...(generationWorkflow === "direct_multi_image_to_3d"
       ? normalizeDirectMultiImageProviderSelection({

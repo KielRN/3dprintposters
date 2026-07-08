@@ -101,6 +101,10 @@ export type WorkflowStyleConfig = {
   label: string;
   productType: WorkflowProductType;
   proofMode: WorkflowProofMode;
+  // Only meaningful for proofMode "generated_options"; absent means the proof
+  // is a stylized figurine concept. "realistic_person" keeps the Vertex proof
+  // a clean realistic person and leaves stylization to the 3D provider.
+  proofRendering?: "stylized" | "realistic_person";
   generationWorkflow: WorkflowGenerationWorkflow;
   // Set only when generationWorkflow is "direct_multi_image_to_3d"; validated
   // against directMultiImageProviderCatalog during normalization.
@@ -398,6 +402,9 @@ function normalizeWorkflowStyle(
       style.proofMode === "template_face_swap"
         ? "template_face_swap"
         : "generated_options",
+    ...(style.proofRendering === "realistic_person"
+      ? { proofRendering: "realistic_person" as const }
+      : {}),
     generationWorkflow,
     ...(generationWorkflow === "direct_multi_image_to_3d"
       ? normalizeDirectMultiImageProviderSelection({
