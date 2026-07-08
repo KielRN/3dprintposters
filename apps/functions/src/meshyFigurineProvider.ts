@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { getStorage } from "firebase-admin/storage";
 
 const meshyOpenApiRoot = "https://api.meshy.ai/openapi";
+const meshyOpenApiV1Root = `${meshyOpenApiRoot}/v1`;
 const terminalStatuses = new Set(["SUCCEEDED", "FAILED", "CANCELED", "EXPIRED"]);
 const defaultPollIntervalMs = 10_000;
 const defaultTimeoutMs = 60 * 60 * 1000;
@@ -32,6 +33,8 @@ type MeshyJsonResponse = {
   message?: string;
   error?: string;
 };
+
+type MeshyApiVersion = "base" | "v1";
 
 export type SanitizedMeshyTaskError = string | number | boolean | null | {
   [key: string]: SanitizedMeshyTaskError;
@@ -158,6 +161,14 @@ export function buildDirectMultiImageTo3dRequest(
   };
 }
 
+export function buildMeshyOpenApiUrl(
+  endpoint: string,
+  input: { apiVersion?: MeshyApiVersion } = {},
+): string {
+  const root = input.apiVersion === "v1" ? meshyOpenApiV1Root : meshyOpenApiRoot;
+  return `${root}${endpoint}`;
+}
+
 export async function generateDirectMultiImageFigurinePreview(
   input: FigurineProviderInput,
 ): Promise<FigurineProviderOutput> {
@@ -184,6 +195,7 @@ export async function generateDirectMultiImageFigurinePreview(
   const modelTask = await pollMeshyTask({
     apiKey: input.apiKey,
     endpoint: "/multi-image-to-3d",
+    apiVersion: "v1",
     taskId: modelTaskId,
     label: "direct multi-image-to-3d",
   });
@@ -212,6 +224,7 @@ export async function generateDirectMultiImageFigurinePreview(
     printabilityTask = await pollMeshyTask({
       apiKey: input.apiKey,
       endpoint: "/print/analyze",
+      apiVersion: "v1",
       taskId: printabilityTaskId,
       label: "direct multi-image printability",
     });
@@ -675,6 +688,7 @@ async function createDirectMultiImageTo3dTask(input: {
 }): Promise<string> {
   const response = (await meshyJson(input.apiKey, "/multi-image-to-3d", {
     method: "POST",
+    apiVersion: "v1",
     body: buildDirectMultiImageTo3dRequest(input.imageUrls),
   })) as MeshyJsonResponse;
 
@@ -691,6 +705,7 @@ async function createPrintabilityTask(input: {
 }): Promise<string> {
   const response = (await meshyJson(input.apiKey, "/print/analyze", {
     method: "POST",
+    apiVersion: "v1",
     body: { input_task_id: input.inputTaskId },
   })) as MeshyJsonResponse;
 
@@ -704,6 +719,7 @@ async function createPrintabilityTask(input: {
 async function pollMeshyTask(input: {
   apiKey: string;
   endpoint: string;
+  apiVersion?: MeshyApiVersion;
   taskId: string;
   label: string;
 }): Promise<MeshyTask> {
@@ -722,7 +738,7 @@ async function pollMeshyTask(input: {
     const task = (await meshyJson(
       input.apiKey,
       `${input.endpoint}/${input.taskId}`,
-      { method: "GET" },
+      { method: "GET", apiVersion: input.apiVersion },
     )) as MeshyTask;
     lastTask = task;
 
@@ -772,6 +788,7 @@ async function meshyJson(
   init: {
     method: "GET" | "POST";
     body?: Record<string, unknown>;
+    apiVersion?: MeshyApiVersion;
   },
 ): Promise<MeshyJsonResponse | MeshyTask> {
   // A single stale-socket "fetch failed" must not kill a multi-minute paid
@@ -782,7 +799,9 @@ async function meshyJson(
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     let response: Response;
     try {
-      response = await fetch(`${meshyOpenApiRoot}${endpoint}`, {
+      response = await fetch(buildMeshyOpenApiUrl(endpoint, {
+        apiVersion: init.apiVersion,
+      }), {
         method: init.method,
         headers: {
           Authorization: `Bearer ${apiKey}`,

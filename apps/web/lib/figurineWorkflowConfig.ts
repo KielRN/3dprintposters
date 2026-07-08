@@ -85,6 +85,17 @@ const approvedHeroicFantasyMaleStyle: WorkflowStyleConfig = {
   referenceImages: [],
 };
 
+const approvedHeroicFantasyFemaleStyle: WorkflowStyleConfig = {
+  id: "heroic_fantasy_female",
+  label: "Heroic fantasy female",
+  productType: "figurine",
+  proofMode: "template_face_swap",
+  generationWorkflow: "direct_multi_image_to_3d",
+  prompt: defaultTemplateFaceSwapPrompt,
+  enabled: true,
+  referenceImages: [],
+};
+
 const approvedChibiFemaleStyle: WorkflowStyleConfig = {
   id: "chibi_female",
   label: "Chibi female",
@@ -103,7 +114,7 @@ export const defaultFigurineWorkflowConfig: FigurineWorkflowConfig = {
     "Use the uploaded photo as the identity and outfit reference. Preserve recognizable facial likeness, broad head shape, glasses or facial hair if present, and the main clothing color impression.",
     "The result should feel like a product-ready figurine proof that can guide a later 3D model generation step.",
   ].join("\n"),
-  visibleStyleCount: 4,
+  visibleStyleCount: 5,
   styles: [
     {
       id: "creative_lab_figure",
@@ -119,6 +130,7 @@ export const defaultFigurineWorkflowConfig: FigurineWorkflowConfig = {
     approvedChibiStyle,
     approvedChibiFemaleStyle,
     approvedHeroicFantasyMaleStyle,
+    approvedHeroicFantasyFemaleStyle,
     {
       id: "emoji_avatar",
       label: "Emoji Avatar",
@@ -194,9 +206,13 @@ export function normalizeFigurineWorkflowConfig(
     chibiFemaleSafeConfig.styles,
     chibiFemaleSafeConfig.visibleStyleCount,
   );
-  const publicSafeStyles = applyLegacyVisibleStyleWindow(
+  const heroicFemaleSafeConfig = ensureApprovedHeroicFantasyFemaleStyle(
     heroicSafeConfig.styles,
     heroicSafeConfig.visibleStyleCount,
+  );
+  const publicSafeStyles = applyLegacyVisibleStyleWindow(
+    heroicFemaleSafeConfig.styles,
+    heroicFemaleSafeConfig.visibleStyleCount,
   );
   const roleGate =
     config.roleGate && typeof config.roleGate === "object"
@@ -512,6 +528,84 @@ function ensureApprovedHeroicFantasyMaleStyle(
       ...withoutHeroic.slice(0, insertIndex),
       heroic,
       ...withoutHeroic.slice(insertIndex),
+    ],
+    visibleStyleCount: Math.max(visibleStyleCount, insertIndex + 1),
+  };
+}
+
+function ensureApprovedHeroicFantasyFemaleStyle(
+  styles: WorkflowStyleConfig[],
+  visibleStyleCount: number,
+): { styles: WorkflowStyleConfig[]; visibleStyleCount: number } {
+  const heroicFemale = styles.find(
+    (style) => style.id === approvedHeroicFantasyFemaleStyle.id,
+  );
+
+  if (!heroicFemale) {
+    const heroicMaleIndex = styles.findIndex(
+      (style) => style.id === approvedHeroicFantasyMaleStyle.id,
+    );
+    const chibiFemaleIndex = styles.findIndex(
+      (style) => style.id === approvedChibiFemaleStyle.id,
+    );
+    const chibiIndex = styles.findIndex(
+      (style) => style.id === approvedChibiStyle.id,
+    );
+    const insertIndex =
+      heroicMaleIndex >= 0
+        ? heroicMaleIndex + 1
+        : chibiFemaleIndex >= 0
+          ? chibiFemaleIndex + 1
+          : chibiIndex >= 0
+            ? chibiIndex + 1
+            : Math.min(2, styles.length);
+    const withHeroicFemale = [
+      ...styles.slice(0, insertIndex),
+      approvedHeroicFantasyFemaleStyle,
+      ...styles.slice(insertIndex),
+    ].slice(0, 12);
+    return {
+      styles: withHeroicFemale,
+      visibleStyleCount: Math.max(
+        visibleStyleCount,
+        Math.min(insertIndex + 1, withHeroicFemale.length),
+      ),
+    };
+  }
+
+  const heroicFemaleVisibleIndex = styles
+    .filter((style) => style.enabled)
+    .findIndex((style) => style.id === approvedHeroicFantasyFemaleStyle.id);
+  if (!heroicFemale.enabled || heroicFemaleVisibleIndex < visibleStyleCount) {
+    return { styles, visibleStyleCount };
+  }
+
+  const withoutHeroicFemale = styles.filter(
+    (style) => style.id !== approvedHeroicFantasyFemaleStyle.id,
+  );
+  const heroicMaleIndex = withoutHeroicFemale.findIndex(
+    (style) => style.id === approvedHeroicFantasyMaleStyle.id,
+  );
+  const chibiFemaleIndex = withoutHeroicFemale.findIndex(
+    (style) => style.id === approvedChibiFemaleStyle.id,
+  );
+  const chibiIndex = withoutHeroicFemale.findIndex(
+    (style) => style.id === approvedChibiStyle.id,
+  );
+  const insertIndex =
+    heroicMaleIndex >= 0
+      ? heroicMaleIndex + 1
+      : chibiFemaleIndex >= 0
+        ? chibiFemaleIndex + 1
+        : chibiIndex >= 0
+          ? chibiIndex + 1
+          : Math.min(2, withoutHeroicFemale.length);
+
+  return {
+    styles: [
+      ...withoutHeroicFemale.slice(0, insertIndex),
+      heroicFemale,
+      ...withoutHeroicFemale.slice(insertIndex),
     ],
     visibleStyleCount: Math.max(visibleStyleCount, insertIndex + 1),
   };

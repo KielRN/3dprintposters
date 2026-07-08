@@ -16,7 +16,8 @@
     "seed:dev-paid-order": "node scripts/seed-dev-paid-order.mjs",
     "seed:chibi-female-workflow": "node scripts/seed-chibi-female-workflow.mjs",
     "seed:chibi-female-workflow:dry-run": "node scripts/seed-chibi-female-workflow.mjs --dry-run",
-    "seed:heroic-workflow": "node scripts/seed-heroic-workflow.mjs"
+    "seed:heroic-workflow": "node scripts/seed-heroic-workflow.mjs",
+    "seed:heroic-female-workflow": "node scripts/seed-heroic-female-workflow.mjs"
   },
   "engines": {
     "node": "22"

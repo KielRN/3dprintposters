@@ -4,6 +4,20 @@ export const figurinePreviewWarnings = [
   "This preview intentionally does not use repaired or remeshed downstream print-tooling files.",
 ];
 
+export function figurinePreviewWarningsForWorkflow(
+  workflow: string | null | undefined,
+): string[] {
+  if (workflow === "direct_multi_image_to_3d") {
+    return [
+      "Preview only: this is the original textured Meshy Multi-Image-to-3D GLB for visual review.",
+      "Print files are not ready yet. Checkout stays locked until printability and slicer review are complete.",
+      "This preview intentionally does not use repaired or remeshed downstream print-tooling files.",
+    ];
+  }
+
+  return figurinePreviewWarnings;
+}
+
 export function normalizeSelectedStyle(selectedStyle: string): string {
   const normalized = selectedStyle.trim().toLowerCase().replaceAll("-", "_");
   return normalized || "gallery_relief";
@@ -15,5 +29,6 @@ export function isFigurineStyle(selectedStyle: string): boolean {
     "chibi_figure",
     "chibi_female",
     "heroic_fantasy_male",
+    "heroic_fantasy_female",
   ]).has(normalizeSelectedStyle(selectedStyle));
 }

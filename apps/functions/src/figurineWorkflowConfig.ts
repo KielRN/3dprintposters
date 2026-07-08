@@ -100,6 +100,17 @@ export const approvedHeroicFantasyMaleStyle: WorkflowStyleConfig = {
   referenceImages: [],
 };
 
+export const approvedHeroicFantasyFemaleStyle: WorkflowStyleConfig = {
+  id: "heroic_fantasy_female",
+  label: "Heroic fantasy female",
+  productType: "figurine",
+  proofMode: "template_face_swap",
+  generationWorkflow: "direct_multi_image_to_3d",
+  prompt: defaultTemplateFaceSwapPrompt,
+  enabled: true,
+  referenceImages: [],
+};
+
 export const approvedChibiFemaleStyle: WorkflowStyleConfig = {
   id: "chibi_female",
   label: "Chibi female",
@@ -126,6 +137,7 @@ const defaultStyles: WorkflowStyleConfig[] = [
   approvedChibiStyle,
   approvedChibiFemaleStyle,
   approvedHeroicFantasyMaleStyle,
+  approvedHeroicFantasyFemaleStyle,
   {
     id: "emoji_avatar",
     label: "Emoji Avatar",
@@ -164,7 +176,7 @@ const defaultStyles: WorkflowStyleConfig[] = [
 export const defaultFigurineWorkflowConfig: FigurineWorkflowConfig = {
   proofGenerationCount: 4,
   baseProofPrompt: defaultBaseProofPrompt,
-  visibleStyleCount: 4,
+  visibleStyleCount: 5,
   styles: defaultStyles,
   roleGate: {
     enabled: false,
@@ -262,9 +274,13 @@ export function normalizeFigurineWorkflowConfig(
       chibiFemaleSafeConfig.styles,
       chibiFemaleSafeConfig.visibleStyleCount,
     );
-  const safeStyles = applyLegacyVisibleStyleWindow(
+  const heroicFemaleSafeConfig = ensureApprovedHeroicFantasyFemaleStyle(
     approvedStyles,
     visibleStyleCount,
+  );
+  const safeStyles = applyLegacyVisibleStyleWindow(
+    heroicFemaleSafeConfig.styles,
+    heroicFemaleSafeConfig.visibleStyleCount,
   );
 
   return {
@@ -532,6 +548,86 @@ function ensureApprovedHeroicFantasyMaleStyle(
       ...withoutHeroic.slice(0, insertIndex),
       heroic,
       ...withoutHeroic.slice(insertIndex),
+    ],
+    visibleStyleCount: Math.max(visibleStyleCount, insertIndex + 1),
+  };
+}
+
+// Heroic fantasy female mirrors the direct Multi-Image-to-3D Heroic male path
+// with its own approved style template.
+function ensureApprovedHeroicFantasyFemaleStyle(
+  styles: WorkflowStyleConfig[],
+  visibleStyleCount: number,
+): { styles: WorkflowStyleConfig[]; visibleStyleCount: number } {
+  const heroicFemale = styles.find(
+    (style) => style.id === approvedHeroicFantasyFemaleStyle.id,
+  );
+
+  if (!heroicFemale) {
+    const heroicMaleIndex = styles.findIndex(
+      (style) => style.id === approvedHeroicFantasyMaleStyle.id,
+    );
+    const chibiFemaleIndex = styles.findIndex(
+      (style) => style.id === approvedChibiFemaleStyle.id,
+    );
+    const chibiIndex = styles.findIndex(
+      (style) => style.id === approvedChibiStyle.id,
+    );
+    const insertIndex =
+      heroicMaleIndex >= 0
+        ? heroicMaleIndex + 1
+        : chibiFemaleIndex >= 0
+          ? chibiFemaleIndex + 1
+          : chibiIndex >= 0
+            ? chibiIndex + 1
+            : Math.min(2, styles.length);
+    const withHeroicFemale = [
+      ...styles.slice(0, insertIndex),
+      approvedHeroicFantasyFemaleStyle,
+      ...styles.slice(insertIndex),
+    ].slice(0, maxWorkflowStyles);
+    return {
+      styles: withHeroicFemale,
+      visibleStyleCount: Math.max(
+        visibleStyleCount,
+        Math.min(insertIndex + 1, withHeroicFemale.length),
+      ),
+    };
+  }
+
+  const heroicFemaleVisibleIndex = styles
+    .filter((style) => style.enabled)
+    .findIndex((style) => style.id === approvedHeroicFantasyFemaleStyle.id);
+  if (!heroicFemale.enabled || heroicFemaleVisibleIndex < visibleStyleCount) {
+    return { styles, visibleStyleCount };
+  }
+
+  const withoutHeroicFemale = styles.filter(
+    (style) => style.id !== approvedHeroicFantasyFemaleStyle.id,
+  );
+  const heroicMaleIndex = withoutHeroicFemale.findIndex(
+    (style) => style.id === approvedHeroicFantasyMaleStyle.id,
+  );
+  const chibiFemaleIndex = withoutHeroicFemale.findIndex(
+    (style) => style.id === approvedChibiFemaleStyle.id,
+  );
+  const chibiIndex = withoutHeroicFemale.findIndex(
+    (style) => style.id === approvedChibiStyle.id,
+  );
+  const insertIndex =
+    heroicMaleIndex >= 0
+      ? heroicMaleIndex + 1
+      : chibiFemaleIndex >= 0
+        ? chibiFemaleIndex + 1
+        : chibiIndex >= 0
+          ? chibiIndex + 1
+          : Math.min(2, withoutHeroicFemale.length);
+
+  return {
+    styles: [
+      ...withoutHeroicFemale.slice(0, insertIndex),
+      heroicFemale,
+      ...withoutHeroicFemale.slice(insertIndex),
     ],
     visibleStyleCount: Math.max(visibleStyleCount, insertIndex + 1),
   };

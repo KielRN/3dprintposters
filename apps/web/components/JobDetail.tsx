@@ -177,6 +177,7 @@ const styleLabels: Record<string, string> = {
   chibi_figure: "Chibi",
   chibi_female: "Chibi female",
   heroic_fantasy_male: "Heroic fantasy male",
+  heroic_fantasy_female: "Heroic fantasy female",
   bobblehead: "Bobblehead",
   cartoon_figure: "Cartoon Figure",
 };

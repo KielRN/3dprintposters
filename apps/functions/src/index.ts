@@ -20,7 +20,7 @@ import { z } from "zod";
 
 import { createPosterAiProvider } from "./aiProvider.js";
 import {
-  figurinePreviewWarnings,
+  figurinePreviewWarningsForWorkflow,
   isFigurineStyle,
 } from "./figurineWorkflow.js";
 import {
@@ -1052,6 +1052,9 @@ async function generateFigurinePreviewForApprovedJob(input: {
       : "creative-lab-original";
   const outputPrefix = `print-files/${input.uid}/${input.jobId}/figurine/${modelId}`;
   const bucketName = resolveRequiredEnv("APP_STORAGE_BUCKET");
+  const requestWarnings = figurinePreviewWarningsForWorkflow(
+    input.generationWorkflow,
+  );
 
   console.info("figurine preview generation request started", {
     jobId: input.jobId,
@@ -1065,7 +1068,7 @@ async function generateFigurinePreviewForApprovedJob(input: {
         status: "generating",
         previewGlb: null,
         printReadiness: "needs_review",
-        warnings: figurinePreviewWarnings,
+        warnings: requestWarnings,
       },
       figurineGeneration: {
         provider: "meshy",
@@ -1132,6 +1135,9 @@ async function generateFigurinePreviewForApprovedJob(input: {
             apiKey: resolveMeshyApiKeyForFigurine(),
           });
 
+  const generationWarnings = figurinePreviewWarningsForWorkflow(
+    generation.workflow,
+  );
   const modelRecord = {
     modelId: generation.modelId,
     provider: generation.provider,
@@ -1162,7 +1168,7 @@ async function generateFigurinePreviewForApprovedJob(input: {
       thumbnail: generation.thumbnailPath,
       metadataJson: generation.metadataPath,
     },
-    warnings: figurinePreviewWarnings,
+    warnings: generationWarnings,
     consumedCredits: generation.consumedCredits,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -1210,7 +1216,7 @@ async function generateFigurinePreviewForApprovedJob(input: {
         status: "preview_ready",
         previewGlb: generation.previewGlb,
         printReadiness: "needs_review",
-        warnings: figurinePreviewWarnings,
+        warnings: generationWarnings,
         provider: generation.provider,
         workflow: generation.workflow,
         modelId: generation.modelId,
@@ -1228,7 +1234,7 @@ async function generateFigurinePreviewForApprovedJob(input: {
             ? "Direct Multi-Image-to-3D textured GLB stored for preview only."
             : "Creative Lab original textured GLB stored for preview only.",
         ],
-        warnings: figurinePreviewWarnings,
+        warnings: generationWarnings,
       },
       printFileError: null,
       updatedAt: FieldValue.serverTimestamp(),
@@ -1470,7 +1476,9 @@ export const createGenerationJob = onCall(
               status: "not_started",
               previewGlb: null,
               printReadiness: "needs_review",
-              warnings: figurinePreviewWarnings,
+              warnings: figurinePreviewWarningsForWorkflow(
+                workflowStyle.generationWorkflow,
+              ),
             },
           }
         : {}),
@@ -1868,7 +1876,7 @@ export const approveGeneratedImage = onCall(
               status: "failed",
               previewGlb: null,
               printReadiness: "needs_review",
-              warnings: figurinePreviewWarnings,
+              warnings: figurinePreviewWarningsForWorkflow(generationWorkflow),
             },
             figurineGeneration: {
               provider: "meshy",

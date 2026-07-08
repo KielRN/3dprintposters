@@ -63,6 +63,8 @@ const defaultReferenceImageByteLimit = 5 * 1024 * 1024;
 const defaultProofGenerationCount = 1;
 const maxProofGenerationCount = 4;
 const vertexExpressBaseUrl = "https://aiplatform.googleapis.com/v1";
+const geminiInteractionsBaseUrl =
+  "https://generativelanguage.googleapis.com/v1beta/interactions";
 
 type VertexGenerateContentResponse = {
   candidates?: Array<{
@@ -72,6 +74,8 @@ type VertexGenerateContentResponse = {
     finishReason?: string;
   }>;
   modelVersion?: string;
+  requestRoute?: string;
+  interactionId?: string;
   promptFeedback?: {
     blockReason?: string;
   };
@@ -102,6 +106,7 @@ type VertexProofGenerationSuccess = {
   outputMimeType: string;
   responseText: string;
   modelVersion?: string;
+  requestRoute?: string;
 };
 
 type VertexProofGenerationFailure = {
@@ -114,6 +119,36 @@ type VertexRequestReferenceImage = {
   id: string;
   mimeType: "image/jpeg" | "image/png";
   imageBuffer: Buffer;
+};
+
+type VertexInteractionsResponseFormat = {
+  type: "image";
+  mime_type: "image/jpeg";
+  aspect_ratio?: string;
+  image_size?: string;
+};
+
+type VertexInteractionsResponse = {
+  id?: string;
+  status?: string;
+  model?: string;
+  output_image?: VertexInteractionsImageOutput;
+  outputImage?: VertexInlineData;
+  steps?: Array<{
+    type?: string;
+    content?: VertexInteractionsContentItem[];
+  }>;
+};
+
+type VertexInteractionsImageOutput = {
+  mime_type?: string;
+  mimeType?: string;
+  data?: string;
+};
+
+type VertexInteractionsContentItem = VertexInteractionsImageOutput & {
+  type?: string;
+  text?: string;
 };
 
 export function buildReferenceImageGenerationMetadata(
@@ -277,6 +312,7 @@ class VertexGeminiPosterAiProvider implements PosterAiProvider {
             outputMimeType,
             responseText: extractResponseText(vertexResponse),
             modelVersion: vertexResponse.modelVersion,
+            requestRoute: vertexResponse.requestRoute,
           } satisfies VertexProofGenerationSuccess;
         } catch (error) {
           return {
@@ -311,6 +347,8 @@ class VertexGeminiPosterAiProvider implements PosterAiProvider {
     const modelVersions = generationResults
       .map((result) => result.modelVersion)
       .filter((modelVersion): modelVersion is string => Boolean(modelVersion));
+    const requestRoute =
+      generationResults[0]?.requestRoute ?? "direct-gcp-vertex-gemini-express";
 
     return {
       provider: "vertex-gemini-direct",
@@ -320,7 +358,7 @@ class VertexGeminiPosterAiProvider implements PosterAiProvider {
       ),
       metadata: {
         model,
-        route: "direct-gcp-vertex-gemini-express",
+        route: requestRoute,
         outputMimeType: outputMimeTypes[0],
         outputMimeTypes,
         proofGenerationCount,
@@ -345,7 +383,7 @@ class VertexGeminiPosterAiProvider implements PosterAiProvider {
             }
           : {}),
         notes: [
-          "Generated through the direct Vertex/Gemini provider route.",
+          `Generated through the ${requestRoute} provider route.`,
           `${generationResults.length} of ${proofGenerationCount} proof image${proofGenerationCount === 1 ? " was" : "s were"} stored in the job-scoped Firebase Storage path.`,
           ...(generationFailures.length > 0
             ? [
@@ -480,7 +518,8 @@ async function generateTemplateFaceSwapProof(swap: {
     generatedImagePaths: [outputStoragePath],
     metadata: {
       model: swap.model,
-      route: "direct-gcp-vertex-gemini-express",
+      route:
+        vertexResponse.requestRoute ?? "direct-gcp-vertex-gemini-express",
       outputMimeType,
       outputMimeTypes: [outputMimeType],
       proofGenerationCount: 1,
@@ -497,7 +536,7 @@ async function generateTemplateFaceSwapProof(swap: {
         ? { modelVersion: vertexResponse.modelVersion }
         : {}),
       notes: [
-        "Generated through the direct Vertex/Gemini provider route in template_face_swap proof mode.",
+        `Generated through the ${vertexResponse.requestRoute ?? "direct-gcp-vertex-gemini-express"} provider route in template_face_swap proof mode.`,
         "The style template reference image was edited to carry the customer's facial identity; costume, pose, and detail were preserved.",
         ...(templateDimensions
           ? [
@@ -830,6 +869,36 @@ function buildVertexGenerateContentEndpoint(
   return `${baseUrl}/${modelResource}:generateContent?${params.toString()}`;
 }
 
+function buildVertexInteractionsEndpoint(): string {
+  return (process.env.GEMINI_INTERACTIONS_BASE_URL ?? geminiInteractionsBaseUrl)
+    .replace(/\/$/, "");
+}
+
+export function buildVertexInteractionsResponseFormat(
+  imageConfig: Record<string, string> | undefined,
+): VertexInteractionsResponseFormat | null {
+  const aspectRatio =
+    imageConfig?.aspectRatio ?? process.env.VERTEX_IMAGE_ASPECT_RATIO;
+  const imageSize = imageConfig?.imageSize;
+  if (!aspectRatio && !imageSize) {
+    return null;
+  }
+
+  return {
+    type: "image",
+    mime_type: "image/jpeg",
+    ...(aspectRatio ? { aspect_ratio: aspectRatio } : {}),
+    ...(imageSize ? { image_size: imageSize } : {}),
+  };
+}
+
+export function buildVertexImageGenerationConfig(): Record<string, unknown> {
+  return {
+    candidateCount: 1,
+    responseModalities: ["TEXT", "IMAGE"],
+  };
+}
+
 async function generateVertexImage(input: {
   apiKey: string;
   model: string;
@@ -839,19 +908,17 @@ async function generateVertexImage(input: {
   sourceMimeType: string;
   referenceImages?: VertexRequestReferenceImage[];
 }): Promise<VertexGenerateContentResponse> {
-  const generationConfig: Record<string, unknown> = {
-    candidateCount: 1,
-    responseModalities: ["TEXT", "IMAGE"],
-  };
-  const aspectRatio =
-    input.imageConfig?.aspectRatio ?? process.env.VERTEX_IMAGE_ASPECT_RATIO;
-  const imageSize = input.imageConfig?.imageSize;
-  if (aspectRatio || imageSize) {
-    generationConfig.imageConfig = {
-      ...(aspectRatio ? { aspectRatio } : {}),
-      ...(imageSize ? { imageSize } : {}),
-    };
+  const interactionsResponseFormat = buildVertexInteractionsResponseFormat(
+    input.imageConfig,
+  );
+  if (interactionsResponseFormat) {
+    return generateVertexInteractionsImage({
+      ...input,
+      responseFormat: interactionsResponseFormat,
+    });
   }
+
+  const generationConfig = buildVertexImageGenerationConfig();
 
   const response = await fetch(
     buildVertexGenerateContentEndpoint(input.model, input.apiKey),
@@ -905,7 +972,139 @@ async function generateVertexImage(input: {
     );
   }
 
-  return (await response.json()) as VertexGenerateContentResponse;
+  return {
+    ...((await response.json()) as VertexGenerateContentResponse),
+    requestRoute: "direct-gcp-vertex-gemini-express",
+  };
+}
+
+async function generateVertexInteractionsImage(input: {
+  apiKey: string;
+  model: string;
+  promptText: string;
+  sourceImageBuffer: Buffer;
+  sourceMimeType: string;
+  referenceImages?: VertexRequestReferenceImage[];
+  responseFormat: VertexInteractionsResponseFormat;
+}): Promise<VertexGenerateContentResponse> {
+  const response = await fetch(buildVertexInteractionsEndpoint(), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-goog-api-key": input.apiKey,
+    },
+    body: JSON.stringify({
+      model: input.model,
+      input: buildVertexInteractionsInput({
+        promptText: input.promptText,
+        sourceImageBuffer: input.sourceImageBuffer,
+        sourceMimeType: input.sourceMimeType,
+        referenceImages: input.referenceImages,
+      }),
+      response_format: input.responseFormat,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `Gemini Interactions request failed with HTTP ${response.status}: ${await readErrorBody(response)}`,
+    );
+  }
+
+  return normalizeVertexInteractionsResponse(
+    (await response.json()) as VertexInteractionsResponse,
+  );
+}
+
+function buildVertexInteractionsInput(input: {
+  promptText: string;
+  sourceImageBuffer: Buffer;
+  sourceMimeType: string;
+  referenceImages?: VertexRequestReferenceImage[];
+}): Array<{
+  type: "text" | "image";
+  text?: string;
+  mime_type?: string;
+  data?: string;
+}> {
+  return [
+    {
+      type: "text",
+      text: input.promptText,
+    },
+    {
+      type: "image",
+      mime_type: input.sourceMimeType,
+      data: input.sourceImageBuffer.toString("base64"),
+    },
+    ...(input.referenceImages ?? []).map((referenceImage) => ({
+      type: "image" as const,
+      mime_type: referenceImage.mimeType,
+      data: referenceImage.imageBuffer.toString("base64"),
+    })),
+  ];
+}
+
+function normalizeVertexInteractionsResponse(
+  response: VertexInteractionsResponse,
+): VertexGenerateContentResponse {
+  const parts: VertexPart[] = [];
+  const topLevelImage = normalizeInteractionsImageOutput(
+    response.output_image ?? response.outputImage,
+  );
+  if (topLevelImage?.data) {
+    parts.push({ inlineData: topLevelImage });
+  }
+
+  for (const contentItem of extractInteractionsContentItems(response)) {
+    if (contentItem.type === "image" && contentItem.data) {
+      parts.push({
+        inlineData: {
+          mimeType: contentItem.mime_type ?? contentItem.mimeType,
+          data: contentItem.data,
+        },
+      });
+    } else if (contentItem.type === "text" && contentItem.text) {
+      parts.push({ text: contentItem.text });
+    }
+  }
+
+  return {
+    candidates: [
+      {
+        content: {
+          parts,
+        },
+        ...(response.status && response.status !== "completed"
+          ? { finishReason: response.status }
+          : {}),
+      },
+    ],
+    modelVersion: response.model,
+    requestRoute: "direct-gemini-interactions",
+    interactionId: response.id,
+  };
+}
+
+function extractInteractionsContentItems(
+  response: VertexInteractionsResponse,
+): VertexInteractionsContentItem[] {
+  return response.steps?.flatMap((step) => step.content ?? []) ?? [];
+}
+
+function normalizeInteractionsImageOutput(
+  output: VertexInteractionsImageOutput | VertexInlineData | undefined,
+): VertexInlineData | undefined {
+  if (!output?.data) {
+    return undefined;
+  }
+  const mimeType =
+    "mime_type" in output ? output.mime_type : output.mimeType;
+
+  return {
+    mimeType,
+    data: output.data,
+  };
 }
 
 async function readErrorBody(response: Response): Promise<string> {

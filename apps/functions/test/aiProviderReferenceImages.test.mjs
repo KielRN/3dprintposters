@@ -3,6 +3,8 @@ import test from "node:test";
 
 import {
   buildReferenceImageGenerationMetadata,
+  buildVertexImageGenerationConfig,
+  buildVertexInteractionsResponseFormat,
   buildVertexUserParts,
   nearestSupportedAspectRatio,
   readImageDimensions,
@@ -89,6 +91,27 @@ test("nearest supported aspect ratio matches the exp-011 template shape", () => 
   assert.equal(nearestSupportedAspectRatio(1122, 1402), "4:5");
   assert.equal(nearestSupportedAspectRatio(1000, 1000), "1:1");
   assert.equal(nearestSupportedAspectRatio(2100, 900), "21:9");
+});
+
+test("Vertex generateContent config stays on the unconfigured fallback shape", () => {
+  assert.deepEqual(buildVertexImageGenerationConfig(), {
+    candidateCount: 1,
+    responseModalities: ["TEXT", "IMAGE"],
+  });
+});
+
+test("Gemini Interactions response format uses the validated 2K image fields", () => {
+  const responseFormat = buildVertexInteractionsResponseFormat({
+    aspectRatio: "4:5",
+    imageSize: "2K",
+  });
+
+  assert.deepEqual(responseFormat, {
+    type: "image",
+    mime_type: "image/jpeg",
+    aspect_ratio: "4:5",
+    image_size: "2K",
+  });
 });
 
 test("image dimensions parse from PNG and JPEG headers", () => {

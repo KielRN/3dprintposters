@@ -97,8 +97,9 @@ test("default workflow config exposes only the approved public styles", () => {
     "chibi_figure",
     "chibi_female",
     "heroic_fantasy_male",
+    "heroic_fantasy_female",
   ]);
-  assert.equal(config.visibleStyleCount, 4);
+  assert.equal(config.visibleStyleCount, 5);
   assert.equal(
     config.styles.find((style) => style.id === "chibi_female")
       ?.generationWorkflow,
@@ -112,6 +113,16 @@ test("default workflow config exposes only the approved public styles", () => {
     config.styles.find((style) => style.id === "heroic_fantasy_male")
       ?.generationWorkflow,
     "direct_multi_image_to_3d",
+  );
+  assert.equal(
+    config.styles.find((style) => style.id === "heroic_fantasy_female")
+      ?.generationWorkflow,
+    "direct_multi_image_to_3d",
+  );
+  assert.equal(
+    config.styles.find((style) => style.id === "heroic_fantasy_female")
+      ?.proofMode,
+    "template_face_swap",
   );
   assert.equal(
     config.styles.find((style) => style.id === "emoji_avatar")?.enabled,
@@ -147,7 +158,8 @@ test("saved configs that predate the chibi approval get it back and visible", ()
   assert.equal(config.styles[1].id, "chibi_figure");
   assert.equal(config.styles[2].id, "chibi_female");
   assert.equal(config.styles[3].id, "heroic_fantasy_male");
-  assert.equal(config.visibleStyleCount, 4);
+  assert.equal(config.styles[4].id, "heroic_fantasy_female");
+  assert.equal(config.visibleStyleCount, 5);
   assert.deepEqual(
     visibleWorkflowStyles(config).map((style) => style.id),
     [
@@ -155,6 +167,7 @@ test("saved configs that predate the chibi approval get it back and visible", ()
       "chibi_figure",
       "chibi_female",
       "heroic_fantasy_male",
+      "heroic_fantasy_female",
     ],
   );
   assert.equal(
@@ -204,10 +217,11 @@ test("legacy configs with chibi buried outside the visible window move it into v
       "chibi_figure",
       "chibi_female",
       "heroic_fantasy_male",
+      "heroic_fantasy_female",
     ],
   );
-  assert.equal(config.visibleStyleCount, 4);
-  assert.equal(config.styles.length, 7);
+  assert.equal(config.visibleStyleCount, 5);
+  assert.equal(config.styles.length, 8);
   assert.deepEqual(
     config.styles.map((style) => [style.id, style.enabled]),
     [
@@ -215,6 +229,7 @@ test("legacy configs with chibi buried outside the visible window move it into v
       ["chibi_figure", true],
       ["chibi_female", true],
       ["heroic_fantasy_male", true],
+      ["heroic_fantasy_female", true],
       ["emoji_avatar", false],
       ["bobblehead", false],
       ["cartoon_figure", false],
@@ -240,14 +255,19 @@ test("an admin-disabled chibi style stays disabled and hidden", () => {
     ],
   });
 
-  assert.equal(config.visibleStyleCount, 3);
+  assert.equal(config.visibleStyleCount, 4);
   assert.equal(
     config.styles.find((style) => style.id === "chibi_figure")?.enabled,
     false,
   );
   assert.deepEqual(
     visibleWorkflowStyles(config).map((style) => style.id),
-    ["creative_lab_figure", "chibi_female", "heroic_fantasy_male"],
+    [
+      "creative_lab_figure",
+      "chibi_female",
+      "heroic_fantasy_male",
+      "heroic_fantasy_female",
+    ],
   );
 });
 
@@ -276,14 +296,68 @@ test("an admin-disabled heroic style stays disabled and hidden", () => {
     ],
   });
 
-  assert.equal(config.visibleStyleCount, 3);
+  assert.equal(config.visibleStyleCount, 4);
   assert.equal(
     config.styles.find((style) => style.id === "heroic_fantasy_male")?.enabled,
     false,
   );
   assert.deepEqual(
     visibleWorkflowStyles(config).map((style) => style.id),
-    ["creative_lab_figure", "chibi_figure", "chibi_female"],
+    [
+      "creative_lab_figure",
+      "chibi_figure",
+      "chibi_female",
+      "heroic_fantasy_female",
+    ],
+  );
+});
+
+test("an admin-disabled heroic female style stays disabled and hidden", () => {
+  const config = normalizeFigurineWorkflowConfig({
+    visibleStyleCount: 4,
+    styles: [
+      {
+        label: "Creative Lab Figure",
+        id: "creative_lab_figure",
+        prompt: "Smooth toy figure proof.",
+      },
+      {
+        label: "Chibi",
+        id: "chibi_figure",
+        prompt: "Chibi proof.",
+      },
+      {
+        label: "Heroic fantasy male",
+        id: "heroic_fantasy_male",
+        prompt: "Heroic proof.",
+        proofMode: "template_face_swap",
+        generationWorkflow: "direct_multi_image_to_3d",
+      },
+      {
+        label: "Heroic fantasy female",
+        id: "heroic_fantasy_female",
+        prompt: "Heroic female proof.",
+        proofMode: "template_face_swap",
+        generationWorkflow: "direct_multi_image_to_3d",
+        enabled: false,
+      },
+    ],
+  });
+
+  assert.equal(config.visibleStyleCount, 4);
+  assert.equal(
+    config.styles.find((style) => style.id === "heroic_fantasy_female")
+      ?.enabled,
+    false,
+  );
+  assert.deepEqual(
+    visibleWorkflowStyles(config).map((style) => style.id),
+    [
+      "creative_lab_figure",
+      "chibi_figure",
+      "chibi_female",
+      "heroic_fantasy_male",
+    ],
   );
 });
 
@@ -319,14 +393,19 @@ test("an admin-disabled chibi female style stays disabled and hidden", () => {
     ],
   });
 
-  assert.equal(config.visibleStyleCount, 3);
+  assert.equal(config.visibleStyleCount, 4);
   assert.equal(
     config.styles.find((style) => style.id === "chibi_female")?.enabled,
     false,
   );
   assert.deepEqual(
     visibleWorkflowStyles(config).map((style) => style.id),
-    ["creative_lab_figure", "chibi_figure", "heroic_fantasy_male"],
+    [
+      "creative_lab_figure",
+      "chibi_figure",
+      "heroic_fantasy_male",
+      "heroic_fantasy_female",
+    ],
   );
 });
 
@@ -396,6 +475,12 @@ test("style generation workflow round-trips and defaults to Creative Lab", () =>
         prompt: "Heroic proof.",
         generationWorkflow: "direct_multi_image_to_3d",
       },
+      {
+        label: "Heroic fantasy female",
+        id: "heroic_fantasy_female",
+        prompt: "Heroic female proof.",
+        generationWorkflow: "direct_multi_image_to_3d",
+      },
     ],
   });
 
@@ -405,10 +490,20 @@ test("style generation workflow round-trips and defaults to Creative Lab", () =>
       ?.generationWorkflow,
     "direct_multi_image_to_3d",
   );
+  assert.equal(
+    config.styles.find((style) => style.id === "heroic_fantasy_female")
+      ?.generationWorkflow,
+    "direct_multi_image_to_3d",
+  );
 
   const publicConfig = publicFigurineWorkflowConfig(config);
   assert.equal(
     publicConfig.styles.find((style) => style.id === "heroic_fantasy_male")
+      ?.generationWorkflow,
+    "direct_multi_image_to_3d",
+  );
+  assert.equal(
+    publicConfig.styles.find((style) => style.id === "heroic_fantasy_female")
       ?.generationWorkflow,
     "direct_multi_image_to_3d",
   );
@@ -442,6 +537,13 @@ test("save-path validation rejects configs with no public styles", () => {
         label: "Heroic fantasy male",
         id: "heroic_fantasy_male",
         prompt: "Heroic proof.",
+        enabled: false,
+        generationWorkflow: "direct_multi_image_to_3d",
+      },
+      {
+        label: "Heroic fantasy female",
+        id: "heroic_fantasy_female",
+        prompt: "Heroic female proof.",
         enabled: false,
         generationWorkflow: "direct_multi_image_to_3d",
       },
