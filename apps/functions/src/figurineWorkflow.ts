@@ -26,8 +26,11 @@ export function normalizeSelectedStyle(selectedStyle: string): string {
 export function isFigurineStyle(selectedStyle: string): boolean {
   return new Set([
     "creative_lab_figure",
+    "super_hero_figure_female",
     "chibi_figure",
     "chibi_female",
+    "chibi_photo_male",
+    "chibi_photo_female",
     "heroic_fantasy_male",
     "heroic_fantasy_female",
   ]).has(normalizeSelectedStyle(selectedStyle));

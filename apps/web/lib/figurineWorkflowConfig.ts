@@ -138,7 +138,7 @@ const referenceImageStoragePathPattern =
 
 const approvedChibiStyle: WorkflowStyleConfig = {
   id: "chibi_figure",
-  label: "Chibi",
+  label: "Chibi heroic fantasy male",
   productType: "figurine",
   proofMode: "generated_options",
   generationWorkflow: "creative_lab_figure",
@@ -176,7 +176,7 @@ const approvedHeroicFantasyFemaleStyle: WorkflowStyleConfig = {
 
 const approvedChibiFemaleStyle: WorkflowStyleConfig = {
   id: "chibi_female",
-  label: "Chibi female",
+  label: "Chibi heroic fantasy female",
   productType: "figurine",
   proofMode: "template_face_swap",
   generationWorkflow: "creative_lab_figure",
