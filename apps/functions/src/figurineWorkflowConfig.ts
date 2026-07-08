@@ -51,12 +51,12 @@ export const directMultiImageProviderCatalog: Record<
       "hitem3dv2.1": {
         label: "Hitem3D v2.1 — general",
         summary:
-          "1536fast · one-shot geometry+texture · GLB · 25 credits (~$0.50) · ~7 min",
+          "1536fast · texture, no PBR · GLB · 25 credits (~$0.50) · ~7 min",
       },
       "scene-portraitv2.1": {
         label: "Hitem3D v2.1 — portrait",
         summary:
-          "1536profast · one-shot geometry+texture · GLB · 25 credits (~$0.50) · ~7 min",
+          "1536pro · texture, no PBR · GLB · 30-45 credits (~$0.60-0.90) · ~7 min",
       },
     },
   },

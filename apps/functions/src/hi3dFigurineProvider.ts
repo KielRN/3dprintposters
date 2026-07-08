@@ -25,7 +25,9 @@ const hi3dModelRequestDefaults: Record<
   { resolution: string; creditCost: number }
 > = {
   "hitem3dv2.1": { resolution: "1536fast", creditCost: 25 },
-  "scene-portraitv2.1": { resolution: "1536profast", creditCost: 25 },
+  // 1536pro is the portrait quality tier (30-45 credits vs 25 for profast),
+  // chosen 2026-07-08 to evaluate portrait mode at its best.
+  "scene-portraitv2.1": { resolution: "1536pro", creditCost: 30 },
 };
 
 export type Hi3dFigurineProviderInput = {
@@ -114,6 +116,9 @@ export async function generateHi3dDirectImageFigurinePreview(
   form.append("model", input.providerModel);
   form.append("resolution", requestDefaults.resolution);
   form.append("format", "2"); // GLB
+  // Hi3D defaults pbr to 1; baked texture only matches the Meshy-era
+  // enable_pbr:false decision and keeps GLBs smaller for the print pipeline.
+  form.append("pbr", "0");
 
   const submitResponse = await hi3dFetch(`${hi3dApiRoot}/submit-task`, {
     method: "POST",
@@ -174,6 +179,7 @@ export async function generateHi3dDirectImageFigurinePreview(
     modelId: input.modelId,
     providerModel: input.providerModel,
     resolution: requestDefaults.resolution,
+    pbr: 0,
     creditCost: requestDefaults.creditCost,
     sourceImagePath: input.sourceImagePath,
     previewGlb,

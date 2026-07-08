@@ -13,6 +13,7 @@ All notable project changes will be documented in this file.
 ### Changed
 
 - Raised the `approveGeneratedImage` timeout from the shared 540s print-file budget to 1200s (server and matching web callable timeout) because Hi3D v2.1 generations run ~7-8 minutes plus asset transfer.
+- Hi3D requests now send `pbr: 0` explicitly (Hi3D defaults PBR on; baked-texture-only matches the Meshy-era `enable_pbr: false` decision and shrinks GLBs), and the portrait model `scene-portraitv2.1` runs at its `1536pro` quality tier (30-45 credits) instead of `1536profast`.
 - `seed:heroic-workflow` and `seed:heroic-female-workflow` now seed `provider: "hi3d"` / `providerModel: "hitem3dv2.1"` on their styles.
 
 ## [Unreleased] - 2026-07-06
