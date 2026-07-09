@@ -171,7 +171,7 @@ It is used by:
 - `Chibi heroic fantasy female` (`chibi_female`) in the default config
 - `Heroic fantasy male` in the default config
 - `Heroic fantasy female` in the default config
-- Admin-created template styles such as `Super Hero Figure - Male` (`creative_lab_figure`) and `Super Hero Figure - Female` (`super_hero_figure_female`), both direct Multi-Image-to-3D on Hi3D
+- Admin-created template styles such as `Super Hero Figure - Male` (`creative_lab_figure`) and `Super Hero Figure - Female` (`super_hero_figure_female`), both direct Multi-Image-to-3D on Hi3D — see [Super Hero Male Face Swap Direct 3D Workflow](./superhero-male-face-swap-direct-3d-workflow.md) and [Super Hero Female Face Swap Direct 3D Workflow](./superhero-female-face-swap-direct-3d-workflow.md)
 - Any admin-created style with `proofMode: template_face_swap`
 
 ```mermaid
