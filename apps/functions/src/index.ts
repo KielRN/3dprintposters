@@ -31,6 +31,7 @@ import {
   refreshJobCostFromFirestore,
   resolveMeshyApiKeyForFigurine,
   resolveRequiredEnv,
+  shouldQueueFigurineBuildOnPayment,
   type PrintFileLocalMirror,
 } from "./figurineBuild.js";
 import { runMeshyFigurinePrintTooling } from "./meshyPrintTooling.js";
@@ -1502,11 +1503,31 @@ export const stripeWebhook = onRequest(
           { merge: true },
         );
         if (jobId) {
+          const jobRef = db.collection("jobs").doc(jobId);
+          // One read decides the figurine build stamp. Stripe redelivers
+          // webhooks; stamping over an existing figurineBuild record would
+          // reset a running/finished build to queued and double-build, so the
+          // stamp applies only when no record exists yet. No provider calls
+          // happen here — the webhook stays fast and the build runs
+          // out-of-band via onFigurineBuildQueued.
+          const jobSnap = await jobRef.get();
+          const queueFigurineBuild = shouldQueueFigurineBuildOnPayment(
+            jobSnap.data(),
+          );
           batch.set(
-            db.collection("jobs").doc(jobId),
+            jobRef,
             {
               pipelineStage: "paid",
               pipelineUpdatedAt: paidAt,
+              ...(queueFigurineBuild
+                ? {
+                    figurineBuild: {
+                      status: "queued",
+                      queuedAt: paidAt,
+                      attempts: 0,
+                    },
+                  }
+                : {}),
               updatedAt: paidAt,
             },
             { merge: true },
