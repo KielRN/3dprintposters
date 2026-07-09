@@ -6,7 +6,8 @@
     "dev": "next dev --hostname 127.0.0.1 --port 3000",
     "build": "next build",
     "start": "next start",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@react-three/fiber": "^9.6.0",
@@ -26,6 +27,7 @@
     "@types/react-dom": "^19.2.3",
     "@types/three": "^0.184.0",
     "tailwindcss": "^4.2.4",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10"
   }
 }
