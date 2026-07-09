@@ -1,6 +1,7 @@
 export type JobCostPhase =
   | "proof_generation"
   | "figurine_generation"
+  | "scene_preview"
   | "assembled_print_tooling"
   | "total";
 
@@ -99,6 +100,7 @@ export function calculateJobCost(
   };
 
   addGeminiProofItems(state, jobData);
+  addScenePreviewItems(state, jobData);
   addCreativeLabItems(state, jobData);
   addDirectMultiImageItems(state, jobData);
   addPrintToolingItems(state, jobData);
@@ -281,6 +283,82 @@ function addGeminiProofItems(
         "Replace this estimate with persisted provider usage or Google Cloud Billing Export reconciliation when available.",
     },
   );
+}
+
+// Page-4 scene renders (generateScenePreview): one Vertex edit call per
+// attempt, two inline input images (scene plate + concept) per call. Fixture
+// renders copy the plate and never call Vertex, so they cost nothing.
+function addScenePreviewItems(
+  state: MutableCostState,
+  jobData: Record<string, unknown>,
+): void {
+  const scenePreviews = asRecord(jobData.scenePreviews);
+  if (!scenePreviews) {
+    return;
+  }
+
+  for (const [sceneId, rawScene] of Object.entries(scenePreviews)) {
+    const scene = asRecord(rawScene);
+    if (!scene) {
+      continue;
+    }
+    const attempts = asNumber(scene.attempts) ?? 0;
+    if (attempts <= 0 || asString(scene.mode) === "fixture") {
+      continue;
+    }
+
+    state.sawEstimated = true;
+    const status = normalizeStatus(asString(scene.status) ?? "unknown");
+    const model = "gemini-3-pro-image";
+    const storagePath = asString(scene.storagePath);
+    state.items.push(
+      {
+        phase: "scene_preview",
+        provider: "Google Vertex/Gemini",
+        modelOrEndpoint: model,
+        taskId: `scene-${sceneId}-input-image`,
+        status,
+        quantity: attempts * 2,
+        unit: "images",
+        credits: 0,
+        estimatedCostUsd: roundMoney(
+          pricing.geminiInputImageUsd * attempts * 2,
+        ),
+        confidence: "estimated",
+        pricingBasis:
+          "Gemini scene-preview input image estimate (scene plate + concept per render attempt).",
+      },
+      {
+        phase: "scene_preview",
+        provider: "Google Vertex/Gemini",
+        modelOrEndpoint: model,
+        taskId: `scene-${sceneId}-output-image`,
+        status,
+        quantity: attempts,
+        unit: attempts === 1 ? "scene render" : "scene renders",
+        credits: 0,
+        estimatedCostUsd: roundMoney(pricing.geminiOutputImageUsd * attempts),
+        confidence: "estimated",
+        pricingBasis:
+          "Gemini scene-preview output image estimate from the current pricing assumptions.",
+        ...(storagePath ? { notes: `Scene render: ${storagePath}.` } : {}),
+      },
+      {
+        phase: "scene_preview",
+        provider: "Google Vertex/Gemini",
+        modelOrEndpoint: model,
+        taskId: `scene-${sceneId}-text-prompt`,
+        status,
+        quantity: attempts,
+        unit: attempts === 1 ? "estimated text call" : "estimated text calls",
+        credits: 0,
+        estimatedCostUsd: roundMoney(pricing.geminiTextAllowanceUsd * attempts),
+        confidence: "estimated",
+        pricingBasis:
+          "Placeholder allowance for the scene-preview prompt and response text.",
+      },
+    );
+  }
 }
 
 function addCreativeLabItems(

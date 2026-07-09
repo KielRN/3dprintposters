@@ -228,3 +228,44 @@ test("includes failed Meshy provider task credits as partial cost", () => {
     0.12,
   );
 });
+
+test("scene preview renders add Gemini items per attempt and skip fixture renders", () => {
+  const jobCost = calculateJobCost(
+    {
+      productType: "figurine",
+      scenePreviews: {
+        bookshelf: {
+          status: "ready",
+          attempts: 2,
+          storagePath: "generated/u/j/scene-bookshelf.png",
+        },
+        desk: {
+          status: "ready",
+          attempts: 1,
+          mode: "fixture",
+          storagePath: "generated/u/j/scene-desk.png",
+        },
+      },
+    },
+    { now },
+  );
+  const sceneItems = jobCost.items.filter(
+    (item) => item.phase === "scene_preview",
+  );
+  // bookshelf only: desk was a fixture render and costs nothing
+  assert.equal(sceneItems.length, 3);
+  const output = sceneItems.find(
+    (item) => item.taskId === "scene-bookshelf-output-image",
+  );
+  assert.equal(output.quantity, 2);
+  assert.equal(output.estimatedCostUsd, 0.268);
+  const input = sceneItems.find(
+    (item) => item.taskId === "scene-bookshelf-input-image",
+  );
+  assert.equal(input.quantity, 4); // plate + concept per attempt
+  const noScene = calculateJobCost({ productType: "figurine" }, { now });
+  assert.equal(
+    noScene.items.filter((item) => item.phase === "scene_preview").length,
+    0,
+  );
+});
