@@ -23,17 +23,14 @@ import {
 } from "./figurineWorkflow.js";
 import { generateCreativeLabPrototypeConcept } from "./meshyFigurineProvider.js";
 import {
-  buildFigurineGenerationError,
   buildLocalMirrorError,
   firestoreSafeValue,
   initialPrintFileLocalMirror,
   jobDataIsFigurine,
-  mirrorFigurinePreviewToLocalTmp,
   mirrorStoragePathsToLocalTmp,
   refreshJobCostFromFirestore,
   resolveMeshyApiKeyForFigurine,
   resolveRequiredEnv,
-  runFigurineBuild,
   type PrintFileLocalMirror,
 } from "./figurineBuild.js";
 import { runMeshyFigurinePrintTooling } from "./meshyPrintTooling.js";
@@ -69,7 +66,6 @@ import {
   validateFigurineWorkflowConfigInput,
   visibleWorkflowStyles,
   normalizeDirectMultiImageProviderSelection,
-  type WorkflowGenerationWorkflow,
 } from "./figurineWorkflowConfig.js";
 
 initializeApp();
@@ -86,8 +82,6 @@ const vertexImageModel = defineSecret("VERTEX_IMAGE_MODEL");
 const vertexMaxSourceImageBytes = defineSecret("VERTEX_MAX_SOURCE_IMAGE_BYTES");
 const vertexApiKey = defineSecret("VERTEX_API_KEY");
 const meshyApiKey = defineSecret("MESHY_API_KEY");
-const hi3dAccessKey = defineSecret("HI3D_ACCESS_KEY");
-const hi3dSecretKey = defineSecret("HI3D_SECRET_KEY");
 const stripeSecretKey = defineSecret("STRIPE_SECRET_KEY");
 const stripeWebhookSecret = defineSecret("STRIPE_WEBHOOK_SECRET");
 const stripePosterPriceId = defineSecret("STRIPE_POSTER_PRICE_ID");
@@ -1080,16 +1074,11 @@ export const createGenerationJob = onCall(
 
 export const approveGeneratedImage = onCall(
   {
-    secrets: [
-      appStorageBucket,
-      printFileGeneratorUrl,
-      meshyApiKey,
-      hi3dAccessKey,
-      hi3dSecretKey,
-    ],
-    // Hi3D v2.1 generations run ~7-8 minutes plus asset transfer, which does
-    // not fit the shared 540s print-file budget.
-    timeoutSeconds: 1200,
+    secrets: [appStorageBucket, printFileGeneratorUrl],
+    // Poster approval still generates print files in-call and needs the shared
+    // print-file budget. Figurine approval is approval-only — the 3D build
+    // runs post-payment via onFigurineBuildQueued (plan §4b).
+    timeoutSeconds: printFileGenerationTimeoutSeconds,
   },
   async (request) => {
     if (!request.auth) {
@@ -1133,70 +1122,6 @@ export const approveGeneratedImage = onCall(
       jobData.productType === "figurine" ||
       (typeof jobData.selectedStyle === "string" &&
         isFigurineStyle(jobData.selectedStyle));
-    const existingFigurinePreview = jobData.figurinePreview as
-      | {
-          status?: string;
-          previewGlb?: string;
-          metadataJson?: string;
-          thumbnail?: string | null;
-        }
-      | undefined;
-    if (
-      isFigurineJob &&
-      jobData.approvedImagePath === parsed.data.imagePath &&
-      existingFigurinePreview?.status === "preview_ready" &&
-      existingFigurinePreview.previewGlb
-    ) {
-      try {
-        const existingMirror = await mirrorFigurinePreviewToLocalTmp({
-          bucketName: resolveRequiredEnv("APP_STORAGE_BUCKET"),
-          generation: {
-            previewGlb: existingFigurinePreview.previewGlb,
-            metadataPath:
-              existingFigurinePreview.metadataJson ??
-              existingFigurinePreview.previewGlb.replace(
-                /\/model\.glb$/,
-                "/metadata.json",
-              ),
-            thumbnailPath: existingFigurinePreview.thumbnail ?? null,
-          },
-        });
-        await jobRef.set(
-          {
-            figurinePreviewLocalMirror: existingMirror,
-            figurineGeneration: {
-              localMirror: existingMirror,
-            },
-            updatedAt: FieldValue.serverTimestamp(),
-          },
-          { merge: true },
-        );
-      } catch (error) {
-        const existingMirror = buildLocalMirrorError(error);
-        await jobRef.set(
-          {
-            figurinePreviewLocalMirror: existingMirror,
-            figurineGeneration: {
-              localMirror: existingMirror,
-            },
-            updatedAt: FieldValue.serverTimestamp(),
-          },
-          { merge: true },
-        );
-      }
-      await refreshJobCostFromFirestore(
-        jobRef,
-        "figurine_preview_existing",
-      );
-
-      return {
-        jobId: jobRef.id,
-        status: "approved",
-        approvedImagePath: parsed.data.imagePath,
-        productType: "figurine",
-        figurinePreview: existingFigurinePreview,
-      };
-    }
 
     await jobRef.set(
       {
@@ -1211,91 +1136,33 @@ export const approveGeneratedImage = onCall(
           ? null
           : `print-files/${request.auth.uid}/${parsed.data.jobId}`,
         printFileError: null,
+        // Figurine approval is approval-only: it records the concept choice
+        // and unlocks checkout. The 3D asset build runs after payment via
+        // onFigurineBuildQueued (plan §4b).
+        ...(isFigurineJob
+          ? {
+              checkoutEligibility: {
+                eligible: true,
+                reason: "concept_approved",
+              },
+            }
+          : {}),
         updatedAt: FieldValue.serverTimestamp(),
       },
       { merge: true },
     );
 
     if (isFigurineJob) {
-      const generationWorkflow: WorkflowGenerationWorkflow =
-        jobData.generated3dWorkflow === "direct_multi_image_to_3d"
-          ? "direct_multi_image_to_3d"
-          : "creative_lab_figure";
-      // Jobs created before provider selection existed have no provider
-      // fields; the normalizer resolves those to the current default (Hi3D).
-      const providerSelection =
-        generationWorkflow === "direct_multi_image_to_3d"
-          ? normalizeDirectMultiImageProviderSelection({
-              provider: jobData.generated3dProvider,
-              providerModel: jobData.generated3dProviderModel,
-            })
-          : { provider: "meshy" as const, providerModel: "" };
-      try {
-        const figurineConcept = jobData.figurineConcept as
-          | { prototypeTaskId?: unknown }
-          | undefined;
-        const storedPrototypeTaskId =
-          typeof figurineConcept?.prototypeTaskId === "string" &&
-          figurineConcept.prototypeTaskId
-            ? figurineConcept.prototypeTaskId
-            : undefined;
-        const figurinePreview = await runFigurineBuild({
-          jobRef,
-          jobId: jobRef.id,
-          uid: request.auth.uid,
-          selectedImagePath: parsed.data.imagePath,
-          generationWorkflow,
-          provider: providerSelection.provider,
-          providerModel: providerSelection.providerModel,
-          prototypeTaskId: storedPrototypeTaskId,
-        });
-
-        return {
-          jobId: jobRef.id,
-          status: "approved",
-          approvedImagePath: parsed.data.imagePath,
-          productType: "figurine",
-          figurinePreview,
-        };
-      } catch (error) {
-        const generationError = buildFigurineGenerationError(error);
-        console.error("figurine preview generation failed", {
-          jobId: jobRef.id,
-          error: generationError.message,
-          providerTask: "providerTask" in generationError
-            ? generationError.providerTask
-            : undefined,
-          stack: error instanceof Error ? error.stack : undefined,
-        });
-        await jobRef.set(
-          {
-            figurinePreview: {
-              status: "failed",
-              previewGlb: null,
-              printReadiness: "needs_review",
-              warnings: figurinePreviewWarningsForWorkflow(generationWorkflow),
-            },
-            figurineGeneration: {
-              provider: providerSelection.provider,
-              workflow: generationWorkflow,
-              status: "failed",
-              failedAt: FieldValue.serverTimestamp(),
-            },
-            error: generationError,
-            updatedAt: FieldValue.serverTimestamp(),
-          },
-          { merge: true },
-        );
-        await refreshJobCostFromFirestore(
-          jobRef,
-          "figurine_preview_failed",
-        );
-
-        throw new HttpsError(
-          "failed-precondition",
-          "Proof approved, but figurine preview generation failed. Check the Functions emulator logs before retrying.",
-        );
-      }
+      return {
+        jobId: jobRef.id,
+        status: "approved",
+        approvedImagePath: parsed.data.imagePath,
+        productType: "figurine",
+        checkoutEligibility: {
+          eligible: true,
+          reason: "concept_approved",
+        },
+      };
     }
 
     let printFileArtifacts: PrintFileArtifacts;
