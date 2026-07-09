@@ -216,9 +216,26 @@ async function main() {
     updatedAt: paidAt,
   };
 
+  // Mirror the stripeWebhook figurine stamp: queue the funded build only when
+  // the job is a figurine and no figurineBuild record exists yet (a re-seed
+  // must not reset a running/finished build back to queued).
+  const isFigurineJob = productType === "figurine";
+  const queueFigurineBuild =
+    isFigurineJob &&
+    (jobData.figurineBuild === undefined || jobData.figurineBuild === null);
+
   const jobUpdate = {
     pipelineStage: "paid",
     pipelineUpdatedAt: paidAt,
+    ...(queueFigurineBuild
+      ? {
+          figurineBuild: {
+            status: "queued",
+            queuedAt: paidAt,
+            attempts: 0,
+          },
+        }
+      : {}),
     updatedAt: paidAt,
   };
 
@@ -241,6 +258,7 @@ async function main() {
       orderStatus: orderUpdate.status,
       orderPaymentStatus: orderUpdate.paymentStatus,
       orderFulfillmentStage: orderUpdate.fulfillment.stage,
+      figurineBuildQueued: queueFigurineBuild,
       availablePrintConsoleTab: true,
     },
   };
