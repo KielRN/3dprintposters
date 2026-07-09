@@ -16,6 +16,7 @@ import {
   Wrench,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { doc, onSnapshot } from "firebase/firestore";
@@ -27,6 +28,15 @@ import {
   PrintFilePreview,
   PrintFileStatusPanel,
 } from "./PrintFilePreview";
+import { BaseSignInline } from "./storyfront/BaseSignInline";
+import { ConceptStage } from "./storyfront/ConceptStage";
+import { JourneyStrip } from "./storyfront/JourneyStrip";
+import { StepPills } from "./storyfront/StepPills";
+import {
+  heroName as jobHeroName,
+  jobStatusChip,
+  type JobChipTone,
+} from "./storyfront/jobPresentation";
 
 type GeneratedImage = {
   id: string;
@@ -40,6 +50,7 @@ type JobDocument = {
   uid: string;
   productType?: string;
   status: string;
+  pipelineStage?: string;
   sourceImagePath: string;
   selectedStyle: string;
   selectedStyleLabel?: string;
@@ -167,6 +178,18 @@ type PrintabilitySummary = {
 // v2.1 figurine generations run ~7-8 minutes plus asset transfer.
 const PRINT_FILE_GENERATION_TIMEOUT_MS = 1_200_000;
 const BASE_SIGN_GENERATION_TIMEOUT_MS = 540_000;
+// Figurine approval is approval-only (the 3D build runs post-payment), so it
+// returns in seconds rather than the poster path's print-file wait.
+const FIGURINE_APPROVAL_TIMEOUT_MS = 60_000;
+const SCENE_PREVIEW_TIMEOUT_MS = 120_000;
+
+const chipToneClasses: Record<JobChipTone, string> = {
+  moss: "bg-[var(--moss)]/10 text-[var(--moss)]",
+  gold: "bg-[var(--gold)]/10 text-[var(--gold)]",
+  ember: "bg-[var(--ember)]/10 text-[var(--ember)]",
+  coral: "bg-[var(--coral)]/10 text-[var(--coral)]",
+  muted: "bg-black/[0.04] text-[var(--muted)]",
+};
 
 const styleLabels: Record<string, string> = {
   "gallery-relief": "Gallery Relief",
@@ -275,6 +298,7 @@ export function JobDetail({
   jobId: string;
   operatorMode?: boolean;
 }) {
+  const router = useRouter();
   const firebaseClients = useMemo(() => getFirebaseClients(), []);
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(Boolean(firebaseClients));
@@ -544,12 +568,14 @@ export function JobDetail({
         ApproveGeneratedImageRequest,
         ApproveGeneratedImageResult
       >(firebaseClients.functions, "approveGeneratedImage", {
-        timeout: PRINT_FILE_GENERATION_TIMEOUT_MS,
+        timeout: isFigurineJob
+          ? FIGURINE_APPROVAL_TIMEOUT_MS
+          : PRINT_FILE_GENERATION_TIMEOUT_MS,
       });
       await approveGeneratedImage({ jobId, imagePath });
       setNotice(
         isFigurineJob
-          ? "Color figurine preview is ready. Checkout stays locked for print review."
+          ? "Saved to your heroes — come back anytime."
           : "3D relief preview is ready. Checkout is unlocked.",
       );
     } catch (approvalError) {
@@ -593,11 +619,7 @@ export function JobDetail({
         }),
       );
 
-      setBaseSignNotice(
-        result.data.namedBase
-          ? `Base sign "${result.data.namedBase.normalizedName}" was generated and assembled.`
-          : "Base saved without a name sign.",
-      );
+      setBaseSignNotice(result.data.namedBase ? "Saved." : "Saved without a name.");
     } catch (baseSignSaveError) {
       setBaseSignError(
         callableErrorMessage(baseSignSaveError, "Saving the base sign failed."),
@@ -640,6 +662,293 @@ export function JobDetail({
     } finally {
       setCheckoutBusy(false);
     }
+  }
+
+  function seeItInYourHome() {
+    if (firebaseClients) {
+      const generateScene = httpsCallable(
+        firebaseClients.functions,
+        "generateScenePreview",
+        { timeout: SCENE_PREVIEW_TIMEOUT_MS },
+      );
+      // Eager and never awaited: the scene render is garnish, and page 4
+      // reads its status from the job snapshot it already subscribes to.
+      void generateScene({ jobId, sceneId: "bookshelf" }).catch(() => {});
+    }
+    router.push(`/jobs/${jobId}/home`);
+  }
+
+  const isPaid = job?.pipelineStage === "paid";
+  const customerFigurineView = !operatorMode && isFigurineJob;
+
+  const customerHeader = (
+    <div className="flex flex-wrap items-center justify-between gap-4">
+      <Link
+        className="inline-flex items-center gap-2 text-sm font-bold text-[var(--muted)]"
+        href="/start"
+      >
+        <ArrowLeft size={16} aria-hidden="true" />
+        New order
+      </Link>
+      <StepPills current={3} />
+    </div>
+  );
+
+  const missingEnvWarning = !firebaseClients ? (
+    <p className="rounded-lg border border-[var(--coral)]/30 bg-[var(--coral)]/10 px-3 py-2 text-sm font-semibold text-[var(--coral)]">
+      Add Firebase web env values in{" "}
+      <code className="break-all">apps/web/.env.local</code>.
+    </p>
+  ) : null;
+
+  // Customer pages resolve auth/job state before choosing the poster or
+  // figurine presentation; operator mode keeps the original layout below,
+  // including its own loading states.
+  if (!operatorMode && (authLoading || jobLoading)) {
+    return (
+      <section className="grid min-w-0 gap-6">
+        {customerHeader}
+        {missingEnvWarning}
+        <div className="skeleton-shimmer h-[420px] rounded-2xl" />
+      </section>
+    );
+  }
+
+  if (!operatorMode && !user) {
+    return (
+      <section className="grid min-w-0 gap-6">
+        {customerHeader}
+        {missingEnvWarning}
+        <div className="panel rounded-xl p-5">
+          <p className="font-bold">Sign in to view this job.</p>
+          <p className="mt-2 text-sm text-[var(--muted)]">
+            Use the same account or guest session that created the upload.
+          </p>
+        </div>
+      </section>
+    );
+  }
+
+  if (!operatorMode && !job) {
+    return (
+      <section className="grid min-w-0 gap-6">
+        {customerHeader}
+        <div className="rounded-xl border border-[var(--coral)]/30 bg-[var(--coral)]/10 p-5">
+          <p className="flex items-start gap-2 font-bold text-[var(--coral)]">
+            <AlertCircle className="mt-0.5 shrink-0" size={18} aria-hidden="true" />
+            {error || "Job not found for this signed-in account."}
+          </p>
+        </div>
+      </section>
+    );
+  }
+
+  if (customerFigurineView && job) {
+    const nonPlaceholderImages = generatedImages.filter(
+      (image) => !image.isPlaceholder,
+    );
+    const multiConcept = nonPlaceholderImages.length > 1;
+    const stageImagePath =
+      approvedImagePath ??
+      (multiConcept ? null : (nonPlaceholderImages[0]?.storagePath ?? null));
+    const stageImageUrl = stageImagePath
+      ? (imageUrls[stageImagePath] ?? "")
+      : "";
+    const chip = jobStatusChip(job);
+    const name = jobHeroName(job);
+
+    return (
+      <section className="grid min-w-0 gap-6">
+        {customerHeader}
+
+        {notice ? (
+          <p className="flex items-start gap-2 rounded-lg border border-[var(--moss)]/30 bg-[var(--moss)]/10 px-3 py-2 text-sm font-semibold text-[var(--moss)]">
+            <CheckCircle2
+              className="mt-0.5 shrink-0"
+              size={16}
+              aria-hidden="true"
+            />
+            {notice}
+          </p>
+        ) : null}
+
+        {error ? (
+          <p className="flex items-start gap-2 rounded-lg border border-[var(--coral)]/30 bg-[var(--coral)]/10 px-3 py-2 text-sm font-semibold text-[var(--coral)]">
+            <AlertCircle
+              className="mt-0.5 shrink-0"
+              size={16}
+              aria-hidden="true"
+            />
+            {error}
+          </p>
+        ) : null}
+
+        <div className="flex flex-wrap items-center gap-3">
+          <span
+            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${chipToneClasses[chip.tone]}`}
+          >
+            {chip.pulse ? (
+              <span
+                className="chip-pulse-dot h-1.5 w-1.5 rounded-full bg-current"
+                aria-hidden="true"
+              />
+            ) : null}
+            {chip.label}
+          </span>
+          <span className="text-sm font-semibold text-[var(--muted)]">
+            {job.selectedStyleLabel ??
+              styleLabels[job.selectedStyle ?? ""] ??
+              job.selectedStyle}
+          </span>
+        </div>
+
+        {isPaid ? (
+          <div className="panel rounded-xl p-5">
+            <p className="flex items-start gap-2 font-bold">
+              <CheckCircle2
+                className="mt-0.5 shrink-0 text-[var(--moss)]"
+                size={18}
+                aria-hidden="true"
+              />
+              Order received — your hero is in production.
+            </p>
+            <p className="mt-2 text-sm text-[var(--muted)]">
+              We&apos;ll take it from here. This page stays your hero&apos;s
+              home.
+            </p>
+          </div>
+        ) : null}
+
+        {stageImagePath && stageImageUrl ? (
+          <ConceptStage
+            jobId={jobId}
+            imageUrl={stageImageUrl}
+            heroName={name}
+          />
+        ) : stageImagePath ? (
+          <div className="skeleton-shimmer h-[420px] rounded-2xl" />
+        ) : job.status === "failed" ? (
+          <div className="rounded-xl border border-[var(--coral)]/30 bg-[var(--coral)]/10 p-5">
+            <p className="font-bold text-[var(--coral)]">
+              This one hit a snag.
+            </p>
+            <p className="mt-1 text-sm text-[var(--muted)]">
+              Start another hero from the gallery and we&apos;ll take a fresh
+              run at it.
+            </p>
+          </div>
+        ) : nonPlaceholderImages.length === 0 ? (
+          <div className="skeleton-shimmer grid h-[320px] place-items-center rounded-2xl">
+            <p className="display relative z-10 px-6 text-center text-xl">
+              Your hero&apos;s concept is on the way. This can take a few
+              minutes.
+            </p>
+          </div>
+        ) : null}
+
+        {multiConcept && !isPaid ? (
+          <section>
+            {!approvedImagePath ? (
+              <>
+                <p className="text-sm font-bold text-[var(--ember)]">
+                  You made these.
+                </p>
+                <h1 className="display mt-1 text-3xl sm:text-4xl">
+                  Choose your hero.
+                </h1>
+              </>
+            ) : (
+              <h2 className="text-lg font-bold">Pick a different take</h2>
+            )}
+            <div className="mt-4 grid grid-cols-2 gap-4 lg:grid-cols-4">
+              {nonPlaceholderImages.map((image) => {
+                const imageUrl = imageUrls[image.storagePath];
+                const isChosen = approvedImagePath === image.storagePath;
+                const isBusy = approvalBusyPath === image.storagePath;
+
+                return (
+                  <article
+                    className={`overflow-hidden rounded-xl border bg-white ${
+                      isChosen ? "border-[var(--ember)]" : "border-black/10"
+                    }`}
+                    key={image.id}
+                  >
+                    <div className="aspect-[4/5] bg-black/[0.035]">
+                      {imageUrl ? (
+                        <img
+                          alt={image.label}
+                          className="h-full w-full object-cover"
+                          src={imageUrl}
+                        />
+                      ) : (
+                        <div className="skeleton-shimmer h-full w-full" />
+                      )}
+                    </div>
+                    <div className="p-3">
+                      {isChosen ? (
+                        <span className="inline-flex min-h-9 w-full items-center justify-center gap-2 rounded-lg bg-[var(--ember)] px-3 text-sm font-bold text-white">
+                          <CheckCircle2 size={15} aria-hidden="true" />
+                          Your choice
+                        </span>
+                      ) : (
+                        <button
+                          className={
+                            approvedImagePath
+                              ? "secondary-button w-full"
+                              : "primary-button w-full"
+                          }
+                          type="button"
+                          disabled={Boolean(approvalBusyPath)}
+                          onClick={() => approveImage(image.storagePath)}
+                        >
+                          {isBusy ? (
+                            <Loader2
+                              className="animate-spin"
+                              size={16}
+                              aria-hidden="true"
+                            />
+                          ) : null}
+                          Choose this concept
+                        </button>
+                      )}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+        ) : null}
+
+        <JourneyStrip
+          sourceUrl={
+            job.sourceImagePath ? imageUrls[job.sourceImagePath] : undefined
+          }
+          conceptUrl={stageImageUrl || undefined}
+        />
+
+        <BaseSignInline
+          signText={job.baseConfig?.sign?.text ?? ""}
+          normalizedName={job.figurineNamedBase?.normalizedName}
+          busy={baseSignBusy}
+          error={baseSignError}
+          notice={baseSignNotice}
+          disabled={isPaid}
+          onSave={saveBaseSign}
+        />
+
+        {!isPaid && canCheckout ? (
+          <div>
+            <button
+              className="primary-button w-full sm:w-auto sm:px-8"
+              type="button"
+              onClick={seeItInYourHome}
+            >
+              See {name} in your home →
+            </button>
+          </div>
+        ) : null}
+      </section>
+    );
   }
 
   return (
