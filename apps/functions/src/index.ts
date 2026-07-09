@@ -1556,6 +1556,15 @@ export const createGenerationJob = onCall(
       updatedAt: FieldValue.serverTimestamp(),
     });
 
+    // realistic_person Creative Lab styles reuse the Meshy concept gate: one
+    // Vertex person render feeds the prototype and the customer reviews the
+    // Meshy concept image, exactly like the template_face_swap chibi path.
+    const usesRealisticPersonConceptGate =
+      productType === "figurine" &&
+      workflowStyle.generationWorkflow === "creative_lab_figure" &&
+      workflowStyle.proofMode === "generated_options" &&
+      workflowStyle.proofRendering === "realistic_person";
+
     try {
       const aiProvider = createPosterAiProvider();
       const generation = await aiProvider.generatePosterConcept({
@@ -1565,7 +1574,9 @@ export const createGenerationJob = onCall(
         selectedStyle: workflowStyle.id,
         selectedStyleLabel: workflowStyle.label,
         productType,
-        proofGenerationCount: workflowConfig.proofGenerationCount,
+        proofGenerationCount: usesRealisticPersonConceptGate
+          ? 1
+          : workflowConfig.proofGenerationCount,
         baseProofPrompt: workflowConfig.baseProofPrompt,
         stylePrompt: workflowStyle.prompt,
         proofMode: workflowStyle.proofMode,
@@ -1588,12 +1599,14 @@ export const createGenerationJob = onCall(
         throw new Error("AI provider returned no generated proof image path.");
       }
 
-      // Template-face-swap styles skip the multi-proof review. Creative Lab
-      // styles still use Meshy's concept gate; direct-3D styles review the
-      // swapped image before spending Multi-Image-to-3D credits.
+      // Template-face-swap and realistic_person Creative Lab styles skip the
+      // multi-proof review. Creative Lab styles use Meshy's concept gate;
+      // direct-3D styles review the swapped image before spending
+      // Multi-Image-to-3D credits.
       if (
         productType === "figurine" &&
-        workflowStyle.proofMode === "template_face_swap" &&
+        (workflowStyle.proofMode === "template_face_swap" ||
+          usesRealisticPersonConceptGate) &&
         generation.status !== "stubbed"
       ) {
         const faceSwapImagePath = proofStoragePaths[0];
