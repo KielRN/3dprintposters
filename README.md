@@ -16,9 +16,9 @@ Working now:
 - Firebase callable Functions for job creation, proof approval, print-file generation orchestration, and checkout
 - Direct Vertex/Gemini proof-generation adapter in `apps/functions`
 - Dev `/admin` workflow controls for the base proof prompt, four default proof options, visible Style count, per-style prompts, and per-style proof reference images; role-based access is a placeholder during local MVP development
-- New product direction documented in `research/FIGURINE_PROVIDER_RESEARCH.md`: PrintU-like figurine workflow first, Meshy.ai as the first image-to-3D provider candidate, relief parked as R&D
+- New product direction documented in `research/FIGURINE_PROVIDER_RESEARCH.md` and `docs/Workflows/`: PrintU-like figurine workflow first, generated-3D providers behind server-side adapters, relief parked as R&D
 - Standalone public coming-soon site deployed from `KielRN/3dprintyou` to Railway at `https://3dprintyou.com`; this repo still owns the full app, Functions, provider orchestration, and print-file services
-- Local root `.env` has `MESHY_API_KEY` for a paid Meshy account; never print or commit the value
+- Local secret files can contain paid provider credentials such as `MESHY_API_KEY` and Hi3D keys; never print or commit the values
 - Preview-only Meshy Creative Lab figurine workflow: proof approval can call the server-side Meshy provider adapter, store the original textured `model.glb` under `print-files/{uid}/{jobId}/figurine/creative-lab-original/`, show it on the job page, and keep checkout locked while `printReadiness` is `needs_review`
 - Planned user model: customer accounts, admin/operator users, and print-partner users with separate server-enforced permissions
 - First Meshy/base scale contract: job `f604d393-bfa2-4779-b05b-f6a2082604c9` established a matched raw GLB-scale square base under `.tmp/gold-standard/Figurine Standard Square Base/`; the target printable height is `150mm`, giving an expected base of about `105.24mm x 105.24mm x 24.00mm`
@@ -54,7 +54,7 @@ Think of this app as four cooperating pieces:
 - The web app is what the customer sees and clicks.
 - Firebase Functions are the trusted backend. They check ownership, call AI, create jobs, orchestrate print-file generation, and talk to Stripe.
 - The figurine workflow service layer will validate uploads, track style/posture, manage 2D concept history, submit selected concepts to generated-3D providers, ingest returned assets, and expose readiness/checkout state.
-- The generated-3D provider layer will call Meshy or another image-to-3D service for standalone figurines and store returned GLB/STL/3MF assets.
+- The generated-3D provider layer calls Meshy Creative Lab, Hi3D, or another image-to-3D service for standalone figurines and stores returned GLB/STL/3MF assets.
 - The print-file generator is a Python service that turns an approved image into poster-relief artifacts like STL, heightmap, image-colored preview GLB, metadata, full-color packages, and filament painting guides.
 
 ```mermaid
@@ -67,7 +67,7 @@ flowchart LR
   Functions["Firebase Functions<br/>apps/functions"]
   AI["Vertex/Gemini<br/>proof image generation"]
   FigurineSvc["Figurine workflow services<br/>concepts, models, readiness"]
-  Provider["Meshy Creative Lab provider<br/>server-side adapter"]
+  Provider["Generated-3D providers<br/>server-side adapters"]
   Stripe["Stripe Checkout"]
   Print["Cloud Run print-file generator<br/>services/print-file-generator"]
   Fulfillment["Future print partner"]
@@ -128,7 +128,7 @@ sequenceDiagram
   Stripe-->>Customer: Collect payment
 ```
 
-The implemented app now has a preview-only figurine branch after proof approval: Creative Lab Figure jobs can call Meshy server-side, store the original textured GLB in job-scoped Storage, render it on the job page, and keep checkout locked while print readiness is `needs_review`. Poster-relief jobs still use the older print-file generator path.
+The implemented app now has preview-only figurine branches after proof approval: Creative Lab jobs can call Meshy server-side, direct-3D jobs can call the selected direct provider, generated GLBs are stored in job-scoped Storage, and checkout stays locked while print readiness is `needs_review`. Poster-relief jobs still use the older print-file generator path.
 
 The home-page 3D panel is still a visual preview shell. In the existing relief path, the job page shows the approved proof, generated `heightmap.png`, and real color `preview.glb` after the user approves the proof and the print-file generator finishes. In the new figurine path, that page should review the standalone `model.glb`, provider thumbnails, generation warnings, and fulfillment/readiness state.
 
@@ -178,6 +178,7 @@ Start with these files when you feel lost:
 - `README.md`: practical beginner map
 - `CHECKLIST.md`: archive pointer and source-of-truth map
 - `CHANGELOG.md`: what changed recently
+- `docs/Workflows/figurine-and-operator-workflows.md`: current figurine/customer/operator workflow overview, with style-specific workflow docs in the same folder
 - `docs/ARCHITECTURE.md`: deeper system design
 - `docs/DESIGN.md`: front-end design system — brand, color/type tokens, and the landing/hero spec
 - `docs/DEPLOYMENT.md`: hosting, Firebase, Cloudflare, and secret notes
@@ -193,12 +194,12 @@ The next major implementation slice is the PrintU-like figurine customer flow:
 - Let the customer upload a photo, choose a figurine style, and choose posture.
 - Generate a 2D proof before spending credits on a 3D model.
 - Create the service layer for the workflow: source validation, style/posture persistence, concept history/selection, model generation status/history, asset ingestion, readiness, editor options, and purchase-intent gating.
-- Keep Meshy behind the server-side provider adapter and continue validating output quality, terms, cost, and retention before public checkout.
+- Keep generated-3D providers behind server-side provider adapters and continue validating output quality, terms, cost, retention, and file readiness before public checkout.
 - Store generated GLB/STL/optional 3MF assets under user/job scoped Storage paths.
 - Show the generated figurine in the job page before checkout or preorder.
 - Validate slicer/print behavior before promising automated fulfillment.
 
-See `docs/MESHY_FIGURINE_UI_WORKFLOW.md`, `research/FIGURINE_PROVIDER_RESEARCH.md`, and `docs/ROADMAP.md` for the current phased direction.
+See `docs/Workflows/figurine-and-operator-workflows.md`, the style-specific docs under `docs/Workflows/`, `research/FIGURINE_PROVIDER_RESEARCH.md`, and `docs/ROADMAP.md` for the current phased direction. `docs/MESHY_FIGURINE_UI_WORKFLOW.md` remains useful as a PrintU-inspired planning reference, but it is not the current source of truth for implemented style workflows.
 
 ## Parked Print-File Generator Direction
 
@@ -546,4 +547,4 @@ Use Stripe test mode until payment, webhook, and fulfillment state transitions a
 
 The current codebase proves the customer-facing order shape, live Vertex/Gemini proof generation, server-side poster-relief print-file generation, GLB preview, and checkout gating on generated artifacts.
 
-The next major unlock is not more relief tuning. It is proving the figurine business model: ship a PrintU-like UI, validate Meshy or another image-to-3D provider, show provider-generated figurine assets in the job page, and choose checkout versus preorder/manual fulfillment based on real output quality.
+The next major unlock is not more relief tuning. It is proving the figurine business model: ship a PrintU-like UI, validate the active generated-3D provider paths, show provider-generated figurine assets in the job page, and choose checkout versus preorder/manual fulfillment based on real output quality.

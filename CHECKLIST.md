@@ -9,7 +9,8 @@ Use the leaner source-of-truth map instead:
 - Current direction, implementation state, and risks: `PROJECT_STATE.md`
 - Durable product and architecture decisions: `DECISIONS.md`
 - Front-end design system (brand, color/type tokens, landing/hero spec): `docs/DESIGN.md`
-- Target figurine customer workflow and job contract: `docs/MESHY_FIGURINE_UI_WORKFLOW.md`
+- Current figurine customer/operator workflows and job contracts: `docs/Workflows/figurine-and-operator-workflows.md` plus the style-specific docs under `docs/Workflows/`
+- PrintU-inspired figurine planning reference: `docs/MESHY_FIGURINE_UI_WORKFLOW.md`
 - Meshy technical plan, API findings, and experiment details: `research/MESHY_SERVICE_IMPLEMENTATION_PLAN.md`
 - Print-file boundary, deterministic base/name/assembly contract, and parked relief service: `docs/PRINT_FILE_GENERATION_WORKFLOW.md`
 - Human-owned validation and product decisions: summarize in handoffs; use ignored `.tmp/human-tasks/` only for short-lived agent notes

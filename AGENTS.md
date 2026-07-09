@@ -13,7 +13,7 @@ This file is the first place Codex or another coding agent should read before wo
 - Keep print-file generation server-side. Do not move geometry generation, texture packaging, or fulfillment logic into the browser.
 - Do not recreate tracked `human-tasks/` files. If an agent needs a short-lived human handoff, put it under ignored `.tmp/human-tasks/` and summarize the action in the response. Durable product decisions belong in the normal docs, not in an accumulating task folder.
 - Develop toward the intended final product behavior first. Do not leave a chosen direction as opt-in, experimental, or hidden behind a fallback plan after a decision has been made; wire it into the real workflow and let testing reveal the next fix.
-- `CHECKLIST.md` is now an archive pointer, not the active tracker. Do not add new task lists there. Use `PROJECT_STATE.md` for compact current state, `DECISIONS.md` for durable decisions, `docs/DESIGN.md` for the front-end design system (brand, tokens, type, landing/hero spec), `research/MESHY_SERVICE_IMPLEMENTATION_PLAN.md` for Meshy implementation detail, and `docs/MESHY_FIGURINE_UI_WORKFLOW.md` for target UX/job contract.
+- `CHECKLIST.md` is now an archive pointer, not the active tracker. Do not add new task lists there. Use `PROJECT_STATE.md` for compact current state, `DECISIONS.md` for durable decisions, `docs/DESIGN.md` for the front-end design system (brand, tokens, type, landing/hero spec), `research/MESHY_SERVICE_IMPLEMENTATION_PLAN.md` for Meshy implementation detail, and `docs/Workflows/figurine-and-operator-workflows.md` plus the style-specific docs under `docs/Workflows/` for current figurine/customer/operator workflow contracts. `docs/MESHY_FIGURINE_UI_WORKFLOW.md` is a PrintU-inspired planning reference, not the current workflow source of truth.
 - `elliot_quick_dev_Startup.md` is a local, ignored runbook for Elliot's startup and experiment commands. Reference it from `.tmp` handoffs when useful, and keep personal or local-only details there instead of copying them into tracked docs.
 
 ## Project Manager Skill
@@ -82,7 +82,7 @@ As of 2026-05-23, the active priority is customer acquisition and business-model
 4. Backend generates a 2D figurine proof.
 5. User approves the proof.
 6. Backend generates or imports a standalone 3D figurine through a server-side provider boundary.
-7. Meshy.ai is the first provider candidate to evaluate because its current API and MakerWorld integration are designed for image-to-3D, STL/GLB/3MF, and multicolor print workflows.
+7. Generated-3D providers stay behind server-side provider boundaries. Current workflow docs should decide the provider per style: Meshy Creative Lab powers the Creative Lab/Chibi paths, and Hi3D is the current direct Multi-Image-to-3D provider for Heroic fantasy and Super Hero direct-3D styles.
 8. Job page shows the standalone figurine GLB and readiness/warning state.
 9. Checkout, preorder, or lead capture is allowed only after the provider output and fulfillment path are honestly represented.
 
@@ -109,7 +109,7 @@ Outputs land under `.tmp/experiments/meshy/standard/{experimentSlug}-{timestamp}
 
 Build future experiments by adding or removing stages, flags, or prompt policy inside this standard runner. Do not create another parallel Meshy runner unless the user explicitly asks for a one-off external prototype. Historical runners live under `scripts/meshy/archive/2026-05-26-legacy-runners/` for reproducing old results only; they are not the active experiment protocol.
 
-The provider-generated body should be body-only. Do not ask Vertex/Gemini or Meshy to create the reusable product base, star details, customer name text, pedestal, platform, or nameplate. The base, text, and final body/base assembly belong in a separate deterministic service inside `services/print-file-generator`.
+The provider-generated body should be body-only. Do not ask Vertex/Gemini, Meshy, Hi3D, or another generated-3D provider to create the reusable product base, star details, customer name text, pedestal, platform, or nameplate. The base, text, and final body/base assembly belong in a separate deterministic service inside `services/print-file-generator`.
 
 ## Existing Relief Flow
 

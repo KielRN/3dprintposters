@@ -1,8 +1,8 @@
 # Figurine And Operator Workflows
 
-Status: current implementation map as of 2026-07-05.
+Status: current implementation map as of 2026-07-09.
 
-This document explains the current app workflows in plain language. It focuses on what the customer sees, where proof generation happens, how the style choices change the backend path, which Vertex/Gemini and Meshy calls are used, and what the operator/admin consoles control.
+This document explains the current app workflows in plain language. It focuses on what the customer sees, where proof generation happens, how the style choices change the backend path, which Vertex/Gemini and generated-3D provider calls are used, and what the operator/admin consoles control.
 
 Rendering note: these are live Mermaid diagrams. VS Code 1.121 and newer can render them with the built-in Markdown preview, without a Mermaid extension. Exact routes, Storage paths, callable names, and endpoint names are kept in the text around each diagram.
 
@@ -31,8 +31,8 @@ The chibi styles are different — the customer reviews one Meshy concept image 
 
 The important split:
 
-- Vertex/Gemini creates 2D customer-reviewable proof images.
-- Meshy creates or checks 3D model artifacts after a proof or direct-3D input is approved.
+- Vertex/Gemini creates 2D customer-reviewable proof images or internal cleanup renders, depending on the selected workflow.
+- Meshy Creative Lab or the selected direct generated-3D provider creates 3D model artifacts after a proof or direct-3D input is approved.
 - The print-file generator assembles deterministic product parts such as the reusable base and customer name sign.
 
 ## Workflow 1: Workflow Controls Configure The Public Flow
@@ -164,14 +164,13 @@ graph LR
 
 ## Workflow 4: Template Face Swap Style Paths
 
-This is the faithful/detail style family. The default visible examples include `Chibi heroic fantasy female` (`chibi_female`), which uses Creative Lab, and `Heroic fantasy male` plus `Heroic fantasy female`, which use direct Multi-Image-to-3D. The code also supports either 3D workflow if an admin pairs `template_face_swap` with the matching style reference image.
+This is the faithful/detail style family. The default public direct examples are `Heroic fantasy male` and `Heroic fantasy female`, which use direct Multi-Image-to-3D on Hi3D by default. Admin-created Super Hero direct styles follow the same direct-provider contract. The code also supports either 3D workflow if an admin pairs `template_face_swap` with the matching style reference image.
 
 It is used by:
 
-- `Chibi heroic fantasy female` (`chibi_female`) in the default config
-- `Heroic fantasy male` in the default config
-- `Heroic fantasy female` in the default config
-- Admin-created template styles such as `Super Hero Figure - Male` (`creative_lab_figure`) and `Super Hero Figure - Female` (`super_hero_figure_female`), both direct Multi-Image-to-3D on Hi3D — see [Super Hero Male Face Swap Direct 3D Workflow](./superhero-male-face-swap-direct-3d-workflow.md) and [Super Hero Female Face Swap Direct 3D Workflow](./superhero-female-face-swap-direct-3d-workflow.md)
+- `Chibi heroic fantasy male` (`chibi_figure`) and `Chibi heroic fantasy female` (`chibi_female`), which route to Meshy Creative Lab
+- `Heroic fantasy male` (`heroic_fantasy_male`) and `Heroic fantasy female` (`heroic_fantasy_female`), which route to direct Multi-Image-to-3D on Hi3D by default; see [Heroic Fantasy Male Face Swap Direct 3D Workflow](./heroic-fantasy-male-face-swap-direct-3d-workflow.md) and [Heroic Fantasy Female Face Swap Direct 3D Workflow](./heroic-fantasy-female-face-swap-direct-3d-workflow.md)
+- Admin-created styles such as `Super Hero Figure - Male` (`creative_lab_figure`) and `Super Hero Figure - Female` (`super_hero_figure_female`), which also route to direct Multi-Image-to-3D on Hi3D; see [Super Hero Male Face Swap Direct 3D Workflow](./superhero-male-face-swap-direct-3d-workflow.md) and [Super Hero Female Face Swap Direct 3D Workflow](./superhero-female-face-swap-direct-3d-workflow.md)
 - Any admin-created style with `proofMode: template_face_swap`
 
 ```mermaid
@@ -181,7 +180,7 @@ graph LR
   B --> C["Vertex edits template with customer identity"]
   C --> D["Job page shows swapped concept"]
   D --> E["Customer approves concept"]
-  E --> F["Direct Meshy 3D path"]
+  E --> F["Direct provider 3D path"]
   E --> G["Creative Lab build path"]
   F --> H["Save GLB STL and 3MF if returned"]
   G --> I["Save Creative Lab GLB"]
@@ -202,15 +201,14 @@ Important gotcha:
 
 - `template_face_swap` requires at least one enabled admin reference image. If a style has no enabled template image, proof generation fails before Meshy is called.
 
-Meshy details for this workflow:
+Provider details for this workflow:
 
-- API root in provider code: `https://api.meshy.ai/openapi`.
-- Direct model endpoint: `/multi-image-to-3d`
-- Creative Lab concept endpoint: `/creative-lab/figure/v1/prototype`
-- Creative Lab build endpoint: `/creative-lab/figure/v1/build`
-- Direct Multi-Image-to-3D sends `image_urls`.
-- Current request settings include `ai_model: "meshy-6"`, `should_texture: true`, `should_remesh: true`, `image_enhancement: true`, `remove_lighting: true`, `target_formats: ["glb", "stl", "3mf"]`, and `target_polycount: 100000`.
-- After the model task, the provider may call `/print/analyze`.
+- Direct Multi-Image-to-3D sends the approved swapped image as the single 3D input.
+- Current default direct provider: Hi3D (`provider: "hi3d"`, `providerModel: "hitem3dv2.1"`).
+- Hi3D output is the canonical original textured GLB stored under the provider-specific figurine preview path.
+- Meshy `meshy-6` remains selectable as a no-deploy rollback provider for direct styles.
+- Creative Lab styles still use Meshy prototype/build endpoints instead of the direct-provider route.
+- After a direct model is ingested, print analysis or operator review may run, but checkout remains locked until an explicit print-readiness decision.
 
 ## Workflow 5: Named Base And Body/Base Assembly
 
@@ -307,13 +305,16 @@ Current operator actions:
 
 ## Current Style Matrix
 
-| Style | Public by default | Proof mode | 3D workflow | What Vertex/Gemini does | What Meshy does | What customer sees |
+| Style | Public by default | Proof mode | 3D workflow | What Vertex/Gemini does | What 3D provider does | What customer sees |
 | --- | --- | --- | --- | --- | --- | --- |
-| Creative Lab Figure | Yes | `generated_options` | `creative_lab_figure` | Creates up to 4 toy/chibi/emoji-like 2D proof options from the customer photo and optional style references. | Creative Lab prototype/build creates original textured GLB. | Multiple 2D proofs, then GLB preview after approval. |
-| Chibi | Yes | `template_face_swap` | `creative_lab_figure` | Edits the enabled Chibi reference/template image with the customer's face/head identity. Prompt is sent exactly as written. | Creative Lab prototype creates the reviewable 2D concept, then build creates the original textured GLB after approval. | One Meshy concept image, then GLB preview after approval. |
-| Chibi female | Yes | `template_face_swap` | `creative_lab_figure` | Edits the enabled SheRa/Christina-style female template image with the customer's face/head identity. Prompt is sent exactly as written. | Creative Lab prototype creates the reviewable 2D concept, then build creates the original textured GLB after approval. | One Meshy concept image, then GLB preview after approval. |
-| Heroic fantasy male | Yes | `template_face_swap` | `direct_multi_image_to_3d` | Edits first enabled template reference image with the customer's face/head identity. Prompt is sent exactly as written. | Direct Multi-Image-to-3D creates GLB/STL/3MF candidates, then print analysis may run. | One swapped direct-3D input, then GLB preview after approval. |
-| Heroic fantasy female | Yes | `template_face_swap` | `direct_multi_image_to_3d` | Edits first enabled Heroic Female template reference image with the customer's face/head identity. Prompt is sent exactly as written. | Direct Multi-Image-to-3D creates GLB/STL/3MF candidates, then print analysis may run. | One swapped direct-3D input, then GLB preview after approval. |
+| Chibi heroic fantasy male | Yes | `template_face_swap` | `creative_lab_figure` | Edits the enabled Chibi reference/template image with the customer's face/head identity. Prompt is sent exactly as written. | Meshy Creative Lab prototype creates the reviewable 2D concept, then build creates the original textured GLB after approval. | One Meshy concept image, then GLB preview after approval. |
+| Chibi heroic fantasy female | Yes | `template_face_swap` | `creative_lab_figure` | Edits the enabled SheRa/Christina-style female template image with the customer's face/head identity. Prompt is sent exactly as written. | Meshy Creative Lab prototype creates the reviewable 2D concept, then build creates the original textured GLB after approval. | One Meshy concept image, then GLB preview after approval. |
+| Chibi male | Yes | `generated_options` + `proofRendering: realistic_person` | `creative_lab_figure` | Creates one internal realistic full-body person cleanup render from the customer photo; the customer does not review this render. | Meshy Creative Lab prototype performs the chibi stylization and creates the reviewable 2D concept, then build creates the original textured GLB after approval. | One Meshy concept image, then GLB preview after approval. |
+| Chibi female | Yes | `generated_options` + `proofRendering: realistic_person` | `creative_lab_figure` | Creates one internal realistic full-body person cleanup render from the customer photo; the customer does not review this render. | Meshy Creative Lab prototype performs the chibi stylization and creates the reviewable 2D concept, then build creates the original textured GLB after approval. | One Meshy concept image, then GLB preview after approval. |
+| Heroic fantasy male | Yes | `template_face_swap` | `direct_multi_image_to_3d` | Edits the enabled Heroic Male template image with the customer's face/head identity. Prompt is sent exactly as written. | Hi3D creates the direct textured GLB candidate by default; Meshy `meshy-6` remains the rollback provider. | One swapped direct-3D input, then GLB preview after approval. |
+| Heroic fantasy female | Yes | `template_face_swap` | `direct_multi_image_to_3d` | Edits the enabled Heroic Female template image with the customer's face/head identity. Prompt is sent exactly as written. | Hi3D creates the direct textured GLB candidate by default; Meshy `meshy-6` remains the rollback provider. | One swapped direct-3D input, then GLB preview after approval. |
+| Super Hero Figure - Male | Yes | `template_face_swap` | `direct_multi_image_to_3d` | Edits the enabled superhero template image with the customer's face/head identity. Prompt is sent exactly as written. | Hi3D creates the direct textured GLB candidate, then print analysis or operator review may run. | One swapped direct-3D input, then GLB preview after approval. |
+| Super Hero Figure - Female | Yes | `template_face_swap` | `direct_multi_image_to_3d` | Edits the enabled Super Hero Female template image with the customer's face/head identity. Prompt is sent exactly as written. | Hi3D creates the direct textured GLB candidate, then print analysis or operator review may run. | One swapped direct-3D input, then GLB preview after approval. |
 | Emoji Avatar | No | `generated_options` | `creative_lab_figure` | Creates emoji/avatar proof options if enabled. | Creative Lab prototype/build. | Same as Creative Lab flow if made public. |
 | Bobblehead | No | `generated_options` | `creative_lab_figure` | Creates bobblehead proof options if enabled. | Creative Lab prototype/build. | Same as Creative Lab flow if made public. |
 | Cartoon Figure | No | `generated_options` | `creative_lab_figure` | Creates cartoon proof options if enabled. | Creative Lab prototype/build. | Same as Creative Lab flow if made public. |
@@ -403,4 +404,4 @@ Print-tooling endpoints:
 | Named base and assembly orchestration | `apps/functions/src/index.ts`, `services/print-file-generator/app/main.py` |
 | Print-readiness page and Meshy tooling | `apps/web/components/FigurinePrintReadinessReview.tsx`, `apps/functions/src/meshyPrintTooling.ts` |
 | Operator fulfillment console | `apps/web/components/OperatorConsole.tsx`, `apps/functions/src/index.ts`, `apps/web/lib/pipeline.ts` |
-| Durable workflow docs | `docs/MESHY_FIGURINE_UI_WORKFLOW.md`, `docs/PRINT_FILE_GENERATION_WORKFLOW.md`, `research/MESHY_SERVICE_IMPLEMENTATION_PLAN.md` |
+| Durable workflow docs | `docs/Workflows/figurine-and-operator-workflows.md`, style-specific docs under `docs/Workflows/`, `docs/PRINT_FILE_GENERATION_WORKFLOW.md`, `research/MESHY_SERVICE_IMPLEMENTATION_PLAN.md` |

@@ -19,6 +19,8 @@ Start with the most relevant of these files, depending on the request:
 - `CHECKLIST.md`: archived source-of-truth pointer.
 - `CHANGELOG.md`: completed changes and chronology.
 - `README.md`: user-facing setup and project overview.
+- `docs/Workflows/figurine-and-operator-workflows.md` and style-specific docs under `docs/Workflows/`: current figurine/customer/operator workflow contracts.
+- `docs/MESHY_FIGURINE_UI_WORKFLOW.md`: PrintU-inspired figurine planning reference; not the current style-by-style workflow source of truth.
 - `docs/PRINT_FILE_GENERATION_WORKFLOW.md`: print-file flow and service contract.
 - `research/FIGURINE_PROVIDER_RESEARCH.md`: current 2026-05-23 customer-acquisition pivot, PrintU UX reference, Meshy provider research, and next validation steps.
 - `research/HEIGHTMAP_AND_3D_WORKFLOW_RESEARCH.md`: heightmap experiment status and decisions.
@@ -57,9 +59,9 @@ Secret-bearing configuration is in scope; secret values are not. Agents may insp
    - Backend orchestration in Firebase Functions.
    - Server-side print-file/model generation; provider credentials and geometry/model generation must stay out of the browser.
    - Direct Vertex/Gemini route remains the current proof-generation path until a provider-specific proof route is intentionally chosen.
-   - Current priority is the 2026-05-23 PrintU-like figurine demand proof, with Meshy.ai as the first image-to-3D provider candidate.
+   - Current priority is the PrintU-like figurine demand proof. Treat provider choice as workflow-specific: Meshy Creative Lab powers Chibi/Creative Lab paths, while Hi3D is the current direct Multi-Image-to-3D provider for Heroic fantasy and Super Hero direct styles.
    - Future Meshy experiments should use the standard runner `npm run meshy:experiment -- -- --experiment-slug <slug>` so experiments build on one repeatable protocol.
-   - Vertex/Gemini and Meshy should generate the body only; reusable base, customer-name geometry, and body/base assembly belong in deterministic `services/print-file-generator` services.
+   - Vertex/Gemini and generated-3D providers should generate the body only; reusable base, customer-name geometry, and body/base assembly belong in deterministic `services/print-file-generator` services.
    - Poster-relief work remains documented R&D and should not be treated as the next customer-acquisition blocker unless the user explicitly reactivates that line.
    - Reviewed product decisions should be promoted into the real workflow instead of left as opt-in experiments.
    - Default Git integration target is `main`; do not create feature branches unless explicitly requested.
@@ -224,7 +226,7 @@ Source: `[repo file, local runbook, or handoff context]`
 - Local `.env` files are ignored and may contain provider keys. It is okay to reason about required variable names and API surfaces; never quote secret values.
 - `masked_depth_detail_blend` with `lithophane_baseline` detail source is the current implemented poster-relief path, but relief is parked R&D until the figurine demand proof is addressed.
 - `triposr_sidecar` was evaluated on 2026-05-09 and rejected for poster relief because it reconstructs standalone 3D objects instead of image-plane depth. Do not read that as a global rejection of image-to-3D for standalone figurines.
-- Meshy.ai is the first provider to evaluate for the figurine path. Its API, pricing, retention, and commercial-use terms must be verified before public checkout.
+- Provider choice is workflow-specific. Meshy remains the Creative Lab provider and a direct-style rollback option; Hi3D is the current direct Multi-Image-to-3D provider for Heroic fantasy and Super Hero styles. Provider pricing, retention, commercial-use terms, and file readiness must be verified before public checkout.
 - For PM/roadmap/status work, Graphify should be the first navigation step when the existing graph is available. It is allowed to be unhelpful, but it should get a chance before large-doc reads.
 - Standard Meshy experiment path: `scripts/meshy/run-standard-figurine-experiment.mjs` / `npm run meshy:experiment -- -- --experiment-slug <slug>`. It runs source photo -> Vertex/Gemini body-only concept -> Meshy multi-view -> Meshy 3D -> printability -> normalized artifacts under `.tmp/experiments/meshy/standard`.
 - Historical Meshy runners are archived under `scripts/meshy/archive/2026-05-26-legacy-runners/` for reproducibility, but PM plans and next experiments should point to the standard runner unless the user explicitly asks otherwise.

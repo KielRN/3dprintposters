@@ -11,7 +11,8 @@ Source-of-truth split:
 - `CHANGELOG.md` — completed changes and verification history.
 - `docs/DESIGN.md` — front-end design system: brand, color/type tokens, landing-page architecture, and the hero scrub spec.
 - `research/MESHY_SERVICE_IMPLEMENTATION_PLAN.md` — Meshy API findings, experiment results, and implementation backlog.
-- `docs/MESHY_FIGURINE_UI_WORKFLOW.md` — target customer UX and job contract.
+- `docs/Workflows/figurine-and-operator-workflows.md` plus the style-specific docs under `docs/Workflows/` — current figurine/customer/operator workflow contracts.
+- `docs/MESHY_FIGURINE_UI_WORKFLOW.md` — PrintU-inspired figurine planning reference.
 - `docs/PRINT_FILE_GENERATION_WORKFLOW.md` — poster-relief print-file service contract.
 - `CHECKLIST.md` — archive pointer only.
 
@@ -20,7 +21,7 @@ Source-of-truth split:
 - 🟢 Product focus — active priority is customer acquisition through a PrintU-like personalized figurine workflow. Poster relief remains parked R&D.
 - 🟢 Creative Lab preview pipeline — validated on 2026-06-07 with job `cfc9039a-d83c-48d7-9ed5-39f214fce6c6`: upload photo -> 2D proof -> approval -> Meshy Creative Lab Figure -> Storage-backed textured GLB preview.
 - 🟢 Upstream 3D figure generation — Experiment 009 is the approved upstream milestone: three Creative Lab Figure API passes produced smooth no-base GLBs, and Blender inspection confirmed feet-sized bottom footprints rather than broad pedestal geometry.
-- 🟢 Figurine style families — two approved tracks as of 2026-07-03: **Chibi** via the Creative Lab Figure family and **faithful identity** via direct Multi-Image-to-3D. Current Chibi details live in `docs/Workflows/chibi-face-swap-creative-lab-workflow.md` and `docs/Workflows/chibi-female-face-swap-creative-lab-workflow.md`; durable style-family decisions live in `DECISIONS.md`. `chibi_female` is wired as the first female Creative Lab template-face-swap style, and `heroic_fantasy_male` plus `heroic_fantasy_female` are wired as the first public direct Multi-Image-to-3D workflow styles as of 2026-07-06.
+- 🟢 Figurine style families — two approved tracks as of 2026-07-03: **Chibi** via the Creative Lab Figure family and **faithful identity** via direct Multi-Image-to-3D. Current workflow details live under `docs/Workflows/`: the heroic-fantasy Chibi pair uses template face swap into Meshy Creative Lab, the photo-driven Chibi pair uses realistic-person cleanup into Meshy Creative Lab, and the Heroic fantasy / Super Hero direct styles use template face swap into Hi3D direct Multi-Image-to-3D by default. Durable style-family decisions live in `DECISIONS.md`.
 - 🟢 Checkout honesty — figurine checkout remains locked in UI and backend until print files or an explicit preorder/manual-fulfillment path are approved.
 
 ## Phase B — Figurine Print-Decision Workflow
