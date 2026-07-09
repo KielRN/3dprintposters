@@ -19,9 +19,8 @@ type AuthPanelProps = {
   firebaseClients: FirebaseClients | null;
 };
 
-// Extracted from UploadFlow's account block: email/password sign-in, account
-// creation, and guest sessions. The parent owns the onAuthStateChanged
-// listener and passes user/authLoading down.
+// Email/password sign-in, account creation, and guest sessions. The parent
+// owns the onAuthStateChanged listener and passes user/authLoading down.
 export function AuthPanel({ user, authLoading, firebaseClients }: AuthPanelProps) {
   const [authMode, setAuthMode] = useState<AuthMode>("sign-in");
   const [authEmail, setAuthEmail] = useState("");

@@ -34,8 +34,8 @@ function sourceFilePath(uid: string, jobId: string, file: File) {
   return `uploads/${uid}/${jobId}/source.${extension}`;
 }
 
-// Extracted from UploadFlow's dropzone + job-creation path. The style comes
-// from the route instead of a select; drag-and-drop joins tap-to-pick.
+// Photo dropzone + generation-job creation. The style is locked to the
+// route; drag-and-drop joins tap-to-pick.
 export function UploadPanel({ style, user, firebaseClients }: UploadPanelProps) {
   const router = useRouter();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);

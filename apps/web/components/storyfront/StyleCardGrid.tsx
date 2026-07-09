@@ -10,8 +10,8 @@ import { useEffect, useMemo, useState } from "react";
 import { httpsCallable } from "firebase/functions";
 import { StyleCard } from "./StyleCard";
 
-// Fetches the live workflow config exactly the way UploadFlow did: cards show
-// exactly visibleWorkflowStyles(), so admin visibility toggles keep working.
+// Cards show exactly visibleWorkflowStyles() from the live config, so admin
+// visibility toggles keep working.
 export function StyleCardGrid() {
   const firebaseClients = useMemo(() => getFirebaseClients(), []);
   const [workflowConfig, setWorkflowConfig] = useState(
