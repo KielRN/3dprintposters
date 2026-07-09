@@ -34,6 +34,9 @@ import {
   shouldQueueFigurineBuildOnPayment,
   type PrintFileLocalMirror,
 } from "./figurineBuild.js";
+
+// Post-payment figurine build trigger + page-4 scene render (storyfront §4b).
+export { onFigurineBuildQueued } from "./figurineBuild.js";
 import { runMeshyFigurinePrintTooling } from "./meshyPrintTooling.js";
 import {
   buildJobSheet,

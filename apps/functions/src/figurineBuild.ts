@@ -4,6 +4,7 @@ import {
   type DocumentReference,
 } from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
+import { onDocumentWritten } from "firebase-functions/v2/firestore";
 import { access, mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
@@ -22,9 +23,10 @@ import {
   Hi3dProviderTaskError,
 } from "./hi3dFigurineProvider.js";
 import { calculateJobCost } from "./jobCost.js";
-import type {
-  WorkflowFigurineProvider,
-  WorkflowGenerationWorkflow,
+import {
+  normalizeDirectMultiImageProviderSelection,
+  type WorkflowFigurineProvider,
+  type WorkflowGenerationWorkflow,
 } from "./figurineWorkflowConfig.js";
 
 export type FigurineBuildStatus = "queued" | "running" | "ready" | "failed";
@@ -841,3 +843,226 @@ export async function runFigurineBuild(input: {
 
   return generation;
 }
+
+type FigurineBuildJobInputs = {
+  uid: string;
+  approvedImagePath: string;
+  generationWorkflow: WorkflowGenerationWorkflow;
+  provider: WorkflowFigurineProvider;
+  providerModel: string;
+  prototypeTaskId?: string;
+};
+
+// Mirrors the input assembly the approval path used before the funded-build
+// inversion (jobs created before provider selection existed resolve to the
+// current default through the normalizer).
+function resolveFigurineBuildInputs(
+  jobData: Record<string, unknown>,
+): FigurineBuildJobInputs {
+  const uid = typeof jobData.uid === "string" ? jobData.uid : "";
+  const approvedImagePath =
+    typeof jobData.approvedImagePath === "string"
+      ? jobData.approvedImagePath
+      : "";
+  if (!uid || !approvedImagePath) {
+    throw new Error(
+      "Funded figurine build is missing uid or approvedImagePath on the job document.",
+    );
+  }
+  const generationWorkflow: WorkflowGenerationWorkflow =
+    jobData.generated3dWorkflow === "direct_multi_image_to_3d"
+      ? "direct_multi_image_to_3d"
+      : "creative_lab_figure";
+  const providerSelection =
+    generationWorkflow === "direct_multi_image_to_3d"
+      ? normalizeDirectMultiImageProviderSelection({
+          provider: jobData.generated3dProvider,
+          providerModel: jobData.generated3dProviderModel,
+        })
+      : { provider: "meshy" as const, providerModel: "" };
+  const figurineConcept = jobData.figurineConcept as
+    | { prototypeTaskId?: unknown }
+    | undefined;
+  const storedPrototypeTaskId =
+    typeof figurineConcept?.prototypeTaskId === "string" &&
+    figurineConcept.prototypeTaskId
+      ? figurineConcept.prototypeTaskId
+      : undefined;
+  return {
+    uid,
+    approvedImagePath,
+    generationWorkflow,
+    provider: providerSelection.provider,
+    providerModel: providerSelection.providerModel,
+    prototypeTaskId: storedPrototypeTaskId,
+  };
+}
+
+async function recordFigurineBuildFailure(input: {
+  jobRef: DocumentReference;
+  jobId: string;
+  error: unknown;
+}): Promise<void> {
+  const db = getFirestore();
+  const generationError = buildFigurineGenerationError(input.error);
+  console.error("funded figurine build failed", {
+    jobId: input.jobId,
+    error: generationError.message,
+    providerTask:
+      "providerTask" in generationError
+        ? generationError.providerTask
+        : undefined,
+    stack: input.error instanceof Error ? input.error.stack : undefined,
+  });
+
+  // Money has been taken; this failure must surface loudly (admin support +
+  // order production state) and stay re-queueable. It must NOT surface
+  // through customer-facing channels (job.error / status) — the customer
+  // keeps seeing their order in production while support handles it.
+  const noteBody =
+    `Funded figurine build failed: ${generationError.message}`.slice(0, 2000);
+  const noteRef = input.jobRef.collection("supportNotes").doc();
+  const batch = db.batch();
+  batch.set(noteRef, {
+    body: noteBody,
+    statusChange: "open",
+    createdAt: FieldValue.serverTimestamp(),
+    createdByUid: "system:onFigurineBuildQueued",
+    createdByEmail: null,
+  });
+  batch.set(
+    input.jobRef,
+    {
+      figurineBuild: {
+        status: "failed",
+        failedAt: FieldValue.serverTimestamp(),
+        error: {
+          message: generationError.message.slice(0, 300),
+          stage: generationError.stage,
+        },
+      },
+      figurinePreview: {
+        status: "failed",
+        previewGlb: null,
+        printReadiness: "needs_review",
+      },
+      figurineGeneration: {
+        status: "failed",
+        failedAt: FieldValue.serverTimestamp(),
+      },
+      supportSummary: {
+        status: "open",
+        noteCount: FieldValue.increment(1),
+        lastNoteAt: FieldValue.serverTimestamp(),
+        lastNoteByUid: "system:onFigurineBuildQueued",
+        lastNoteByEmail: null,
+        lastNotePreview: noteBody.slice(0, 160),
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
+  batch.set(
+    db.collection("orders").doc(input.jobId),
+    {
+      fulfillment: {
+        productionSubState: "build_failed",
+      },
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
+  await batch.commit();
+  await refreshJobCostFromFirestore(
+    input.jobRef,
+    "funded_figurine_build_failed",
+  );
+}
+
+// Runs the post-payment figurine 3D build. The Stripe webhook (or the admin
+// requeue callable) stamps figurineBuild "queued"; this trigger claims
+// queued -> running in a transaction — the idempotency guard against
+// duplicate Stripe deliveries and against the echo writes this trigger
+// itself makes to the document it watches — then executes the same provider
+// path approval used to run before the funded-build inversion.
+export const onFigurineBuildQueued = onDocumentWritten(
+  {
+    document: "jobs/{jobId}",
+    // Hi3D runs ~7-8 minutes plus asset transfer; 1800s leaves margin.
+    timeoutSeconds: 1800,
+    secrets: [
+      "APP_STORAGE_BUCKET",
+      "MESHY_API_KEY",
+      "HI3D_ACCESS_KEY",
+      "HI3D_SECRET_KEY",
+    ],
+  },
+  async (event) => {
+    const before = event.data?.before?.data();
+    const after = event.data?.after?.data();
+    if (!shouldRunFigurineBuild(before, after)) {
+      return;
+    }
+
+    const jobId = event.params.jobId;
+    const db = getFirestore();
+    const jobRef = db.collection("jobs").doc(jobId);
+
+    const claimed = await db.runTransaction(async (tx) => {
+      const snap = await tx.get(jobRef);
+      const jobData = snap.data();
+      const claim = claimFigurineBuildUpdate(jobData?.figurineBuild);
+      if (!snap.exists || !jobData || !claim) {
+        return null;
+      }
+      tx.set(
+        jobRef,
+        {
+          figurineBuild: claim,
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+      return jobData;
+    });
+
+    if (!claimed) {
+      console.info(
+        "figurine build not claimed (already claimed or not queued)",
+        { jobId },
+      );
+      return;
+    }
+
+    console.info("figurine build claimed", { jobId });
+
+    try {
+      const inputs = resolveFigurineBuildInputs(claimed);
+      await runFigurineBuild({
+        jobRef,
+        jobId,
+        uid: inputs.uid,
+        selectedImagePath: inputs.approvedImagePath,
+        generationWorkflow: inputs.generationWorkflow,
+        provider: inputs.provider,
+        providerModel: inputs.providerModel,
+        prototypeTaskId: inputs.prototypeTaskId,
+      });
+      await jobRef.set(
+        {
+          figurineBuild: {
+            status: "ready",
+            completedAt: FieldValue.serverTimestamp(),
+            error: null,
+          },
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+      console.info("funded figurine build ready", { jobId });
+    } catch (error) {
+      await recordFigurineBuildFailure({ jobRef, jobId, error });
+    }
+  },
+);
