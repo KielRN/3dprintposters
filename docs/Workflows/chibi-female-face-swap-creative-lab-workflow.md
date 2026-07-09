@@ -7,7 +7,7 @@ The female variant differs from the base Chibi workflow only by style ID, public
 ## Short Version
 
 - Style ID: `chibi_female`
-- Public label: `Chibi female`
+- Public label: `Chibi heroic fantasy female` (renamed 2026-07-09; previously `Chibi female`. The `Chibi female` label now belongs to the photo-driven `chibi_photo_female` style — see `docs/Workflows/chibi-female-photo-creative-lab-workflow.md`.)
 - Product type: `figurine`
 - Proof mode: `template_face_swap`
 - 3D workflow: `creative_lab_figure`

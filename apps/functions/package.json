@@ -17,7 +17,11 @@
     "seed:chibi-female-workflow": "node scripts/seed-chibi-female-workflow.mjs",
     "seed:chibi-female-workflow:dry-run": "node scripts/seed-chibi-female-workflow.mjs --dry-run",
     "seed:heroic-workflow": "node scripts/seed-heroic-workflow.mjs",
-    "seed:heroic-female-workflow": "node scripts/seed-heroic-female-workflow.mjs"
+    "seed:heroic-female-workflow": "node scripts/seed-heroic-female-workflow.mjs",
+    "seed:superhero-female-workflow": "node scripts/seed-superhero-female-workflow.mjs",
+    "seed:superhero-female-workflow:dry-run": "node scripts/seed-superhero-female-workflow.mjs --dry-run",
+    "seed:chibi-photo-workflows": "node scripts/seed-chibi-photo-workflows.mjs",
+    "seed:chibi-photo-workflows:dry-run": "node scripts/seed-chibi-photo-workflows.mjs --dry-run"
   },
   "engines": {
     "node": "22"

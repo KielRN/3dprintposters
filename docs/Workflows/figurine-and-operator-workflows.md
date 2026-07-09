@@ -27,7 +27,7 @@ In the generated-options figurine path:
 13. The customer sees the Storage-backed GLB preview on `/jobs/{jobId}`.
 14. Checkout stays locked for figurines until print readiness and fulfillment are explicitly approved later.
 
-Current Chibi uses `template_face_swap` and is different: Vertex/Gemini creates one identity image, Meshy creates one reviewable concept image, and approval continues the Meshy build from the stored prototype task. See [Chibi Face Swap Creative Lab Workflow](./chibi-face-swap-creative-lab-workflow.md) and [Chibi Female Face Swap Creative Lab Workflow](./chibi-female-face-swap-creative-lab-workflow.md).
+The chibi styles are different — the customer reviews one Meshy concept image instead of multiple Vertex proofs. The heroic-fantasy chibi pair uses `template_face_swap` (Vertex creates one identity image from the style template), and the photo-driven chibi pair uses `generated_options` with `proofRendering: realistic_person` (Vertex creates one internal realistic person render from the customer photo). In both, Meshy creates the one reviewable concept image and approval continues the Meshy build from the stored prototype task. See [Chibi Face Swap Creative Lab Workflow](./chibi-face-swap-creative-lab-workflow.md), [Chibi Female Face Swap Creative Lab Workflow](./chibi-female-face-swap-creative-lab-workflow.md), [Chibi Male Photo Creative Lab Workflow](./chibi-male-photo-creative-lab-workflow.md), and [Chibi Female Photo Creative Lab Workflow](./chibi-female-photo-creative-lab-workflow.md).
 
 The important split:
 
@@ -132,15 +132,46 @@ graph LR
   E --> F["Preview-only textured GLB"]
 ```
 
+Label note (2026-07-09): the public labels for this pair are now `Chibi heroic fantasy male` (`chibi_figure`) and `Chibi heroic fantasy female` (`chibi_female`). The `Chibi male` / `Chibi female` labels belong to the photo-driven styles in Workflow 3b.
+
+## Workflow 3b: Photo-Driven Chibi (Realistic Person) Into Meshy Creative Lab
+
+Detailed source of truth:
+
+- [Chibi Male Photo Creative Lab Workflow](./chibi-male-photo-creative-lab-workflow.md)
+- [Chibi Female Photo Creative Lab Workflow](./chibi-female-photo-creative-lab-workflow.md)
+
+Use those documents for the full sequence and job-state examples. This overview only records the contract:
+
+- Style IDs: `chibi_photo_male`, `chibi_photo_female`
+- Public labels: `Chibi male`, `Chibi female`
+- Proof mode: `generated_options` with `proofRendering: realistic_person`
+- 3D workflow: `creative_lab_figure`
+- No admin reference/template image.
+- Vertex/Gemini renders one realistic full-body person (identity, own clothing completed, gray studio background) as an internal cleanup — the customer never reviews it.
+- Meshy's prototype phase does all chibi stylization; the customer sees one Meshy-generated concept image.
+- Approval continues Meshy build from the stored Creative Lab prototype task.
+
+```mermaid
+%%{init: {"flowchart": {"htmlLabels": false}} }%%
+graph LR
+  A["Customer photo"] --> B["Vertex/Gemini realistic person render"]
+  B --> C["Meshy prototype concept (chibi stylization)"]
+  C --> D["Customer approves one concept"]
+  D --> E["Meshy build from prototype task"]
+  E --> F["Preview-only textured GLB"]
+```
+
 ## Workflow 4: Template Face Swap Style Paths
 
-This is the faithful/detail style family. The default visible examples include `Chibi female`, which uses Creative Lab, and `Heroic fantasy male` plus `Heroic fantasy female`, which use direct Multi-Image-to-3D. The code also supports either 3D workflow if an admin pairs `template_face_swap` with the matching style reference image.
+This is the faithful/detail style family. The default visible examples include `Chibi heroic fantasy female` (`chibi_female`), which uses Creative Lab, and `Heroic fantasy male` plus `Heroic fantasy female`, which use direct Multi-Image-to-3D. The code also supports either 3D workflow if an admin pairs `template_face_swap` with the matching style reference image.
 
 It is used by:
 
-- `Chibi female` in the default config
+- `Chibi heroic fantasy female` (`chibi_female`) in the default config
 - `Heroic fantasy male` in the default config
 - `Heroic fantasy female` in the default config
+- Admin-created template styles such as `Super Hero Figure - Male` (`creative_lab_figure`) and `Super Hero Figure - Female` (`super_hero_figure_female`), both direct Multi-Image-to-3D on Hi3D
 - Any admin-created style with `proofMode: template_face_swap`
 
 ```mermaid

@@ -5,6 +5,7 @@ This document explains the current Chibi figurine workflow explicitly. Chibi doe
 ## Short Version
 
 - Style ID: `chibi_figure`
+- Public label: `Chibi heroic fantasy male` (renamed 2026-07-09; previously `Chibi`)
 - Product type: `figurine`
 - Proof mode: `template_face_swap`
 - 3D workflow: `creative_lab_figure`
