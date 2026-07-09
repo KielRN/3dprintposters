@@ -95,9 +95,7 @@ export function OfferBlock({ heroName, busy, error, onCheckout }: OfferBlockProp
   return (
     <section className="panel grid gap-6 rounded-2xl p-6 lg:grid-cols-[1.25fr_1fr] sm:p-8">
       <div className="grid content-start gap-5">
-        <h2 className="display text-2xl sm:text-3xl">
-          Bring {heroName} home.
-        </h2>
+        <h2 className="display text-2xl sm:text-3xl">Claim your hero.</h2>
 
         <div className="grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="Finish">
           {tiers.map((tier) => {

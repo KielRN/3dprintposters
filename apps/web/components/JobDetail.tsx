@@ -672,7 +672,13 @@ export function JobDetail({
         { timeout: SCENE_PREVIEW_TIMEOUT_MS },
       );
       // Eager and never awaited: the scene render is garnish, and page 4
-      // reads its status from the job snapshot it already subscribes to.
+      // reads its status from the job snapshot it already subscribes to. The
+      // session marker keeps page 4's deep-link kick from double-rendering.
+      try {
+        sessionStorage.setItem(`storyfront-scene-fired-${jobId}`, "1");
+      } catch {
+        // storage unavailable: the server-side cache still bounds spend
+      }
       void generateScene({ jobId, sceneId: "bookshelf" }).catch(() => {});
     }
     router.push(`/jobs/${jobId}/home`);
