@@ -921,7 +921,7 @@ export function buildVertexImageGenerationConfig(): Record<string, unknown> {
   };
 }
 
-async function generateVertexImage(input: {
+export async function generateVertexImage(input: {
   apiKey: string;
   model: string;
   imageConfig?: Record<string, string>;
@@ -1138,7 +1138,7 @@ async function readErrorBody(response: Response): Promise<string> {
   }
 }
 
-function extractGeneratedImage(
+export function extractGeneratedImage(
   response: VertexGenerateContentResponse,
 ): GeneratedVertexImage {
   if (response.promptFeedback?.blockReason) {
@@ -1196,7 +1196,7 @@ function normalizeInlineData(part: VertexPart): VertexInlineData | undefined {
   return undefined;
 }
 
-function extensionForMimeType(mimeType: string): string {
+export function extensionForMimeType(mimeType: string): string {
   if (mimeType === "image/jpeg") {
     return "jpg";
   }

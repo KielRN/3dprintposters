@@ -38,6 +38,7 @@ import {
 
 // Post-payment figurine build trigger + page-4 scene render (storyfront §4b).
 export { onFigurineBuildQueued } from "./figurineBuild.js";
+export { generateScenePreview } from "./scenePreview.js";
 import { runMeshyFigurinePrintTooling } from "./meshyPrintTooling.js";
 import {
   buildJobSheet,
