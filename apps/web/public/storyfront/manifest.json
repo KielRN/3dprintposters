@@ -1,0 +1,82 @@
+{
+  "cards/chibi_female.webp": {
+    "w": 1600,
+    "h": 820,
+    "alt": "Heroic fantasy heroine figurine concept in a white and gold outfit with a navy blue cape, standing full body on a warm cream studio field"
+  },
+  "cards/chibi_figure.webp": {
+    "w": 1600,
+    "h": 820,
+    "alt": "Heroic fantasy male warrior figurine concept in dark armor holding a sword, standing full body on a warm cream studio field"
+  },
+  "cards/chibi_photo_male.webp": {
+    "w": 1600,
+    "h": 820,
+    "alt": "Friendly chibi figurine of a man in casual clothes standing full body on a warm cream studio field"
+  },
+  "cards/chibi_photo_female.webp": {
+    "w": 1600,
+    "h": 820,
+    "alt": "Friendly chibi figurine of a woman in a terracotta cardigan standing full body on a warm cream studio field"
+  },
+  "cards/heroic_fantasy_male.webp": {
+    "w": 1600,
+    "h": 820,
+    "alt": "Heroic fantasy male warrior figurine concept standing full body on a warm cream studio field"
+  },
+  "cards/heroic_fantasy_female.webp": {
+    "w": 1600,
+    "h": 820,
+    "alt": "Heroic fantasy female warrior figurine concept standing full body on a warm cream studio field"
+  },
+  "cards/creative_lab_figure.webp": {
+    "w": 1600,
+    "h": 820,
+    "alt": "Super hero male figurine concept standing full body on a warm cream studio field"
+  },
+  "cards/super_hero_figure_female.webp": {
+    "w": 1600,
+    "h": 820,
+    "alt": "Super hero female figurine concept with long brunette hair, in a navy blue suit with arms crossed, full body on a warm cream studio field"
+  },
+  "hero/panel-photo.webp": {
+    "w": 1200,
+    "h": 1200,
+    "alt": "A framed photo of a joyfully laughing woman on a sunlit oak sideboard, golden window light"
+  },
+  "hero/panel-transform.webp": {
+    "w": 1200,
+    "h": 1200,
+    "alt": "The heroine mid-transformation in a radiant ember and gold comic energy burst"
+  },
+  "hero/panel-figurine.webp": {
+    "w": 1200,
+    "h": 1200,
+    "alt": "A 3D-printed figurine of the heroine on its printed base with a Christina nameplate, standing on a wooden home shelf in soft window light"
+  },
+  "hero/panel-gift.webp": {
+    "w": 1200,
+    "h": 1200,
+    "alt": "Two hands presenting an open gift box with the heroine figurine standing inside on its Christina-nameplate base"
+  },
+  "empty/first-hero.webp": {
+    "w": 900,
+    "h": 900,
+    "alt": "The heroine waving a friendly welcome on a clean warm cream background"
+  },
+  "epilogue/shelf.webp": {
+    "w": 1600,
+    "h": 900,
+    "alt": "A warm family shelf with framed photos, a plant, and the heroine figurine on its Christina-nameplate base standing among them"
+  },
+  "scenes/bookshelf-plate.webp": {
+    "w": 1600,
+    "h": 1200,
+    "alt": "A warm wooden bookshelf with books, a plant, and a framed photo, with an empty softly lit spot center-right"
+  },
+  "scenes/desk-plate.webp": {
+    "w": 1600,
+    "h": 1200,
+    "alt": "A cozy desk with a laptop edge, notebook, and mug under warm lamp light, with an empty lit spot near the lamp"
+  }
+}
