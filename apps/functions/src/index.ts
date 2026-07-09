@@ -29,6 +29,7 @@ import {
   jobDataIsFigurine,
   mirrorStoragePathsToLocalTmp,
   refreshJobCostFromFirestore,
+  requeueFigurineBuildUpdate,
   resolveMeshyApiKeyForFigurine,
   resolveRequiredEnv,
   shouldQueueFigurineBuildOnPayment,
@@ -189,6 +190,10 @@ const addAdminSupportNoteSchema = z.object({
 const approveGeneratedImageSchema = z.object({
   jobId: jobIdSchema,
   imagePath: z.string().min(1),
+});
+
+const requeueFigurineBuildSchema = z.object({
+  jobId: jobIdSchema,
 });
 
 const defaultReliefSettings = {
@@ -2226,6 +2231,61 @@ export const addAdminSupportNote = onCall(
         jobId: parsed.data.jobId,
         jobData: updatedJobData,
       }),
+    };
+  },
+);
+
+// Recovers a failed funded figurine build (plan §4b): failed -> queued with
+// attempts + 1, which re-fires onFigurineBuildQueued. Support handles
+// customer comms at current volume.
+export const requeueFigurineBuild = onCall(
+  {
+    secrets: [adminSupportAllowlist],
+  },
+  async (request) => {
+    const admin = requireAdminSupport(request);
+    const parsed = requeueFigurineBuildSchema.safeParse(request.data);
+    if (!parsed.success) {
+      throw new HttpsError("invalid-argument", "jobId is required.");
+    }
+
+    const jobRef = db.collection("jobs").doc(parsed.data.jobId);
+    const requeued = await db.runTransaction(async (tx) => {
+      const snap = await tx.get(jobRef);
+      if (!snap.exists) {
+        throw new HttpsError("not-found", "Job not found.");
+      }
+      const update = requeueFigurineBuildUpdate(snap.data()?.figurineBuild);
+      if (!update) {
+        return null;
+      }
+      tx.set(
+        jobRef,
+        {
+          figurineBuild: update,
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+      return update;
+    });
+
+    if (!requeued) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Only a failed figurine build can be re-queued.",
+      );
+    }
+
+    console.info("figurine build requeued", {
+      jobId: parsed.data.jobId,
+      by: admin.email ?? admin.uid,
+      attempts: requeued.attempts,
+    });
+
+    return {
+      jobId: parsed.data.jobId,
+      figurineBuild: { status: "queued", attempts: requeued.attempts },
     };
   },
 );
