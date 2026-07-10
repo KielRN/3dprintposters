@@ -39,10 +39,7 @@ const SCENE_PREVIEW_TIMEOUT_MS = 120_000;
 
 // Page 4: the scene render is garnish and the offer is the point. Checkout
 // goes live the moment the approval guard passes; scene status never touches
-// the CTA. Bookshelf + desk render in SceneStage; the unboxing render sits
-// inside OfferBlock beside the CTA (the customer's hero, packed, with their
-// name on the base). Direct visits without an approved concept bounce to the
-// job page.
+// the CTA. Direct visits without an approved concept bounce to the job page.
 export function HomeClaimView({ jobId }: { jobId: string }) {
   const router = useRouter();
   const firebaseClients = useMemo(() => getFirebaseClients(), []);
@@ -253,10 +250,12 @@ export function HomeClaimView({ jobId }: { jobId: string }) {
         scenes={{
           bookshelf: job.scenePreviews?.bookshelf,
           desk: job.scenePreviews?.desk,
+          unboxing: job.scenePreviews?.unboxing,
         }}
         sceneUrls={{
           bookshelf: sceneUrlFor("bookshelf"),
           desk: sceneUrlFor("desk"),
+          unboxing: sceneUrlFor("unboxing"),
         }}
         conceptUrl={conceptUrl}
       />
@@ -284,9 +283,6 @@ export function HomeClaimView({ jobId }: { jobId: string }) {
           heroName={name}
           busy={checkoutBusy}
           error={checkoutError}
-          unboxingScene={job.scenePreviews?.unboxing}
-          unboxingUrl={sceneUrlFor("unboxing")}
-          conceptUrl={conceptUrl}
           onCheckout={startCheckout}
         />
       )}
