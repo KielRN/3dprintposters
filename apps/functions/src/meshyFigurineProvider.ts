@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 
 import { getStorage } from "firebase-admin/storage";
+import sharp from "sharp";
 
 const meshyOpenApiRoot = "https://api.meshy.ai/openapi";
 const meshyOpenApiV1Root = `${meshyOpenApiRoot}/v1`;
@@ -8,6 +9,8 @@ const terminalStatuses = new Set(["SUCCEEDED", "FAILED", "CANCELED", "EXPIRED"])
 const defaultPollIntervalMs = 10_000;
 const defaultTimeoutMs = 60 * 60 * 1000;
 const defaultSourceImageByteLimit = 8 * 1024 * 1024;
+const defaultCreativeLabMaxSourceDimension = 2048;
+const defaultCreativeLabMaxSourcePixels = 3_900_000;
 
 type MeshyTask = {
   id?: string;
@@ -35,6 +38,13 @@ type MeshyJsonResponse = {
 };
 
 type MeshyApiVersion = "base" | "v1";
+
+export type MeshyCreativeLabImageResizePlan = {
+  width: number;
+  height: number;
+  resized: boolean;
+  reasons: string[];
+};
 
 export type SanitizedMeshyTaskError = string | number | boolean | null | {
   [key: string]: SanitizedMeshyTaskError;
@@ -115,6 +125,51 @@ export type DirectMultiImageTo3dRequest = {
   save_pre_remeshed_model: true;
 };
 
+export function planMeshyCreativeLabImageResize(input: {
+  width: number;
+  height: number;
+  maxDimension?: number;
+  maxPixels?: number;
+}): MeshyCreativeLabImageResizePlan {
+  const width = Math.trunc(input.width);
+  const height = Math.trunc(input.height);
+  const maxDimension = Math.trunc(
+    input.maxDimension ?? defaultCreativeLabMaxSourceDimension,
+  );
+  const maxPixels = Math.trunc(
+    input.maxPixels ?? defaultCreativeLabMaxSourcePixels,
+  );
+
+  if (width <= 0 || height <= 0 || maxDimension <= 0 || maxPixels <= 0) {
+    return { width, height, resized: false, reasons: [] };
+  }
+
+  let scale = 1;
+  const reasons: string[] = [];
+  const largestDimension = Math.max(width, height);
+  if (largestDimension > maxDimension) {
+    scale = Math.min(scale, maxDimension / largestDimension);
+    reasons.push("max_dimension");
+  }
+
+  const pixelCount = width * height;
+  if (pixelCount * scale * scale > maxPixels) {
+    scale = Math.min(scale, Math.sqrt(maxPixels / pixelCount));
+    reasons.push("max_pixels");
+  }
+
+  if (scale >= 1) {
+    return { width, height, resized: false, reasons: [] };
+  }
+
+  return {
+    width: Math.max(1, Math.floor(width * scale)),
+    height: Math.max(1, Math.floor(height * scale)),
+    resized: true,
+    reasons,
+  };
+}
+
 export async function generateCreativeLabFigurinePreview(
   input: FigurineProviderInput,
 ): Promise<FigurineProviderOutput> {
@@ -122,7 +177,9 @@ export async function generateCreativeLabFigurinePreview(
     return generateFixtureFigurinePreview(input);
   }
 
-  const sourceImage = await readStorageImage(input.sourceImagePath);
+  const sourceImage = await prepareCreativeLabSourceImage(
+    await readStorageImage(input.sourceImagePath),
+  );
   const imageByteLimit = resolvePositiveIntegerEnv(
     "MESHY_MAX_SOURCE_IMAGE_BYTES",
     defaultSourceImageByteLimit,
@@ -133,7 +190,7 @@ export async function generateCreativeLabFigurinePreview(
     );
   }
 
-  const imageUrl = `data:${sourceImage.contentType};base64,${sourceImage.buffer.toString("base64")}`;
+  const imageUrl = imageToDataUri(sourceImage);
   const { prototypeTaskId, prototypeTask } = await runPrototypePhase({
     apiKey: input.apiKey,
     imageUrl,
@@ -513,7 +570,9 @@ export async function generateCreativeLabPrototypeConcept(
     return generateFixturePrototypeConcept(input);
   }
 
-  const sourceImage = await readStorageImage(input.sourceImagePath);
+  const sourceImage = await prepareCreativeLabSourceImage(
+    await readStorageImage(input.sourceImagePath),
+  );
   const imageByteLimit = resolvePositiveIntegerEnv(
     "MESHY_MAX_SOURCE_IMAGE_BYTES",
     defaultSourceImageByteLimit,
@@ -524,7 +583,7 @@ export async function generateCreativeLabPrototypeConcept(
     );
   }
 
-  const imageUrl = `data:${sourceImage.contentType};base64,${sourceImage.buffer.toString("base64")}`;
+  const imageUrl = imageToDataUri(sourceImage);
   const { prototypeTaskId, prototypeTask } = await runPrototypePhase({
     apiKey: input.apiKey,
     imageUrl,
@@ -865,6 +924,70 @@ async function meshyJson(
   }
 
   throw new Error(`Meshy ${init.method} ${endpoint} failed unexpectedly.`);
+}
+
+function imageToDataUri(sourceImage: {
+  buffer: Buffer;
+  contentType: string;
+}): string {
+  return `data:${sourceImage.contentType};base64,${sourceImage.buffer.toString("base64")}`;
+}
+
+async function prepareCreativeLabSourceImage(sourceImage: {
+  buffer: Buffer;
+  contentType: string;
+}): Promise<{
+  buffer: Buffer;
+  contentType: string;
+}> {
+  const metadata = await sharp(sourceImage.buffer).metadata();
+  if (!metadata.width || !metadata.height) {
+    return sourceImage;
+  }
+
+  const plan = planMeshyCreativeLabImageResize({
+    width: metadata.width,
+    height: metadata.height,
+    maxDimension: resolvePositiveIntegerEnv(
+      "MESHY_CREATIVE_LAB_MAX_SOURCE_DIMENSION",
+      defaultCreativeLabMaxSourceDimension,
+    ),
+    maxPixels: resolvePositiveIntegerEnv(
+      "MESHY_CREATIVE_LAB_MAX_SOURCE_PIXELS",
+      defaultCreativeLabMaxSourcePixels,
+    ),
+  });
+
+  if (!plan.resized) {
+    return sourceImage;
+  }
+
+  const resizedBuffer = await sharp(sourceImage.buffer)
+    .rotate()
+    .resize({
+      width: plan.width,
+      height: plan.height,
+      fit: "inside",
+      withoutEnlargement: true,
+    })
+    .flatten({ background: "#ffffff" })
+    .jpeg({ quality: 92, mozjpeg: true })
+    .toBuffer();
+
+  console.info("Resized Meshy Creative Lab input image", {
+    originalWidth: metadata.width,
+    originalHeight: metadata.height,
+    originalBytes: sourceImage.buffer.byteLength,
+    resizedWidth: plan.width,
+    resizedHeight: plan.height,
+    resizedBytes: resizedBuffer.byteLength,
+    reasons: plan.reasons,
+  });
+
+  return {
+    buffer: resizedBuffer,
+    contentType: "image/jpeg",
+  };
 }
 
 async function readStorageImage(storagePath: string): Promise<{

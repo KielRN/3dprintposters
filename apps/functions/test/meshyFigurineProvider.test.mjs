@@ -4,6 +4,7 @@ import { test } from "node:test";
 import {
   buildDirectMultiImageTo3dRequest,
   buildMeshyOpenApiUrl,
+  planMeshyCreativeLabImageResize,
 } from "../lib/meshyFigurineProvider.js";
 
 test("direct Multi-Image-to-3D request matches exp 014 and 018 settings", () => {
@@ -39,4 +40,44 @@ test("Meshy direct endpoints use OpenAPI v1 while Creative Lab keeps its base ro
     buildMeshyOpenApiUrl("/creative-lab/figure/v1/build"),
     "https://api.meshy.ai/openapi/creative-lab/figure/v1/build",
   );
+});
+
+test("Creative Lab input planner shrinks oversized 2K proof images", () => {
+  const plan = planMeshyCreativeLabImageResize({
+    width: 1856,
+    height: 2304,
+  });
+
+  assert.equal(plan.resized, true);
+  assert.equal(plan.height, 2048);
+  assert.equal(plan.width, 1649);
+  assert.ok(plan.width * plan.height <= 3_900_000);
+  assert.deepEqual(plan.reasons, ["max_dimension"]);
+});
+
+test("Creative Lab input planner also caps pixel count", () => {
+  const plan = planMeshyCreativeLabImageResize({
+    width: 2400,
+    height: 1800,
+    maxDimension: 4096,
+    maxPixels: 3_900_000,
+  });
+
+  assert.equal(plan.resized, true);
+  assert.ok(plan.width * plan.height <= 3_900_000);
+  assert.deepEqual(plan.reasons, ["max_pixels"]);
+});
+
+test("Creative Lab input planner leaves known-good experiment dimensions alone", () => {
+  const plan = planMeshyCreativeLabImageResize({
+    width: 1122,
+    height: 1402,
+  });
+
+  assert.deepEqual(plan, {
+    width: 1122,
+    height: 1402,
+    resized: false,
+    reasons: [],
+  });
 });

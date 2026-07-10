@@ -17,6 +17,10 @@ All notable project changes will be documented in this file.
 - `updateFigurineBaseConfig` now skips the body/base assembly step when the job has no built figurine preview (the funded-build flow pre-payment) and returns `status: "saved"` with the persisted sign + named base, instead of failing the callable with the assembly precondition. Jobs with a built body (post-payment/legacy) still assemble exactly as before; the skip decision is the unit-tested `figurinePreviewReadyForAssembly` in `figurineBuild.ts`. Approved by Elliot 2026-07-10 as a follow-up to the §4b inversion.
 - The 3a deploy hold is lifted: chat 3b's pages are on `main`, so functions + hosting should deploy together (3a backend semantics + 3b funnel UI).
 
+### Fixed
+
+- Fixed Chibi female Creative Lab prototype failures caused by oversized 2K face-swap outputs by resizing Creative Lab inputs to a provider-safe envelope before embedding them as Meshy data URIs. The `/start/[styleId]` upload panel now distinguishes completed uploads from later generation failures, and figurine callable failures now say "figurine concept" instead of "poster" when the concept step fails.
+
 ### Removed
 
 - Removed `apps/web/components/UploadFlow.tsx` (superseded by the storyfront project page; git history preserves it).

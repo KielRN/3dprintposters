@@ -1098,7 +1098,9 @@ export const createGenerationJob = onCall(
 
       throw new HttpsError(
         "internal",
-        "Poster generation failed before a proof was ready.",
+        productType === "figurine"
+          ? "Figurine concept generation failed before a preview was ready."
+          : "Poster generation failed before a proof was ready.",
       );
     }
   },

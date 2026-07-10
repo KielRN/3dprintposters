@@ -105,6 +105,7 @@ export function UploadPanel({ style, user, firebaseClients }: UploadPanelProps) 
 
     const nextJobId = crypto.randomUUID();
     const sourceImagePath = sourceFilePath(user.uid, nextJobId, selectedFile);
+    let uploadCompleted = false;
 
     setWorkflowError("");
     setJobState("queued");
@@ -123,6 +124,8 @@ export function UploadPanel({ style, user, firebaseClients }: UploadPanelProps) 
           },
         },
       );
+      uploadCompleted = true;
+      setStatusMessage("Photo uploaded. Creating your figurine preview...");
 
       // Template-face-swap styles run the face swap plus the Meshy prototype
       // inside this callable, so the client timeout must cover minutes, not
@@ -149,7 +152,9 @@ export function UploadPanel({ style, user, firebaseClients }: UploadPanelProps) 
           ? error.message
           : "Upload or job creation failed.",
       );
-      setStatusMessage("Upload did not finish.");
+      setStatusMessage(
+        uploadCompleted ? "Generation did not finish." : "Upload did not finish.",
+      );
     }
   }
 
