@@ -1,0 +1,32 @@
+- generic [active] [ref=e1]:
+  - button "Open Next.js Dev Tools" [ref=e177] [cursor=pointer]
+  - alert [ref=e181]
+  - main [ref=e303]:
+    - generic [ref=e305]:
+      - generic [ref=e306]:
+        - link "New order" [ref=e307] [cursor=pointer]:
+          - /url: /start
+        - 'navigation "Your progress: step 3 of 4" [ref=e310]':
+          - generic [ref=e311]: Style
+          - generic [ref=e314]: Photo
+          - generic [ref=e317]: Reveal
+          - generic [ref=e318]: Home
+      - generic [ref=e319]:
+        - generic [ref=e320]: Concept ready — pick one
+        - generic [ref=e321]: Chibi heroic fantasy female
+      - generic [ref=e323]:
+        - paragraph [ref=e324]: You made this.
+        - heading "Meet your hero." [level=1] [ref=e325]
+        - figure [ref=e328]:
+          - 'img "Your hero''s concept: your hero" [ref=e329]'
+      - generic [ref=e330]:
+        - img "Your photo" [ref=e331]
+        - img "Your hero's concept" [ref=e334]
+        - paragraph [ref=e335]: Your photo became your hero.
+      - generic [ref=e336]:
+        - heading "Name the base" [level=2] [ref=e337]
+        - paragraph [ref=e338]: Up to 12 letters, printed on the front of the base. Hand-checked before printing.
+        - generic [ref=e339]:
+          - textbox "Name for the figurine base" [ref=e340]:
+            - /placeholder: Ellie
+          - button "Save the name" [ref=e341]

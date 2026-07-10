@@ -1,0 +1,71 @@
+- generic [ref=e1]:
+  - button "Open Next.js Dev Tools" [ref=e177] [cursor=pointer]
+  - alert [ref=e181]
+  - main [ref=e182]:
+    - generic [ref=e183]:
+      - generic [ref=e184]:
+        - link "3DPrintU" [ref=e185] [cursor=pointer]:
+          - /url: /
+        - 'navigation "Your progress: step 2 of 4" [ref=e186]':
+          - generic [ref=e187]: Style
+          - generic [ref=e190]: Photo
+          - generic [ref=e191]: Reveal
+          - generic [ref=e192]: Home
+        - generic [ref=e193]:
+          - link "Operator" [ref=e194] [cursor=pointer]:
+            - /url: /operator
+          - link "Admin" [ref=e198] [cursor=pointer]:
+            - /url: /admin
+          - button "Install app" [ref=e202]:
+            - generic [ref=e206]: Install
+      - generic [ref=e208]:
+        - generic [ref=e214]:
+          - img "Heroic fantasy heroine figurine concept in a white and gold outfit with a navy blue cape, standing full body on a warm cream studio field" [ref=e216]
+          - generic [ref=e217]:
+            - heading "The Chibi Heroine" [level=1] [ref=e218]
+            - paragraph [ref=e219]: Upload a photo to begin the transformation.
+            - link "Change style" [ref=e220] [cursor=pointer]:
+              - /url: /start
+        - generic [ref=e210]:
+          - generic [ref=e223]:
+            - generic [ref=e225]:
+              - generic [ref=e226]:
+                - paragraph [ref=e227]: Account
+                - paragraph [ref=e228]: Guest session
+              - button "Sign out" [ref=e283]
+            - generic [ref=e247]:
+              - generic [ref=e248] [cursor=pointer]:
+                - generic [ref=e249]:
+                  - 'img "Selected source photo: Profile-Pic-HIMSS.jpg" [ref=e294]'
+                  - generic [ref=e253]:
+                    - generic [ref=e298]: Profile-Pic-HIMSS.jpg
+                    - generic [ref=e299]: One person, face visible, head to feet works best.
+                - 'button "Selected source photo: Profile-Pic-HIMSS.jpg Profile-Pic-HIMSS.jpg One person, face visible, head to feet works best." [active] [ref=e300]'
+              - generic [ref=e256]:
+                - generic [ref=e257]: Status
+                - strong [ref=e258]: Photo ready for upload.
+              - generic [ref=e259]:
+                - button "Create my figurine" [ref=e260]
+                - paragraph [ref=e264]: This takes a few minutes. We'll take you straight to your preview.
+          - complementary [ref=e265]:
+            - generic [ref=e266]:
+              - heading "Chibi heroic fantasy female" [level=2] [ref=e267]
+              - paragraph [ref=e268]: The heroine of the story, sculpted with your favorite person's smile.
+              - generic [ref=e269]:
+                - generic [ref=e270]:
+                  - term [ref=e271]: Concept options
+                  - definition [ref=e272]: "1"
+                - generic [ref=e273]:
+                  - term [ref=e274]: Finished height
+                  - definition [ref=e275]: About 150 mm
+                - generic [ref=e276]:
+                  - term [ref=e277]: Every print
+                  - definition [ref=e278]: Human-reviewed
+            - paragraph [ref=e279]: Your photo stays on your account and only guides this figurine. You approve the concept before anything is printed.
+        - generic [ref=e280]:
+          - heading "Your heroes (0)" [level=2] [ref=e287]
+          - generic [ref=e288]:
+            - img "The heroine waving a friendly welcome on a clean warm cream background" [ref=e289]
+            - generic [ref=e290]:
+              - paragraph [ref=e291]: Your first hero starts here.
+              - paragraph [ref=e292]: Upload a photo above and watch someone you love become a figurine.

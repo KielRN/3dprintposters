@@ -554,10 +554,10 @@ export function JobDetail({
     operatorMode,
   ]);
 
-  async function approveImage(imagePath: string) {
+  async function approveImage(imagePath: string): Promise<boolean> {
     if (!firebaseClients) {
       setError("Firebase is not configured for approval yet.");
-      return;
+      return false;
     }
 
     setApprovalBusyPath(imagePath);
@@ -578,12 +578,14 @@ export function JobDetail({
           ? "Saved to your heroes — come back anytime."
           : "3D relief preview is ready. Checkout is unlocked.",
       );
+      return true;
     } catch (approvalError) {
       setError(
         approvalError instanceof Error
           ? approvalError.message
           : "Approval failed.",
       );
+      return false;
     } finally {
       setApprovalBusyPath("");
     }
@@ -662,6 +664,23 @@ export function JobDetail({
     } finally {
       setCheckoutBusy(false);
     }
+  }
+
+  // Single-concept styles skip the picker, so continuing to page 4 claims
+  // the concept first (approval-only, returns in seconds) when needed.
+  async function continueToHome(stageImagePath: string | null) {
+    if (
+      isFigurineJob &&
+      !approvedImagePath &&
+      stageImagePath &&
+      job?.status === "preview_ready"
+    ) {
+      const approved = await approveImage(stageImagePath);
+      if (!approved) {
+        return;
+      }
+    }
+    seeItInYourHome();
   }
 
   function seeItInYourHome() {
@@ -942,13 +961,19 @@ export function JobDetail({
           onSave={saveBaseSign}
         />
 
-        {!isPaid && canCheckout ? (
+        {!isPaid &&
+        (canCheckout ||
+          (stageImagePath && job.status === "preview_ready")) ? (
           <div>
             <button
               className="primary-button w-full sm:w-auto sm:px-8"
               type="button"
-              onClick={seeItInYourHome}
+              disabled={Boolean(approvalBusyPath)}
+              onClick={() => void continueToHome(stageImagePath)}
             >
+              {approvalBusyPath ? (
+                <Loader2 className="animate-spin" size={18} aria-hidden="true" />
+              ) : null}
               See {name} in your home →
             </button>
           </div>
