@@ -1,6 +1,6 @@
 # 3DPrintU Design
 
-Last updated: 2026-06-21
+Last updated: 2026-07-10
 
 ## Purpose
 
@@ -9,11 +9,13 @@ surface, the design tokens, the type system, and the landing-page experience.
 It records not just *what* the design is but *why*, so future work extends the
 system instead of re-deriving it.
 
-Scope today is the marketing landing page (`/`) and the app-wide token/type
-system that every page inherits. The existing product pages (`/start`,
-`/jobs/[jobId]`, `/admin`, `/orders`) were given the tokens plus a light
-heading/button retouch, not a redesign; their detailed UI is not specified here
-yet. Expand this file as more surfaces get real design treatment.
+Scope today is the marketing landing page (`/`), the app-wide token/type
+system that every page inherits, and — as of 2026-07-10 — the four customer
+funnel pages (`/start`, `/start/[styleId]`, `/jobs/[jobId]`,
+`/jobs/[jobId]/home`), specified in the "Storyfront funnel" section below.
+`/admin`, `/orders`, the operator console, and print-readiness keep the tokens
+plus the original light heading/button retouch only. Expand this file as more
+surfaces get real design treatment.
 
 Source-of-truth split (see also `AGENTS.md`):
 - `DESIGN.md` (this file) — brand, tokens, type, landing experience, design rationale.
@@ -230,10 +232,86 @@ named specifics; everything else followed the skill:
   implemented in the performant, no-React-state-on-the-hot-path way the skill's
   rules want.
 
+## Storyfront funnel (pages 1–4)
+
+Added 2026-07-10 (storyfront revamp, chat 3b). The figurine funnel is a
+four-page story — Style (`/start`) → Photo (`/start/[styleId]`) → Reveal
+(`/jobs/[jobId]`) → Home (`/jobs/[jobId]/home`) — rendered entirely in the warm
+token system. Dials for these pages: `DESIGN_VARIANCE 7` / `MOTION_INTENSITY 5`
+/ `VISUAL_DENSITY 3-4` (product surfaces sit calmer than the landing hero).
+Customers never see figurine GLBs, print-readiness, or build internals; those
+render only on operator surfaces, which keep the original layout.
+
+### Comic treatment
+
+The comic story is composed in CSS/JSX, never baked into images:
+
+- `.halftone` — radial-gradient ink dots (14px grid, 14% alpha) over cream;
+  the banner field on pages 1 and 2.
+- `.comic-panel` — 3px `--ink` border, 14px radius, clay fill, hard offset
+  shadow (`6px 8px 0`), static tilt via the `--tilt` custom property.
+  `prefers-reduced-motion` flattens the tilt.
+- Onomatopoeia ("WHOA!") is an aria-hidden SVG starburst (`--ember` fill, ink
+  stroke) with Fraunces text and a visually-hidden narrative sibling for
+  screen readers.
+- All storyfront art is committed WebP under `apps/web/public/storyfront/`;
+  `manifest.json` is the source of truth for dimensions and alt text, consumed
+  verbatim. The generation prompts and QA history live in the chat-2 asset log
+  (temporary planning folder, since deleted; regeneration goes through
+  `scripts/storyfront/generate-assets.mjs`).
+
+### Cards, chips, and states
+
+- Style cards: 2:1 art region, label from the live workflow config (never a
+  hardcoded map), one-line description from `styleCardContent.ts` with the
+  clay-field `DEFAULT_CARD` for unknown ids, circular arrow affordance,
+  optional ember "New" chip. Hover: card lift + image scale, `motion-safe`
+  only.
+- Job status chips map through `jobPresentation.ts` — tones `moss` (in
+  production / concept ready), `gold` (in checkout), `ember` (ready to order,
+  with a `.chip-pulse-dot`), `coral` (needs attention, pre-payment failures
+  only), `muted` (in progress). Post-payment build failures never surface on
+  customer chips.
+- Every async region ships a designed state: `.skeleton-shimmer` loaders that
+  match final layout (static under reduced motion), mascot empty state ("Your
+  first hero starts here."), signed-out panels, and inline coral errors.
+
+### Reveal and win moment
+
+- `ConceptStage` stages the 2D concept as an object (perceptual sculpting,
+  plan §5a.3): clay mat, warm radial vignette, 3px ink frame over an offset
+  depth frame, and a directional soft shadow (upper-left key light, so the
+  shadow falls lower-right). No customer 3D viewer anywhere.
+- `.reveal-win` plays once per job (sessionStorage key
+  `storyfront-reveal-{jobId}`): 600ms scale settle 0.96→1 with an ember glow
+  pulse; reduced motion (and repeat visits) get the static staged frame.
+- Page 4's scene render is garnish by design: pending shows the epilogue shelf
+  backdrop under a shimmer with "Placing {name} on the shelf…", failure
+  composites the concept frame over the blurred backdrop with no alarm tones,
+  and the honesty caption ("Artist's visualization — …") is always visible.
+  Scene status must never appear in checkout logic.
+
+### Voice and copy
+
+The canonical strings (headlines, step pills "Style · Photo · Reveal · Home",
+CTAs, status lines) live in the storyfront voice & copy contract: second-person
+storytelling, victory framing (checkout is claiming, not paying), no fabricated
+claims, and no prices ("Final price at checkout."). The canonical strings ship
+verbatim — including their em-dashes, a deliberate contract-over-skill override
+of the taste-skill's em-dash ban — and change only with Elliot's sign-off.
+
 ## File map
 
 - `apps/web/app/page.tsx` — landing composition (server component).
-- `apps/web/app/start/page.tsx` — upload/creation flow (the old `/`).
+- `apps/web/app/start/page.tsx` — storyfront page 1: style gallery.
+- `apps/web/app/start/[styleId]/page.tsx` — storyfront page 2: project page.
+- `apps/web/app/jobs/[jobId]/home/page.tsx` — storyfront page 4: scene + claim.
+- `apps/web/components/storyfront/` — funnel components (ComicBanner,
+  StyleCard(Grid), MyFigurinesList/JobCard, StepPills, ConceptStage,
+  JourneyStrip, BaseSignInline, SceneStage, OfferBlock, HomeClaimView,
+  ProjectPageView, TrustStrip) plus the pure helpers `jobPresentation.ts` and
+  `styleCardContent.ts` (vitest-covered).
+- `apps/web/public/storyfront/` — committed funnel art + `manifest.json`.
 - `apps/web/app/layout.tsx` — fonts + metadata.
 - `apps/web/app/globals.css` — tokens, type, component classes, motion utilities.
 - `apps/web/components/LandingHero.tsx` — hero + header (client island).

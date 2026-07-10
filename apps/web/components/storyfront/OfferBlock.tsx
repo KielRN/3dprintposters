@@ -56,16 +56,20 @@ function SizeScale() {
         stroke="var(--ink)"
         strokeWidth="2"
       />
-      <g stroke="var(--ink)" strokeWidth="2.5" fill="none" strokeLinecap="round">
-        <circle cx="60" cy="32" r="11" />
-        <path d="M60 43 v34" />
-        <path d="M60 52 l-14 12 M60 52 l14 12" />
-        <path d="M60 77 l-11 26 M60 77 l11 26" />
-        <rect x="42" y="103" width="36" height="14" rx="2.5" />
+      <g fill="var(--ink)">
+        <circle cx="60" cy="30" r="10" />
+        <path d="M60 41 c-9 0 -15 5 -16 13 l-3 26 c-0.5 5 2 8 6 8 h4 l2 15 h14 l2 -15 h4 c4 0 6.5 -3 6 -8 l-3 -26 c-1 -8 -7 -13 -16 -13 z" />
+        <path d="M47 46 l-8 42 6 3 8 -34 z" opacity="0.85" />
+        <rect x="40" y="103" width="40" height="14" rx="2.5" />
       </g>
-      <g stroke="var(--ink)" strokeWidth="2.5" fill="none" strokeLinecap="round">
+      <g
+        stroke="var(--ink)"
+        strokeWidth="2.5"
+        fill="var(--clay)"
+        strokeLinecap="round"
+      >
         <path d="M150 74 h44 v44 a2 2 0 0 1 -2 2 h-40 a2 2 0 0 1 -2 -2 z" />
-        <path d="M194 82 q18 6 0 26" />
+        <path d="M194 82 q18 6 0 26" fill="none" />
       </g>
       <g stroke="var(--ember)" strokeWidth="2" fill="none">
         <line x1="222" y1="21" x2="222" y2="120" />

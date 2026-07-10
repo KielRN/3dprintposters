@@ -2,6 +2,23 @@
 
 All notable project changes will be documented in this file.
 
+## [Unreleased] - 2026-07-10
+
+### Added
+
+- Added the storyfront funnel pages (storyfront chat 3b, pages 1–4). `/start` is now a comic-story style gallery: a CSS-composed hero banner (tilted ink-border panels over a halftone field, art from committed WebP under `apps/web/public/storyfront/` with dimensions/alt consumed verbatim from `manifest.json`) above MakerLab-style cards rendered from `visibleWorkflowStyles()` with live config labels, per-style descriptions from `styleCardContent.ts` (unknown ids get the designed `DEFAULT_CARD`), and "New" chips on the two Super Hero styles. `/start/[styleId]` is the per-style project page: compact story banner, extracted `AuthPanel` + `UploadPanel` (drag-and-drop added; style locked to the route; unknown/disabled ids redirect to `/start`), a style context rail, and "Your heroes (N)" — the customer's previous generations via an owner-scoped `uid + updatedAt desc` snapshot query with thumbnail resolution (approved image → first non-placeholder generation → source photo) and status chips from the new unit-tested `jobPresentation.ts`. `/jobs/[jobId]/home` is the new page-4 claim surface: `SceneStage` (bookshelf/desk chips, fixture-verified pending/ready/failed states over the epilogue backdrop, always-visible honesty caption) plus `OfferBlock` (Painted & finished anchored first with "Most loved", no prices — "Final price at checkout.", exactly two true trust claims, 150mm scale SVG, checkout CTA live from the moment the approval guard passes — scene status never gates checkout). Direct `/home` visits without an approved concept bounce to the job page; the page-3 CTA fires the bookshelf render eagerly with a session marker so the deep-link kick never double-spends the capped renders.
+- Added a minimal vitest rig to `apps/web` (`npm --workspace apps/web run test`) with 16 unit tests covering the `jobPresentation.ts` chip/thumbnail/name mapping and the `styleCardContent.ts` art/manifest/fallback contract.
+
+### Changed
+
+- `/jobs/[jobId]` is restaged as the concept reveal for figurine customers: `ConceptStage` presents the concept as a staged object (clay mat, ink frame, warm vignette, directional shadow) with the kicker "You made this." and a once-per-job win moment (sessionStorage-gated, reduced-motion safe); multi-concept styles get a "Choose your hero." picker whose approval is the fast post-§4b path (60s client timeout; re-picking allowed until payment), and single-concept styles claim their concept from the page-3 CTA before navigating to `/home`. The journey strip, text-only base-sign confirmation ("Your base will read: ELLIE" — no customer GLB), saved-to-your-heroes reassurance, and the post-payment "Order received" panel complete the page. Customer figurine views render no `FigurineModelPreview`, named-base GLB, print-readiness link, or checkout UI (checkout moved to page 4); operator mode and the poster branch render the original layout unchanged. `UploadFlow.tsx` is retired (auth/upload logic lives in `AuthPanel`/`UploadPanel`).
+- `updateFigurineBaseConfig` now skips the body/base assembly step when the job has no built figurine preview (the funded-build flow pre-payment) and returns `status: "saved"` with the persisted sign + named base, instead of failing the callable with the assembly precondition. Jobs with a built body (post-payment/legacy) still assemble exactly as before; the skip decision is the unit-tested `figurinePreviewReadyForAssembly` in `figurineBuild.ts`. Approved by Elliot 2026-07-10 as a follow-up to the §4b inversion.
+- The 3a deploy hold is lifted: chat 3b's pages are on `main`, so functions + hosting should deploy together (3a backend semantics + 3b funnel UI).
+
+### Removed
+
+- Removed `apps/web/components/UploadFlow.tsx` (superseded by the storyfront project page; git history preserves it).
+
 ## [Unreleased] - 2026-07-09
 
 ### Added
