@@ -5,6 +5,7 @@ import {
   buildScenePrompt,
   resolveSceneConceptPath,
   resolveSceneSignName,
+  scenePregenTargets,
   sceneRenderDecision,
 } from "../lib/scenePreview.js";
 
@@ -110,4 +111,69 @@ test("buildScenePrompt frames the figurine small and names the base", () => {
   const noRef = buildScenePrompt("bookshelf", "Ellie", false);
   assert.match(noRef, /"Ellie"/);
   assert.ok(!/last reference image/i.test(noRef));
+});
+
+test("buildScenePrompt supports the unboxing scene", () => {
+  const prompt = buildScenePrompt("unboxing", "Ellie", true);
+  assert.match(prompt, /inside the open (gift|shipping) box/i);
+  assert.match(prompt, /"Ellie"/);
+});
+
+test("scenePregenTargets fires once when the concept becomes definitive", () => {
+  const single = {
+    productType: "figurine",
+    status: "preview_ready",
+    generatedImages: [
+      {
+        storagePath: "generated/u/j/meshy-concept-1.png",
+        isPlaceholder: false,
+      },
+    ],
+  };
+  assert.deepEqual(
+    scenePregenTargets({ productType: "figurine", status: "generating" }, single),
+    ["bookshelf", "desk", "unboxing"],
+  );
+  assert.deepEqual(scenePregenTargets(single, { ...single, updatedAt: 1 }), []);
+
+  const multi = {
+    productType: "figurine",
+    status: "preview_ready",
+    generatedImages: [
+      { storagePath: "generated/u/j/p1.png", isPlaceholder: false },
+      { storagePath: "generated/u/j/p2.png", isPlaceholder: false },
+    ],
+  };
+  assert.deepEqual(scenePregenTargets({ productType: "figurine" }, multi), []);
+  assert.deepEqual(
+    scenePregenTargets(multi, {
+      ...multi,
+      approvedImagePath: "generated/u/j/p2.png",
+    }),
+    ["bookshelf", "desk", "unboxing"],
+  );
+  assert.deepEqual(
+    scenePregenTargets(
+      { productType: "figurine", status: "generating" },
+      { ...single, scenePreviews: { bookshelf: { status: "ready" } } },
+    ),
+    ["desk", "unboxing"],
+  );
+  assert.deepEqual(
+    scenePregenTargets(undefined, {
+      productType: "poster",
+      approvedImagePath: "x",
+    }),
+    [],
+  );
+  assert.deepEqual(
+    scenePregenTargets(undefined, {
+      productType: "figurine",
+      status: "preview_ready",
+      generatedImages: [
+        { storagePath: "uploads/u/j/source.png", isPlaceholder: true },
+      ],
+    }),
+    [],
+  );
 });
