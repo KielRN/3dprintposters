@@ -11,7 +11,7 @@ import { httpsCallable } from "firebase/functions";
 import { getDownloadURL, ref } from "firebase/storage";
 import { heroName, type JobCardSource } from "./jobPresentation";
 import { OfferBlock } from "./OfferBlock";
-import { SceneStage, type SceneId } from "./SceneStage";
+import { SceneStage, SCENE_IDS, type SceneId } from "./SceneStage";
 import { StepPills } from "./StepPills";
 
 type ScenePreview = {
@@ -47,7 +47,6 @@ export function HomeClaimView({ jobId }: { jobId: string }) {
   const [authLoading, setAuthLoading] = useState(Boolean(firebaseClients));
   const [job, setJob] = useState<HomeJobDocument | null>(null);
   const [jobLoading, setJobLoading] = useState(true);
-  const [activeScene, setActiveScene] = useState<SceneId>("bookshelf");
   const [assetUrls, setAssetUrls] = useState<Record<string, string>>({});
   const [checkoutBusy, setCheckoutBusy] = useState(false);
   const [checkoutError, setCheckoutError] = useState("");
@@ -112,34 +111,43 @@ export function HomeClaimView({ jobId }: { jobId: string }) {
     void generateScene({ jobId, sceneId }).catch(() => {});
   }
 
-  // Deep-link kick for the default scene. The page-3 CTA usually fired it
-  // already and marked the session, so the normal flow does not double-spend.
+  // Fallback for jobs created before server-side pre-generation: fire any
+  // scene the trigger did not cover. On new jobs every scene already has a
+  // scenePreviews entry, so this no-ops.
   useEffect(() => {
-    if (!job?.approvedImagePath || job.scenePreviews?.bookshelf) {
+    if (!job?.approvedImagePath) {
       return;
     }
-    try {
-      if (sessionStorage.getItem(`storyfront-scene-fired-${jobId}`)) {
-        return;
+    for (const sceneId of SCENE_IDS) {
+      if (job.scenePreviews?.[sceneId]) {
+        continue;
       }
-      sessionStorage.setItem(`storyfront-scene-fired-${jobId}`, "1");
-    } catch {
-      // storage unavailable: still fire once per mount via firedScenes
+      try {
+        const marker = `storyfront-scene-fired-${jobId}-${sceneId}`;
+        if (sessionStorage.getItem(marker)) {
+          continue;
+        }
+        sessionStorage.setItem(marker, "1");
+      } catch {
+        // storage unavailable: still fire once per mount via firedScenes
+      }
+      fireSceneRender(sceneId);
     }
-    fireSceneRender("bookshelf");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [Boolean(job?.approvedImagePath)]);
 
-  // Resolve download URLs for the active scene render and the concept image.
+  // Resolve download URLs for every ready scene render and the concept image.
   useEffect(() => {
     if (!firebaseClients || !job) {
       return;
     }
 
     const wanted: string[] = [];
-    const scene = job.scenePreviews?.[activeScene];
-    if (scene?.status === "ready" && scene.storagePath) {
-      wanted.push(scene.storagePath);
+    for (const sceneId of SCENE_IDS) {
+      const scene = job.scenePreviews?.[sceneId];
+      if (scene?.status === "ready" && scene.storagePath) {
+        wanted.push(scene.storagePath);
+      }
     }
     if (job.approvedImagePath) {
       wanted.push(job.approvedImagePath);
@@ -167,14 +175,7 @@ export function HomeClaimView({ jobId }: { jobId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [activeScene, assetUrls, firebaseClients, job]);
-
-  function switchScene(sceneId: SceneId) {
-    setActiveScene(sceneId);
-    if (job && !job.scenePreviews?.[sceneId]) {
-      fireSceneRender(sceneId);
-    }
-  }
+  }, [assetUrls, firebaseClients, job]);
 
   async function startCheckout(paintOption: "painted" | "unpainted") {
     if (!firebaseClients) {
@@ -218,14 +219,16 @@ export function HomeClaimView({ jobId }: { jobId: string }) {
 
   const name = heroName(job);
   const isPaid = job.pipelineStage === "paid";
-  const scene = job.scenePreviews?.[activeScene];
-  const sceneUrl =
-    scene?.status === "ready" && scene.storagePath
-      ? (assetUrls[scene.storagePath] ?? null)
-      : null;
   const conceptUrl = job.approvedImagePath
     ? (assetUrls[job.approvedImagePath] ?? null)
     : null;
+
+  function sceneUrlFor(sceneId: SceneId): string | null {
+    const scene = job?.scenePreviews?.[sceneId];
+    return scene?.status === "ready" && scene.storagePath
+      ? (assetUrls[scene.storagePath] ?? null)
+      : null;
+  }
 
   return (
     <section className="grid min-w-0 gap-6">
@@ -244,10 +247,16 @@ export function HomeClaimView({ jobId }: { jobId: string }) {
 
       <SceneStage
         heroName={name}
-        activeScene={activeScene}
-        onSceneChange={switchScene}
-        scene={scene}
-        sceneUrl={sceneUrl}
+        scenes={{
+          bookshelf: job.scenePreviews?.bookshelf,
+          desk: job.scenePreviews?.desk,
+          unboxing: job.scenePreviews?.unboxing,
+        }}
+        sceneUrls={{
+          bookshelf: sceneUrlFor("bookshelf"),
+          desk: sceneUrlFor("desk"),
+          unboxing: sceneUrlFor("unboxing"),
+        }}
         conceptUrl={conceptUrl}
       />
 
