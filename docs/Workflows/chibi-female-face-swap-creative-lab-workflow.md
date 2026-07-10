@@ -13,6 +13,7 @@ The female variant differs from the base Chibi workflow only by style ID, public
 - 3D workflow: `creative_lab_figure`
 - Local seed reference image: `C:\Users\Eliud\Desktop\Styles\SheRa-ChatGPTv4 Christina.png`
 - Seeded Storage reference path: `admin/workflow-style-references/chibi_female/shera-christina-template.png`
+- Vertex/Gemini prompt: reusable `Template face swap-female (single concept)` prompt preset that requires a `full-body collectible action figure` with `smooth toy material`
 - Customer upload page: `/start`
 - Customer review page: `/jobs/{jobId}`
 - Vertex/Gemini output: one face-swapped identity image
@@ -62,7 +63,7 @@ The script reads `C:\Users\Eliud\Desktop\Styles\SheRa-ChatGPTv4 Christina.png`, 
 ```json
 {
   "id": "chibi_female",
-  "label": "Chibi female",
+  "label": "Chibi heroic fantasy female",
   "productType": "figurine",
   "proofMode": "template_face_swap",
   "generationWorkflow": "creative_lab_figure",
@@ -85,9 +86,9 @@ The script reads `C:\Users\Eliud\Desktop\Styles\SheRa-ChatGPTv4 Christina.png`, 
 
 | System                       | Responsibility                                                                                                                                                         | Output                                                                            |
 | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| Customer                     | Uploads a source photo and selects Chibi female on `/start`.                                                                                                           | Uploaded customer image in Storage.                                               |
+| Customer                     | Uploads a source photo and selects Chibi heroic fantasy female on `/start`.                                                                                            | Uploaded customer image in Storage.                                               |
 | Firebase Functions           | Creates the job, reads workflow config, loads the enabled Chibi female reference/template image, and calls Vertex/Gemini in `template_face_swap` mode.                 | One face-swapped identity image, usually `generated/{uid}/{jobId}/preview.png`.   |
-| Vertex/Gemini Pro            | Edits the Chibi female reference/template so the head/face identity comes from the customer photo while the template controls style, pose, costume, and figure design. | One new identity image.                                                           |
+| Vertex/Gemini Pro            | Edits the Chibi female reference/template so the head/face identity comes from the customer photo while the output stays a full-body collectible action figure with smooth toy material. | One new identity image.                                                           |
 | Firebase Functions           | Immediately submits the face-swapped identity image to Meshy Creative Lab prototype for the Chibi female style.                                                        | Meshy prototype task ID and concept image path.                                   |
 | Meshy Creative Lab prototype | Creates the customer-reviewable 2D figure concept.                                                                                                                     | One concept image, usually `generated/{uid}/{jobId}/meshy-concept-1.jpg`.         |
 | Customer                     | Reviews the single concept image on `/jobs/{jobId}`.                                                                                                                   | Approval action.                                                                  |
@@ -102,14 +103,14 @@ Before customer approval, the Chibi female Creative Lab face-swap path should lo
 ```json
 {
   "selectedStyle": "chibi_female",
-  "selectedStyleLabel": "Chibi female",
+  "selectedStyleLabel": "Chibi heroic fantasy female",
   "productType": "figurine",
   "generated3dWorkflow": "creative_lab_figure",
   "conceptSource": "meshy_prototype_concept",
   "generatedImages": [
     {
       "id": "meshy-concept-1",
-      "label": "Chibi female figure concept",
+      "label": "Chibi heroic fantasy female figure concept",
       "storagePath": "generated/{uid}/{jobId}/meshy-concept-1.jpg",
       "status": "ready",
       "isPlaceholder": false

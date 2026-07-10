@@ -15,6 +15,7 @@ import {
   normalizeFigurineWorkflowConfigResponse,
   normalizeReferenceImageId,
   normalizeStyleId,
+  templateFaceSwapFemaleCollectiblePrompt,
   type FigurineWorkflowConfig,
   type WorkflowGenerationWorkflow,
   type WorkflowProductType,
@@ -54,8 +55,48 @@ type AdminWorkflowConfigProps = {
   user?: User | null;
 };
 
+type ImageGenerationModePreset =
+  | "generated_options"
+  | "template_face_swap"
+  | "template_face_swap_female_collectible";
+
 function countPublicStyles(styles: WorkflowStyleConfig[]) {
   return styles.filter((style) => style.enabled).length;
+}
+
+function imageGenerationModePreset(
+  style: WorkflowStyleConfig,
+): ImageGenerationModePreset {
+  if (
+    style.proofMode === "template_face_swap" &&
+    style.prompt.trim() === templateFaceSwapFemaleCollectiblePrompt
+  ) {
+    return "template_face_swap_female_collectible";
+  }
+
+  return style.proofMode;
+}
+
+function patchForImageGenerationModePreset(
+  preset: ImageGenerationModePreset,
+): Partial<WorkflowStyleConfig> {
+  if (preset === "template_face_swap_female_collectible") {
+    return {
+      proofMode: "template_face_swap",
+      prompt: templateFaceSwapFemaleCollectiblePrompt,
+    };
+  }
+
+  if (preset === "template_face_swap") {
+    return {
+      proofMode: "template_face_swap",
+      prompt: defaultTemplateFaceSwapPrompt,
+    };
+  }
+
+  return {
+    proofMode: "generated_options",
+  };
 }
 
 function referenceImageStoragePath(input: {
@@ -814,19 +855,14 @@ export function AdminWorkflowConfig({
                   Image generation mode
                   <select
                     className="h-12 rounded-lg border border-black/15 bg-white px-3 font-semibold"
-                    value={style.proofMode}
+                    value={imageGenerationModePreset(style)}
                     onChange={(event) => {
-                      const proofMode = event.target
-                        .value as WorkflowProofMode;
-                      updateStyle(index, {
-                        proofMode,
-                        // Selecting face swap turns the prompt box into the
-                        // literal Vertex instruction, so load the full default
-                        // text for the admin to see and adjust.
-                        ...(proofMode === "template_face_swap"
-                          ? { prompt: defaultTemplateFaceSwapPrompt }
-                          : {}),
-                      });
+                      updateStyle(
+                        index,
+                        patchForImageGenerationModePreset(
+                          event.target.value as ImageGenerationModePreset,
+                        ),
+                      );
                     }}
                   >
                     <option value="generated_options">
@@ -834,6 +870,9 @@ export function AdminWorkflowConfig({
                     </option>
                     <option value="template_face_swap">
                       Template face swap (single concept)
+                    </option>
+                    <option value="template_face_swap_female_collectible">
+                      Template face swap-female (single concept)
                     </option>
                   </select>
                 </label>

@@ -6,6 +6,7 @@ import {
   normalizeDirectMultiImageProviderSelection,
   normalizeFigurineWorkflowConfig,
   publicFigurineWorkflowConfig,
+  templateFaceSwapFemaleCollectiblePrompt,
   validateFigurineWorkflowConfigInput,
   visibleWorkflowStyles,
 } from "../lib/figurineWorkflowConfig.js";
@@ -109,6 +110,18 @@ test("default workflow config exposes only the approved public styles", () => {
   assert.equal(
     config.styles.find((style) => style.id === "chibi_female")?.proofMode,
     "template_face_swap",
+  );
+  assert.equal(
+    config.styles.find((style) => style.id === "chibi_female")?.prompt,
+    templateFaceSwapFemaleCollectiblePrompt,
+  );
+  assert.match(
+    templateFaceSwapFemaleCollectiblePrompt,
+    /full-body collectible action figure/,
+  );
+  assert.match(
+    templateFaceSwapFemaleCollectiblePrompt,
+    /smooth toy material/,
   );
   assert.equal(
     config.styles.find((style) => style.id === "heroic_fantasy_male")

@@ -104,6 +104,15 @@ export const defaultTemplateFaceSwapPrompt = [
   "Output only the edited image.",
 ].join("\n");
 
+export const templateFaceSwapFemaleCollectiblePrompt = [
+  "Template face swap-female (single concept). The first image is the approved female heroic fantasy style template character. The second image is the customer photo.",
+  "Edit the first image so the character's facial identity becomes the person from the second image: face, head shape, skin tone, hair or baldness, facial hair, glasses, and expression cues come from the customer photo while staying rendered as a full-body collectible action figure.",
+  "Preserve the template's pose, body proportions, costume language, colors, studio background, and head-to-feet framing, but make the result read as a safe toy reference rather than a photorealistic adult person.",
+  "Use smooth toy material across the face, skin, hair, armor, boots, cape, props, and costume surfaces. Avoid realistic skin texture, pores, glossy human skin, sensual styling, fragile fabric realism, or emphasis on exposed body detail.",
+  "Keep the whole character visible head to feet with clean margins. Keep props and costume details simplified, toy-like, and suitable for a collectible figure concept.",
+  "Output only the edited image.",
+].join("\n");
+
 export type WorkflowStyleReferenceImage = {
   id: string;
   label: string;
@@ -206,7 +215,7 @@ export const approvedChibiFemaleStyle: WorkflowStyleConfig = {
   productType: "figurine",
   proofMode: "template_face_swap",
   generationWorkflow: "creative_lab_figure",
-  prompt: defaultTemplateFaceSwapPrompt,
+  prompt: templateFaceSwapFemaleCollectiblePrompt,
   enabled: true,
   referenceImages: [],
 };
