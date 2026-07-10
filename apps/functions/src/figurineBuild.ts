@@ -1006,8 +1006,9 @@ async function recordFigurineBuildFailure(input: {
 export const onFigurineBuildQueued = onDocumentWritten(
   {
     document: "jobs/{jobId}",
-    // Hi3D runs ~7-8 minutes plus asset transfer; 1800s leaves margin.
-    timeoutSeconds: 1800,
+    // Firestore event triggers currently cap at 540s; longer builds need a
+    // task/worker handoff rather than a larger trigger timeout.
+    timeoutSeconds: 540,
     secrets: [
       "APP_STORAGE_BUCKET",
       "MESHY_API_KEY",
