@@ -14,6 +14,11 @@ type ScenePreviewState = {
   storagePath?: string;
 };
 
+// Shared with OfferBlock, where the unboxing render now lives.
+export function unboxingSceneAlt(name: string): string {
+  return `Artist's visualization of ${name} as a printed figurine standing in its open unboxing box`;
+}
+
 const sceneCopy: Record<
   SceneId,
   { pending: (name: string) => string; alt: (name: string) => string }
@@ -30,8 +35,7 @@ const sceneCopy: Record<
   },
   unboxing: {
     pending: (name) => `Wrapping ${name} up...`,
-    alt: (name) =>
-      `Artist's visualization of ${name} as a printed figurine standing in its open unboxing box`,
+    alt: unboxingSceneAlt,
   },
 };
 
@@ -41,7 +45,6 @@ type SceneCellProps = {
   scene: ScenePreviewState | undefined;
   sceneUrl: string | null;
   conceptUrl: string | null;
-  hideOnFailure?: boolean;
 };
 
 // One scene render. Pending shows the shelf backdrop with a shimmer; a failed
@@ -53,18 +56,13 @@ function SceneCell({
   scene,
   sceneUrl,
   conceptUrl,
-  hideOnFailure = false,
 }: SceneCellProps) {
   const ready = scene?.status === "ready" && Boolean(sceneUrl);
   const failed =
     scene?.status === "failed" || (scene?.status === "ready" && !sceneUrl);
 
-  if (failed && hideOnFailure) {
-    return null;
-  }
-
   return (
-    <div className="relative aspect-[4/3] overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--clay)]">
+    <div className="relative aspect-[4/3] overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--clay)] shadow-[10px_16px_36px_rgba(26,23,20,0.12)]">
       {ready && sceneUrl ? (
         <img
           alt={sceneCopy[sceneId].alt(heroName)}
@@ -123,8 +121,9 @@ type SceneStageProps = {
   conceptUrl: string | null;
 };
 
-// Page-4 hero: every scene at once. Bookshelf + desk form the pair; the
-// unboxing moment spans the width beneath. New jobs normally have these ready
+// Page-4 hero: the bookshelf + desk pair, side by side. The unboxing render
+// belongs to the claim card (OfferBlock) — the customer's hero in the box sits
+// beside the checkout button, not up here. New jobs normally have these ready
 // because the backend trigger starts them as soon as the concept is definitive.
 export function SceneStage({
   heroName,
@@ -150,14 +149,6 @@ export function SceneStage({
           conceptUrl={conceptUrl}
         />
       </div>
-      <SceneCell
-        sceneId="unboxing"
-        heroName={heroName}
-        scene={scenes.unboxing}
-        sceneUrl={sceneUrls.unboxing ?? null}
-        conceptUrl={conceptUrl}
-        hideOnFailure
-      />
       <p className="text-sm text-[var(--muted)]">
         Artist&apos;s visualization - your printed hero is hand-finished by a
         3D artist.

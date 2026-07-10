@@ -1,21 +1,23 @@
 "use client";
 
-import Image from "next/image";
 import { AlertCircle, Loader2, Lock, ShieldCheck } from "lucide-react";
 import { useState } from "react";
-import manifest from "../../public/storyfront/manifest.json";
-
-type ManifestEntry = { w: number; h: number; alt: string };
-const giftPanel = (manifest as Record<string, ManifestEntry>)[
-  "hero/panel-gift.webp"
-];
+import { unboxingSceneAlt } from "./SceneStage";
 
 type PaintOption = "painted" | "unpainted";
+
+type ScenePreviewState = {
+  status?: string;
+  storagePath?: string;
+};
 
 type OfferBlockProps = {
   heroName: string;
   busy: boolean;
   error?: string;
+  unboxingScene?: ScenePreviewState;
+  unboxingUrl: string | null;
+  conceptUrl: string | null;
   onCheckout: (paintOption: PaintOption) => void;
 };
 
@@ -90,96 +92,166 @@ function SizeScale() {
   );
 }
 
-// The claim moment: finish choice, two true trust claims, honest scale, and
-// the checkout CTA. No prices (final price shows at checkout), no guarantee
-// copy, no urgency theater. Scene status never reaches this component.
-export function OfferBlock({ heroName, busy, error, onCheckout }: OfferBlockProps) {
+type ClaimMediaProps = {
+  heroName: string;
+  scene: ScenePreviewState | undefined;
+  sceneUrl: string | null;
+  conceptUrl: string | null;
+};
+
+// The object of the transaction: the customer's own hero packed in its box,
+// grounded with a warm cast shadow (upper-left key light, like every render
+// on the page). Pending shimmers quietly; a failed render falls back to the
+// approved concept; nothing here may ever gate or alarm the checkout.
+function ClaimMedia({ heroName, scene, sceneUrl, conceptUrl }: ClaimMediaProps) {
+  if (scene?.status === "ready" && sceneUrl) {
+    return (
+      <figure className="grid gap-2.5">
+        <div className="overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--clay)] shadow-[10px_16px_36px_rgba(26,23,20,0.18)]">
+          <img
+            alt={unboxingSceneAlt(heroName)}
+            className="block w-full"
+            src={sceneUrl}
+          />
+        </div>
+        <figcaption className="text-sm text-[var(--muted)]">
+          Artist&apos;s visualization — {heroName}, packed and waiting.
+        </figcaption>
+      </figure>
+    );
+  }
+
+  if (scene?.status === "failed") {
+    if (!conceptUrl) {
+      return null;
+    }
+    return (
+      <figure className="grid gap-2.5">
+        <div className="rounded-2xl border border-[var(--line)] bg-white p-3 shadow-[10px_16px_36px_rgba(26,23,20,0.18)]">
+          <img
+            alt={`Approved figurine concept for ${heroName}`}
+            className="block w-full rounded-xl"
+            src={conceptUrl}
+          />
+        </div>
+        <figcaption className="text-sm text-[var(--muted)]">
+          Approved and ready to print.
+        </figcaption>
+      </figure>
+    );
+  }
+
+  return (
+    <div
+      className="skeleton-shimmer aspect-square rounded-2xl border border-[var(--line)]"
+      aria-hidden="true"
+    />
+  );
+}
+
+// The claim moment: the customer's own hero in its box beside the finish
+// choice, two true trust claims, honest scale, and the checkout CTA. No
+// prices (final price shows at checkout), no guarantee copy, no urgency
+// theater. The unboxing render is garnish — it never gates the CTA.
+export function OfferBlock({
+  heroName,
+  busy,
+  error,
+  unboxingScene,
+  unboxingUrl,
+  conceptUrl,
+  onCheckout,
+}: OfferBlockProps) {
   const [paintOption, setPaintOption] = useState<PaintOption>("painted");
 
   return (
-    <section className="panel grid gap-6 rounded-2xl p-6 lg:grid-cols-[1.25fr_1fr] sm:p-8">
-      <div className="grid content-start gap-5">
-        <h2 className="display text-2xl sm:text-3xl">Claim your hero.</h2>
+    <section className="panel grid gap-6 rounded-2xl p-6 sm:p-8">
+      <h2 className="display text-2xl sm:text-3xl">Claim your hero.</h2>
 
-        <div className="grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="Finish">
-          {tiers.map((tier) => {
-            const selected = paintOption === tier.id;
-            return (
-              <label
-                className={`relative block cursor-pointer rounded-xl border-2 p-4 transition-colors ${
-                  selected
-                    ? "border-[var(--ember)] bg-[var(--ember)]/[0.04]"
-                    : "border-[var(--line)] bg-white hover:border-[var(--ink)]/25"
-                }`}
-                key={tier.id}
-              >
-                {tier.badge ? (
-                  <span className="absolute -top-2.5 left-4 rounded-full bg-[var(--ember)] px-2.5 py-0.5 text-xs font-bold text-white">
-                    {tier.badge}
+      <div className="grid gap-6 lg:grid-cols-[1.25fr_1fr]">
+        {/* On mobile the object precedes the decision: image first, then the
+            finish choice and CTA. On desktop the decision block centers
+            vertically against the taller media stack. */}
+        <div className="order-last grid content-start gap-5 lg:order-none lg:content-center">
+          <div className="grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="Finish">
+            {tiers.map((tier) => {
+              const selected = paintOption === tier.id;
+              return (
+                <label
+                  className={`relative block cursor-pointer rounded-xl border-2 p-4 transition-all duration-200 has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-[var(--ember)] ${
+                    selected
+                      ? "-translate-y-0.5 border-[var(--ember)] bg-gradient-to-b from-white to-[var(--ember)]/[0.06] shadow-[0_10px_24px_rgba(194,65,12,0.14)]"
+                      : "border-[var(--line)] bg-white hover:-translate-y-0.5 hover:border-[var(--ink)]/25 hover:shadow-[0_8px_18px_rgba(26,23,20,0.08)]"
+                  }`}
+                  key={tier.id}
+                >
+                  {tier.badge ? (
+                    <span className="absolute -top-2.5 left-4 rounded-full bg-[var(--ember)] px-2.5 py-0.5 text-xs font-bold text-white">
+                      {tier.badge}
+                    </span>
+                  ) : null}
+                  <input
+                    className="sr-only"
+                    type="radio"
+                    name="paintOption"
+                    value={tier.id}
+                    checked={selected}
+                    onChange={() => setPaintOption(tier.id)}
+                  />
+                  <span className="block font-bold">{tier.title}</span>
+                  <span className="mt-1 block text-sm leading-relaxed text-[var(--muted)]">
+                    {tier.body}
                   </span>
-                ) : null}
-                <input
-                  className="sr-only"
-                  type="radio"
-                  name="paintOption"
-                  value={tier.id}
-                  checked={selected}
-                  onChange={() => setPaintOption(tier.id)}
-                />
-                <span className="block font-bold">{tier.title}</span>
-                <span className="mt-1 block text-sm leading-relaxed text-[var(--muted)]">
-                  {tier.body}
-                </span>
-              </label>
-            );
-          })}
-        </div>
-        <p className="text-sm text-[var(--muted)]">Final price at checkout.</p>
+                </label>
+              );
+            })}
+          </div>
+          <p className="text-sm text-[var(--muted)]">Final price at checkout.</p>
 
-        <div className="flex flex-col gap-2 border-t border-[var(--line)] pt-4 text-sm font-semibold text-[var(--muted)] sm:flex-row sm:items-center sm:gap-6">
-          <span className="inline-flex items-center gap-2">
-            <ShieldCheck size={16} aria-hidden="true" />
-            Human print-review on every order
-          </span>
-          <span className="inline-flex items-center gap-2">
-            <Lock size={16} aria-hidden="true" />
-            Stripe-secured checkout
-          </span>
-        </div>
+          <div className="flex flex-col gap-2 border-t border-[var(--line)] pt-4 text-sm font-semibold text-[var(--muted)] sm:flex-row sm:items-center sm:gap-6">
+            <span className="inline-flex items-center gap-2">
+              <ShieldCheck size={16} aria-hidden="true" />
+              Human print-review on every order
+            </span>
+            <span className="inline-flex items-center gap-2">
+              <Lock size={16} aria-hidden="true" />
+              Stripe-secured checkout
+            </span>
+          </div>
 
-        {error ? (
-          <p className="flex items-start gap-2 text-sm font-semibold text-[var(--coral)]">
-            <AlertCircle className="mt-0.5 shrink-0" size={16} aria-hidden="true" />
-            {error}
-          </p>
-        ) : null}
-
-        <button
-          className="primary-button w-full text-base"
-          type="button"
-          disabled={busy}
-          onClick={() => onCheckout(paintOption)}
-        >
-          {busy ? (
-            <Loader2 className="animate-spin" size={18} aria-hidden="true" />
+          {error ? (
+            <p className="flex items-start gap-2 text-sm font-semibold text-[var(--coral)]">
+              <AlertCircle className="mt-0.5 shrink-0" size={16} aria-hidden="true" />
+              {error}
+            </p>
           ) : null}
-          Bring {heroName} home
-        </button>
-      </div>
 
-      <div className="grid content-start gap-4">
-        {giftPanel ? (
-          <Image
-            src="/storyfront/hero/panel-gift.webp"
-            width={giftPanel.w}
-            height={giftPanel.h}
-            alt={giftPanel.alt}
-            className="w-full rounded-xl border border-[var(--line)] object-cover"
-            loading="lazy"
+          <button
+            className="primary-button w-full text-base"
+            type="button"
+            disabled={busy}
+            onClick={() => onCheckout(paintOption)}
+          >
+            {busy ? (
+              <Loader2 className="animate-spin" size={18} aria-hidden="true" />
+            ) : null}
+            Bring {heroName} home
+          </button>
+        </div>
+
+        <div className="grid content-start gap-4">
+          <ClaimMedia
+            heroName={heroName}
+            scene={unboxingScene}
+            sceneUrl={unboxingUrl}
+            conceptUrl={conceptUrl}
           />
-        ) : null}
-        <div className="rounded-xl border border-[var(--line)] bg-[var(--clay)]/40 p-4">
-          <SizeScale />
+          <div className="rounded-xl border border-[var(--line)] bg-[var(--clay)]/40 p-4">
+            <SizeScale />
+            <p className="mt-1 text-sm text-[var(--muted)]">
+              True to size — about as tall as your morning mug.
+            </p>
+          </div>
         </div>
       </div>
     </section>
