@@ -117,13 +117,20 @@ const specs = [
     aspect: "21:9",
     crop: "west",
     budgetKB: 150,
-    styleRef: "chibi_female",
+    // Elliot-approved production chibi concept (2026-07-10 storyfront fixes,
+    // issue 1): the card recreates real style output, not the live template.
+    styleRef: null,
+    extraRefs: [
+      {
+        path: path.join(rawDir, "refs-provided", "chibi-heroic-female-concept.png"),
+        label: "concept",
+      },
+    ],
     kind: "card",
     prompts: [
       joinPrompt(
-        fidelity("heroic fantasy heroine character"),
-        "Render her standing in a proud, warm, confident heroic pose with a gentle smile, as clean stylized character art.",
-        NAVY_CAPE,
+        "The attached reference image is the official product output for this style: a chibi heroic fantasy heroine figurine. Recreate exactly the same character: same face, same hair, same armor and outfit with every detail, same colors, same materials, and the same chibi proportions — oversized head about one third of the total height, compact rounded body, large expressive eyes, chunky simplified hands and boots, smooth vinyl-toy surfaces with a matte collectible finish. Do not redesign her, do not make her realistic, and do not change her proportions.",
+        "Render her standing in a proud, warm, confident pose with a friendly smile, as a clean collectible chibi figurine render.",
         CARD_COMPO,
         NO_CROP,
         CAM_FRIEND,
@@ -133,9 +140,8 @@ const specs = [
         NO_TEXT,
       ),
       joinPrompt(
-        fidelity("stylized collectible fantasy heroine figure"),
-        "Pose: standing tall and friendly, one hand relaxed, one hand confidently on her hip.",
-        NAVY_CAPE,
+        "Recreate the chibi heroic fantasy heroine figurine from the reference image exactly — identical character, outfit, colors, and vinyl-toy chibi proportions (oversized head, compact rounded body).",
+        "Pose: standing tall and friendly, warm smile.",
         CARD_COMPO,
         NO_CROP,
         CAM_FRIEND,
@@ -145,7 +151,7 @@ const specs = [
         NO_TEXT,
       ),
     ],
-    alt: "Heroic fantasy heroine figurine concept in a white and gold outfit with a navy blue cape, standing full body on a warm cream studio field",
+    alt: "Chibi heroic fantasy heroine figurine with an oversized head and fantasy armor, standing full body on a warm cream studio field",
   },
   {
     id: "card-chibi_figure",
@@ -155,12 +161,20 @@ const specs = [
     aspect: "21:9",
     crop: "west",
     budgetKB: 150,
-    styleRef: "chibi_figure",
+    // Elliot-approved production chibi concept (2026-07-10 storyfront fixes,
+    // issue 1): the card recreates real style output, not the live template.
+    styleRef: null,
+    extraRefs: [
+      {
+        path: path.join(rawDir, "refs-provided", "chibi-heroic-male-concept.jpg"),
+        label: "concept",
+      },
+    ],
     kind: "card",
     prompts: [
       joinPrompt(
-        fidelity("heroic fantasy hero character"),
-        "Render him standing in a relaxed, proud, friendly pose with his sword lowered at rest, as clean stylized character art.",
+        "The attached reference image is the official product output for this style: a chibi heroic fantasy hero figurine. Recreate exactly the same character: same face, same hair and beard, same armor with every detail, same sword, same colors, same materials, and the same chibi proportions — oversized head about one third of the total height, compact rounded muscular body, large expressive eyes, chunky simplified hands and boots, smooth vinyl-toy surfaces with a matte collectible finish. Do not redesign him, do not make him realistic, and do not change his proportions.",
+        "Render him standing in a relaxed, proud, friendly pose with his sword lowered at rest, as a clean collectible chibi figurine render.",
         CARD_COMPO,
         NO_CROP,
         CAM_FRIEND,
@@ -170,8 +184,8 @@ const specs = [
         NO_TEXT,
       ),
       joinPrompt(
-        fidelity("stylized collectible fantasy hero figure"),
-        "Pose: standing tall and confident with a warm expression.",
+        "Recreate the chibi heroic fantasy hero figurine from the reference image exactly — identical character, armor, sword, colors, and vinyl-toy chibi proportions (oversized head, compact rounded body).",
+        "Pose: standing tall and confident with a warm expression, sword at rest.",
         CARD_COMPO,
         NO_CROP,
         CAM_FRIEND,
@@ -181,7 +195,7 @@ const specs = [
         NO_TEXT,
       ),
     ],
-    alt: "Heroic fantasy male warrior figurine concept in dark armor holding a sword, standing full body on a warm cream studio field",
+    alt: "Chibi heroic fantasy male hero figurine with an oversized head, armor, and sword, standing full body on a warm cream studio field",
   },
   {
     id: "card-chibi_photo_male",
