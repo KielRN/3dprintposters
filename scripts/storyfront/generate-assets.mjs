@@ -719,6 +719,37 @@ const specs = [
     ],
     alt: "A cozy desk with a laptop edge, notebook, and mug under warm lamp light, with an empty lit spot near the lamp",
   },
+  {
+    id: "scene-unboxing-plate",
+    outPath: "scenes/unboxing-plate.webp",
+    w: 1600,
+    h: 1200,
+    aspect: "4:3",
+    crop: "centre",
+    budgetKB: 350,
+    styleRef: null,
+    kind: "plate",
+    storagePlatePath: "admin/scene-plates/unboxing.png",
+    prompts: [
+      joinPrompt(
+        "A real photograph of an unboxing moment on a warm wooden dining table: a sturdy open kraft-paper shipping box with its lid tilted against its side, soft cream tissue paper unfolded and spilling naturally over the box edges.",
+        "Inside the box, centered on the flattened tissue paper: a clearly EMPTY spot, softly lit, obviously waiting for a small collectible about 15 cm tall to stand upright. Nothing stands there - leave that spot completely empty.",
+        "Beside the box: a short curl of ribbon and the corner of a plain cream envelope, everyday objects that give a clear sense of scale. The box and envelope are completely unmarked.",
+        "No people, no hands, no figurine, no animals, and no readable text anywhere in the image.",
+        "Camera: positioned slightly below the box rim, looking gently into the open box so the empty spot is clearly visible.",
+        "Lighting: warm key light from the upper left, believable soft shadows inside and around the box, cozy domestic warmth, cream and clay and warm wood tones.",
+        PHOTOREAL,
+        NO_TEXT,
+      ),
+      joinPrompt(
+        "A real photo of an open kraft shipping box on a warm wooden table, lid leaning against it, cream tissue paper spilling over the edges, one clearly empty softly lit spot centered inside on the tissue, a curl of ribbon and a plain envelope beside it for scale.",
+        "No people, no hands, no figurines, no readable text anywhere. Camera slightly below the box rim looking gently in. Warm key light from the upper left with soft believable shadows.",
+        PHOTOREAL,
+        NO_TEXT,
+      ),
+    ],
+    alt: "An open kraft unboxing box with cream tissue paper on a warm wooden table, with an empty softly lit spot inside",
+  },
 ];
 
 // Local fallback template files if Storage is unreachable (plan.md §2).
