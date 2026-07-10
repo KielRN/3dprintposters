@@ -10,6 +10,9 @@ import { useEffect, useMemo, useState } from "react";
 import { httpsCallable } from "firebase/functions";
 import { StyleCard } from "./StyleCard";
 
+const workflowConfigRetryLimit = 12;
+const workflowConfigRetryDelayMs = 2000;
+
 // Cards show exactly visibleWorkflowStyles() from the live config, so admin
 // visibility toggles keep working.
 export function StyleCardGrid() {
@@ -27,34 +30,54 @@ export function StyleCardGrid() {
     }
 
     let cancelled = false;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
     const getWorkflowConfig = httpsCallable<Record<string, never>, unknown>(
       firebaseClients.functions,
       "getFigurineWorkflowConfig",
     );
 
-    void getWorkflowConfig({})
-      .then((result) => {
-        if (cancelled) {
-          return;
-        }
+    function loadWorkflowConfig(attempt: number) {
+      void getWorkflowConfig({})
+        .then((result) => {
+          if (cancelled) {
+            return;
+          }
 
-        setWorkflowConfig(normalizeFigurineWorkflowConfigResponse(result.data));
-        setWorkflowConfigError("");
-        setConfigLoading(false);
-      })
-      .catch((configError) => {
-        if (!cancelled) {
+          setWorkflowConfig(
+            normalizeFigurineWorkflowConfigResponse(result.data),
+          );
+          setWorkflowConfigError("");
+          setConfigLoading(false);
+        })
+        .catch((configError) => {
+          if (cancelled) {
+            return;
+          }
+
+          if (attempt < workflowConfigRetryLimit) {
+            retryTimer = setTimeout(
+              () => loadWorkflowConfig(attempt + 1),
+              workflowConfigRetryDelayMs,
+            );
+            return;
+          }
+
           setWorkflowConfigError(
             configError instanceof Error
               ? configError.message
               : "Using default workflow settings.",
           );
           setConfigLoading(false);
-        }
-      });
+        });
+    }
+
+    loadWorkflowConfig(1);
 
     return () => {
       cancelled = true;
+      if (retryTimer) {
+        clearTimeout(retryTimer);
+      }
     };
   }, [firebaseClients]);
 
