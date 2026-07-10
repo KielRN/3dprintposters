@@ -19,6 +19,7 @@ All notable project changes will be documented in this file.
 
 ### Fixed
 
+- Fixed the `/start` workflow gallery startup race by retrying the public workflow config callable before falling back to built-in defaults, so local startup warm-up no longer leaves the page missing admin-enabled workflow cards.
 - Fixed Chibi female Creative Lab prototype failures caused by oversized 2K face-swap outputs by resizing Creative Lab inputs to a provider-safe envelope before embedding them as Meshy data URIs. The `/start/[styleId]` upload panel now distinguishes completed uploads from later generation failures, and figurine callable failures now say "figurine concept" instead of "poster" when the concept step fails.
 
 ### Removed
