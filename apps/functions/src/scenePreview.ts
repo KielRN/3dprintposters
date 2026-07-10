@@ -69,22 +69,56 @@ export function resolveSceneConceptPath(
   return null;
 }
 
-// Prompt contract from implementation.md Backend B + plan.md §5a.3
-// (perceptual sculpting): printed physical figurine on its base at the
-// plate's empty spot, warm upper-left key, form-revealing gradients, contact
-// shadow, camera slightly below figure level, match plate lighting, no text.
-function buildScenePrompt(sceneId: SceneId): string {
+export function resolveSceneSignName(
+  jobData: Record<string, unknown>,
+): string | null {
+  const baseConfig = jobData.baseConfig as
+    | { sign?: { enabled?: unknown; text?: unknown } | null }
+    | null
+    | undefined;
+  const sign = baseConfig?.sign;
+  if (
+    sign?.enabled === true &&
+    typeof sign.text === "string" &&
+    sign.text.trim()
+  ) {
+    return sign.text.trim();
+  }
+  return null;
+}
+
+// Prompt contract v2 (2026-07-10 plan, issues 2+3): printed figurine on the
+// named square base at the plate's empty spot, wide framing (the v1 desk
+// render zoomed the figurine to fill the frame), head-to-base no-crop clause,
+// warm upper-left key, contact shadow, plate camera preserved, and the name
+// as the only permitted text. Named-base language mirrors the proven
+// BASE_REF/NO_TEXT_EXCEPT_NAME pattern from scripts/storyfront/generate-assets.mjs.
+export function buildScenePrompt(
+  sceneId: SceneId,
+  signName: string | null,
+  hasBaseReference: boolean,
+): string {
   const spot =
     sceneId === "bookshelf"
       ? "the empty display spot on the bookshelf shelf"
       : "the clear display spot on the desk";
+  const baseClause = signName
+    ? hasBaseReference
+      ? `The figurine stands permanently mounted on its printed display base, shown in the LAST reference image: a square, gently tapered matte warm-ivory pedestal with a raised rectangular front nameplate. Reproduce that base's exact shape and finish, but the nameplate must read "${signName}" in the same raised letters instead of the name shown in the reference. The nameplate faces the camera.`
+      : `The figurine stands permanently mounted on its printed display base: a square, gently tapered matte warm-ivory pedestal with a raised rectangular front nameplate reading "${signName}" in raised letters, facing the camera.`
+    : "The figurine stands on its simple square printed display base with a blank front nameplate.";
+  const textRule = signName
+    ? `The only text anywhere in the image is the single word "${signName}" on the figurine base's nameplate. No other letters, numbers, words, captions, labels, logos, or watermarks anywhere.`
+    : "No text, captions, labels, watermarks, or logos anywhere in the image.";
   return [
     "The first image is a home interior scene plate. The second image is the character concept for a personalized 3D printed figurine.",
-    `Edit the scene plate to place that character into ${spot} as a printed physical figurine: a small collectible statue with a smooth matte vinyl surface, standing on its simple base.`,
+    `Edit the scene plate to place that character into ${spot} as a printed physical figurine: a small collectible statue about 15 cm tall with a smooth matte vinyl surface.`,
+    baseClause,
+    "Scale and framing are critical: keep the scene plate's exact camera position, focal length, and full field of view. The figurine is a small object in a larger scene - it must occupy no more than about one quarter of the frame's height, in believable proportion to the mug, books, and other objects around it. Do not zoom in, do not crop the plate, and do not let the figurine dominate the frame.",
+    "Show the entire figurine from the top of the head to the bottom of the base, fully inside the frame - never crop any part of it.",
     "Match the scene plate's warm lighting exactly, with the key light from the upper left. Render form-revealing shading gradients across the figurine so it reads as a solid three-dimensional object, and ground it with a believable soft contact shadow where the base meets the surface.",
-    "Keep the camera angle of the plate, slightly below the figurine's head height so it reads with stature.",
     "Keep everything else in the scene plate unchanged. Photorealistic home photography look.",
-    "No text, captions, labels, watermarks, or logos anywhere in the image.",
+    textRule,
   ].join("\n");
 }
 
@@ -157,6 +191,7 @@ export const generateScenePreview = onCall(
         "The job has no concept image to place in the scene yet.",
       );
     }
+    const signName = resolveSceneSignName(jobData);
 
     const fixtureMode = process.env.SCENE_PREVIEW_MODE === "fixture";
     // Count the attempt before rendering so a crashed render still counts
@@ -196,11 +231,19 @@ export const generateScenePreview = onCall(
           throw new Error("VERTEX_API_KEY is required for scene previews.");
         }
         const conceptBytes = await readStorageFile(conceptPath);
+        // Base reference render (seeded by scripts/storyfront/upload-base-ref.mjs).
+        // Missing reference degrades to the text-only base clause, never fails
+        // the render - the scene stays garnish.
+        const baseRefBytes = signName
+          ? await readStorageFile("admin/scene-plates/base-square.png").catch(
+              () => null,
+            )
+          : null;
         const model = process.env.VERTEX_IMAGE_MODEL ?? "gemini-3-pro-image";
         const vertexResponse = await generateVertexImage({
           apiKey,
           model,
-          promptText: buildScenePrompt(sceneId),
+          promptText: buildScenePrompt(sceneId, signName, Boolean(baseRefBytes)),
           sourceImageBuffer: plateBytes,
           sourceMimeType: "image/png",
           referenceImages: [
@@ -211,6 +254,15 @@ export const generateScenePreview = onCall(
                 : "image/jpeg",
               imageBuffer: conceptBytes,
             },
+            ...(baseRefBytes
+              ? [
+                  {
+                    id: "figurine-base",
+                    mimeType: "image/png" as const,
+                    imageBuffer: baseRefBytes,
+                  },
+                ]
+              : []),
           ],
         });
         const generatedImage = extractGeneratedImage(vertexResponse);

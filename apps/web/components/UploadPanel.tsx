@@ -2,6 +2,11 @@
 
 import type { FirebaseClients } from "@/lib/firebase";
 import type { WorkflowStyleConfig } from "@/lib/figurineWorkflowConfig";
+import {
+  SIGN_NAME_MAX_CHARACTERS,
+  collapseSignName,
+  signNameError,
+} from "@/lib/signName";
 import { AlertCircle, Loader2, Sparkles, Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -16,6 +21,7 @@ type CreateGenerationJobRequest = {
   sourceImagePath: string;
   selectedStyle: string;
   productType?: "poster" | "figurine";
+  signText?: string;
 };
 
 type CreateGenerationJobResult = {
@@ -44,9 +50,13 @@ export function UploadPanel({ style, user, firebaseClients }: UploadPanelProps) 
   const [dragActive, setDragActive] = useState(false);
   const [jobState, setJobState] = useState<JobState>("idle");
   const [workflowError, setWorkflowError] = useState("");
+  const [heroFirstName, setHeroFirstName] = useState("");
   const [statusMessage, setStatusMessage] = useState(
     "Choose a photo to start.",
   );
+  const isFigurine = style.productType !== "poster";
+  const nameError = isFigurine ? signNameError(heroFirstName) : null;
+  const nameMissing = isFigurine && Boolean(nameError);
 
   useEffect(() => {
     return () => {
@@ -88,6 +98,11 @@ export function UploadPanel({ style, user, firebaseClients }: UploadPanelProps) 
       return;
     }
 
+    if (nameMissing) {
+      setWorkflowError(nameError ?? "Add a first name for the base.");
+      return;
+    }
+
     const nextJobId = crypto.randomUUID();
     const sourceImagePath = sourceFilePath(user.uid, nextJobId, selectedFile);
 
@@ -123,6 +138,7 @@ export function UploadPanel({ style, user, firebaseClients }: UploadPanelProps) 
         sourceImagePath,
         selectedStyle: style.id,
         productType: style.productType,
+        ...(isFigurine ? { signText: collapseSignName(heroFirstName) } : {}),
       });
 
       router.push(`/jobs/${result.data.jobId}`);
@@ -205,6 +221,30 @@ export function UploadPanel({ style, user, firebaseClients }: UploadPanelProps) 
         <strong className="min-w-0 text-right">{statusMessage}</strong>
       </div>
 
+      {isFigurine ? (
+        <label className="mt-4 grid gap-1.5">
+          <span className="text-sm font-bold">Who&apos;s this hero?</span>
+          <input
+            className="text-input"
+            type="text"
+            maxLength={SIGN_NAME_MAX_CHARACTERS}
+            placeholder="First name - printed on the base"
+            aria-label="Hero's first name for the figurine base"
+            value={heroFirstName}
+            onChange={(event) => setHeroFirstName(event.target.value)}
+          />
+          <span className="text-sm text-[var(--muted)]">
+            Up to 12 letters on the front of the base. Hand-checked before
+            printing.
+          </span>
+          {heroFirstName.trim() && nameError ? (
+            <span className="text-sm font-semibold text-[var(--coral)]">
+              {nameError}
+            </span>
+          ) : null}
+        </label>
+      ) : null}
+
       {workflowError ? (
         <p className="mt-4 flex items-start gap-2 rounded-lg border border-[var(--coral)]/30 bg-[var(--coral)]/10 px-3 py-2 text-sm font-semibold text-[var(--coral)]">
           <AlertCircle
@@ -220,7 +260,7 @@ export function UploadPanel({ style, user, firebaseClients }: UploadPanelProps) 
         <button
           className="primary-button"
           type="button"
-          disabled={!fileName || !user || jobState === "queued"}
+          disabled={!fileName || !user || nameMissing || jobState === "queued"}
           onClick={createGenerationJob}
         >
           {jobState === "queued" ? (

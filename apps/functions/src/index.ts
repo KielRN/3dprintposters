@@ -127,6 +127,7 @@ const createJobSchema = z.object({
   sourceImagePath: z.string().min(1),
   selectedStyle: z.string().min(1),
   productType: z.enum(["poster", "figurine"]).optional(),
+  signText: z.string().max(64).optional(),
 });
 
 const checkoutSchema = z.object({
@@ -778,6 +779,13 @@ export const createGenerationJob = onCall(
       isFigurineStyle(workflowStyle.id)
         ? "figurine"
         : "poster";
+    // Storyfront collects the hero's first name before "Create my figurine".
+    // Optional so legacy clients keep working; bad input uses the same
+    // validation surface as operator-side sign updates.
+    const initialSignText =
+      productType === "figurine" && parsed.data.signText?.trim()
+        ? normalizeFigurineSignText(parsed.data.signText)
+        : null;
     const styleReferenceImages =
       enabledWorkflowStyleReferenceImages(workflowStyle);
     const jobRef = db.collection("jobs").doc(parsed.data.jobId);
@@ -823,6 +831,16 @@ export const createGenerationJob = onCall(
       ...(productType === "figurine"
         ? {
             figurineStyle: workflowStyle.id,
+            ...(initialSignText
+              ? {
+                  baseConfig: {
+                    shape: "square",
+                    baseId: "figurine-square-v1",
+                    sign: { enabled: true, text: initialSignText },
+                    updatedAt: FieldValue.serverTimestamp(),
+                  },
+                }
+              : {}),
             postureMode: "natural",
             conceptSource: "generated_2d_proof",
             ...(workflowStyle.generationWorkflow === "direct_multi_image_to_3d"

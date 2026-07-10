@@ -28,7 +28,6 @@ import {
   PrintFilePreview,
   PrintFileStatusPanel,
 } from "./PrintFilePreview";
-import { BaseSignInline } from "./storyfront/BaseSignInline";
 import { ConceptStage } from "./storyfront/ConceptStage";
 import { JourneyStrip } from "./storyfront/JourneyStrip";
 import { StepPills } from "./storyfront/StepPills";
@@ -181,7 +180,6 @@ const BASE_SIGN_GENERATION_TIMEOUT_MS = 540_000;
 // Figurine approval is approval-only (the 3D build runs post-payment), so it
 // returns in seconds rather than the poster path's print-file wait.
 const FIGURINE_APPROVAL_TIMEOUT_MS = 60_000;
-const SCENE_PREVIEW_TIMEOUT_MS = 120_000;
 
 const chipToneClasses: Record<JobChipTone, string> = {
   moss: "bg-[var(--moss)]/10 text-[var(--moss)]",
@@ -684,22 +682,6 @@ export function JobDetail({
   }
 
   function seeItInYourHome() {
-    if (firebaseClients) {
-      const generateScene = httpsCallable(
-        firebaseClients.functions,
-        "generateScenePreview",
-        { timeout: SCENE_PREVIEW_TIMEOUT_MS },
-      );
-      // Eager and never awaited: the scene render is garnish, and page 4
-      // reads its status from the job snapshot it already subscribes to. The
-      // session marker keeps page 4's deep-link kick from double-rendering.
-      try {
-        sessionStorage.setItem(`storyfront-scene-fired-${jobId}`, "1");
-      } catch {
-        // storage unavailable: the server-side cache still bounds spend
-      }
-      void generateScene({ jobId, sceneId: "bookshelf" }).catch(() => {});
-    }
     router.push(`/jobs/${jobId}/home`);
   }
 
@@ -951,15 +933,14 @@ export function JobDetail({
           conceptUrl={stageImageUrl || undefined}
         />
 
-        <BaseSignInline
-          signText={job.baseConfig?.sign?.text ?? ""}
-          normalizedName={job.figurineNamedBase?.normalizedName}
-          busy={baseSignBusy}
-          error={baseSignError}
-          notice={baseSignNotice}
-          disabled={isPaid}
-          onSave={saveBaseSign}
-        />
+        {job.baseConfig?.sign?.text ? (
+          <p className="text-sm font-semibold">
+            The base will read:{" "}
+            <strong className="tracking-wide">
+              {job.baseConfig.sign.text.toUpperCase()}
+            </strong>
+          </p>
+        ) : null}
 
         {!isPaid &&
         (canCheckout ||

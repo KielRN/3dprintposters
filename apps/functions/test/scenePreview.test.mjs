@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  buildScenePrompt,
   resolveSceneConceptPath,
+  resolveSceneSignName,
   sceneRenderDecision,
 } from "../lib/scenePreview.js";
 
@@ -68,4 +70,44 @@ test("resolveSceneConceptPath prefers the approved image and skips placeholders"
     null,
   );
   assert.equal(resolveSceneConceptPath({}), null);
+});
+
+test("resolveSceneSignName reads the enabled base sign only", () => {
+  assert.equal(
+    resolveSceneSignName({
+      baseConfig: { sign: { enabled: true, text: "Ellie" } },
+    }),
+    "Ellie",
+  );
+  assert.equal(
+    resolveSceneSignName({
+      baseConfig: { sign: { enabled: false, text: "Ellie" } },
+    }),
+    null,
+  );
+  assert.equal(
+    resolveSceneSignName({
+      baseConfig: { sign: { enabled: true, text: "  " } },
+    }),
+    null,
+  );
+  assert.equal(resolveSceneSignName({}), null);
+});
+
+test("buildScenePrompt frames the figurine small and names the base", () => {
+  const named = buildScenePrompt("desk", "Ellie", true);
+  assert.match(named, /one quarter of the frame/i);
+  assert.match(named, /do not zoom in/i);
+  assert.match(named, /top of the head to the bottom of the base/i);
+  assert.match(named, /"Ellie"/);
+  assert.match(named, /nameplate/i);
+  assert.ok(!/No text, captions/.test(named));
+
+  const blank = buildScenePrompt("bookshelf", null, false);
+  assert.match(blank, /No text, captions/);
+  assert.ok(!/nameplate must read/i.test(blank));
+
+  const noRef = buildScenePrompt("bookshelf", "Ellie", false);
+  assert.match(noRef, /"Ellie"/);
+  assert.ok(!/last reference image/i.test(noRef));
 });
