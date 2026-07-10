@@ -112,6 +112,23 @@ export function shouldRunFigurineBuild(
   );
 }
 
+// Base/body assembly needs the built figurine GLB. Under the funded-build
+// inversion that body exists only post-payment, so pre-payment base naming
+// must skip assembly instead of failing the callable.
+export function figurinePreviewReadyForAssembly(
+  jobData: Record<string, unknown>,
+): boolean {
+  const figurinePreview = jobData.figurinePreview as
+    | { previewGlb?: unknown; status?: unknown }
+    | null
+    | undefined;
+  return (
+    figurinePreview?.status === "preview_ready" &&
+    typeof figurinePreview.previewGlb === "string" &&
+    figurinePreview.previewGlb.length > 0
+  );
+}
+
 // Transaction payload claiming queued -> running. This claim is the only
 // thing standing between a duplicate Stripe delivery and a double provider
 // spend, so it must refuse every non-queued state.

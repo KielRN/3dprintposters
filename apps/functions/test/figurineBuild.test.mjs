@@ -108,3 +108,37 @@ test("shouldQueueFigurineBuildOnPayment stamps only figurine jobs without an exi
   assert.equal(shouldQueueFigurineBuildOnPayment({ productType: "poster" }), false);
   assert.equal(shouldQueueFigurineBuildOnPayment(undefined), false);
 });
+
+test("figurinePreviewReadyForAssembly requires a ready preview with a GLB", async () => {
+  const { figurinePreviewReadyForAssembly } = await import(
+    "../lib/figurineBuild.js"
+  );
+  // Funded flow pre-payment: no preview yet, base naming must skip assembly.
+  assert.equal(figurinePreviewReadyForAssembly({}), false);
+  assert.equal(
+    figurinePreviewReadyForAssembly({ figurinePreview: null }),
+    false,
+  );
+  assert.equal(
+    figurinePreviewReadyForAssembly({
+      figurinePreview: { status: "generating" },
+    }),
+    false,
+  );
+  assert.equal(
+    figurinePreviewReadyForAssembly({
+      figurinePreview: { status: "preview_ready" },
+    }),
+    false,
+  );
+  // Post-payment (or legacy) jobs with a built body still assemble.
+  assert.equal(
+    figurinePreviewReadyForAssembly({
+      figurinePreview: {
+        status: "preview_ready",
+        previewGlb: "print-files/u/j/figurine/creative-lab-original/model.glb",
+      },
+    }),
+    true,
+  );
+});

@@ -25,6 +25,7 @@ import { generateCreativeLabPrototypeConcept } from "./meshyFigurineProvider.js"
 import {
   buildLocalMirrorError,
   firestoreSafeValue,
+  figurinePreviewReadyForAssembly,
   initialPrintFileLocalMirror,
   jobDataIsFigurine,
   mirrorStoragePathsToLocalTmp,
@@ -3408,6 +3409,29 @@ export const updateFigurineBaseConfig = onCall(
         "internal",
         `Base sign generation failed: ${message.slice(0, 200)}`,
       );
+    }
+
+    // Funded flow: pre-payment jobs have no built figurine body yet, so base
+    // naming records the sign + named base and leaves body/base assembly to
+    // the post-payment operator tooling.
+    if (!figurinePreviewReadyForAssembly(jobData)) {
+      return {
+        jobId: parsed.data.jobId,
+        status: "saved",
+        baseConfig: {
+          shape: parsed.data.baseShape,
+          baseId: parsed.data.baseId,
+          sign: { enabled: true, text: namedBase.normalizedName },
+        },
+        namedBase: {
+          baseId: parsed.data.baseId,
+          normalizedName: namedBase.normalizedName,
+          outputPrefix: namedBase.outputPrefix,
+          artifacts: namedBase.artifacts,
+          lettering: namedBase.lettering,
+        },
+        assembly: null,
+      };
     }
 
     let assembly: Record<string, unknown>;

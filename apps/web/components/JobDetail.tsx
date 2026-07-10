@@ -111,7 +111,7 @@ type UpdateFigurineBaseConfigResult = {
     outputPrefix: string;
     artifacts: Record<string, string>;
   } | null;
-  assembly?: Record<string, unknown>;
+  assembly?: Record<string, unknown> | null;
 };
 
 type GetAdminJobPreviewResult = {
