@@ -21,7 +21,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
             href="/"
             className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)] transition-colors hover:text-[var(--ink)]"
           >
-            3DPrintU
+            3DPrintYou
           </Link>
           <StepPills current={2} />
           <div className="flex items-center gap-2">

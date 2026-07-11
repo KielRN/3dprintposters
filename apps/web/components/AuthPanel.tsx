@@ -198,3 +198,4 @@ export function AuthPanel({ user, authLoading, firebaseClients }: AuthPanelProps
     </div>
   );
 }
+

@@ -240,3 +240,4 @@ export function OrderDetail({ orderId }: { orderId: string }) {
     </section>
   );
 }
+

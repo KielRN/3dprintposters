@@ -15,7 +15,7 @@ export default function StartPage() {
             href="/"
             className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)] transition-colors hover:text-[var(--ink)]"
           >
-            3DPrintU
+            3DPrintYou
           </Link>
           <StepPills current={1} />
           <div className="flex items-center gap-2">
@@ -47,3 +47,4 @@ export default function StartPage() {
     </main>
   );
 }
+

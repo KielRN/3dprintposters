@@ -5,7 +5,7 @@ export function LandingFooter() {
     <footer className="bg-[var(--ink)] text-[var(--cream)]">
       <div className="mx-auto flex max-w-7xl flex-col gap-6 px-5 py-12 sm:flex-row sm:items-center sm:justify-between sm:px-7 lg:px-10">
         <Link href="/" className="display text-2xl tracking-tight">
-          3DPrintU
+          3DPrintYou
         </Link>
         <nav className="flex flex-wrap items-center gap-x-8 gap-y-3 text-sm font-semibold">
           <Link href="/start" className="text-[var(--cream)]/80 hover:text-[var(--cream)]">
@@ -22,9 +22,10 @@ export function LandingFooter() {
           </Link>
         </nav>
         <p className="text-sm text-[var(--cream)]/60">
-          &copy; {new Date().getFullYear()} 3DPrintU
+          &copy; {new Date().getFullYear()} 3DPrintYou
         </p>
       </div>
     </footer>
   );
 }
+

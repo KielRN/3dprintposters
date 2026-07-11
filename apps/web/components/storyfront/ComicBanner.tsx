@@ -163,3 +163,4 @@ export function ComicBanner(props: ComicBannerProps) {
     </section>
   );
 }
+

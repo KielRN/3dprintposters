@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 :root {
-  /* 3DPrintU warm palette */
+  /* 3DPrintYou warm palette */
   --cream: #f5f1ea;
   --ink: #1a1714;
   --ember: #e8552e;
@@ -275,3 +275,4 @@ textarea {
     transform: none;
   }
 }
+

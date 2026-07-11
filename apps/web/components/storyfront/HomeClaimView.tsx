@@ -296,3 +296,4 @@ export function HomeClaimView({ jobId }: { jobId: string }) {
     </section>
   );
 }
+

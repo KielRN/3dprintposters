@@ -16,13 +16,13 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "3DPrintU",
+  title: "3DPrintYou",
   description: "From your photo to a printed figurine. Send us a picture, approve the proof, we print and ship.",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "3DPrintU"
+    title: "3DPrintYou"
   },
   icons: {
     icon: [
@@ -50,3 +50,4 @@ export default function RootLayout({
     </html>
   );
 }
+

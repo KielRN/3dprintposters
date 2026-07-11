@@ -22,7 +22,7 @@ function LandingHeader({ solid }: { solid: boolean }) {
             solid ? "text-[var(--ink)]" : "text-white"
           }`}
         >
-          3DPrintU
+          3DPrintYou
         </Link>
         <Link
           href="/start"
@@ -131,13 +131,13 @@ export function LandingHero() {
                 className="display text-center text-[clamp(3rem,13vw,9.5rem)] leading-[0.9] text-[var(--ember)]"
                 style={{ opacity: brand }}
               >
-                3DPrintU
+                3DPrintYou
               </span>
             </div>
 
             {/* accessible heading + CTA, visually hidden while the canvas plays */}
             <h1 className="sr-only">
-              Your photo. Your figurine. Your shelf.
+              From a photo. To a hero. Yours to hold.
             </h1>
             <Link href="/start" className="sr-only">
               Start your figurine
@@ -154,19 +154,19 @@ export function LandingHero() {
                     className="display col-start-1 row-start-1 text-[clamp(1.5rem,4.6vw,3.25rem)] leading-none"
                     style={{ opacity: line1 }}
                   >
-                    Your photo.
+                    From a photo.
                   </span>
                   <span
                     className="display col-start-1 row-start-1 text-[clamp(1.5rem,4.6vw,3.25rem)] leading-none"
                     style={{ opacity: line2 }}
                   >
-                    Your figurine.
+                    To a hero.
                   </span>
                   <span
                     className="display col-start-1 row-start-1 text-[clamp(1.5rem,4.6vw,3.25rem)] leading-none"
                     style={{ opacity: line3 }}
                   >
-                    Your shelf.
+                    Yours to hold.
                   </span>
                 </div>
               </div>
@@ -194,10 +194,10 @@ export function LandingHero() {
               aria-hidden="true"
               className="display text-[clamp(3rem,11vw,7rem)] leading-[0.9] text-[var(--ember)]"
             >
-              3DPrintU
+              3DPrintYou
             </p>
             <h1 className="display mt-6 max-w-[14ch] text-[clamp(1.75rem,4.5vw,3rem)] leading-[1.02] text-white/90">
-              Your photo. Your figurine. Your shelf.
+              From a photo. To a hero. Yours to hold.
             </h1>
             <div className="mt-8">
               <Link
@@ -213,3 +213,4 @@ export function LandingHero() {
     </>
   );
 }
+

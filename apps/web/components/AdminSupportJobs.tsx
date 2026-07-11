@@ -862,3 +862,4 @@ function DetailBlock({ title, rows }: { title: string; rows: Array<[string, stri
     </div>
   );
 }
+

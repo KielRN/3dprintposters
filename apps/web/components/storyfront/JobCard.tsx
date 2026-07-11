@@ -78,3 +78,4 @@ export function JobCard({ jobId, job, thumbnailUrl, styleLabel }: JobCardProps) 
     </Link>
   );
 }
+

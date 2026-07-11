@@ -599,3 +599,4 @@ export function FigurinePrintReadinessReview({
     </section>
   );
 }
+

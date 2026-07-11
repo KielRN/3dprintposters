@@ -1,6 +1,6 @@
 {
-  "name": "3DPrintU",
-  "short_name": "3DPrintU",
+  "name": "3DPrintYou",
+  "short_name": "3DPrintYou",
   "description": "Turn a photo into a custom 3D printed figurine.",
   "start_url": "/start",
   "scope": "/",
@@ -29,3 +29,4 @@
     }
   ]
 }
+

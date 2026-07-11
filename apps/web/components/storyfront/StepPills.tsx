@@ -34,3 +34,4 @@ export function StepPills({ current }: { current: 1 | 2 | 3 | 4 }) {
     </nav>
   );
 }
+

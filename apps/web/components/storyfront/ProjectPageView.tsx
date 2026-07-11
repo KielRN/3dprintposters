@@ -166,3 +166,4 @@ export function ProjectPageView({ styleId }: { styleId: string }) {
     </div>
   );
 }
+
