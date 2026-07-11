@@ -103,6 +103,12 @@ test("buildScenePrompt frames the figurine small and names the base", () => {
   assert.match(named, /"Ellie"/);
   assert.match(named, /nameplate/i);
   assert.ok(!/No text, captions/.test(named));
+  // Color lock (v2.1): keep the concept's paint, never render a bare print,
+  // and keep the ivory scoped to the base.
+  assert.match(named, /Preserve the character's exact colors/i);
+  assert.match(named, /fully painted/i);
+  assert.match(named, /never a bare, unpainted/i);
+  assert.match(named, /ivory color belongs to the display base only/i);
 
   const blank = buildScenePrompt("bookshelf", null, false);
   assert.match(blank, /No text, captions/);

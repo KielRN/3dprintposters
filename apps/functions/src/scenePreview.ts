@@ -88,6 +88,13 @@ export function resolveSceneSignName(
   return null;
 }
 
+// Prompt contract v2.1 (2026-07-11): adds an explicit color/paint lock. v2
+// rendered the figurine as a bare, monochrome, unpainted resin print - the
+// "3D printed figurine / matte vinyl / reproduce the ivory base's finish"
+// language out-competed the concept's colors, and the ivory base reference
+// leaked onto the whole model. v2.1 preserves the concept's painted colors and
+// scopes the ivory strictly to the base.
+//
 // Prompt contract v2 (2026-07-10 plan, issues 2+3): printed figurine on the
 // named square base at the plate's empty spot, wide framing (the v1 desk
 // render zoomed the figurine to fill the frame), head-to-base no-crop clause,
@@ -107,15 +114,16 @@ export function buildScenePrompt(
         : "the empty spot on the tissue paper inside the open gift box, standing fully upright";
   const baseClause = signName
     ? hasBaseReference
-      ? `The figurine stands permanently mounted on its printed display base, shown in the LAST reference image: a square, gently tapered matte warm-ivory pedestal with a raised rectangular front nameplate. Reproduce that base's exact shape and finish, but the nameplate must read "${signName}" in the same raised letters instead of the name shown in the reference. The nameplate faces the camera.`
+      ? `The figurine stands permanently mounted on its printed display base, shown in the LAST reference image: a square, gently tapered matte warm-ivory pedestal with a raised rectangular front nameplate. Reproduce that base's exact shape and its matte warm-ivory finish - the ivory color belongs to the display base only and must never spread onto the fully painted character standing on it - but the nameplate must read "${signName}" in the same raised letters instead of the name shown in the reference. The nameplate faces the camera.`
       : `The figurine stands permanently mounted on its printed display base: a square, gently tapered matte warm-ivory pedestal with a raised rectangular front nameplate reading "${signName}" in raised letters, facing the camera.`
     : "The figurine stands on its simple square printed display base with a blank front nameplate.";
   const textRule = signName
     ? `The only text anywhere in the image is the single word "${signName}" on the figurine base's nameplate. No other letters, numbers, words, captions, labels, logos, or watermarks anywhere.`
     : "No text, captions, labels, watermarks, or logos anywhere in the image.";
   return [
-    "The first image is a home interior scene plate. The second image is the character concept for a personalized 3D printed figurine.",
-    `Edit the scene plate to place that character into ${spot} as a printed physical figurine: a small collectible statue about 15 cm tall with a smooth matte vinyl surface.`,
+    "The first image is a home interior scene plate. The second image is the fully painted character concept for a personalized collectible figurine.",
+    `Edit the scene plate to place that character into ${spot} as a physical collectible figurine: a small statue about 15 cm tall with a smooth matte finish.`,
+    "Preserve the character's exact colors, paint, and materials from the concept image - the same skin tone, hair color, eye color, costume colors, painted metallic gold and silver accents, and colored gemstones, reproduced faithfully. This is a fully painted, hand-finished collectible figurine, never a bare, unpainted, monochrome, gray, beige, or raw resin 3D print.",
     baseClause,
     "Scale and framing are critical: keep the scene plate's exact camera position, focal length, and full field of view. The figurine is a small object in a larger scene - it must occupy no more than about one quarter of the frame's height, in believable proportion to the mug, books, and other objects around it. Do not zoom in, do not crop the plate, and do not let the figurine dominate the frame.",
     "Show the entire figurine from the top of the head to the bottom of the base, fully inside the frame - never crop any part of it.",
