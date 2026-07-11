@@ -7,7 +7,7 @@ Website: https://3dprintyou.com/
 
 ## Executive Summary
 
-3D Print You turns a customer's photo into a personalized 3D printed figurine. The customer chooses a curated style, uploads a photo, reviews a generated concept, adds their name, and pays before the high-cost 3D generation and fulfillment work begins. The business is built around done-for-you personalization: customers do not need a 3D printer, slicer, modeling skill, or print-ready design file.
+3D Print You turns a customer's photo into a personalized 3D printed figurine. The customer chooses a curated style, uploads a photo, reviews an AI-generated 2D concept image, adds their name, and pays before the high-cost 3D generation and fulfillment work begins. The customer approves the concept image only, not any GLB, STL, 3MF, slicer file, or other 3D production asset generated later through Meshy, Hi3D, or another provider pipeline. The business is built around done-for-you personalization: customers do not need a 3D printer, slicer, modeling skill, or print-ready design file.
 
 The first launch offer is a limited-run figurine line with eight styles:
 
@@ -39,16 +39,17 @@ Customers get a simple path:
 
 1. Choose a limited style.
 2. Upload a photo.
-3. Review a generated concept.
+3. Review and approve an AI-generated 2D concept image.
 4. Add the name for the base.
 5. Pay for the custom figurine.
-6. 3D Print You generates the production model, has it reviewed, prints it through a partner, and ships it.
+6. 3D Print You generates the production 3D assets after payment, has them reviewed internally or by the print partner, prints the piece, and ships it.
 
 The customer-facing promise should stay honest:
 
 - This is personalized art, not a perfect clone.
 - The style is controlled by 3D Print You.
 - The customer's identity and name personalize the piece.
+- Customer approval applies to the AI-generated concept image, not to the later GLB, STL, 3MF, repair, remesh, slicer, or manufacturing files.
 - If the print partner rejects the job, the customer is refunded.
 - If the physical piece is poor quality, the customer is refunded or made whole under the quality policy.
 
@@ -56,10 +57,11 @@ The customer-facing promise should stay honest:
 
 The current product architecture supports the business model:
 
-- Customer proof generation happens before payment.
+- Customer concept generation happens before payment.
+- The customer approves an AI-generated 2D concept image before payment.
 - 3D figurine generation happens after payment.
 - Meshy, Hi3D, or future generated-3D providers stay behind server-side provider boundaries.
-- Provider-generated assets are reviewed by the operator/print workflow before fulfillment.
+- Provider-generated GLB, STL, 3MF, repair/remesh, slicer, or other production assets are reviewed by the operator/print workflow before fulfillment, not by the customer as the approval artifact.
 - The reusable base, customer name, and final body/base assembly are controlled by 3D Print You instead of being delegated to the 3D AI provider.
 
 This keeps the general figurine style consistent while still using the customer's photo for identity.
@@ -169,7 +171,8 @@ Working policy:
 - All sales are final because each order is custom art.
 - If the production provider rejects the job and 3D Print You cannot reasonably fulfill it, refund the customer.
 - If the physical piece is poor quality, refund or remake according to the final support policy.
-- Generated concepts should be approved by the customer before payment.
+- The customer should approve the AI-generated 2D concept image before payment.
+- Customer approval should not be represented as approval of Meshy, Hi3D, GLB, STL, 3MF, repair/remesh, slicer, or other downstream 3D production assets.
 - Fulfillment failures should be handled by support without blaming the customer for provider/model issues.
 
 The final website terms should be reviewed before public checkout, especially around likeness rights, minors, celebrity/IP restrictions, refunds, shipping, and custom-art expectations.
