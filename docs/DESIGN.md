@@ -1,6 +1,6 @@
 # 3DPrintU Design
 
-Last updated: 2026-07-10
+Last updated: 2026-07-11
 
 ## Purpose
 
@@ -290,6 +290,12 @@ The comic story is composed in CSS/JSX, never baked into images:
   composites the concept frame over the blurred backdrop with no alarm tones,
   and the honesty caption ("Artist's visualization — …") is always visible.
   Scene status must never appear in checkout logic.
+- The claim moment (page 4, `OfferBlock`, revised 2026-07-11) anchors the
+  customer's OWN unboxing render beside the CTA - their hero, their named base,
+  in a real box - replacing the earlier stock "hands" panel (retired to
+  `.tmp/media-collection/`). It falls back to the approved concept until the
+  render lands and, like all scene renders, never gates checkout. Rationale and
+  the surrounding copy live in "Persuasion and perception principles" below.
 
 ### Voice and copy
 
@@ -299,6 +305,63 @@ storytelling, victory framing (checkout is claiming, not paying), no fabricated
 claims, and no prices ("Final price at checkout."). The canonical strings ship
 verbatim — including their em-dashes, a deliberate contract-over-skill override
 of the taste-skill's em-dash ban — and change only with Elliot's sign-off.
+
+## Persuasion and perception principles
+
+Added 2026-07-11. The funnel's job is not to describe a product but to help the
+customer finish a story and take ownership of their hero. Two lenses govern the
+copy and composition of the reveal and claim pages; both are bounded by the
+honest-psychology policy in `DECISIONS.md` - only truthful levers, never
+manufactured scarcity, countdowns, fake stock, or fabricated proof.
+
+**Hoffman (Interface Theory of Perception).** People do not perceive the
+"objective" product - resin, labor, print time. They act on the *fitness
+payoffs* their perception evolved to grab. So name the payoff, not the object: a
+loved one made permanent, pride, a child's delight, a protector on the shelf.
+And because the visual system *constructs* solidity from depth cues (shading
+gradients, occlusion, contact shadow) and color, the more real a hero reads the
+more the brain treats it as an ownable thing. Every hero image is therefore lit
+and grounded to read as a graspable object - one upper-left key light, warm
+tinted shadow, a soft contact shadow - and rendered in the hero's true painted
+colors, never a bare print (see the scene-render prompt + color lock in
+`apps/functions/src/scenePreview.ts`).
+
+**Cialdini (Pre-Suasion + Influence).** What sits in front of the ask sets
+receptivity.
+- *Channel attention to the payoff right before the ask.* The customer's OWN
+  unboxing render - their hero, their named base, in a real box - sits beside
+  the checkout button, not a stock photo or a stranger's figurine. The
+  near-future possession is the last thing seen before the click.
+- *Lean on commitments already made.* By the claim page the customer has
+  uploaded a photo, named the hero, and approved the concept. The copy names
+  those acts ("You named them. You watched them come to life. One step left.")
+  so finishing reads as consistency, not a fresh decision.
+
+Honest levers in use, each mapped to a real fact (never fabricated):
+- **Consistency / commitment** - their real journey (upload -> name -> approve).
+- **Endowment / loss aversion** - their real render; the language of "yours"
+  ("{name}'s out of the box and ready - don't leave them there").
+- **Authority / liking** - real craft ("hand-painted by our studio artist",
+  "human print-review"); the maker is a named person.
+- **Reciprocity** - the concept reveal was genuinely free.
+- **Unity** - the hero is family made heroic.
+
+Deliberately unused: scarcity theater, countdowns, fake stock, fabricated social
+proof.
+
+**Composition at the decision point.**
+- *Second person + the hero's name, everywhere.* Self-relevance is the strongest
+  attention magnet. The name is the collected sign text (`heroName()`), so the
+  headline and CTA always agree ("{name}'s ready to come home." / "Bring {name}
+  home"). Pronouns stay gender-neutral ("them") beneath the name so every hero -
+  male- or female-styled - reads correctly without a pronoun field.
+- *Close the story arc on this page:* photo -> hero -> home. The headline and its
+  sub-line restate the transformation ("A few minutes ago, they were just a
+  photo you loved.").
+- *One attention path:* render -> name -> button. Strip competing focal points
+  at the buy moment - the 150 mm size-scale was pulled off the claim block for
+  this reason (kept in `.tmp/media-collection/SizeScale.tsx` for reuse).
+- *Victory framing.* Checkout is claiming, not paying (see "Voice and copy").
 
 ## File map
 

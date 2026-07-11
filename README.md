@@ -180,7 +180,7 @@ Start with these files when you feel lost:
 - `CHANGELOG.md`: what changed recently
 - `docs/Workflows/figurine-and-operator-workflows.md`: current figurine/customer/operator workflow overview, with style-specific workflow docs in the same folder
 - `docs/ARCHITECTURE.md`: deeper system design
-- `docs/DESIGN.md`: front-end design system — brand, color/type tokens, and the landing/hero spec
+- `docs/DESIGN.md`: front-end design system — brand, color/type tokens, the landing/hero spec, the storyfront funnel, and voice/persuasion principles
 - `docs/DEPLOYMENT.md`: hosting, Firebase, Cloudflare, and secret notes
 - `docs/PRINT_FILE_GENERATION_WORKFLOW.md`: current print-file generator contract and product direction
 - `research/FIGURINE_PROVIDER_RESEARCH.md`: current PrintU/Meshy pivot and provider research

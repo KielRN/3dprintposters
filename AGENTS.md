@@ -13,7 +13,7 @@ This file is the first place Codex or another coding agent should read before wo
 - Keep print-file generation server-side. Do not move geometry generation, texture packaging, or fulfillment logic into the browser.
 - Do not recreate tracked `human-tasks/` files. If an agent needs a short-lived human handoff, put it under ignored `.tmp/human-tasks/` and summarize the action in the response. Durable product decisions belong in the normal docs, not in an accumulating task folder.
 - Develop toward the intended final product behavior first. Do not leave a chosen direction as opt-in, experimental, or hidden behind a fallback plan after a decision has been made; wire it into the real workflow and let testing reveal the next fix.
-- `CHECKLIST.md` is now an archive pointer, not the active tracker. Do not add new task lists there. Use `PROJECT_STATE.md` for compact current state, `DECISIONS.md` for durable decisions, `docs/DESIGN.md` for the front-end design system (brand, tokens, type, landing/hero spec), `research/MESHY_SERVICE_IMPLEMENTATION_PLAN.md` for Meshy implementation detail, and `docs/Workflows/figurine-and-operator-workflows.md` plus the style-specific docs under `docs/Workflows/` for current figurine/customer/operator workflow contracts. `docs/MESHY_FIGURINE_UI_WORKFLOW.md` is a PrintU-inspired planning reference, not the current workflow source of truth.
+- `CHECKLIST.md` is now an archive pointer, not the active tracker. Do not add new task lists there. Use `PROJECT_STATE.md` for compact current state, `DECISIONS.md` for durable decisions, `docs/DESIGN.md` for the front-end design system (brand, tokens, type, the landing/hero spec, the storyfront funnel, and voice/persuasion principles), `research/MESHY_SERVICE_IMPLEMENTATION_PLAN.md` for Meshy implementation detail, and `docs/Workflows/figurine-and-operator-workflows.md` plus the style-specific docs under `docs/Workflows/` for current figurine/customer/operator workflow contracts. `docs/MESHY_FIGURINE_UI_WORKFLOW.md` is a PrintU-inspired planning reference, not the current workflow source of truth.
 - `elliot_quick_dev_Startup.md` is a local, ignored runbook for Elliot's startup and experiment commands. Reference it from `.tmp` handoffs when useful, and keep personal or local-only details there instead of copying them into tracked docs.
 
 ## Project Manager Skill
@@ -258,5 +258,5 @@ When behavior changes, update the relevant docs:
 - `DECISIONS.md`
 - `PROJECT_STATE.md`
 - `CHECKLIST.md` only if the archive/source-of-truth pointer changes
-- `docs/DESIGN.md` when the brand, design tokens, type system, or landing/hero experience changes
+- `docs/DESIGN.md` when the brand, design tokens, type system, landing/hero experience, storyfront funnel, voice/copy, or persuasion principles change
 - `docs/PRINT_FILE_GENERATION_WORKFLOW.md`
