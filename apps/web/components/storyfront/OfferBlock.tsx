@@ -1,19 +1,17 @@
 "use client";
 
-import Image from "next/image";
 import { AlertCircle, Loader2, Lock, ShieldCheck } from "lucide-react";
 import { useState } from "react";
-import manifest from "../../public/storyfront/manifest.json";
-
-type ManifestEntry = { w: number; h: number; alt: string };
-const giftPanel = (manifest as Record<string, ManifestEntry>)[
-  "hero/panel-gift.webp"
-];
 
 type PaintOption = "painted" | "unpainted";
 
 type OfferBlockProps = {
   heroName: string;
+  // The customer's own unboxing render (their hero, their named base) sits
+  // beside the CTA. Falls back to the approved concept until the render lands;
+  // the scene is garnish and never gates checkout.
+  unboxingUrl: string | null;
+  conceptUrl: string | null;
   busy: boolean;
   error?: string;
   onCheckout: (paintOption: PaintOption) => void;
@@ -28,7 +26,7 @@ const tiers: Array<{
   {
     id: "painted",
     title: "Painted & finished",
-    body: "Hand-painted by our artist, sealed, and ready to display.",
+    body: "Hand-painted by our studio artist, sealed, ready to stand on your shelf the day they arrive.",
     badge: "Most loved",
   },
   {
@@ -38,68 +36,27 @@ const tiers: Array<{
   },
 ];
 
-// About 150 mm tall: figurine silhouette beside a coffee mug on a shared
-// baseline. Hand-coded, ink strokes with one ember accent.
-function SizeScale() {
-  return (
-    <svg
-      viewBox="0 0 240 130"
-      className="h-auto w-full max-w-[260px]"
-      role="img"
-      aria-label="The finished figurine stands about 150 millimeters tall, roughly the height of a coffee mug plus a bit"
-    >
-      <line
-        x1="10"
-        y1="120"
-        x2="230"
-        y2="120"
-        stroke="var(--ink)"
-        strokeWidth="2"
-      />
-      <g fill="var(--ink)">
-        <circle cx="60" cy="30" r="10" />
-        <path d="M60 41 c-9 0 -15 5 -16 13 l-3 26 c-0.5 5 2 8 6 8 h4 l2 15 h14 l2 -15 h4 c4 0 6.5 -3 6 -8 l-3 -26 c-1 -8 -7 -13 -16 -13 z" />
-        <path d="M47 46 l-8 42 6 3 8 -34 z" opacity="0.85" />
-        <rect x="40" y="103" width="40" height="14" rx="2.5" />
-      </g>
-      <g
-        stroke="var(--ink)"
-        strokeWidth="2.5"
-        fill="var(--clay)"
-        strokeLinecap="round"
-      >
-        <path d="M150 74 h44 v44 a2 2 0 0 1 -2 2 h-40 a2 2 0 0 1 -2 -2 z" />
-        <path d="M194 82 q18 6 0 26" fill="none" />
-      </g>
-      <g stroke="var(--ember)" strokeWidth="2" fill="none">
-        <line x1="222" y1="21" x2="222" y2="120" />
-        <line x1="216" y1="21" x2="228" y2="21" />
-        <line x1="216" y1="120" x2="228" y2="120" />
-      </g>
-      <text
-        x="212"
-        y="66"
-        fill="var(--ink)"
-        fontSize="12"
-        fontWeight="700"
-        textAnchor="end"
-      >
-        150 mm
-      </text>
-    </svg>
-  );
-}
-
-// The claim moment: finish choice, two true trust claims, honest scale, and
-// the checkout CTA. No prices (final price shows at checkout), no guarantee
-// copy, no urgency theater. Scene status never reaches this component.
-export function OfferBlock({ heroName, busy, error, onCheckout }: OfferBlockProps) {
+// The claim moment: finish choice, two true trust claims, the customer's own
+// unboxing render, and the checkout CTA. No prices (final price shows at
+// checkout), no guarantee copy, no urgency theater. Scene status never reaches
+// this component.
+export function OfferBlock({
+  heroName,
+  unboxingUrl,
+  conceptUrl,
+  busy,
+  error,
+  onCheckout,
+}: OfferBlockProps) {
   const [paintOption, setPaintOption] = useState<PaintOption>("painted");
 
   return (
     <section className="panel grid gap-6 rounded-2xl p-6 lg:grid-cols-[1.25fr_1fr] sm:p-8">
       <div className="grid content-start gap-5">
         <h2 className="display text-2xl sm:text-3xl">Claim your hero.</h2>
+        <p className="text-[var(--muted)]">
+          You named them. You watched them come to life. One step left.
+        </p>
 
         <div className="grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="Finish">
           {tiers.map((tier) => {
@@ -154,6 +111,11 @@ export function OfferBlock({ heroName, busy, error, onCheckout }: OfferBlockProp
           </p>
         ) : null}
 
+        <p className="text-sm font-semibold text-[var(--ink)]">
+          {heroName}&apos;s out of the box and ready — don&apos;t leave them
+          there.
+        </p>
+
         <button
           className="primary-button w-full text-base"
           type="button"
@@ -168,19 +130,28 @@ export function OfferBlock({ heroName, busy, error, onCheckout }: OfferBlockProp
       </div>
 
       <div className="grid content-start gap-4">
-        {giftPanel ? (
-          <Image
-            src="/storyfront/hero/panel-gift.webp"
-            width={giftPanel.w}
-            height={giftPanel.h}
-            alt={giftPanel.alt}
-            className="w-full rounded-xl border border-[var(--line)] object-cover"
-            loading="lazy"
-          />
-        ) : null}
-        <div className="rounded-xl border border-[var(--line)] bg-[var(--clay)]/40 p-4">
-          <SizeScale />
-        </div>
+        <figure className="grid gap-2">
+          <div className="relative aspect-square overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--clay)]">
+            {unboxingUrl ? (
+              <img
+                src={unboxingUrl}
+                alt={`The moment ${heroName} arrives — your hero in the box, on your table`}
+                className="h-full w-full object-cover"
+              />
+            ) : conceptUrl ? (
+              <img
+                src={conceptUrl}
+                alt={`Your hero, ${heroName}`}
+                className="h-full w-full object-contain p-6"
+              />
+            ) : (
+              <div className="skeleton-shimmer absolute inset-0" />
+            )}
+          </div>
+          <figcaption className="text-xs text-[var(--muted)]">
+            {heroName}, the day they come home. (Artist&apos;s visualization.)
+          </figcaption>
+        </figure>
       </div>
     </section>
   );

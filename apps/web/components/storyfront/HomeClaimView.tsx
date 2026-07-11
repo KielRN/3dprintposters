@@ -243,19 +243,24 @@ export function HomeClaimView({ jobId }: { jobId: string }) {
         <StepPills current={4} />
       </div>
 
-      <h1 className="display text-3xl sm:text-4xl">Bring them home.</h1>
+      <header className="grid gap-2">
+        <h1 className="display text-3xl sm:text-4xl">
+          {name}&apos;s ready to come home.
+        </h1>
+        <p className="text-[var(--muted)]">
+          A few minutes ago, they were just a photo you loved.
+        </p>
+      </header>
 
       <SceneStage
         heroName={name}
         scenes={{
           bookshelf: job.scenePreviews?.bookshelf,
           desk: job.scenePreviews?.desk,
-          unboxing: job.scenePreviews?.unboxing,
         }}
         sceneUrls={{
           bookshelf: sceneUrlFor("bookshelf"),
           desk: sceneUrlFor("desk"),
-          unboxing: sceneUrlFor("unboxing"),
         }}
         conceptUrl={conceptUrl}
       />
@@ -281,6 +286,8 @@ export function HomeClaimView({ jobId }: { jobId: string }) {
       ) : (
         <OfferBlock
           heroName={name}
+          unboxingUrl={sceneUrlFor("unboxing")}
+          conceptUrl={conceptUrl}
           busy={checkoutBusy}
           error={checkoutError}
           onCheckout={startCheckout}

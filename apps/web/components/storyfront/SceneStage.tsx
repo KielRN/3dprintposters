@@ -123,9 +123,9 @@ type SceneStageProps = {
   conceptUrl: string | null;
 };
 
-// Page-4 hero: every scene at once. Bookshelf + desk form the pair; the
-// unboxing moment spans the width beneath. New jobs normally have these ready
-// because the backend trigger starts them as soon as the concept is definitive.
+// Page-4 pair: bookshelf + desk shown together. The unboxing render is no
+// longer shown here - it now lives beside the checkout CTA in OfferBlock, so
+// the customer's own hero-in-the-box is the last thing they see before buying.
 export function SceneStage({
   heroName,
   scenes,
@@ -150,14 +150,6 @@ export function SceneStage({
           conceptUrl={conceptUrl}
         />
       </div>
-      <SceneCell
-        sceneId="unboxing"
-        heroName={heroName}
-        scene={scenes.unboxing}
-        sceneUrl={sceneUrls.unboxing ?? null}
-        conceptUrl={conceptUrl}
-        hideOnFailure
-      />
       <p className="text-sm text-[var(--muted)]">
         Artist&apos;s visualization - your printed hero is hand-finished by a
         3D artist.
