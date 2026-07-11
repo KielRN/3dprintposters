@@ -15,4 +15,4 @@ When the user asks to generate new backgrounds or scenes for their monthly figur
    - **Heroic Fantasy**: Rugged mountain peaks, grand marble castle halls, ancient stone ruins, enchanted forests.
    - **Real-World / Photo Likeness**: Cozy living rooms with crackling fireplaces, bright sunlit cafe tables, warm wooden bookshelves.
 3. **Lighting & Quality**: Always append the following to your prompts to maintain the premium brand aesthetic: "Cinematic lighting, warm and rich colors, shallow depth of field focusing on the figurine. High-quality product photography, emotional storytelling."
-4. **Execution**: Use the `generate_image` tool, passing in the absolute path to the original `.webp` or `.png` source file in the `ImagePaths` parameter. Save the output to the appropriate public assets folder (e.g., `public/landing/cards/`).
+4. **Execution**: Use your available image generation or editing tool, passing in the absolute path to the original `.webp` or `.png` source file as an input if supported by your toolset. Save the generated output to the appropriate public assets folder (e.g., `public/landing/cards/`).

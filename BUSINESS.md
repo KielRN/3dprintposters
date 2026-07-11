@@ -5,6 +5,50 @@ Last updated: 2026-07-11
 Owner: Texas AI Consulting, LLC  
 Website: https://3dprintyou.com/
 
+## Business Contacts
+
+- General: contact@3dprintyou.com
+- Privacy: privacy@3dprintyou.com
+- Admin: admin@3dprintyou.com
+- Founder/operator: elliott@3dprintyou.com
+- Orders: orders@3dprintyou.com
+- Instagram: https://www.instagram.com/3d.printyou/
+- Facebook: https://www.facebook.com/profile.php?id=61591961126456
+
+## Project Repositories
+
+- Product app, backend, and fulfillment workflow: `E:\PROJECTS\3DPrintPosters` - https://github.com/KielRN/3dprintposters
+- Public 3D Print You website: `E:\PROJECTS\3DPrintyou` - https://github.com/KielRN/3dprintyou
+
+## GoHighLevel Setup
+
+- Subaccount: https://app.gohighlevel.com/v2/location/rBEgeDDx3w48sUxW8oIj/ask-ai
+- Business niche: E-commerce / Personalized Gifts
+- Free-text niche, if available: Personalized Gifts & Custom 3D Printed Figurines
+
+Recommended brand settings:
+
+| Use | Color | Hex |
+| --- | --- | --- |
+| Primary brand / CTA | Ember | `#E8552E` |
+| Secondary accent | Moss | `#3F6B4C` |
+| Background / light base | Cream | `#F5F1EA` |
+| Text / dark base | Ink | `#1A1714` |
+| UI surface | White | `#FFFFFF` |
+
+Full brand palette:
+
+| Token | Hex | Use |
+| --- | --- | --- |
+| Cream | `#F5F1EA` | Page background, warm base |
+| Ink | `#1A1714` | Body text, headings, dark sections |
+| Ember | `#E8552E` | Primary brand orange and CTAs |
+| Terracotta | `#C2410C` | CTA hover and deeper orange accent |
+| Clay | `#E8DFD3` | Cards, dividers, soft UI surfaces |
+| Moss | `#3F6B4C` | Muted secondary accent |
+| Muted | `#6B5F52` | Secondary text |
+| White | `#FFFFFF` | Panels and surfaces |
+
 ## Executive Summary
 
 3D Print You turns a customer's photo into a personalized 3D printed figurine. The customer chooses a curated style, uploads a photo, reviews an AI-generated 2D concept image, adds their name, and pays before the high-cost 3D generation and fulfillment work begins. The customer approves the concept image only, not any GLB, STL, 3MF, slicer file, or other 3D production asset generated later through Meshy, Hi3D, or another provider pipeline. The business is built around done-for-you personalization: customers do not need a 3D printer, slicer, modeling skill, or print-ready design file.
