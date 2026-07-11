@@ -258,7 +258,9 @@ export async function renderScenePreviewForJob(input: {
       renderedBytes = plateBytes;
       outputMimeType = "image/png";
     } else {
-      const apiKey = process.env.VERTEX_API_KEY;
+      // trim: Secret Manager values set via CLI piping can carry a trailing
+      // newline, which corrupts the ?key= query param (401 UNAUTHENTICATED).
+      const apiKey = process.env.VERTEX_API_KEY?.trim();
       if (!apiKey) {
         throw new Error("VERTEX_API_KEY is required for scene previews.");
       }
@@ -373,6 +375,7 @@ export const generateScenePreview = onCall(
   {
     secrets: ["APP_STORAGE_BUCKET", "VERTEX_API_KEY", "VERTEX_IMAGE_MODEL"],
     timeoutSeconds: 120,
+    memory: "512MiB",
   },
   async (request) => {
     if (!request.auth) {
@@ -449,6 +452,9 @@ export const onJobConceptReadyRenderScenes = onDocumentWritten(
     secrets: ["APP_STORAGE_BUCKET", "VERTEX_API_KEY", "VERTEX_IMAGE_MODEL"],
     timeoutSeconds: 540,
     retry: false,
+    // Three sequential renders hold plate + concept + render buffers at once;
+    // the 256MiB default OOMed live (278 MiB used, 2026-07-10).
+    memory: "512MiB",
   },
   async (event) => {
     const before = event.data?.before.exists

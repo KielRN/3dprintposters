@@ -210,7 +210,9 @@ class VertexGeminiPosterAiProvider implements PosterAiProvider {
   async generatePosterConcept(
     input: PosterGenerationInput,
   ): Promise<PosterGenerationOutput> {
-    const apiKey = process.env.VERTEX_API_KEY;
+    // trim: Secret Manager values set via CLI piping can carry a trailing
+    // newline, which corrupts the ?key= query param (401 UNAUTHENTICATED).
+    const apiKey = process.env.VERTEX_API_KEY?.trim();
     if (!apiKey) {
       throw new Error(
         "VERTEX_API_KEY is required for the direct Vertex/Gemini provider.",
