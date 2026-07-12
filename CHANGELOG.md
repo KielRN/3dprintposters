@@ -2,6 +2,12 @@
 
 All notable project changes will be documented in this file.
 
+## [Unreleased] - 2026-07-12
+
+### Fixed
+
+- The `/start` style gallery now renders bundled cards immediately instead of holding the entire grid behind the public workflow-config callable, reuses the last successful config while refreshing in the background, and serves the already-compressed card WebPs directly to avoid intermittent first-request image optimization delays.
+
 ## [Unreleased] - 2026-07-11
 
 ### Added

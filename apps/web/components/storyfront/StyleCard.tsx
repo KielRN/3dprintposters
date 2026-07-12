@@ -28,6 +28,7 @@ export function StyleCard({
               height={content.art.height}
               alt={content.art.alt}
               sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+              unoptimized
               className="h-full w-full object-cover transition-transform duration-300 ease-out motion-safe:group-hover:scale-[1.03]"
             />
           ) : (
