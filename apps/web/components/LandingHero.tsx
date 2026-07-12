@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useFrameScrub, type FrameSet } from "@/lib/useFrameScrub";
+import { StoryfrontAccountNav } from "@/components/storyfront/StoryfrontAccountNav";
 
 const DESKTOP: FrameSet = { dir: "/landing/hero/desktop", count: 241 };
 const MOBILE: FrameSet = { dir: "/landing/hero/mobile", count: 121 };
@@ -24,28 +25,22 @@ function LandingHeader({ solid }: { solid: boolean }) {
         >
           3DPrintYou
         </Link>
-        <nav className="flex items-center gap-4 text-sm font-semibold">
-          <Link
-            href="/start?auth=sign-in#account"
-            className={`transition-colors ${
-              solid
-                ? "text-[var(--ink)] hover:text-[var(--ember)]"
-                : "text-white/85 hover:text-white"
-            }`}
-          >
-            Sign in
-          </Link>
-          <Link
-            href="/start?auth=create#account"
-            className={`transition-colors ${
-              solid
-                ? "text-[var(--ink)] hover:text-[var(--ember)]"
-                : "text-white/90 hover:text-white"
-            }`}
-          >
-            Create account
-          </Link>
-        </nav>
+        <StoryfrontAccountNav
+          signInHref="/start?auth=sign-in#account"
+          createHref="/start?auth=create#account"
+          signedInHref="/start"
+          signedInLabel="Start"
+          signInClassName={`transition-colors ${
+            solid
+              ? "text-[var(--ink)] hover:text-[var(--ember)]"
+              : "text-white/85 hover:text-white"
+          }`}
+          createClassName={`transition-colors ${
+            solid
+              ? "text-[var(--ink)] hover:text-[var(--ember)]"
+              : "text-white/90 hover:text-white"
+          }`}
+        />
       </div>
     </header>
   );

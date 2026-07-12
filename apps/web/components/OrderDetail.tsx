@@ -119,11 +119,11 @@ export function OrderDetail({ orderId }: { orderId: string }) {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <Link
-            className="inline-flex items-center gap-2 text-sm font-bold text-[var(--muted)]"
+            className="story-nav-link"
             href={order?.jobId ? `/jobs/${order.jobId}` : "/start"}
           >
             <ArrowLeft size={16} aria-hidden="true" />
-            {order?.jobId ? "Back to hero" : "New order"}
+            {order?.jobId ? "Back to hero" : "Start over"}
           </Link>
           <h1 className="display mt-3 text-2xl sm:text-3xl">
             Order status

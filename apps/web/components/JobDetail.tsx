@@ -11,7 +11,6 @@ import {
 } from "@/lib/callableRetry";
 import {
   AlertCircle,
-  ArrowLeft,
   CheckCircle2,
   CreditCard,
   FileCheck2,
@@ -34,6 +33,7 @@ import {
 } from "./PrintFilePreview";
 import { ConceptStage } from "./storyfront/ConceptStage";
 import { JourneyStrip } from "./storyfront/JourneyStrip";
+import { StoryBackButton } from "./storyfront/StoryBackButton";
 import { StepPills } from "./storyfront/StepPills";
 import {
   heroName as jobHeroName,
@@ -751,14 +751,12 @@ export function JobDetail({
 
   const customerHeader = (
     <div className="flex flex-wrap items-center justify-between gap-4">
-      <Link
-        className="inline-flex items-center gap-2 text-sm font-bold text-[var(--muted)]"
-        href="/start"
-      >
-        <ArrowLeft size={16} aria-hidden="true" />
-        New order
-      </Link>
-      <StepPills current={3} />
+      <StoryBackButton label="Back" fallbackHref="/start" />
+      <StepPills
+        current={3}
+        styleId={job?.selectedStyle}
+        jobId={jobId}
+      />
     </div>
   );
 
@@ -1037,13 +1035,10 @@ export function JobDetail({
     <section className="panel min-w-0 rounded-lg p-5 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <Link
-            className="inline-flex items-center gap-2 text-sm font-bold text-[var(--muted)]"
-            href="/start"
-          >
-            <ArrowLeft size={16} aria-hidden="true" />
-            New order
-          </Link>
+          <StoryBackButton
+            label="Back"
+            fallbackHref={operatorMode ? "/operator" : "/start"}
+          />
           <h1 className="display mt-3 text-2xl sm:text-3xl">
             {isFigurineJob
               ? "Review figurine production state"

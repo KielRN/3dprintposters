@@ -12,6 +12,7 @@ import { getDownloadURL, ref } from "firebase/storage";
 import { heroName, type JobCardSource } from "./jobPresentation";
 import { OfferBlock } from "./OfferBlock";
 import { SceneStage, SCENE_IDS, type SceneId } from "./SceneStage";
+import { StoryBackButton } from "./StoryBackButton";
 import { StepPills } from "./StepPills";
 
 type ScenePreview = {
@@ -233,14 +234,8 @@ export function HomeClaimView({ jobId }: { jobId: string }) {
   return (
     <section className="grid min-w-0 gap-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <Link
-          className="inline-flex items-center gap-2 text-sm font-bold text-[var(--muted)]"
-          href={`/jobs/${jobId}`}
-        >
-          <ArrowLeft size={16} aria-hidden="true" />
-          Back to your hero
-        </Link>
-        <StepPills current={4} />
+        <StoryBackButton label="Back to your hero" fallbackHref={`/jobs/${jobId}`} />
+        <StepPills current={4} styleId={job.selectedStyle} jobId={jobId} />
       </div>
 
       <header className="grid gap-2">
@@ -276,7 +271,7 @@ export function HomeClaimView({ jobId }: { jobId: string }) {
             Order received — your hero is in production.
           </p>
           <Link
-            className="mt-3 inline-flex items-center gap-2 text-sm font-bold text-[var(--muted)]"
+            className="story-nav-link mt-3"
             href={`/jobs/${jobId}`}
           >
             <ArrowLeft size={14} aria-hidden="true" />

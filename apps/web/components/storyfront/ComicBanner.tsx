@@ -66,7 +66,7 @@ export function ComicBanner(props: ComicBannerProps) {
               Upload a photo to begin the transformation.
             </p>
             <Link
-              className="mt-4 inline-flex items-center gap-2 text-sm font-bold text-[var(--muted)] transition-colors hover:text-[var(--ink)]"
+              className="story-nav-link mt-4"
               href="/start"
             >
               <ArrowLeft size={14} aria-hidden="true" />
@@ -155,9 +155,6 @@ export function ComicBanner(props: ComicBannerProps) {
             Pick their style. Upload a photo. We sculpt, print, and ship the
             hero.
           </p>
-          <a className="primary-button mt-6" href="#style-grid">
-            Pick their style
-          </a>
         </div>
       </div>
     </section>

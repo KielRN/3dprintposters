@@ -37,7 +37,7 @@ export default async function ProjectPage({
           >
             3DPrintYou
           </Link>
-          <StepPills current={2} />
+          <StepPills current={2} styleId={styleId} />
           <div className="flex items-center gap-2">
             <PwaInstallButton />
           </div>

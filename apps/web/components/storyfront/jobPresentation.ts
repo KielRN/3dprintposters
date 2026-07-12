@@ -43,7 +43,7 @@ export function jobStatusChip(job: JobCardSource): JobStatusChip {
     return { label: "Support review", tone: "gold" };
   }
   if (job.status === "approved") {
-    return { label: "Ready to order", tone: "ember", pulse: true };
+    return { label: "Ready to order", tone: "moss", pulse: true };
   }
   if (job.status === "preview_ready") {
     return { label: "Concept ready — pick one", tone: "moss" };

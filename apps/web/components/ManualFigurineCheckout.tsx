@@ -7,18 +7,17 @@ import {
   studioReviewMessage,
 } from "@/lib/generationRecovery";
 import {
-  ArrowLeft,
   CheckCircle2,
   CreditCard,
   Loader2,
   Palette,
 } from "lucide-react";
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { doc, onSnapshot } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { getDownloadURL, ref } from "firebase/storage";
+import { StoryBackButton } from "./storyfront/StoryBackButton";
 
 type PaintOption = "unpainted" | "painted";
 
@@ -167,13 +166,7 @@ export function ManualFigurineCheckout({ jobId }: { jobId: string }) {
 
   return (
     <section className="grid min-w-0 gap-6">
-      <Link
-        className="inline-flex items-center gap-2 text-sm font-bold text-[var(--muted)]"
-        href={`/jobs/${jobId}`}
-      >
-        <ArrowLeft size={16} aria-hidden="true" />
-        Back to hero
-      </Link>
+      <StoryBackButton label="Back to hero" fallbackHref={`/jobs/${jobId}`} />
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(22rem,0.7fr)]">
         <div className="panel overflow-hidden rounded-xl">

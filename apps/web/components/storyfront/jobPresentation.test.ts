@@ -33,10 +33,10 @@ describe("jobStatusChip (implementation.md chip table, evaluated in order)", () 
     });
   });
 
-  it("approved (unpaid) -> Ready to order / ember pulsing", () => {
+  it("approved (unpaid) -> Ready to order / moss pulsing", () => {
     expect(jobStatusChip({ ...base, status: "approved" })).toEqual({
       label: "Ready to order",
-      tone: "ember",
+      tone: "moss",
       pulse: true,
     });
   });
