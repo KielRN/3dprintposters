@@ -26,6 +26,7 @@ Start with the most relevant of these files, depending on the request:
 - `research/HEIGHTMAP_AND_3D_WORKFLOW_RESEARCH.md`: heightmap experiment status and decisions.
 - `.tmp/pm-plans/`: optional ignored scratch space for detailed PM plans and implementation notes. Use it only for active temporary planning, not as durable source of truth.
 - `.tmp/human-tasks/`: optional ignored scratch space for short-lived human handoffs. Do not treat it as durable source of truth and do not recreate tracked `human-tasks/`.
+- `.agents/skills/`: repo-scoped agent skills. Use the relevant skill before manually reconstructing recurring workflows, especially `$edit-figurine-workflow-prompts`, `$debug-figurine-workflow`, `$add-figurine-workflow-style`, `$seed-dev-paid-order`, and `$cloudflare-3dprintyou`.
 - `docs/archive/human-tasks-archived-2026-06-11/`: historical archive of the former tracked human task folder and PrintU reference assets.
 - `elliot_quick_dev_Startup.md`: local ignored startup and experiment runbook for Elliot's manual testing flow. Reference it in temporary `.tmp` handoffs when useful, but do not expose secrets or assume it is tracked.
 - `package.json`, `apps/*/package.json`, and `services/print-file-generator/pyproject.toml`: runnable checks and toolchain signals.

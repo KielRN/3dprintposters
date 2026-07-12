@@ -417,3 +417,4 @@ Print-tooling endpoints:
 | Print-readiness page and Meshy tooling | `apps/web/components/FigurinePrintReadinessReview.tsx`, `apps/functions/src/meshyPrintTooling.ts` |
 | Operator fulfillment console | `apps/web/components/OperatorConsole.tsx`, `apps/functions/src/index.ts`, `apps/web/lib/pipeline.ts` |
 | Durable workflow docs | `docs/Workflows/figurine-and-operator-workflows.md`, style-specific docs under `docs/Workflows/`, `docs/PRINT_FILE_GENERATION_WORKFLOW.md`, `research/MESHY_SERVICE_IMPLEMENTATION_PLAN.md` |
+| Agent workflow helper skills | `.agents/skills/edit-figurine-workflow-prompts/`, `.agents/skills/debug-figurine-workflow/`, `.agents/skills/add-figurine-workflow-style/` |
