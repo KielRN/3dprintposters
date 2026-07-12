@@ -13,7 +13,7 @@ This file is the first place Codex or another coding agent should read before wo
 - Keep print-file generation server-side. Do not move geometry generation, texture packaging, or fulfillment logic into the browser.
 - Do not recreate tracked `human-tasks/` files. If an agent needs a short-lived human handoff, put it under ignored `.tmp/human-tasks/` and summarize the action in the response. Durable product decisions belong in the normal docs, not in an accumulating task folder.
 - Develop toward the intended final product behavior first. Do not leave a chosen direction as opt-in, experimental, or hidden behind a fallback plan after a decision has been made; wire it into the real workflow and let testing reveal the next fix.
-- `CHECKLIST.md` is now an archive pointer, not the active tracker. Do not add new task lists there. Use `PROJECT_STATE.md` for compact current state, `DECISIONS.md` for durable decisions, `docs/DESIGN.md` for the front-end design system (brand, tokens, type, the landing/hero spec, the storyfront funnel, and voice/persuasion principles), `research/MESHY_SERVICE_IMPLEMENTATION_PLAN.md` for Meshy implementation detail, and `docs/Workflows/figurine-and-operator-workflows.md` plus the style-specific docs under `docs/Workflows/` for current figurine/customer/operator workflow contracts. `docs/MESHY_FIGURINE_UI_WORKFLOW.md` is a PrintU-inspired planning reference, not the current workflow source of truth.
+- `CHECKLIST.md` is now an archive pointer, not the active tracker. Do not add new task lists there. Use `PROJECT_STATE.md` for compact current state, `DECISIONS.md` for durable decisions, `docs/DESIGN.md` for the front-end design system (brand, tokens, type, the landing/hero spec, the storyfront funnel, and voice/persuasion principles), `research/MESHY_SERVICE_IMPLEMENTATION_PLAN.md` for Meshy implementation detail, `docs/Workflows/figurine-and-operator-workflows.md` for the current customer/operator flow map, and `docs/Workflows/figurine-style-workflow-contracts.md` for current style contracts. `docs/MESHY_FIGURINE_UI_WORKFLOW.md` is a PrintU-inspired planning reference, not the current workflow source of truth.
 - `elliot_quick_dev_Startup.md` is a local, ignored runbook for Elliot's startup and experiment commands. Reference it from `.tmp` handoffs when useful, and keep personal or local-only details there instead of copying them into tracked docs.
 
 ## Project Manager Skill
@@ -87,11 +87,11 @@ As of 2026-05-23, the active priority is customer acquisition and business-model
 2. User chooses figurine style, with MakerWorld PrintU as UX reference: Bobblehead, Chibi, Cartoon, Emoji, or provider-backed equivalents.
 3. User chooses posture: Natural pose, Image pose, T-pose, or provider-backed equivalent.
 4. Backend generates a 2D figurine proof.
-5. User approves the proof.
-6. Backend generates or imports a standalone 3D figurine through a server-side provider boundary.
-7. Generated-3D providers stay behind server-side provider boundaries. Current workflow docs should decide the provider per style: Meshy Creative Lab powers the Creative Lab/Chibi paths, and Hi3D is the current direct Multi-Image-to-3D provider for Heroic fantasy and Super Hero direct-3D styles.
-8. Job page shows the standalone figurine GLB and readiness/warning state.
-9. Checkout, preorder, or lead capture is allowed only after the provider output and fulfillment path are honestly represented.
+5. User approves the proof/concept.
+6. User reaches the page-4 scene/claim/checkout surface.
+7. Stripe payment queues the server-side figurine build through `figurineBuild`.
+8. Backend generates or imports the standalone 3D figurine through the selected server-side provider boundary for operator/support review. Current workflow docs should decide the provider per style: Meshy Creative Lab powers the Creative Lab/Chibi paths, and Hi3D is the current direct Multi-Image-to-3D provider for Heroic fantasy and Super Hero direct-3D styles.
+9. Customer surfaces do not show provider GLBs or print-readiness internals. Checkout is allowed after concept approval for the normal funded-build flow, or through the explicit manual studio-review checkout path after server-confirmed terminal generation.
 
 The old image-to-3D rejection applies only to poster relief. Full 3D reconstruction was wrong for image-plane depth, but may be right for standalone figurines.
 

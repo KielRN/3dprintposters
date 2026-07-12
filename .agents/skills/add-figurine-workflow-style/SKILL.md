@@ -25,7 +25,7 @@ Identify or infer these before editing:
 
 1. Read current workflow docs and configs:
    - `docs/Workflows/figurine-and-operator-workflows.md`
-   - The closest style-specific doc under `docs/Workflows/`
+   - `docs/Workflows/figurine-style-workflow-contracts.md`
    - `apps/functions/src/figurineWorkflowConfig.ts`
    - `apps/web/lib/figurineWorkflowConfig.ts`
    - `apps/web/components/AdminWorkflowConfig.tsx`
@@ -36,7 +36,7 @@ Identify or infer these before editing:
 3. Patch both workflow config mirrors in the same pass. Keep ids, labels, prompt constants, proof mode, generation workflow, provider fields, enabled state, and default ordering aligned.
 4. Add or update an explicit seed script when the style needs an admin reference image uploaded to Storage or Firestore `adminConfig/figurineWorkflow` updated. Include a real dry-run path or a dedicated dry-run npm script if package scripts are touched.
 5. Update display and operator surfaces only when needed, such as `JobDetail.tsx`, support/admin labels, job cost accounting, or customer style cards.
-6. Add or update workflow docs when this creates a public or durable workflow contract.
+6. Add or update `docs/Workflows/figurine-style-workflow-contracts.md` when this creates a public or durable workflow contract. Update the overview only if the overall customer/operator flow changes.
 7. Update `CHANGELOG.md`, `PROJECT_STATE.md`, `DECISIONS.md`, or `docs/ROADMAP.md` only when the behavior/status actually changes.
 
 ## Helper

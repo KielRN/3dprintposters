@@ -68,7 +68,7 @@ Meshy webhook setup note: official Meshy docs currently direct users to create w
 
 ### Figurine Workflow Services To Add
 
-The current figurine workflow contracts live in `docs/Workflows/figurine-and-operator-workflows.md` and the style-specific workflow docs beside it. `docs/MESHY_FIGURINE_UI_WORKFLOW.md` remains the PrintU-inspired planning reference. These services support that workflow family:
+The current figurine workflow contracts live in `docs/Workflows/figurine-and-operator-workflows.md` and `docs/Workflows/figurine-style-workflow-contracts.md`. `docs/MESHY_FIGURINE_UI_WORKFLOW.md` remains the PrintU-inspired planning reference. These services support that workflow family:
 
 - Figurine job orchestration: create/validate figurine jobs, persist style and posture, track selected concept/model IDs, and expose status to the web app.
 - Source-image validation: verify upload ownership, MIME type, size, decode, minimum dimensions, and basic person/face suitability before provider credits are spent.

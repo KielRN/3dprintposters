@@ -8,7 +8,7 @@ function usage() {
     "Usage:",
     "  node .agents/skills/add-figurine-workflow-style/scripts/check-workflow-style-surfaces.mjs --style-id <id> [--label <label>]",
     "",
-    "Checks that a figurine workflow style appears in the mirrored Functions/Web config surfaces and warns about docs/seed gaps.",
+    "Checks that a figurine workflow style appears in the mirrored Functions/Web config surfaces and warns about style-contract docs/seed gaps.",
   ].join("\n");
 }
 
@@ -189,7 +189,7 @@ const matchingDocs = listMarkdownFiles(docsDir)
 
 if (matchingDocs.length === 0) {
   warnings.push(
-    `${styleId} was not found in docs/Workflows. Add docs if this is durable/public.`,
+    `${styleId} was not found in docs/Workflows. Add it to docs/Workflows/figurine-style-workflow-contracts.md if this is durable/public.`,
   );
 }
 

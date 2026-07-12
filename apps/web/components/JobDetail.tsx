@@ -1045,16 +1045,18 @@ export function JobDetail({
             New order
           </Link>
           <h1 className="display mt-3 text-2xl sm:text-3xl">
-            {isFigurineJob ? "Review your 3D preview" : "Review your proof"}
+            {isFigurineJob
+              ? "Review figurine production state"
+              : "Review your proof"}
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-[var(--muted)]">
             {isFigurineJob
               ? job?.conceptSource === "meshy_prototype_concept" &&
                 !figurinePreviewUrl
-                ? "Review the figure concept below. Generate 3D figurine builds the printable color model from this concept."
+                ? "Review the figure concept below. The provider build runs after checkout or operator release."
                 : canCheckout
-                  ? "Your figurine is ready. Choose a finish and check out below."
-                  : "Inspect the generated color model. Print files are still under review, so checkout stays locked."
+                  ? "The concept is approved and customer checkout is eligible."
+                  : "Inspect generated provider assets and print-readiness state for operator review."
               : "Approve the generated proof before payment. Checkout unlocks only after you approve the image for this poster."}
           </p>
         </div>

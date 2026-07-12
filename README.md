@@ -19,12 +19,12 @@ Working now:
 - New product direction documented in `research/FIGURINE_PROVIDER_RESEARCH.md` and `docs/Workflows/`: PrintU-like figurine workflow first, generated-3D providers behind server-side adapters, relief parked as R&D
 - Standalone public coming-soon site deployed from `KielRN/3dprintyou` to Railway at `https://3dprintyou.com`; this repo still owns the full app, Functions, provider orchestration, and print-file services
 - Local secret files can contain paid provider credentials such as `MESHY_API_KEY` and Hi3D keys; never print or commit the values
-- Preview-only Meshy Creative Lab figurine workflow: proof approval can call the server-side Meshy provider adapter, store the original textured `model.glb` under `print-files/{uid}/{jobId}/figurine/creative-lab-original/`, show it on the job page, and keep checkout locked while `printReadiness` is `needs_review`
+- Funded-build figurine workflow: concept approval unlocks checkout, Stripe payment queues the server-side Meshy/Hi3D provider build, and generated GLBs/print-readiness stay operator/support-only
 - Planned user model: customer accounts, admin/operator users, and print-partner users with separate server-enforced permissions
 - First Meshy/base scale contract: job `f604d393-bfa2-4779-b05b-f6a2082604c9` established a matched raw GLB-scale square base under `.tmp/gold-standard/Figurine Standard Square Base/`; the target printable height is `150mm`, giving an expected base of about `105.24mm x 105.24mm x 24.00mm`
 - Python print-file generator service for 400px mesh-output STL, 768px geometry-analysis depth/mask/detail work, geometry-only proof cleanup, contour-smoothed subject edges, HueForge-like lithophane subject height blending, reduced surface-intent smoothing, graphic emboss for text/logos, face-aware texture damping, face/forehead pit guarding, image-colored GLB preview, heightmap, metadata, full-color packages, filament painting guides, debug artifacts, region roughness metrics, and printability output
 - Current relief-quality direction: surface-intent aware generation where `lithophane_baseline` drives more of the subject height signal, semantic depth controls broad shape/background separation, skin/scalp/neck/simple clothing/backgrounds stay controlled instead of over-smoothed, and text/logos/emblems/panel lines remain deliberate and inspectable
-- Job-page proof, heightmap, 3D GLB inspection view, and local `.tmp` print-package mirroring after proof approval
+- Poster-relief job-page proof, heightmap, 3D GLB inspection view, and local `.tmp` print-package mirroring after proof approval
 - Firestore and Storage security rules for the dev Firebase project
 - Stripe Checkout session creation boundary
 - PWA manifest, icons, and install behavior
@@ -106,31 +106,33 @@ sequenceDiagram
   participant Stripe as Stripe Checkout
 
   Customer->>Web: Create account or sign in
-  Customer->>Web: Choose JPG/PNG, figurine style, and posture
+  Customer->>Web: Choose style, sign text, and JPG/PNG photo
   Web->>Storage: Upload source photo
   Web->>Fn: createGenerationJob(jobId, path, style)
   Fn->>DB: Create jobs/{jobId} as generating
-  Fn->>AI: Generate 2D figurine proof options
-  AI-->>Fn: Return generated images
-  Fn->>Storage: Save generated proofs
+  Fn->>AI: Generate concept input or proof options
+  AI-->>Fn: Return concept images
+  Fn->>Storage: Save reviewable concept
   Fn->>DB: Mark job preview_ready
-  Customer->>Web: Review and approve proof
+  Customer->>Web: Review and approve concept
   Web->>Fn: approveGeneratedImage
-  Fn->>DB: Mark job approved
-  Fn->>Model: Generate standalone 3D figurine
-  Model-->>Fn: Return GLB/STL/optional 3MF and thumbnails
-  Fn->>Storage: Store generated-models/{uid}/{jobId}
-  Fn->>DB: Save provider artifacts, audit, warnings
-  Web->>Storage: Load proof and model.glb
-  Customer->>Web: Start checkout or preorder
+  Fn->>DB: Mark approved and checkout eligible
+  Customer->>Web: Continue to checkout
   Web->>Fn: createCheckoutSession
   Fn->>Stripe: Create Checkout Session
   Stripe-->>Customer: Collect payment
+  Stripe->>Fn: checkout.session.completed webhook
+  Fn->>DB: Queue figurineBuild
+  Fn->>Model: Generate standalone 3D figurine post-payment
+  Model-->>Fn: Return GLB/STL/optional 3MF and thumbnails
+  Fn->>Storage: Store generated-models/{uid}/{jobId}
+  Fn->>DB: Save provider artifacts, audit, warnings
+  Fn->>DB: Operator/support production state updates
 ```
 
-The implemented app now has preview-only figurine branches after proof approval: Creative Lab jobs can call Meshy server-side, direct-3D jobs can call the selected direct provider, generated GLBs are stored in job-scoped Storage, and checkout stays locked while print readiness is `needs_review`. Poster-relief jobs still use the older print-file generator path.
+The implemented figurine app now uses a funded-build flow: proof/concept generation happens before payment, `approveGeneratedImage` records the selected concept and unlocks checkout, Stripe payment queues `figurineBuild`, and Meshy/Hi3D provider GLBs are generated post-payment for operator/support review. Poster-relief jobs still use the older print-file generator path.
 
-The home-page 3D panel is still a visual preview shell. In the existing relief path, the job page shows the approved proof, generated `heightmap.png`, and real color `preview.glb` after the user approves the proof and the print-file generator finishes. In the new figurine path, that page should review the standalone `model.glb`, provider thumbnails, generation warnings, and fulfillment/readiness state.
+The home-page 3D panel is still a visual preview shell. In the existing relief path, the job page shows the approved proof, generated `heightmap.png`, and real color `preview.glb` after the user approves the proof and the print-file generator finishes. In the figurine path, customer pages show the 2D concept and scene/claim surface; provider GLBs, generation warnings, and fulfillment/readiness state are operator/support concerns.
 
 ## Why There Is A Dev Server And A Functions Emulator
 
@@ -178,7 +180,8 @@ Start with these files when you feel lost:
 - `README.md`: practical beginner map
 - `CHECKLIST.md`: archive pointer and source-of-truth map
 - `CHANGELOG.md`: what changed recently
-- `docs/Workflows/figurine-and-operator-workflows.md`: current figurine/customer/operator workflow overview, with style-specific workflow docs in the same folder
+- `docs/Workflows/figurine-and-operator-workflows.md`: current figurine/customer/operator workflow overview
+- `docs/Workflows/figurine-style-workflow-contracts.md`: current runtime style matrix and family contracts
 - `docs/ARCHITECTURE.md`: deeper system design
 - `docs/DESIGN.md`: front-end design system — brand, color/type tokens, the landing/hero spec, the storyfront funnel, and voice/persuasion principles
 - `docs/DEPLOYMENT.md`: hosting, Firebase, Cloudflare, and secret notes
@@ -193,13 +196,13 @@ The next major implementation slice is the PrintU-like figurine customer flow:
 - Keep the web-first PWA and Firebase backend.
 - Let the customer upload a photo, choose a figurine style, and choose posture.
 - Generate a 2D proof before spending credits on a 3D model.
-- Create the service layer for the workflow: source validation, style/posture persistence, concept history/selection, model generation status/history, asset ingestion, readiness, editor options, and purchase-intent gating.
-- Keep generated-3D providers behind server-side provider adapters and continue validating output quality, terms, cost, retention, and file readiness before public checkout.
+- Create the service layer for the workflow: source validation, style/posture persistence, concept history/selection, post-payment model generation status/history, asset ingestion, readiness, editor options, and purchase-intent gating.
+- Keep generated-3D providers behind server-side provider adapters and continue validating output quality, terms, cost, retention, and file readiness before promising automated fulfillment.
 - Store generated GLB/STL/optional 3MF assets under user/job scoped Storage paths.
-- Show the generated figurine in the job page before checkout or preorder.
+- Keep provider GLBs and print-readiness internals on operator/support surfaces; customer checkout is driven by concept approval or the explicit manual studio-review fallback.
 - Validate slicer/print behavior before promising automated fulfillment.
 
-See `docs/Workflows/figurine-and-operator-workflows.md`, the style-specific docs under `docs/Workflows/`, `research/FIGURINE_PROVIDER_RESEARCH.md`, and `docs/ROADMAP.md` for the current phased direction. `docs/MESHY_FIGURINE_UI_WORKFLOW.md` remains useful as a PrintU-inspired planning reference, but it is not the current source of truth for implemented style workflows.
+See `docs/Workflows/figurine-and-operator-workflows.md`, `docs/Workflows/figurine-style-workflow-contracts.md`, `research/FIGURINE_PROVIDER_RESEARCH.md`, and `docs/ROADMAP.md` for the current phased direction. `docs/MESHY_FIGURINE_UI_WORKFLOW.md` remains useful as a PrintU-inspired planning reference, but it is not the current source of truth for implemented style workflows.
 
 ## Parked Print-File Generator Direction
 
@@ -438,7 +441,7 @@ That is expected in hybrid local testing.
 
 ### The home-page preview shows a flat plate
 
-That is expected on the upload screen. The real generated 3D preview appears with the approved proof and heightmap on `/jobs/{jobId}` after proof approval and print-file generation.
+That is expected on the upload screen. For poster-relief jobs, the real generated 3D preview appears with the approved proof and heightmap on `/jobs/{jobId}` after proof approval and print-file generation. For figurine jobs, customer pages show the 2D concept and the page-4 scene/claim surface; provider GLBs stay operator-only.
 
 If the job page does not show a 3D preview after approval, check that the print-file generator is running, `PRINT_FILE_GENERATOR_URL` is configured, Storage rules allow reads under `print-files/{uid}/{jobId}`, Storage CORS allows `http://localhost:3000`, and the approved proof image is not above the generator's decoded pixel limit.
 

@@ -19,7 +19,7 @@ Start with the most relevant of these files, depending on the request:
 - `CHECKLIST.md`: archived source-of-truth pointer.
 - `CHANGELOG.md`: completed changes and chronology.
 - `README.md`: user-facing setup and project overview.
-- `docs/Workflows/figurine-and-operator-workflows.md` and style-specific docs under `docs/Workflows/`: current figurine/customer/operator workflow contracts.
+- `docs/Workflows/figurine-and-operator-workflows.md` and `docs/Workflows/figurine-style-workflow-contracts.md`: current figurine/customer/operator workflow contracts.
 - `docs/MESHY_FIGURINE_UI_WORKFLOW.md`: PrintU-inspired figurine planning reference; not the current style-by-style workflow source of truth.
 - `docs/PRINT_FILE_GENERATION_WORKFLOW.md`: print-file flow and service contract.
 - `research/FIGURINE_PROVIDER_RESEARCH.md`: current 2026-05-23 customer-acquisition pivot, PrintU UX reference, Meshy provider research, and next validation steps.
@@ -227,12 +227,12 @@ Source: `[repo file, local runbook, or handoff context]`
 - Local `.env` files are ignored and may contain provider keys. It is okay to reason about required variable names and API surfaces; never quote secret values.
 - `masked_depth_detail_blend` with `lithophane_baseline` detail source is the current implemented poster-relief path, but relief is parked R&D until the figurine demand proof is addressed.
 - `triposr_sidecar` was evaluated on 2026-05-09 and rejected for poster relief because it reconstructs standalone 3D objects instead of image-plane depth. Do not read that as a global rejection of image-to-3D for standalone figurines.
-- Provider choice is workflow-specific. Meshy remains the Creative Lab provider and a direct-style rollback option; Hi3D is the current direct Multi-Image-to-3D provider for Heroic fantasy and Super Hero styles. Provider pricing, retention, commercial-use terms, and file readiness must be verified before public checkout.
+- Provider choice is workflow-specific. Meshy remains the Creative Lab provider and a direct-style rollback option; Hi3D is the current direct Multi-Image-to-3D provider for Heroic fantasy and Super Hero styles. Provider pricing, retention, commercial-use terms, and file readiness must be verified before promising automated fulfillment.
 - For PM/roadmap/status work, Graphify should be the first navigation step when the existing graph is available. It is allowed to be unhelpful, but it should get a chance before large-doc reads.
 - Standard Meshy experiment path: `scripts/meshy/run-standard-figurine-experiment.mjs` / `npm run meshy:experiment -- -- --experiment-slug <slug>`. It runs source photo -> Vertex/Gemini body-only concept -> Meshy multi-view -> Meshy 3D -> printability -> normalized artifacts under `.tmp/experiments/meshy/standard`.
 - Historical Meshy runners are archived under `scripts/meshy/archive/2026-05-26-legacy-runners/` for reproducibility, but PM plans and next experiments should point to the standard runner unless the user explicitly asks otherwise.
 - Do not imply provider-generated bases are the intended architecture. Bases, name text, and final body/base assembly are separate deterministic services under `services/print-file-generator`.
-- Do not let PM outputs imply checkout is ready unless the active product path has its required artifacts: poster relief requires proof approval and print-file artifacts; figurine MVP requires proof approval, provider-generated 3D preview/assets, and human/provider validation of fulfillment readiness or an explicit preorder/manual-fulfillment decision.
+- Do not let PM outputs imply the wrong gate: poster relief checkout requires proof approval and print-file artifacts; normal figurine checkout unlocks at concept approval and queues provider 3D generation after payment; automated fulfillment still requires provider assets plus human/provider validation or an explicit manual/studio-review path.
 - Prefer exact dates for schedule/status claims. If a date is unknown, say `TBD`.
 - `.tmp/pm-plans/` is for temporary PM planning artifacts, not permanent docs. Delete or summarize those plans after implementation.
 - Temporary `.tmp/human-tasks/` notes are for human-only follow-ups, especially full product-flow browser tests after AI implementation and local verification. They are not durable PM docs and are not a substitute for automated checks the agent can run locally.

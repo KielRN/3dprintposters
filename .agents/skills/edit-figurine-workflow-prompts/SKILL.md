@@ -20,6 +20,7 @@ Use this skill for prompt/template changes in the figurine workflow. The default
    - `apps/web/components/AdminWorkflowConfig.tsx`
    - `apps/functions/test/figurineWorkflowConfig.test.mjs`
    - `docs/Workflows/figurine-and-operator-workflows.md`
+   - `docs/Workflows/figurine-style-workflow-contracts.md`
 
 ## Editing Rules
 

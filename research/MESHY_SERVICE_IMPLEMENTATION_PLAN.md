@@ -1,7 +1,7 @@
 # Meshy Service Implementation Plan
 
 Status: living implementation plan
-Last updated: 2026-06-11
+Last updated: 2026-07-12
 
 ## Purpose
 
@@ -16,27 +16,27 @@ Keep detailed Meshy experiments and service decisions here so `PROJECT_STATE.md`
 
 ## Immediate Goal
 
-Extend the validated preview-only Creative Lab Figure path into an honestly printable or preorderable product path.
+Extend the funded-build figurine path into an honestly printable or manually fulfillable product path.
 
-Current validated preview workflow:
+Current funded-build workflow:
 
-1. User uploads an image.
-2. User selects the Creative Lab Figure figurine path with `Natural pose` as the default posture.
-3. Backend generates a 2D figurine proof.
-4. User approves the proof.
-5. Backend submits/polls Meshy Creative Lab Figure through the server-side provider adapter.
-6. Backend downloads the original textured `model.glb` into job-scoped Storage.
-7. Job page renders the standalone figurine preview with `printReadiness: "needs_review"`.
-8. Checkout remains locked.
+1. User chooses a public style and uploads a source image.
+2. Backend creates the reviewable concept for the selected style.
+3. User approves the concept.
+4. `approveGeneratedImage` records the concept and unlocks normal checkout.
+5. Stripe payment queues `figurineBuild`.
+6. `onFigurineBuildQueued` submits/polls the selected Meshy or Hi3D provider path through the server-side adapter.
+7. Backend downloads provider assets into job-scoped Storage.
+8. Operator/support surfaces review generated GLBs, print-readiness, and fulfillment state.
 
-Current Chibi diverges from that generated-options baseline. The up-to-date Chibi flows use one Meshy concept image reviewed by the customer, but the pre-Meshy input step differs by style family: heroic-fantasy Chibi uses `template_face_swap`, while photo-driven Chibi uses `generated_options` with `proofRendering: realistic_person` as an internal cleanup render. Keep the detailed Chibi source of truth in `docs/Workflows/`.
+Current Chibi diverges from the generic generated-options baseline. The up-to-date Chibi flows use one Meshy concept image reviewed by the customer, but the pre-Meshy input step differs by style family: heroic-fantasy Chibi uses `template_face_swap`, while photo-driven Chibi uses `generated_options` with `proofRendering: realistic_person` as an internal cleanup render. Keep the detailed style source of truth in `docs/Workflows/figurine-style-workflow-contracts.md`.
 
 Current open work:
 
 - Finish deterministic Meshy-body-to-named-base assembly at `150mm` target body height.
 - Decide the downstream print path from Creative Lab GLB: provider repair, provider remesh/conversion, local deterministic repair/conversion, or manual fulfillment.
 - Add richer model history, retry/status controls, webhook/poll reconciliation, print-tooling state, and final readiness.
-- Keep customer copy preview-only until slicer/physical-print validation or a manual preorder path is explicitly approved.
+- Keep customer copy honest: customers approve the 2D concept and checkout into production/support, while provider GLBs and print-readiness remain operator/support concerns until fulfillment is validated.
 
 ## Current Architecture Decision
 
@@ -46,14 +46,15 @@ Target production flow:
 
 1. User uploads a source photo.
 2. Backend validates image ownership, file type, size, decode, and suitability.
-3. Backend creates or selects the reviewable concept for the selected style. Generated-options styles use Vertex/Gemini proof options; current Chibi style families use the workflow-specific Creative Lab concept paths documented under `docs/Workflows/`.
+3. Backend creates or selects the reviewable concept for the selected style. Generated-options styles use Vertex/Gemini proof options; current Creative Lab concept-gate styles use the workflow-specific paths documented in `docs/Workflows/figurine-style-workflow-contracts.md`.
 4. User approves the concept.
-5. Backend submits the approved job to Meshy Creative Lab Figure through the provider adapter.
-6. Backend tracks Meshy status through polling and/or webhook events.
-7. Backend downloads GLB/thumbnails/textures into project Storage before Meshy retention expires. STL/3MF are downstream print-tooling outputs unless Creative Lab starts returning them directly.
-8. Backend records model readiness and warnings.
-9. Job page shows our stored GLB and readiness state.
-10. Checkout/preorder/lead capture stays gated until the active model and fulfillment path are honestly represented.
+5. `approveGeneratedImage` records the concept and unlocks normal checkout.
+6. Stripe payment queues the provider build.
+7. Backend submits the paid job to the selected Meshy/Hi3D provider through the provider adapter.
+8. Backend tracks provider status through polling and/or webhook events.
+9. Backend downloads GLB/thumbnails/textures into project Storage before provider retention expires. STL/3MF are downstream print-tooling outputs unless the provider returns them directly.
+10. Operator/support surfaces review model readiness and warnings.
+11. Automated fulfillment promises stay gated until the active model and fulfillment path are honestly represented.
 
 ## Meshy API Calls That Work
 
@@ -945,9 +946,9 @@ For local experiments, continue using:
 
 Current preview implementation:
 
-- `createGenerationJob` accepts/infers `productType: "figurine"` from the server-read workflow style config and persists selected style metadata. Generated-options styles can create multiple proof options; current Chibi creates one face-swapped identity image, sends it to Meshy prototype, and stores one Meshy concept image for review.
-- `approveGeneratedImage` approves the selected review image and dispatches the configured 3D workflow. For current Chibi, it continues Meshy Creative Lab build from the stored prototype task; see the Chibi workflow docs under `docs/Workflows/`.
-- `createCheckoutSession` rejects figurine jobs until a future print-ready fulfillment path exists.
+- `createGenerationJob` accepts/infers `productType: "figurine"` from the server-read workflow style config and persists selected style metadata. Generated-options styles can create multiple proof options; Creative Lab concept-gate styles store one Meshy prototype concept for review. Current style contracts live in `docs/Workflows/figurine-style-workflow-contracts.md`.
+- `approveGeneratedImage` approves the selected review image for figurines and does not dispatch Meshy or Hi3D. The configured 3D workflow runs after payment through the guarded `figurineBuild` queue, or after operator release for manual studio-review orders.
+- `createCheckoutSession` accepts normal figurine jobs after concept approval. Provider GLBs and print-readiness remain operator/support concerns.
 
 Future split-out callable/API surface:
 

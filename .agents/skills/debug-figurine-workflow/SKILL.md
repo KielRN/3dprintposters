@@ -39,7 +39,7 @@ Start with these files when the failing boundary is unclear:
 - Provider handoff/build: `apps/functions/src/figurineBuild.ts`, `apps/functions/src/meshyFigurineProvider.ts`, `apps/functions/src/hi3dFigurineProvider.ts`
 - Admin/operator summaries: `apps/functions/src/adminSupport.ts`, `apps/web/components/AdminSupportJobs.tsx`
 - Recovery/stale jobs: `apps/functions/src/generationRecovery.ts`, `apps/functions/scripts/repair-stale-generation-jobs.mjs`
-- Current workflow docs: `docs/Workflows/figurine-and-operator-workflows.md` and matching style-specific docs
+- Current workflow docs: `docs/Workflows/figurine-and-operator-workflows.md` and `docs/Workflows/figurine-style-workflow-contracts.md`
 
 ## Helper
 
