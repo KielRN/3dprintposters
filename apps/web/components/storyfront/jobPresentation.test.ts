@@ -48,14 +48,14 @@ describe("jobStatusChip (implementation.md chip table, evaluated in order)", () 
     });
   });
 
-  it("pre-payment failures -> Needs attention / coral", () => {
+  it("pre-payment terminal states route to review chips", () => {
     expect(jobStatusChip({ ...base, status: "failed" })).toEqual({
-      label: "Needs attention",
-      tone: "coral",
+      label: "Studio review",
+      tone: "gold",
     });
     expect(
       jobStatusChip({ ...base, status: "approved", printFileStatus: "failed" }),
-    ).toEqual({ label: "Needs attention", tone: "coral" });
+    ).toEqual({ label: "Support review", tone: "gold" });
   });
 
   it("anything else -> In progress / muted", () => {

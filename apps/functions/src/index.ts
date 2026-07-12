@@ -11,6 +11,7 @@ import {
 import { getStorage } from "firebase-admin/storage";
 import { defineSecret } from "firebase-functions/params";
 import { HttpsError, onCall, onRequest } from "firebase-functions/v2/https";
+import { onSchedule } from "firebase-functions/v2/scheduler";
 import archiver from "archiver";
 import { randomUUID } from "node:crypto";
 import { PassThrough } from "node:stream";
@@ -83,6 +84,15 @@ import {
   visibleWorkflowStyles,
   normalizeDirectMultiImageProviderSelection,
 } from "./figurineWorkflowConfig.js";
+import {
+  defaultGenerationStaleAfterMs,
+  fallbackFigurineCheckoutEligibility,
+  hasManualProofFulfillmentMode,
+  manualProofFulfillmentMode,
+  publicGenerationProgressMessage,
+  publicGenerationRecoveryMessage,
+  shouldMarkGenerationStale,
+} from "./generationRecovery.js";
 
 initializeApp();
 
@@ -184,6 +194,11 @@ const operatorUpdateFulfillmentSchema = z.discriminatedUnion("action", [
     subState: z.enum(["printing", "painting"]),
   }),
   z.object({
+    action: z.literal("release_manual_proof"),
+    jobId: jobIdSchema,
+    reviewedConceptPath: z.string().min(1).max(500),
+  }),
+  z.object({
     action: z.literal("reject"),
     jobId: jobIdSchema,
     reason: z.string().min(5).max(2000),
@@ -234,7 +249,12 @@ const printFileGeneratorFetchTimeoutMs = 480_000;
 const meshyModelDataUriByteLimit = 100 * 1024 * 1024;
 
 type CheckoutSessionWebhookObject = {
-  metadata?: { orderId?: string; jobId?: string; uid?: string } | null;
+  metadata?: {
+    orderId?: string;
+    jobId?: string;
+    uid?: string;
+    fulfillmentMode?: string;
+  } | null;
   payment_intent?: string | { id?: string } | null;
   customer_details?: { name?: string | null; email?: string | null } | null;
   shipping_details?: {
@@ -373,6 +393,99 @@ function buildGenerationError(error: unknown) {
         : "Poster generation did not complete.",
     stage: "ai_generation",
   };
+}
+
+function classifyGenerationFailure(error: unknown): string {
+  const message =
+    error instanceof Error ? error.message.toLowerCase() : String(error);
+  if (message.includes("memory") || message.includes("oom")) {
+    return "worker_memory_exhausted_during_image_preflight";
+  }
+  if (message.includes("timeout") || message.includes("deadline")) {
+    return "generation_runtime_exceeded";
+  }
+  if (message.includes("meshy")) {
+    return "provider_generation_incomplete";
+  }
+  return "generation_incomplete";
+}
+
+function generationProgressUpdate(stage: string) {
+  return {
+    generationState: {
+      state: "running",
+      stage,
+      lastProgressAt: FieldValue.serverTimestamp(),
+      publicMessage: publicGenerationProgressMessage(stage),
+    },
+    updatedAt: FieldValue.serverTimestamp(),
+  };
+}
+
+function generationReadyUpdate(stage = "finalized") {
+  return {
+    generationState: {
+      state: "ready",
+      stage,
+      lastProgressAt: FieldValue.serverTimestamp(),
+      completedAt: FieldValue.serverTimestamp(),
+      publicMessage: publicGenerationProgressMessage(stage),
+    },
+  };
+}
+
+function generationFailureUpdate(input: {
+  error: unknown;
+  productType: "poster" | "figurine";
+}) {
+  const failureCode = classifyGenerationFailure(input.error);
+  return {
+    status: "failed",
+    error: buildGenerationError(input.error),
+    aiGeneration: {
+      status: "failed",
+      failedAt: FieldValue.serverTimestamp(),
+      failureCode,
+    },
+    generationState: {
+      state: "failed",
+      stage: "terminal",
+      lastProgressAt: FieldValue.serverTimestamp(),
+      completedAt: FieldValue.serverTimestamp(),
+      failureCode,
+      publicMessage:
+        input.productType === "figurine"
+          ? publicGenerationRecoveryMessage()
+          : "Your proof is ready for support review.",
+    },
+    ...(input.productType === "figurine"
+      ? {
+          readinessStatus: "personal_studio_review",
+          manualCheckoutEligibility: {
+            eligible: true,
+            reason: "personal_studio_review",
+          },
+        }
+      : {}),
+    updatedAt: FieldValue.serverTimestamp(),
+  };
+}
+
+async function markGenerationProgress(input: {
+  jobRef: DocumentReference;
+  jobId: string;
+  styleId: string;
+  stage: string;
+  startedAtMs: number;
+}): Promise<void> {
+  await input.jobRef.set(generationProgressUpdate(input.stage), { merge: true });
+  console.info("generation stage updated", {
+    jobId: input.jobId,
+    style: input.styleId,
+    stage: input.stage,
+    elapsedMs: Date.now() - input.startedAtMs,
+    outcome: "progress",
+  });
 }
 
 function buildPrintFileError(error: unknown) {
@@ -815,6 +928,7 @@ export const createGenerationJob = onCall(
       throw new HttpsError("already-exists", "A different job uses this id.");
     }
 
+    const generationStartedAtMs = Date.now();
     await jobRef.set({
       uid: account.uid,
       productType,
@@ -882,8 +996,22 @@ export const createGenerationJob = onCall(
         status: "queued",
         startedAt: FieldValue.serverTimestamp(),
       },
+      generationState: {
+        state: "running",
+        stage: "job_created",
+        startedAt: FieldValue.serverTimestamp(),
+        lastProgressAt: FieldValue.serverTimestamp(),
+        publicMessage: publicGenerationProgressMessage("job_created"),
+      },
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
+    });
+    console.info("generation stage updated", {
+      jobId: jobRef.id,
+      style: workflowStyle.id,
+      stage: "job_created",
+      elapsedMs: Date.now() - generationStartedAtMs,
+      outcome: "progress",
     });
 
     // realistic_person Creative Lab styles reuse the Meshy concept gate: one
@@ -896,6 +1024,13 @@ export const createGenerationJob = onCall(
       workflowStyle.proofRendering === "realistic_person";
 
     try {
+      await markGenerationProgress({
+        jobRef,
+        jobId: jobRef.id,
+        styleId: workflowStyle.id,
+        stage: "proof_generation_started",
+        startedAtMs: generationStartedAtMs,
+      });
       const aiProvider = createPosterAiProvider();
       const generation = await aiProvider.generatePosterConcept({
         jobId: jobRef.id,
@@ -912,6 +1047,13 @@ export const createGenerationJob = onCall(
         proofMode: workflowStyle.proofMode,
         proofRendering: workflowStyle.proofRendering,
         referenceImages: styleReferenceImages,
+      });
+      await markGenerationProgress({
+        jobRef,
+        jobId: jobRef.id,
+        styleId: workflowStyle.id,
+        stage: "proof_generation_completed",
+        startedAtMs: generationStartedAtMs,
       });
       const proofStoragePaths =
         generation.status === "stubbed"
@@ -967,6 +1109,7 @@ export const createGenerationJob = onCall(
                 reason:
                   "Generate the 3D figurine from the approved direct-3D input before checkout can be considered.",
               },
+              ...generationReadyUpdate(),
               updatedAt: FieldValue.serverTimestamp(),
             },
             { merge: true },
@@ -982,6 +1125,13 @@ export const createGenerationJob = onCall(
           };
         }
 
+        await markGenerationProgress({
+          jobRef,
+          jobId: jobRef.id,
+          styleId: workflowStyle.id,
+          stage: "meshy_prototype_started",
+          startedAtMs: generationStartedAtMs,
+        });
         const concept = await generateCreativeLabPrototypeConcept({
           jobId: jobRef.id,
           uid: account.uid,
@@ -989,6 +1139,13 @@ export const createGenerationJob = onCall(
           conceptOutputPrefix: `generated/${account.uid}/${jobRef.id}`,
           modelId: "creative-lab-original",
           apiKey: resolveMeshyApiKeyForFigurine(),
+        });
+        await markGenerationProgress({
+          jobRef,
+          jobId: jobRef.id,
+          styleId: workflowStyle.id,
+          stage: "meshy_prototype_completed",
+          startedAtMs: generationStartedAtMs,
         });
 
         await jobRef.set(
@@ -1027,6 +1184,7 @@ export const createGenerationJob = onCall(
               reason:
                 "Generate the 3D figurine from the approved concept before checkout can be considered.",
             },
+            ...generationReadyUpdate(),
             updatedAt: FieldValue.serverTimestamp(),
           },
           { merge: true },
@@ -1071,6 +1229,7 @@ export const createGenerationJob = onCall(
                 },
               }
             : {}),
+          ...generationReadyUpdate(),
           updatedAt: FieldValue.serverTimestamp(),
         },
         { merge: true },
@@ -1083,15 +1242,7 @@ export const createGenerationJob = onCall(
       };
     } catch (error) {
       await jobRef.set(
-        {
-          status: "failed",
-          error: buildGenerationError(error),
-          aiGeneration: {
-            status: "failed",
-            failedAt: FieldValue.serverTimestamp(),
-          },
-          updatedAt: FieldValue.serverTimestamp(),
-        },
+        generationFailureUpdate({ error, productType }),
         { merge: true },
       );
       await refreshJobCostFromFirestore(jobRef, "proof_generation_failed");
@@ -1099,10 +1250,105 @@ export const createGenerationJob = onCall(
       throw new HttpsError(
         "internal",
         productType === "figurine"
-          ? "Figurine concept generation failed before a preview was ready."
-          : "Poster generation failed before a proof was ready.",
+          ? publicGenerationRecoveryMessage()
+          : "Your proof is ready for support review.",
       );
     }
+  },
+);
+
+export const reconcileStaleGenerationJobs = onSchedule(
+  {
+    schedule: "every 10 minutes",
+    timeZone: "America/Chicago",
+  },
+  async () => {
+    const nowMs = Date.now();
+    const candidates = await db
+      .collection("jobs")
+      .where("status", "==", "generating")
+      .where("productType", "==", "figurine")
+      .limit(50)
+      .get();
+
+    let reconciled = 0;
+    await Promise.all(
+      candidates.docs.map(async (candidate) => {
+        const candidateData = candidate.data() as Record<string, unknown>;
+        if (
+          !shouldMarkGenerationStale({
+            jobData: candidateData,
+            nowMs,
+            staleAfterMs: defaultGenerationStaleAfterMs,
+          })
+        ) {
+          return;
+        }
+
+        const didReconcile = await db.runTransaction(async (tx) => {
+          const freshSnap = await tx.get(candidate.ref);
+          const freshData = freshSnap.data() as Record<string, unknown> | undefined;
+          if (
+            !freshSnap.exists ||
+            !freshData ||
+            !shouldMarkGenerationStale({
+              jobData: freshData,
+              nowMs,
+              staleAfterMs: defaultGenerationStaleAfterMs,
+            })
+          ) {
+            return false;
+          }
+
+          tx.set(
+            candidate.ref,
+            {
+              status: "failed",
+              error: {
+                message:
+                  "Generation watchdog moved the job to personal studio review after stale progress.",
+                stage: "generation_recovery",
+              },
+              aiGeneration: {
+                status: "failed",
+                failedAt: FieldValue.serverTimestamp(),
+                failureCode: "generation_stale_timeout",
+              },
+              generationState: {
+                state: "stale",
+                stage: "stale_reconciled",
+                lastProgressAt: FieldValue.serverTimestamp(),
+                completedAt: FieldValue.serverTimestamp(),
+                failureCode: "generation_stale_timeout",
+                publicMessage: publicGenerationRecoveryMessage(),
+              },
+              readinessStatus: "personal_studio_review",
+              manualCheckoutEligibility: {
+                eligible: true,
+                reason: "personal_studio_review",
+              },
+              updatedAt: FieldValue.serverTimestamp(),
+            },
+            { merge: true },
+          );
+          return true;
+        });
+
+        if (didReconcile) {
+          reconciled += 1;
+          console.warn("stale generation reconciled", {
+            jobId: candidate.id,
+            status: "failed",
+            failureCode: "generation_stale_timeout",
+          });
+        }
+      }),
+    );
+
+    console.info("stale generation reconciliation completed", {
+      checked: candidates.size,
+      reconciled,
+    });
   },
 );
 
@@ -1232,6 +1478,240 @@ export const approveGeneratedImage = onCall(
   },
 );
 
+type CheckoutMode = "standard" | typeof manualProofFulfillmentMode;
+type CheckoutLineItem = {
+  quantity: number;
+  price?: string;
+  price_data?: {
+    currency: "usd";
+    unit_amount: number;
+    product_data: {
+      name: string;
+      description: string;
+    };
+  };
+};
+
+function checkoutLineItems(input: {
+  isFigurine: boolean;
+  paintOption: "painted" | "unpainted" | null;
+}): {
+  lineItems: CheckoutLineItem[];
+  priceSnapshot: {
+    currency: "usd";
+    unitAmount: number;
+    stripePriceId: string | null;
+  };
+} {
+  if (input.isFigurine) {
+    const figurinePriceId =
+      input.paintOption === "painted"
+        ? (optionalRuntimeValue(stripeFigurinePaintedPriceId.value()) ??
+          optionalRuntimeValue(process.env.STRIPE_FIGURINE_PAINTED_PRICE_ID))
+        : (optionalRuntimeValue(stripeFigurineUnpaintedPriceId.value()) ??
+          optionalRuntimeValue(process.env.STRIPE_FIGURINE_UNPAINTED_PRICE_ID));
+    const figurineFallbackAmount =
+      input.paintOption === "painted"
+        ? figurinePaintedFallbackCents
+        : figurineUnpaintedFallbackCents;
+    return {
+      lineItems: figurinePriceId
+        ? [{ quantity: 1, price: figurinePriceId }]
+        : [
+            {
+              quantity: 1,
+              price_data: {
+                currency: "usd",
+                unit_amount: figurineFallbackAmount,
+                product_data: {
+                  name:
+                    input.paintOption === "painted"
+                      ? "Custom 3D Printed Figurine (painted)"
+                      : "Custom 3D Printed Figurine (unpainted)",
+                  description: "Custom figurine from your photo",
+                },
+              },
+            },
+          ],
+      priceSnapshot: {
+        currency: "usd",
+        unitAmount: figurineFallbackAmount,
+        stripePriceId: figurinePriceId ?? null,
+      },
+    };
+  }
+
+  const posterPriceId =
+    optionalRuntimeValue(stripePosterPriceId.value()) ??
+    optionalRuntimeValue(process.env.STRIPE_POSTER_PRICE_ID);
+  return {
+    lineItems: posterPriceId
+      ? [{ quantity: 1, price: posterPriceId }]
+      : [
+          {
+            quantity: 1,
+            price_data: {
+              currency: "usd",
+              unit_amount: 6000,
+              product_data: {
+                name: "Custom 3D Print Poster",
+                description: "5in x 7in physical relief poster",
+              },
+            },
+          },
+        ],
+    priceSnapshot: {
+      currency: "usd",
+      unitAmount: 6000,
+      stripePriceId: posterPriceId ?? null,
+    },
+  };
+}
+
+async function createStripeCheckoutForJob(input: {
+  accountUid: string;
+  jobId: string;
+  jobData: Record<string, unknown>;
+  orderRef: DocumentReference;
+  existingOrderExists: boolean;
+  existingOrderData: Record<string, unknown> | undefined;
+  checkoutMode: CheckoutMode;
+  approvedImagePath: string | null;
+  checkoutSeed: string;
+  cancelPath: string;
+  paintOption: "painted" | "unpainted" | null;
+  manualReviewSnapshot?: Record<string, unknown>;
+}): Promise<{ orderId: string; checkoutUrl: string | null }> {
+  const isFigurine = input.jobData.productType === "figurine";
+  if (
+    input.existingOrderData?.status === "paid" ||
+    input.existingOrderData?.paymentStatus === "paid"
+  ) {
+    throw new HttpsError("failed-precondition", "This order is already paid.");
+  }
+
+  const previousCheckoutAttempt =
+    typeof input.existingOrderData?.checkoutAttempt === "number"
+      ? input.existingOrderData.checkoutAttempt
+      : 0;
+  const startingAfterExpiredCheckout =
+    input.existingOrderData?.status === "checkout_expired" ||
+    input.existingOrderData?.paymentStatus === "expired";
+  const checkoutAttempt =
+    input.existingOrderExists && startingAfterExpiredCheckout
+      ? previousCheckoutAttempt + 1
+      : Math.max(previousCheckoutAttempt, 1);
+  const checkoutIdempotencyKey = [
+    input.checkoutMode === manualProofFulfillmentMode
+      ? "manual-review-checkout"
+      : "checkout",
+    input.accountUid,
+    input.jobId,
+    input.checkoutSeed,
+    checkoutAttempt,
+    input.paintOption ?? "none",
+  ].join(":");
+
+  const stripe = new Stripe(stripeSecretKey.value());
+  const appUrl =
+    optionalRuntimeValue(publicAppUrl.value()) ??
+    optionalRuntimeValue(process.env.PUBLIC_APP_URL) ??
+    "http://localhost:3000";
+  const { lineItems, priceSnapshot } = checkoutLineItems({
+    isFigurine,
+    paintOption: input.paintOption,
+  });
+
+  const session = await stripe.checkout.sessions.create(
+    {
+      mode: "payment",
+      success_url: `${appUrl}/orders/${input.orderRef.id}?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${appUrl}${input.cancelPath}`,
+      shipping_address_collection: {
+        allowed_countries: ["US", "CA"],
+      },
+      line_items: lineItems,
+      metadata: {
+        uid: input.accountUid,
+        jobId: input.jobId,
+        orderId: input.orderRef.id,
+        paintOption: input.paintOption ?? "",
+        fulfillmentMode:
+          input.checkoutMode === manualProofFulfillmentMode
+            ? manualProofFulfillmentMode
+            : "",
+      },
+    },
+    { idempotencyKey: checkoutIdempotencyKey },
+  );
+
+  const printFileArtifacts = input.jobData.printFileArtifacts as
+    | Partial<PrintFileArtifacts>
+    | undefined;
+  await input.orderRef.set(
+    {
+      uid: input.accountUid,
+      jobId: input.jobId,
+      approvedImagePath: input.approvedImagePath,
+      printFileOutputPrefix: input.jobData.printFileOutputPrefix ?? null,
+      printFileArtifacts,
+      printFileAudit: input.jobData.printFileAudit ?? null,
+      printability: input.jobData.printability ?? null,
+      status: "checkout_created",
+      paymentStatus: "pending",
+      fulfillmentStatus:
+        input.checkoutMode === manualProofFulfillmentMode
+          ? manualProofFulfillmentMode
+          : "not_started",
+      fulfillmentMode:
+        input.checkoutMode === manualProofFulfillmentMode
+          ? manualProofFulfillmentMode
+          : null,
+      manualReview:
+        input.checkoutMode === manualProofFulfillmentMode
+          ? {
+              status: "checkout_created",
+              ...input.manualReviewSnapshot,
+              createdAt: FieldValue.serverTimestamp(),
+            }
+          : null,
+      stripeCheckoutSessionId: session.id,
+      provider: null,
+      providerOrderId: null,
+      checkoutAttempt,
+      checkoutIdempotencyKey,
+      paintOption: input.paintOption,
+      productType: input.jobData.productType ?? "poster",
+      priceSnapshot,
+      ...(input.existingOrderExists
+        ? {}
+        : { createdAt: FieldValue.serverTimestamp() }),
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
+
+  if (input.checkoutMode === manualProofFulfillmentMode) {
+    await db.collection("jobs").doc(input.jobId).set(
+      {
+        fulfillmentMode: manualProofFulfillmentMode,
+        manualCheckout: {
+          status: "checkout_created",
+          stripeCheckoutSessionId: session.id,
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+  }
+
+  return {
+    orderId: input.orderRef.id,
+    checkoutUrl: session.url,
+  };
+}
+
 export const createCheckoutSession = onCall(
   {
     secrets: [
@@ -1307,151 +1787,122 @@ export const createCheckoutSession = onCall(
       throw new HttpsError("already-exists", "A different order uses this id.");
     }
 
-    if (
-      existingOrderData?.status === "paid" ||
-      existingOrderData?.paymentStatus === "paid"
-    ) {
+    return createStripeCheckoutForJob({
+      accountUid: account.uid,
+      jobId: parsed.data.jobId,
+      jobData,
+      orderRef,
+      existingOrderExists: existingOrder.exists,
+      existingOrderData,
+      checkoutMode: "standard",
+      approvedImagePath: String(jobData.approvedImagePath),
+      checkoutSeed: String(jobData.approvedImagePath),
+      cancelPath: `/jobs/${parsed.data.jobId}?checkout=cancelled`,
+      paintOption,
+    });
+  },
+);
+
+export const createFallbackFigurineCheckoutSession = onCall(
+  {
+    secrets: [
+      publicAppUrl,
+      stripeFigurinePaintedPriceId,
+      stripeFigurineUnpaintedPriceId,
+      stripeSecretKey,
+    ],
+  },
+  async (request) => {
+    const account = requireSignedInAccount(request);
+    const parsed = checkoutSchema.safeParse(request.data);
+    if (!parsed.success) {
+      throw new HttpsError("invalid-argument", "jobId is required.");
+    }
+
+    const jobRef = db.collection("jobs").doc(parsed.data.jobId);
+    const jobSnap = await jobRef.get();
+    const jobData = jobSnap.data() as Record<string, unknown> | undefined;
+    const fallbackEligibility = fallbackFigurineCheckoutEligibility({
+      jobId: parsed.data.jobId,
+      uid: account.uid,
+      jobData,
+    });
+    if (!jobSnap.exists || !jobData || !fallbackEligibility.eligible) {
       throw new HttpsError(
-        "failed-precondition",
-        "This poster order has already been paid.",
+        fallbackEligibility.eligible ? "not-found" : "failed-precondition",
+        publicGenerationRecoveryMessage(),
       );
     }
 
-    const stripe = new Stripe(stripeSecretKey.value());
-    const appUrl = process.env.PUBLIC_APP_URL ?? "http://localhost:3000";
-    const posterPriceId = process.env.STRIPE_POSTER_PRICE_ID;
-    const previousCheckoutAttempt =
-      typeof existingOrderData?.checkoutAttempt === "number"
-        ? existingOrderData.checkoutAttempt
-        : 0;
-    const startingAfterExpiredCheckout =
-      existingOrderData?.status === "checkout_expired" ||
-      existingOrderData?.paymentStatus === "expired";
-    const checkoutAttempt =
-      existingOrder.exists && startingAfterExpiredCheckout
-        ? previousCheckoutAttempt + 1
-        : Math.max(previousCheckoutAttempt, 1);
-    const checkoutIdempotencyKey = [
-      "checkout",
-      account.uid,
-      parsed.data.jobId,
-      String(jobData.approvedImagePath),
-      checkoutAttempt,
-      paintOption ?? "none",
-    ].join(":");
+    const workflowConfig = await readFigurineWorkflowConfig(db);
+    const styleId =
+      typeof jobData.selectedStyle === "string" ? jobData.selectedStyle : "";
+    const workflowStyle = resolveVisibleWorkflowStyle(workflowConfig, styleId);
+    if (!workflowStyle || workflowStyle.productType !== "figurine") {
+      throw new HttpsError(
+        "failed-precondition",
+        "Studio review checkout is available for public figurine styles.",
+      );
+    }
 
-    const figurinePriceId =
-      paintOption === "painted"
-        ? (optionalRuntimeValue(stripeFigurinePaintedPriceId.value()) ??
-          optionalRuntimeValue(process.env.STRIPE_FIGURINE_PAINTED_PRICE_ID))
-        : (optionalRuntimeValue(stripeFigurineUnpaintedPriceId.value()) ??
-          optionalRuntimeValue(process.env.STRIPE_FIGURINE_UNPAINTED_PRICE_ID));
-    const figurineFallbackAmount =
-      paintOption === "painted"
-        ? figurinePaintedFallbackCents
-        : figurineUnpaintedFallbackCents;
-    const lineItems = isFigurine
-      ? figurinePriceId
-        ? [
-            {
-              quantity: 1,
-              price: figurinePriceId,
-            },
-          ]
-        : [
-            {
-              quantity: 1,
-              price_data: {
-                currency: "usd",
-                unit_amount: figurineFallbackAmount,
-                product_data: {
-                  name:
-                    paintOption === "painted"
-                      ? "Custom 3D Printed Figurine (painted)"
-                      : "Custom 3D Printed Figurine (unpainted)",
-                  description: "Custom figurine from your photo",
-                },
-              },
-            },
-          ]
-      : posterPriceId
-        ? [
-            {
-              quantity: 1,
-              price: posterPriceId,
-            },
-          ]
-        : [
-            {
-              quantity: 1,
-              price_data: {
-                currency: "usd",
-                unit_amount: 6000,
-                product_data: {
-                  name: "Custom 3D Print Poster",
-                  description: "5in x 7in physical relief poster",
-                },
-              },
-            },
-          ];
+    const orderRef = db.collection("orders").doc(parsed.data.jobId);
+    const existingOrder = await orderRef.get();
+    const existingOrderData = existingOrder.data() as
+      | Record<string, unknown>
+      | undefined;
+    if (
+      existingOrder.exists &&
+      (existingOrderData?.uid !== account.uid ||
+        existingOrderData.jobId !== parsed.data.jobId)
+    ) {
+      throw new HttpsError("already-exists", "A different order uses this id.");
+    }
 
-    const session = await stripe.checkout.sessions.create(
-      {
-        mode: "payment",
-        success_url: `${appUrl}/orders/${orderRef.id}?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${appUrl}/jobs/${parsed.data.jobId}?checkout=cancelled`,
-        shipping_address_collection: {
-          allowed_countries: ["US", "CA"],
-        },
-        line_items: lineItems,
-        metadata: {
-          uid: account.uid,
-          jobId: parsed.data.jobId,
-          orderId: orderRef.id,
-          paintOption: paintOption ?? "",
-        },
-      },
-      {
-        idempotencyKey: checkoutIdempotencyKey,
-      },
-    );
+    const baseConfig = jobData.baseConfig as
+      | { sign?: { text?: unknown } | null }
+      | undefined;
+    const signText =
+      typeof baseConfig?.sign?.text === "string"
+        ? baseConfig.sign.text.trim()
+        : "";
+    const generationState = jobData.generationState as
+      | { failureCode?: unknown; stage?: unknown; state?: unknown }
+      | undefined;
+    const failureCode =
+      typeof generationState?.failureCode === "string"
+        ? generationState.failureCode
+        : "generation_incomplete";
+    const paintOption = parsed.data.paintOption ?? "unpainted";
 
-    await orderRef.set(
-      {
-        uid: account.uid,
-        jobId: parsed.data.jobId,
-        approvedImagePath: jobData.approvedImagePath,
-        printFileOutputPrefix: jobData.printFileOutputPrefix ?? null,
-        printFileArtifacts,
-        printFileAudit: jobData.printFileAudit ?? null,
-        printability: jobData.printability ?? null,
-        status: "checkout_created",
-        paymentStatus: "pending",
-        fulfillmentStatus: "not_started",
-        stripeCheckoutSessionId: session.id,
-        provider: null,
-        providerOrderId: null,
-        checkoutAttempt,
-        checkoutIdempotencyKey,
+    return createStripeCheckoutForJob({
+      accountUid: account.uid,
+      jobId: parsed.data.jobId,
+      jobData,
+      orderRef,
+      existingOrderExists: existingOrder.exists,
+      existingOrderData,
+      checkoutMode: manualProofFulfillmentMode,
+      approvedImagePath: null,
+      checkoutSeed: failureCode,
+      cancelPath: `/jobs/${parsed.data.jobId}/manual-checkout?checkout=cancelled`,
+      paintOption,
+      manualReviewSnapshot: {
+        sourceImagePath: jobData.sourceImagePath,
+        selectedStyle: workflowStyle.id,
+        selectedStyleLabel: workflowStyle.label,
+        signText,
         paintOption,
-        productType: jobData.productType ?? "poster",
-        priceSnapshot: {
-          currency: "usd",
-          unitAmount: isFigurine ? figurineFallbackAmount : 6000,
-          stripePriceId: (isFigurine ? figurinePriceId : posterPriceId) ?? null,
-        },
-        ...(existingOrder.exists
-          ? {}
-          : { createdAt: FieldValue.serverTimestamp() }),
-        updatedAt: FieldValue.serverTimestamp(),
+        failureCode,
+        generationState:
+          typeof generationState?.state === "string"
+            ? generationState.state
+            : null,
+        generationStage:
+          typeof generationState?.stage === "string"
+            ? generationState.stage
+            : null,
       },
-      { merge: true },
-    );
-
-    return {
-      orderId: orderRef.id,
-      checkoutUrl: session.url,
-    };
+    });
   },
 );
 
@@ -1496,13 +1947,26 @@ export const stripeWebhook = onRequest(
         const customerFields = customerFieldsFromSession(
           session as Record<string, unknown>,
         );
+        const orderRef = db.collection("orders").doc(orderId);
+        const orderSnap = await orderRef.get();
+        const orderData = (orderSnap.data() ?? {}) as Record<string, unknown>;
+        const manualProofOrder =
+          hasManualProofFulfillmentMode({ orderData }) ||
+          session.metadata?.fulfillmentMode === manualProofFulfillmentMode;
+        const firstManualProofPayment =
+          manualProofOrder &&
+          orderData.status !== "paid" &&
+          orderData.paymentStatus !== "paid";
         const paidAt = FieldValue.serverTimestamp();
         const batch = db.batch();
         batch.set(
-          db.collection("orders").doc(orderId),
+          orderRef,
           {
             status: "paid",
             paymentStatus: "paid",
+            fulfillmentStatus: manualProofOrder
+              ? manualProofFulfillmentMode
+              : "not_started",
             stripePaymentIntentId:
               typeof session.payment_intent === "string"
                 ? session.payment_intent
@@ -1512,7 +1976,9 @@ export const stripeWebhook = onRequest(
             shippingAddress: customerFields.shippingAddress,
             fulfillment: {
               stage: "paid",
-              productionSubState: null,
+              productionSubState: manualProofOrder
+                ? manualProofFulfillmentMode
+                : null,
               acceptedAt: null,
               acceptedBy: null,
               rejection: null,
@@ -1539,12 +2005,39 @@ export const stripeWebhook = onRequest(
           const jobSnap = await jobRef.get();
           const queueFigurineBuild = shouldQueueFigurineBuildOnPayment(
             jobSnap.data(),
+            manualProofOrder
+              ? { ...orderData, fulfillmentMode: manualProofFulfillmentMode }
+              : orderData,
           );
           batch.set(
             jobRef,
             {
               pipelineStage: "paid",
               pipelineUpdatedAt: paidAt,
+              ...(manualProofOrder
+                ? {
+                    fulfillmentMode: manualProofFulfillmentMode,
+                    manualCheckout: {
+                      status: "paid",
+                      paidAt,
+                      updatedAt: paidAt,
+                    },
+                    ...(firstManualProofPayment
+                      ? {
+                          supportSummary: {
+                            status: "open",
+                            noteCount: FieldValue.increment(1),
+                            lastNoteAt: paidAt,
+                            lastNoteByUid: "system:stripe_webhook",
+                            lastNoteByEmail: null,
+                            lastNotePreview:
+                              "Manual studio review requested after checkout.",
+                            updatedAt: paidAt,
+                          },
+                        }
+                      : {}),
+                  }
+                : {}),
               ...(queueFigurineBuild
                 ? {
                     figurineBuild: {
@@ -1558,6 +2051,15 @@ export const stripeWebhook = onRequest(
             },
             { merge: true },
           );
+          if (firstManualProofPayment) {
+            batch.set(jobRef.collection("supportNotes").doc(), {
+              body: "Manual studio review requested after checkout.",
+              statusChange: "open",
+              createdAt: paidAt,
+              createdByUid: "system:stripe_webhook",
+              createdByEmail: null,
+            });
+          }
         }
         await batch.commit();
       }
@@ -2955,6 +3457,121 @@ export const operatorUpdateFulfillment = onCall(
         extraOrderFields: {
           fulfillment: { stage: "in_production", productionSubState: "printing" },
         },
+      });
+    } else if (data.action === "release_manual_proof") {
+      const jobRef = db.collection("jobs").doc(data.jobId);
+      const orderRef = db.collection("orders").doc(data.jobId);
+      const supportNoteRef = jobRef.collection("supportNotes").doc();
+      await db.runTransaction(async (tx) => {
+        const [jobSnap, orderSnap] = await Promise.all([
+          tx.get(jobRef),
+          tx.get(orderRef),
+        ]);
+        const jobData = jobSnap.data() as Record<string, unknown> | undefined;
+        const orderData = orderSnap.data() as Record<string, unknown> | undefined;
+        if (!jobSnap.exists || !jobData || !orderSnap.exists || !orderData) {
+          throw new HttpsError(
+            "failed-precondition",
+            "Manual studio review requires a paid job and order.",
+          );
+        }
+        if (!hasManualProofFulfillmentMode({ jobData, orderData })) {
+          throw new HttpsError(
+            "failed-precondition",
+            "This job is already on the standard production path.",
+          );
+        }
+        if (jobData.figurineBuild !== undefined && jobData.figurineBuild !== null) {
+          throw new HttpsError(
+            "failed-precondition",
+            "A figurine build is already queued for this job.",
+          );
+        }
+        const uid = typeof jobData.uid === "string" ? jobData.uid : "";
+        const expectedPrefix = `generated/${uid}/${data.jobId}/`;
+        if (!data.reviewedConceptPath.startsWith(expectedPrefix)) {
+          throw new HttpsError(
+            "permission-denied",
+            "Reviewed concept must be stored under this job's generated path.",
+          );
+        }
+        const now = FieldValue.serverTimestamp();
+        tx.set(
+          jobRef,
+          {
+            status: "approved",
+            approvedImagePath: data.reviewedConceptPath,
+            conceptSource: "manual_studio_review",
+            generatedImages: FieldValue.arrayUnion({
+              id: `manual-studio-concept-${Date.now()}`,
+              label: "Manual studio concept",
+              storagePath: data.reviewedConceptPath,
+              status: "ready",
+              isPlaceholder: false,
+            }),
+            checkoutEligibility: {
+              eligible: true,
+              reason: "manual_studio_review_released",
+            },
+            manualCheckout: {
+              status: "released",
+              reviewedConceptPath: data.reviewedConceptPath,
+              releasedAt: now,
+              releasedByUid: operator.uid,
+              releasedByEmail: operator.email,
+            },
+            figurineBuild: {
+              status: "queued",
+              queuedAt: now,
+              attempts: 0,
+            },
+            supportSummary: {
+              status: "open",
+              noteCount: FieldValue.increment(1),
+              lastNoteAt: now,
+              lastNoteByUid: operator.uid,
+              lastNoteByEmail: operator.email,
+              lastNotePreview: "Manual studio concept released to build.",
+              updatedAt: now,
+            },
+            updatedAt: now,
+          },
+          { merge: true },
+        );
+        const previousFulfillment = (orderData.fulfillment ?? {}) as Record<
+          string,
+          unknown
+        >;
+        tx.set(
+          orderRef,
+          {
+            manualReview: {
+              status: "released",
+              reviewedConceptPath: data.reviewedConceptPath,
+              releasedAt: now,
+              releasedByUid: operator.uid,
+              releasedByEmail: operator.email,
+            },
+            fulfillment: {
+              ...previousFulfillment,
+              productionSubState: "manual_proof_released",
+              history: FieldValue.arrayUnion({
+                stage: "manual_proof_released",
+                at: Timestamp.now(),
+                by: operator.email ?? operator.uid,
+              }),
+            },
+            updatedAt: now,
+          },
+          { merge: true },
+        );
+        tx.set(supportNoteRef, {
+          body: "Manual studio concept released to build.",
+          statusChange: "open",
+          createdAt: now,
+          createdByUid: operator.uid,
+          createdByEmail: operator.email,
+        });
       });
     } else if (data.action === "set_production_substate") {
       const { orderRef, orderData } = await loadOperatorJobDocs(data.jobId);

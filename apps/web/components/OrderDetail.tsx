@@ -18,9 +18,14 @@ type OrderDocument = {
   uid: string;
   jobId: string;
   approvedImagePath?: string | null;
+  productType?: string | null;
+  fulfillmentMode?: string | null;
   status: string;
   paymentStatus: string;
   fulfillmentStatus: string;
+  fulfillment?: {
+    productionSubState?: string | null;
+  } | null;
   stripeCheckoutSessionId?: string | null;
   provider?: string | null;
   providerOrderId?: string | null;
@@ -73,9 +78,13 @@ export function OrderDetail({ orderId }: { orderId: string }) {
       "checkout",
     );
     if (checkoutStatus === "success") {
-      setNotice("Checkout completed. Payment confirmation can take a moment.");
+      setNotice("Checkout complete. Payment confirmation appears shortly.");
     }
   }, []);
+
+  const isManualReviewOrder =
+    order?.fulfillmentMode === "manual_proof_required" ||
+    order?.fulfillment?.productionSubState === "manual_proof_required";
 
   useEffect(() => {
     if (!firebaseClients || !user) {
@@ -114,13 +123,15 @@ export function OrderDetail({ orderId }: { orderId: string }) {
             href={order?.jobId ? `/jobs/${order.jobId}` : "/start"}
           >
             <ArrowLeft size={16} aria-hidden="true" />
-            {order?.jobId ? "Back to proof" : "New order"}
+            {order?.jobId ? "Back to hero" : "New order"}
           </Link>
           <h1 className="display mt-3 text-2xl sm:text-3xl">
             Order status
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-[var(--muted)]">
-            Track payment, proof, and fulfillment state for this poster order.
+            {isManualReviewOrder
+              ? "Track payment and personal studio review for this figurine order."
+              : "Track payment, proof, and fulfillment state for this order."}
           </p>
         </div>
         <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[var(--teal)] text-white">
@@ -218,9 +229,15 @@ export function OrderDetail({ orderId }: { orderId: string }) {
                 size={22}
                 aria-hidden="true"
               />
-              <h2 className="mt-3 text-lg font-semibold">Proof</h2>
+              <h2 className="mt-3 text-lg font-semibold">
+                {isManualReviewOrder ? "Studio review" : "Proof"}
+              </h2>
               <p className="mt-1 text-sm font-bold">
-                {order.approvedImagePath ? "Approved" : "Not approved"}
+                {isManualReviewOrder
+                  ? "Team-created proof next"
+                  : order.approvedImagePath
+                    ? "Approved"
+                    : "Review pending"}
               </p>
             </article>
             <article className="rounded-lg border border-black/10 bg-white p-4">
@@ -229,9 +246,13 @@ export function OrderDetail({ orderId }: { orderId: string }) {
                 size={22}
                 aria-hidden="true"
               />
-              <h2 className="mt-3 text-lg font-semibold">Fulfillment</h2>
+              <h2 className="mt-3 text-lg font-semibold">
+                {isManualReviewOrder ? "Studio status" : "Fulfillment"}
+              </h2>
               <p className="mt-1 text-sm font-bold capitalize">
-                {readableStatus(order.fulfillmentStatus)}
+                {isManualReviewOrder
+                  ? "Personal review"
+                  : readableStatus(order.fulfillmentStatus)}
               </p>
             </article>
           </div>

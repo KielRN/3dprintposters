@@ -2,6 +2,10 @@
 
 import { getFirebaseClients } from "@/lib/firebase";
 import {
+  isStudioReviewReadyJob,
+  studioReviewMessage,
+} from "@/lib/generationRecovery";
+import {
   callableErrorMessage,
   callWithTransientRetry,
 } from "@/lib/callableRetry";
@@ -68,6 +72,14 @@ type JobDocument = {
   checkoutEligibility?: {
     eligible?: boolean;
     reason?: string;
+  } | null;
+  manualCheckoutEligibility?: {
+    eligible?: boolean;
+    reason?: string;
+  } | null;
+  generationState?: {
+    state?: string;
+    publicMessage?: string;
   } | null;
 };
 
@@ -257,7 +269,7 @@ function statusCopy(job: JobDocument) {
   }
 
   if (job.status === "approved" && job.printFileStatus === "failed") {
-    return "3D generation failed";
+    return "3D support review";
   }
 
   if (job.status === "approved") {
@@ -763,6 +775,7 @@ export function JobDetail({
       : "";
     const chip = jobStatusChip(job);
     const name = jobHeroName(job);
+    const studioReviewReady = isStudioReviewReadyJob(job);
 
     return (
       <section className="grid min-w-0 gap-6">
@@ -834,15 +847,23 @@ export function JobDetail({
           />
         ) : stageImagePath ? (
           <div className="skeleton-shimmer h-[420px] rounded-2xl" />
-        ) : job.status === "failed" ? (
-          <div className="rounded-xl border border-[var(--coral)]/30 bg-[var(--coral)]/10 p-5">
-            <p className="font-bold text-[var(--coral)]">
-              This one hit a snag.
+        ) : studioReviewReady ? (
+          <div className="panel rounded-xl p-5">
+            <p className="text-sm font-bold text-[var(--ember)]">
+              PERSONAL STUDIO REVIEW
             </p>
-            <p className="mt-1 text-sm text-[var(--muted)]">
-              Start another hero from the gallery and we&apos;ll take a fresh
-              run at it.
+            <h1 className="display mt-1 text-3xl sm:text-4xl">
+              Your hero deserves the human touch.
+            </h1>
+            <p className="mt-3 max-w-2xl text-sm text-[var(--muted)]">
+              {job.generationState?.publicMessage ?? studioReviewMessage}
             </p>
+            <Link
+              className="primary-button mt-5 w-full sm:w-auto sm:px-8"
+              href={`/jobs/${jobId}/manual-checkout`}
+            >
+              Continue to studio review
+            </Link>
           </div>
         ) : nonPlaceholderImages.length === 0 ? (
           <div className="skeleton-shimmer grid h-[320px] place-items-center rounded-2xl">

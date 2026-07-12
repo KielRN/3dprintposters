@@ -22,6 +22,8 @@ type OperatorJobSummary = {
   customerName: string;
   stage: FulfillmentStage;
   productionSubState: "printing" | "painting" | null;
+  fulfillmentMode: string | null;
+  manualReviewStatus: string | null;
   paintOption: "painted" | "unpainted" | null;
   productType: string | null;
   updatedAt: string | null;
@@ -97,6 +99,7 @@ export function OperatorConsole() {
   const [actionBusy, setActionBusy] = useState(false);
   const [error, setError] = useState("");
   const [rejectReason, setRejectReason] = useState("");
+  const [reviewedConceptPath, setReviewedConceptPath] = useState("");
   const [carrier, setCarrier] = useState("");
   const [trackingNumber, setTrackingNumber] = useState("");
   const jobPagesRef = useRef<Partial<Record<OperatorTab, OperatorJobPage>>>({});
@@ -446,6 +449,12 @@ export function OperatorConsole() {
                 last action {formatWhen(detail.updatedAt)}
               </p>
 
+              {detail.fulfillmentMode === "manual_proof_required" ? (
+                <p className="rounded-lg border border-[var(--gold)]/40 bg-[var(--gold)]/10 p-3 text-sm font-bold text-[#8a6412]">
+                  Manual studio review: {detail.manualReviewStatus ?? "requested"}
+                </p>
+              ) : null}
+
               {detail.previewUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -475,7 +484,11 @@ export function OperatorConsole() {
               ) : null}
 
               <div className="flex flex-wrap gap-2">
-                {detail.stage === "paid" ? (
+                {detail.stage === "paid" &&
+                !(
+                  detail.fulfillmentMode === "manual_proof_required" &&
+                  detail.manualReviewStatus !== "released"
+                ) ? (
                   <button
                     type="button"
                     disabled={actionBusy}
@@ -545,6 +558,41 @@ export function OperatorConsole() {
                   </button>
                 ) : null}
               </div>
+
+              {detail.stage === "paid" &&
+              detail.fulfillmentMode === "manual_proof_required" &&
+              detail.manualReviewStatus !== "released" ? (
+                <div className="rounded-lg border border-[var(--gold)]/40 bg-[var(--gold)]/10 p-3">
+                  <p className="text-sm font-black">Release reviewed concept</p>
+                  <p className="mt-1 text-xs text-[var(--muted)]">
+                    Paste a reviewed concept path from this job&apos;s generated folder.
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <input
+                      className="min-w-72 flex-1 rounded-lg border border-black/20 px-3 py-2 text-sm"
+                      placeholder={`generated/.../${detail.jobId}/concept.png`}
+                      value={reviewedConceptPath}
+                      onChange={(event) => setReviewedConceptPath(event.target.value)}
+                    />
+                    <button
+                      type="button"
+                      disabled={actionBusy || reviewedConceptPath.trim().length < 12}
+                      onClick={() =>
+                        void runAction(
+                          {
+                            action: "release_manual_proof",
+                            reviewedConceptPath: reviewedConceptPath.trim(),
+                          },
+                          "operatorUpdateFulfillment",
+                        )
+                      }
+                      className="rounded-lg bg-[var(--teal)] px-4 py-2 font-black text-white disabled:opacity-50"
+                    >
+                      Release to build
+                    </button>
+                  </div>
+                </div>
+              ) : null}
 
               {detail.stage === "in_production" ? (
                 <div className="rounded-lg border border-black/10 p-3">

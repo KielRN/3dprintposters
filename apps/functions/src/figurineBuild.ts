@@ -28,6 +28,7 @@ import {
   type WorkflowFigurineProvider,
   type WorkflowGenerationWorkflow,
 } from "./figurineWorkflowConfig.js";
+import { hasManualProofFulfillmentMode } from "./generationRecovery.js";
 
 export type FigurineBuildStatus = "queued" | "running" | "ready" | "failed";
 
@@ -167,8 +168,12 @@ export function requeueFigurineBuildUpdate(
 // stamp only applies when no figurineBuild record exists at all.
 export function shouldQueueFigurineBuildOnPayment(
   jobData: Record<string, unknown> | undefined,
+  orderData?: Record<string, unknown> | undefined,
 ): boolean {
   if (!jobData || !jobDataIsFigurine(jobData)) {
+    return false;
+  }
+  if (hasManualProofFulfillmentMode({ jobData, orderData })) {
     return false;
   }
   return jobData.figurineBuild === undefined || jobData.figurineBuild === null;

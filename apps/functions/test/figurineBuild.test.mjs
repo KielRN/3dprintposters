@@ -109,6 +109,30 @@ test("shouldQueueFigurineBuildOnPayment stamps only figurine jobs without an exi
   assert.equal(shouldQueueFigurineBuildOnPayment(undefined), false);
 });
 
+test("shouldQueueFigurineBuildOnPayment skips manual studio-review orders", () => {
+  assert.equal(
+    shouldQueueFigurineBuildOnPayment(
+      { productType: "figurine" },
+      { fulfillmentMode: "manual_proof_required" },
+    ),
+    false,
+  );
+  assert.equal(
+    shouldQueueFigurineBuildOnPayment({
+      productType: "figurine",
+      fulfillmentMode: "manual_proof_required",
+    }),
+    false,
+  );
+  assert.equal(
+    shouldQueueFigurineBuildOnPayment(
+      { productType: "figurine" },
+      { fulfillment: { productionSubState: "manual_proof_required" } },
+    ),
+    false,
+  );
+});
+
 test("figurinePreviewReadyForAssembly requires a ready preview with a GLB", async () => {
   const { figurinePreviewReadyForAssembly } = await import(
     "../lib/figurineBuild.js"

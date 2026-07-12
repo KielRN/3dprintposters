@@ -25,9 +25,8 @@ export type JobCardSource = {
 
 // Chip table from the storyfront contract, evaluated in order. Post-payment
 // build failures intentionally stay "In production": figurineBuild internals
-// are operator-only, support handles customer comms. The failed checks run
-// before "approved" so a poster whose print files failed reads "Needs
-// attention" rather than "Ready to order".
+// are operator-only, support handles customer comms. Terminal pre-payment
+// states route to studio/support review chips before the approved state.
 export function jobStatusChip(job: JobCardSource): JobStatusChip {
   if (job.pipelineStage === "paid") {
     return { label: "In production", tone: "moss" };
@@ -35,8 +34,11 @@ export function jobStatusChip(job: JobCardSource): JobStatusChip {
   if (job.status === "checkout_created") {
     return { label: "In checkout", tone: "gold" };
   }
-  if (job.status === "failed" || job.printFileStatus === "failed") {
-    return { label: "Needs attention", tone: "coral" };
+  if (job.status === "failed") {
+    return { label: "Studio review", tone: "gold" };
+  }
+  if (job.printFileStatus === "failed") {
+    return { label: "Support review", tone: "gold" };
   }
   if (job.status === "approved") {
     return { label: "Ready to order", tone: "ember", pulse: true };

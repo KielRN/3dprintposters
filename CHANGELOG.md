@@ -4,8 +4,13 @@ All notable project changes will be documented in this file.
 
 ## [Unreleased] - 2026-07-12
 
+### Added
+
+- Added personal studio review recovery for figurine generation terminal states. `createGenerationJob` now records durable `generationState` progress, `reconcileStaleGenerationJobs` moves abandoned figurine generations into a terminal studio-review state, `/jobs/[jobId]/manual-checkout` offers a disclosed manual-review Stripe path, and `createFallbackFigurineCheckoutSession` writes `fulfillmentMode: "manual_proof_required"` orders without weakening the normal proof-approved checkout guard. The Stripe webhook keeps paid manual-review orders in support/operator review and skips automatic `figurineBuild` queueing until an operator releases a reviewed concept. Added `repair:stale-generation-jobs` for the three known stranded dev/live jobs.
+
 ### Fixed
 
+- Removed the disproven Sharp-based Meshy Creative Lab input resize/re-encode path from Functions. Creative Lab source images now keep their original Storage bytes after byte-limit validation, with lightweight image-dimension diagnostics logged before Meshy submission; `sharp` is no longer a Functions workspace dependency.
 - The `/operator` Print Console now authorizes and loads its first queue in one callable instead of forcing an ID-token refresh and waiting on a separate role request. The route initializes only the Firebase Auth/Functions client instead of also shipping the unused Firestore and Storage browser SDKs. Queue tabs keep their last loaded rows while refreshing, load 50 jobs at a time with a cursor, and use one batched orders read per page instead of one Firestore request per job. The queue query is now ordered by `pipelineUpdatedAt` and backed by a dedicated composite index.
 - The `/start` style gallery now renders bundled cards immediately instead of holding the entire grid behind the public workflow-config callable, reuses the last successful config while refreshing in the background, and serves the already-compressed card WebPs directly to avoid intermittent first-request image optimization delays.
 

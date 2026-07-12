@@ -3,6 +3,10 @@
 import type { FirebaseClients } from "@/lib/firebase";
 import type { WorkflowStyleConfig } from "@/lib/figurineWorkflowConfig";
 import {
+  customerSafeGenerationMessage,
+  studioReviewMessage,
+} from "@/lib/generationRecovery";
+import {
   SIGN_NAME_MAX_CHARACTERS,
   collapseSignName,
   signNameError,
@@ -11,6 +15,7 @@ import { AlertCircle, Loader2, Sparkles, Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { User } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { ref, uploadBytes } from "firebase/storage";
 
@@ -181,14 +186,30 @@ export function UploadPanel({
 
       router.push(`/jobs/${result.data.jobId}`);
     } catch (error) {
+      if (uploadCompleted) {
+        try {
+          const jobSnap = await getDoc(
+            doc(firebaseClients.firestore, "jobs", nextJobId),
+          );
+          if (jobSnap.exists()) {
+            router.push(`/jobs/${nextJobId}`);
+            return;
+          }
+        } catch {
+          // The customer-safe message below covers the recovery path.
+        }
+      }
       setJobState(selectedFile ? "ready" : "idle");
       setWorkflowError(
-        error instanceof Error
-          ? error.message
-          : "Upload or job creation failed.",
+        customerSafeGenerationMessage(
+          error,
+          uploadCompleted
+            ? studioReviewMessage
+            : "Photo upload is ready for a fresh start.",
+        ),
       );
       setStatusMessage(
-        uploadCompleted ? "Generation did not finish." : "Upload did not finish.",
+        uploadCompleted ? "Studio review is ready." : "Photo upload paused.",
       );
     }
   }

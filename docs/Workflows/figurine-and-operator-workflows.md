@@ -1,6 +1,6 @@
 # Figurine And Operator Workflows
 
-Status: current implementation map as of 2026-07-11.
+Status: current implementation map as of 2026-07-12.
 
 This document explains the current app workflows in plain language. It focuses on what the customer sees, where proof generation happens, how the style choices change the backend path, which Vertex/Gemini and generated-3D provider calls are used, and what the operator/admin consoles control.
 
@@ -8,7 +8,7 @@ Rendering note: these are live Mermaid diagrams. VS Code 1.121 and newer can ren
 
 ## Quick Answer
 
-Proof generation is the 2D image stage. It happens before Meshy makes a 3D model.
+Proof generation is the 2D image/concept stage. It happens before any paid provider 3D build. In the funded-build flow, figurine 3D asset generation runs after Stripe payment unless the job is on the manual studio-review fallback path, where an operator must release a reviewed concept before the existing build queue starts.
 
 In the generated-options figurine path:
 
@@ -18,21 +18,32 @@ In the generated-options figurine path:
 4. Customer chooses a visible style from the workflow config.
 5. The browser uploads the source photo to Firebase Storage under `uploads/{uid}/{jobId}/source.{jpg|png}`.
 6. The browser calls the Firebase callable `createGenerationJob`.
-7. `createGenerationJob` reads the admin workflow config, builds the proof prompt, attaches the customer image and any enabled style reference images, and calls Vertex/Gemini through `apps/functions/src/aiProvider.ts`.
+7. `createGenerationJob` records `generationState`, reads the admin workflow config, builds the proof prompt, attaches the customer image and any enabled style reference images, and calls Vertex/Gemini through `apps/functions/src/aiProvider.ts`.
 8. Vertex/Gemini writes one to four 2D proof images under `generated/{uid}/{jobId}/`.
 9. Customer lands on `/jobs/{jobId}` and reviews proof cards.
-10. Customer clicks `Generate 3D figurine`.
+10. Customer approves a proof/concept.
 11. The browser calls `approveGeneratedImage`.
-12. `approveGeneratedImage` approves that 2D proof and then calls Meshy through the server-side provider adapter.
-13. The customer sees the Storage-backed GLB preview on `/jobs/{jobId}`.
-14. Checkout stays locked for figurines until print readiness and fulfillment are explicitly approved later.
+12. `approveGeneratedImage` records the approved concept for figurines; it does not call Meshy or Hi3D.
+13. Customer continues to the page-4 claim/checkout surface.
+14. Stripe `checkout.session.completed` stamps `figurineBuild: queued` for normal paid figurine jobs, and `onFigurineBuildQueued` runs the selected provider path behind the server-side adapter.
+15. Operator/support surfaces handle the generated 3D package, print readiness, and fulfillment state.
 
-The chibi styles are different — the customer reviews one Meshy concept image instead of multiple Vertex proofs. The heroic-fantasy chibi pair uses `template_face_swap` (Vertex creates one identity image from the style template), and the photo-driven chibi pair uses `generated_options` with `proofRendering: realistic_person` (Vertex creates one internal realistic person render from the customer photo). In both, Meshy creates the one reviewable concept image and approval continues the Meshy build from the stored prototype task. See [Chibi Face Swap Creative Lab Workflow](./chibi-face-swap-creative-lab-workflow.md), [Chibi Female Face Swap Creative Lab Workflow](./chibi-female-face-swap-creative-lab-workflow.md), [Chibi Male Photo Creative Lab Workflow](./chibi-male-photo-creative-lab-workflow.md), and [Chibi Female Photo Creative Lab Workflow](./chibi-female-photo-creative-lab-workflow.md).
+The chibi styles are different — the customer reviews one Meshy concept image instead of multiple Vertex proofs. The heroic-fantasy chibi pair uses `template_face_swap` (Vertex creates one identity image from the style template), and the photo-driven chibi pair uses `generated_options` with `proofRendering: realistic_person` (Vertex creates one internal realistic person render from the customer photo). In both, Meshy creates the one reviewable concept image. Approval claims that concept, and the paid build later continues from the stored prototype task. See [Chibi Face Swap Creative Lab Workflow](./chibi-face-swap-creative-lab-workflow.md), [Chibi Female Face Swap Creative Lab Workflow](./chibi-female-face-swap-creative-lab-workflow.md), [Chibi Male Photo Creative Lab Workflow](./chibi-male-photo-creative-lab-workflow.md), and [Chibi Female Photo Creative Lab Workflow](./chibi-female-photo-creative-lab-workflow.md).
+
+Current funded-build note: for chibi styles, approval claims the reviewed concept. The paid build later continues from the stored prototype task through the guarded post-payment build queue.
+
+Generation recovery path:
+
+- `createGenerationJob` updates `generationState.state`, `stage`, `startedAt`, `lastProgressAt`, `completedAt`, `failureCode`, and a customer-safe `publicMessage`.
+- `reconcileStaleGenerationJobs` moves abandoned figurine generations into a terminal personal-studio-review state after the documented runtime plus grace period.
+- `/jobs/{jobId}/manual-checkout` calls `createFallbackFigurineCheckoutSession` only for server-confirmed terminal figurine jobs owned by the signed-in customer.
+- Fallback orders use `fulfillmentMode: "manual_proof_required"`. Stripe payment opens support/operator work and does not queue `figurineBuild`.
+- Operators release a reviewed concept through `operatorUpdateFulfillment` action `release_manual_proof`; that stamps `approvedImagePath` and queues the existing guarded figurine build once.
 
 The important split:
 
 - Vertex/Gemini creates 2D customer-reviewable proof images or internal cleanup renders, depending on the selected workflow.
-- Meshy Creative Lab or the selected direct generated-3D provider creates 3D model artifacts after a proof or direct-3D input is approved.
+- Meshy Creative Lab or the selected direct generated-3D provider creates 3D model artifacts after payment, or after an operator releases a reviewed concept for manual studio-review orders.
 - The print-file generator assembles deterministic product parts such as the reusable base and customer name sign.
 
 ## Workflow 1: Workflow Controls Configure The Public Flow
@@ -120,7 +131,7 @@ Use those documents for the full Chibi sequence and job-state examples. This ove
 - Proof mode: `template_face_swap`
 - 3D workflow: `creative_lab_figure`
 - Customer sees one Meshy-generated concept image, not multiple Chibi proofs.
-- Approval continues Meshy build from the stored Creative Lab prototype task.
+- Payment continues Meshy build from the stored Creative Lab prototype task.
 
 ```mermaid
 %%{init: {"flowchart": {"htmlLabels": false}} }%%
@@ -128,7 +139,7 @@ graph LR
   A["Customer image plus Chibi template"] --> B["Vertex/Gemini face swap"]
   B --> C["Meshy prototype concept"]
   C --> D["Customer approves one concept"]
-  D --> E["Meshy build from prototype task"]
+  D --> E["Payment continues Meshy build"]
   E --> F["Preview-only textured GLB"]
 ```
 
@@ -150,7 +161,7 @@ Use those documents for the full sequence and job-state examples. This overview 
 - No admin reference/template image.
 - Vertex/Gemini renders one realistic full-body person (identity, own clothing completed, gray studio background) as an internal cleanup — the customer never reviews it.
 - Meshy's prototype phase does all chibi stylization; the customer sees one Meshy-generated concept image.
-- Approval continues Meshy build from the stored Creative Lab prototype task.
+- Payment continues Meshy build from the stored Creative Lab prototype task.
 
 ```mermaid
 %%{init: {"flowchart": {"htmlLabels": false}} }%%
@@ -158,7 +169,7 @@ graph LR
   A["Customer photo"] --> B["Vertex/Gemini realistic person render"]
   B --> C["Meshy prototype concept (chibi stylization)"]
   C --> D["Customer approves one concept"]
-  D --> E["Meshy build from prototype task"]
+  D --> E["Payment continues Meshy build"]
   E --> F["Preview-only textured GLB"]
 ```
 
@@ -308,14 +319,14 @@ Current operator actions:
 
 | Style | Public by default | Proof mode | 3D workflow | What Vertex/Gemini does | What 3D provider does | What customer sees |
 | --- | --- | --- | --- | --- | --- | --- |
-| Chibi heroic fantasy male | Yes | `template_face_swap` | `creative_lab_figure` | Edits the enabled Chibi reference/template image with the customer's face/head identity. Prompt is sent exactly as written. | Meshy Creative Lab prototype creates the reviewable 2D concept, then build creates the original textured GLB after approval. | One Meshy concept image, then GLB preview after approval. |
-| Chibi heroic fantasy female | Yes | `template_face_swap` | `creative_lab_figure` | Edits the enabled SheRa/Christina-style female template image with the customer's face/head identity. Prompt is sent exactly as written. | Meshy Creative Lab prototype creates the reviewable 2D concept, then build creates the original textured GLB after approval. | One Meshy concept image, then GLB preview after approval. |
-| Chibi male | Yes | `generated_options` + `proofRendering: realistic_person` | `creative_lab_figure` | Creates one internal realistic full-body person cleanup render from the customer photo; the customer does not review this render. | Meshy Creative Lab prototype performs the chibi stylization and creates the reviewable 2D concept, then build creates the original textured GLB after approval. | One Meshy concept image, then GLB preview after approval. |
-| Chibi female | Yes | `generated_options` + `proofRendering: realistic_person` | `creative_lab_figure` | Creates one internal realistic full-body person cleanup render from the customer photo; the customer does not review this render. | Meshy Creative Lab prototype performs the chibi stylization and creates the reviewable 2D concept, then build creates the original textured GLB after approval. | One Meshy concept image, then GLB preview after approval. |
-| Heroic fantasy male | Yes | `template_face_swap` | `direct_multi_image_to_3d` | Edits the enabled Heroic Male template image with the customer's face/head identity. Prompt is sent exactly as written. | Hi3D creates the direct textured GLB candidate by default; Meshy `meshy-6` remains the rollback provider. | One swapped direct-3D input, then GLB preview after approval. |
-| Heroic fantasy female | Yes | `template_face_swap` | `direct_multi_image_to_3d` | Edits the enabled Heroic Female template image with the customer's face/head identity. Prompt is sent exactly as written. | Hi3D creates the direct textured GLB candidate by default; Meshy `meshy-6` remains the rollback provider. | One swapped direct-3D input, then GLB preview after approval. |
-| Super Hero Figure - Male | Yes | `template_face_swap` | `direct_multi_image_to_3d` | Edits the enabled superhero template image with the customer's face/head identity. Prompt is sent exactly as written. | Hi3D creates the direct textured GLB candidate, then print analysis or operator review may run. | One swapped direct-3D input, then GLB preview after approval. |
-| Super Hero Figure - Female | Yes | `template_face_swap` | `direct_multi_image_to_3d` | Edits the enabled Super Hero Female template image with the customer's face/head identity. Prompt is sent exactly as written. | Hi3D creates the direct textured GLB candidate, then print analysis or operator review may run. | One swapped direct-3D input, then GLB preview after approval. |
+| Chibi heroic fantasy male | Yes | `template_face_swap` | `creative_lab_figure` | Edits the enabled Chibi reference/template image with the customer's face/head identity. Prompt is sent exactly as written. | Meshy Creative Lab prototype creates the reviewable 2D concept, then the paid build creates the original textured GLB. | One Meshy concept image, then GLB preview after payment. |
+| Chibi heroic fantasy female | Yes | `template_face_swap` | `creative_lab_figure` | Edits the enabled SheRa/Christina-style female template image with the customer's face/head identity. Prompt is sent exactly as written. | Meshy Creative Lab prototype creates the reviewable 2D concept, then the paid build creates the original textured GLB. | One Meshy concept image, then GLB preview after payment. |
+| Chibi male | Yes | `generated_options` + `proofRendering: realistic_person` | `creative_lab_figure` | Creates one internal realistic full-body person cleanup render from the customer photo; the customer does not review this render. | Meshy Creative Lab prototype performs the chibi stylization and creates the reviewable 2D concept, then the paid build creates the original textured GLB. | One Meshy concept image, then GLB preview after payment. |
+| Chibi female | Yes | `generated_options` + `proofRendering: realistic_person` | `creative_lab_figure` | Creates one internal realistic full-body person cleanup render from the customer photo; the customer does not review this render. | Meshy Creative Lab prototype performs the chibi stylization and creates the reviewable 2D concept, then the paid build creates the original textured GLB. | One Meshy concept image, then GLB preview after payment. |
+| Heroic fantasy male | Yes | `template_face_swap` | `direct_multi_image_to_3d` | Edits the enabled Heroic Male template image with the customer's face/head identity. Prompt is sent exactly as written. | The paid build asks Hi3D for the direct textured GLB candidate by default; Meshy `meshy-6` remains the rollback provider. | One swapped direct-3D input, then GLB preview after payment. |
+| Heroic fantasy female | Yes | `template_face_swap` | `direct_multi_image_to_3d` | Edits the enabled Heroic Female template image with the customer's face/head identity. Prompt is sent exactly as written. | The paid build asks Hi3D for the direct textured GLB candidate by default; Meshy `meshy-6` remains the rollback provider. | One swapped direct-3D input, then GLB preview after payment. |
+| Super Hero Figure - Male | Yes | `template_face_swap` | `direct_multi_image_to_3d` | Edits the enabled superhero template image with the customer's face/head identity. Prompt is sent exactly as written. | The paid build asks Hi3D for the direct textured GLB candidate, then print analysis or operator review may run. | One swapped direct-3D input, then GLB preview after payment. |
+| Super Hero Figure - Female | Yes | `template_face_swap` | `direct_multi_image_to_3d` | Edits the enabled Super Hero Female template image with the customer's face/head identity. Prompt is sent exactly as written. | The paid build asks Hi3D for the direct textured GLB candidate, then print analysis or operator review may run. | One swapped direct-3D input, then GLB preview after payment. |
 | Emoji Avatar | No | `generated_options` | `creative_lab_figure` | Creates emoji/avatar proof options if enabled. | Creative Lab prototype/build. | Same as Creative Lab flow if made public. |
 | Bobblehead | No | `generated_options` | `creative_lab_figure` | Creates bobblehead proof options if enabled. | Creative Lab prototype/build. | Same as Creative Lab flow if made public. |
 | Cartoon Figure | No | `generated_options` | `creative_lab_figure` | Creates cartoon proof options if enabled. | Creative Lab prototype/build. | Same as Creative Lab flow if made public. |

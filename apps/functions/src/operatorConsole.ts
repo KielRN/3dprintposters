@@ -78,12 +78,18 @@ export function sanitizeOperatorJobSummary(input: {
   orderData: LooseRecord;
 }) {
   const fulfillment = record(input.orderData.fulfillment);
+  const manualReview = record(input.orderData.manualReview);
+  const manualCheckout = record(input.jobData.manualCheckout);
   return {
     jobId: input.jobId,
     displayId: displayJobId(input.jobId),
     customerName: str(input.orderData.customerName) ?? "Customer",
     stage: stageFromDocs(input.jobData, input.orderData),
     productionSubState: str(fulfillment.productionSubState),
+    fulfillmentMode:
+      str(input.orderData.fulfillmentMode) ?? str(input.jobData.fulfillmentMode),
+    manualReviewStatus:
+      str(manualReview.status) ?? str(manualCheckout.status),
     paintOption: str(input.orderData.paintOption),
     productType: str(input.jobData.productType),
     updatedAt:

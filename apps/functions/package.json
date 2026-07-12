@@ -22,7 +22,8 @@
     "seed:superhero-female-workflow": "node scripts/seed-superhero-female-workflow.mjs",
     "seed:superhero-female-workflow:dry-run": "node scripts/seed-superhero-female-workflow.mjs --dry-run",
     "seed:chibi-photo-workflows": "node scripts/seed-chibi-photo-workflows.mjs",
-    "seed:chibi-photo-workflows:dry-run": "node scripts/seed-chibi-photo-workflows.mjs --dry-run"
+    "seed:chibi-photo-workflows:dry-run": "node scripts/seed-chibi-photo-workflows.mjs --dry-run",
+    "repair:stale-generation-jobs": "node scripts/repair-stale-generation-jobs.mjs"
   },
   "engines": {
     "node": "22"
@@ -31,7 +32,6 @@
     "archiver": "^7.0.1",
     "firebase-admin": "^13.8.0",
     "firebase-functions": "^7.2.5",
-    "sharp": "^0.34.5",
     "stripe": "^22.1.0",
     "zod": "^4.3.6"
   },
