@@ -1,13 +1,14 @@
 "use client";
 
+import { AuthPanel } from "@/components/AuthPanel";
 import { getFirebaseClients } from "@/lib/firebase";
 import {
   callableErrorMessage,
   callWithTransientRetry,
 } from "@/lib/callableRetry";
 import { pipelineStageLabels, type FulfillmentStage } from "@/lib/pipeline";
-import { onAuthStateChanged, type User } from "firebase/auth";
-import { Box, Home, Settings, Wrench } from "lucide-react";
+import { onAuthStateChanged, signOut, type User } from "firebase/auth";
+import { Box, Home, LogOut, Settings, Wrench } from "lucide-react";
 import { httpsCallable } from "firebase/functions";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -80,6 +81,7 @@ export function OperatorConsole() {
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(Boolean(firebaseClients));
   const [role, setRole] = useState<{ isOperator: boolean } | null>(null);
+  const [roleError, setRoleError] = useState("");
   const [tab, setTab] = useState<OperatorTab>("available");
   const [jobs, setJobs] = useState<OperatorJobSummary[]>([]);
   const [selectedJobId, setSelectedJobId] = useState("");
@@ -101,6 +103,7 @@ export function OperatorConsole() {
       setUser(nextUser);
       setAuthLoading(false);
       setRole(null);
+      setRoleError("");
     });
   }, [firebaseClients]);
 
@@ -108,13 +111,25 @@ export function OperatorConsole() {
     if (!firebaseClients || authLoading || !user) {
       return;
     }
+    if (user.isAnonymous) {
+      setRole({ isOperator: false });
+      setRoleError("Sign in with an operator account before opening the print console.");
+      return;
+    }
     const getRole = httpsCallable<Record<string, never>, { isOperator: boolean }>(
       firebaseClients.functions,
       "getConsoleRole",
     );
-    callWithTransientRetry(() => getRole({}))
+    setRole(null);
+    setRoleError("");
+    user
+      .getIdToken(true)
+      .then(() => callWithTransientRetry(() => getRole({})))
       .then((result) => setRole(result.data))
-      .catch(() => setRole({ isOperator: false }));
+      .catch((accessError) => {
+        setRole({ isOperator: false });
+        setRoleError(callableErrorMessage(accessError, "Could not verify operator access."));
+      });
   }, [authLoading, firebaseClients, user]);
 
   async function loadJobs(nextTab: OperatorTab) {
@@ -190,7 +205,7 @@ export function OperatorConsole() {
   }
 
   if (authLoading || (user && role === null)) {
-    return <section className="panel rounded-lg p-6">Checking access…</section>;
+    return <section className="panel rounded-lg p-6">Checking access...</section>;
   }
   if (!user || !role?.isOperator) {
     return (
@@ -210,9 +225,24 @@ export function OperatorConsole() {
         </div>
         <p className="mt-2 text-[var(--muted)]">
           {user
-            ? "This account is not on the operator allowlist. Contact the site admin."
-            : "Sign in through the admin console before opening the print console."}
+            ? "This account is not assigned the operator role. Contact the site admin."
+            : "Sign in with your operator account to open the print console."}
         </p>
+        {roleError ? (
+          <p className="mt-3 rounded-lg border border-[var(--coral)]/40 bg-[var(--coral)]/10 p-3 text-sm font-bold text-[var(--coral)]">
+            {roleError}
+          </p>
+        ) : null}
+        <div className="mt-5 max-w-xl">
+          <AuthPanel
+            user={user}
+            authLoading={authLoading}
+            firebaseClients={firebaseClients}
+            initialMode="sign-in"
+            allowCreate={false}
+            prompt="Sign in with your operator account to open the print console."
+          />
+        </div>
       </section>
     );
   }
@@ -230,6 +260,18 @@ export function OperatorConsole() {
             <Settings size={16} aria-hidden="true" />
             Admin
           </Link>
+          <button
+            className="secondary-button h-10 min-h-0 px-3"
+            type="button"
+            onClick={() => {
+              if (firebaseClients) {
+                void signOut(firebaseClients.auth);
+              }
+            }}
+          >
+            <LogOut size={16} aria-hidden="true" />
+            Sign out
+          </button>
         </div>
       </div>
       <div className="mt-4 flex gap-2">

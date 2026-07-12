@@ -496,7 +496,7 @@ export function FigurinePrintReadinessReview({
           <p className="mt-2 text-sm text-[var(--muted)]">
             {operatorMode
               ? "Use an operator or admin account."
-              : "Use the same account or guest session that created the upload."}
+              : "Use the same account that created the upload."}
           </p>
         </div>
       ) : null}

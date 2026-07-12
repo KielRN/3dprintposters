@@ -10,12 +10,14 @@ import { useEffect, useMemo, useState } from "react";
 import { httpsCallable } from "firebase/functions";
 import { StyleCard } from "./StyleCard";
 
+type AuthIntent = "sign-in" | "create";
+
 const workflowConfigRetryLimit = 12;
 const workflowConfigRetryDelayMs = 2000;
 
 // Cards show exactly visibleWorkflowStyles() from the live config, so admin
 // visibility toggles keep working.
-export function StyleCardGrid() {
+export function StyleCardGrid({ authIntent }: { authIntent?: AuthIntent }) {
   const firebaseClients = useMemo(() => getFirebaseClients(), []);
   const [workflowConfig, setWorkflowConfig] = useState(
     defaultFigurineWorkflowConfig,
@@ -85,7 +87,6 @@ export function StyleCardGrid() {
     () => visibleWorkflowStyles(workflowConfig),
     [workflowConfig],
   );
-
   return (
     <section id="style-grid" className="scroll-mt-6 py-10 sm:py-14">
       <h2 className="display text-2xl sm:text-3xl">Choose their hero form</h2>
@@ -107,7 +108,9 @@ export function StyleCardGrid() {
                 </div>
               </div>
             ))
-          : styles.map((style) => <StyleCard style={style} key={style.id} />)}
+          : styles.map((style) => (
+              <StyleCard authIntent={authIntent} style={style} key={style.id} />
+            ))}
       </div>
     </section>
   );

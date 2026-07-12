@@ -1,16 +1,32 @@
 import { PwaInstallButton } from "@/components/PwaInstallButton";
 import { ComicBanner } from "@/components/storyfront/ComicBanner";
+import { StartAccountPanel } from "@/components/storyfront/StartAccountPanel";
 import { StepPills } from "@/components/storyfront/StepPills";
 import { StyleCardGrid } from "@/components/storyfront/StyleCardGrid";
 import { TrustStrip } from "@/components/storyfront/TrustStrip";
-import { ClipboardList, Settings } from "lucide-react";
 import Link from "next/link";
 
-export default function StartPage() {
+type AuthIntent = "sign-in" | "create";
+
+type StartPageProps = {
+  searchParams?: Promise<{
+    auth?: string;
+  }>;
+};
+
+export default async function StartPage({ searchParams }: StartPageProps) {
+  const resolvedSearchParams = await searchParams;
+  const authIntent: AuthIntent | undefined =
+    resolvedSearchParams?.auth === "create"
+      ? "create"
+      : resolvedSearchParams?.auth === "sign-in"
+        ? "sign-in"
+        : undefined;
+
   return (
     <main className="min-h-screen bg-[var(--cream)] text-[var(--ink)]">
       <section className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-5 py-5 sm:px-7 lg:px-10">
-        <header className="flex items-center justify-between gap-4 border-b border-[var(--line)] pb-4">
+        <header className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--line)] pb-4">
           <Link
             href="/"
             className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)] transition-colors hover:text-[var(--ink)]"
@@ -18,28 +34,27 @@ export default function StartPage() {
             3DPrintYou
           </Link>
           <StepPills current={1} />
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             <Link
-              className="secondary-button h-10 min-h-0 shrink-0 px-3"
-              href="/operator"
+              className="inline-flex h-9 shrink-0 items-center rounded-lg px-3 text-sm font-semibold text-[var(--ink)] transition-colors hover:bg-[var(--clay)]/70"
+              href="/start?auth=sign-in"
             >
-              <ClipboardList size={16} aria-hidden="true" />
-              Operator
+              Sign in
             </Link>
             <Link
-              className="secondary-button h-10 min-h-0 shrink-0 px-3"
-              href="/admin"
+              className="inline-flex h-9 shrink-0 items-center rounded-lg bg-[var(--ember)] px-3.5 text-sm font-semibold text-white transition-colors hover:bg-[var(--terracotta)]"
+              href="/start?auth=create"
             >
-              <Settings size={16} aria-hidden="true" />
-              Admin
+              Create account
             </Link>
             <PwaInstallButton />
           </div>
         </header>
 
         <div className="flex-1 pt-6">
+          {authIntent ? <StartAccountPanel authIntent={authIntent} /> : null}
           <ComicBanner variant="full" />
-          <StyleCardGrid />
+          <StyleCardGrid authIntent={authIntent} />
         </div>
 
         <TrustStrip />

@@ -61,7 +61,7 @@ Reference: `docs/archive/human-tasks-archived-2026-06-11/printu-1.png`
 
 The first screen is a lightweight project dashboard. It includes a large branded hero area, a primary creation button, and a "My List" grid containing prior figurine projects.
 
-For our implementation, this should become the customer landing point after sign-in or guest session start. The first viewport should make the figurine product obvious: show example figurines, not poster reliefs. The primary action should be something like "Create my figurine" and should open a new job in the figurine workflow.
+For our implementation, this should become the customer landing point after account creation or sign-in. The first viewport should make the figurine product obvious: show example figurines, not poster reliefs. The primary action should be something like "Create my figurine" and should open a new job in the figurine workflow.
 
 Expected UI elements:
 

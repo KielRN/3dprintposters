@@ -16,9 +16,17 @@ import { ComicBanner } from "./ComicBanner";
 import { MyFigurinesList } from "./MyFigurinesList";
 import { styleCardContent } from "./styleCardContent";
 
+type AuthIntent = "sign-in" | "create";
+
 // Page 2: per-style project page. The style resolves client-side after the
 // live config loads; unknown or disabled ids bounce back to the gallery.
-export function ProjectPageView({ styleId }: { styleId: string }) {
+export function ProjectPageView({
+  initialAuthMode,
+  styleId,
+}: {
+  initialAuthMode?: AuthIntent;
+  styleId: string;
+}) {
   const router = useRouter();
   const firebaseClients = useMemo(() => getFirebaseClients(), []);
   const [user, setUser] = useState<User | null>(null);
@@ -27,6 +35,7 @@ export function ProjectPageView({ styleId }: { styleId: string }) {
     defaultFigurineWorkflowConfig,
   );
   const [configLoading, setConfigLoading] = useState(Boolean(firebaseClients));
+  const [authPromptKey, setAuthPromptKey] = useState(0);
 
   useEffect(() => {
     if (!firebaseClients) {
@@ -118,11 +127,20 @@ export function ProjectPageView({ styleId }: { styleId: string }) {
             user={user}
             authLoading={authLoading}
             firebaseClients={firebaseClients}
+            focusRequestKey={authPromptKey}
+            initialMode={authPromptKey > 0 ? "create" : (initialAuthMode ?? "sign-in")}
+            prompt={
+              authPromptKey > 0
+                ? "Create an account to choose your photo."
+                : undefined
+            }
           />
           <UploadPanel
             style={style}
             user={user}
+            authLoading={authLoading}
             firebaseClients={firebaseClients}
+            onAuthRequired={() => setAuthPromptKey((key) => key + 1)}
           />
         </section>
 

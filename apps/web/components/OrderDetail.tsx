@@ -168,7 +168,7 @@ export function OrderDetail({ orderId }: { orderId: string }) {
         <div className="mt-8 rounded-lg border border-black/10 bg-white p-5">
           <p className="font-bold">Sign in to view this order.</p>
           <p className="mt-2 text-sm text-[var(--muted)]">
-            Use the same account or guest session that created checkout.
+            Use the same account that created checkout.
           </p>
         </div>
       ) : null}

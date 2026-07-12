@@ -4,15 +4,26 @@ import { ArrowRight, Sparkles } from "lucide-react";
 import type { WorkflowStyleConfig } from "@/lib/figurineWorkflowConfig";
 import { styleCardContent } from "./styleCardContent";
 
+type AuthIntent = "sign-in" | "create";
+
 // MakerLab-style gallery card. The label always comes from the live workflow
 // config; only art and description are keyed by style id.
-export function StyleCard({ style }: { style: WorkflowStyleConfig }) {
+export function StyleCard({
+  style,
+  authIntent,
+}: {
+  style: WorkflowStyleConfig;
+  authIntent?: AuthIntent;
+}) {
   const content = styleCardContent(style.id);
+  const href = authIntent
+    ? `/start/${style.id}?auth=${authIntent}`
+    : `/start/${style.id}`;
 
   return (
     <Link
       className="group block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ember)] focus-visible:ring-offset-2"
-      href={`/start/${style.id}`}
+      href={href}
     >
       <article className="panel overflow-hidden rounded-xl transition-transform duration-300 ease-out motion-safe:group-hover:-translate-y-1">
         <div className="relative aspect-[2/1] overflow-hidden bg-[var(--clay)]">

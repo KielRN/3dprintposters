@@ -14,6 +14,7 @@
     "firebase:emulators:full": "npm --workspace apps/functions run build && node scripts/firebase/check-emulator-java.mjs && firebase emulators:start --only auth,functions,firestore,storage --project dev",
     "firebase:emulators:full:export": "npm --workspace apps/functions run build && node scripts/firebase/check-emulator-java.mjs && firebase emulators:start --only auth,functions,firestore,storage --project dev --import .codex-run/firebase-emulators --export-on-exit .codex-run/firebase-emulators",
     "dev:seed-paid-order": "node apps/functions/scripts/seed-dev-paid-order.mjs",
+    "dev:seed-auth-roles": "node apps/functions/scripts/seed-auth-roles.mjs",
     "firebase:deploy:firestore-rules:dry-run": "firebase deploy --only firestore:rules --project dev --dry-run",
     "firebase:deploy:firestore-rules:dev": "firebase deploy --only firestore:rules --project dev",
     "firebase:deploy:storage-rules:dry-run": "firebase deploy --only storage --project dev --dry-run",

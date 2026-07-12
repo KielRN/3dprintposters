@@ -39,7 +39,7 @@ import {
   SlidersHorizontal,
   Trash2,
 } from "lucide-react";
-import { onAuthStateChanged, signInAnonymously, signOut, type User } from "firebase/auth";
+import { onAuthStateChanged, signOut, type User } from "firebase/auth";
 import { httpsCallable } from "firebase/functions";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import Link from "next/link";
@@ -129,7 +129,6 @@ export function AdminWorkflowConfig({
   const [internalAuthLoading, setInternalAuthLoading] = useState(
     Boolean(firebaseClients),
   );
-  const [authBusy, setAuthBusy] = useState(false);
   const [configLoading, setConfigLoading] = useState(Boolean(firebaseClients));
   const [configLoadFailed, setConfigLoadFailed] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -258,26 +257,6 @@ export function AdminWorkflowConfig({
       cancelled = true;
     };
   }, [firebaseClients, referenceImagePathKey, referenceImagePaths]);
-
-  async function continueAsDev() {
-    if (!firebaseClients) {
-      setError("Firebase is not configured for the web app yet.");
-      return;
-    }
-
-    setAuthBusy(true);
-    setError("");
-
-    try {
-      await signInAnonymously(firebaseClients.auth);
-    } catch (authError) {
-      setError(
-        authError instanceof Error ? authError.message : "Dev sign-in failed.",
-      );
-    } finally {
-      setAuthBusy(false);
-    }
-  }
 
   async function saveConfig() {
     if (!firebaseClients) {
@@ -574,25 +553,7 @@ export function AdminWorkflowConfig({
                   <LogOut size={16} aria-hidden="true" />
                   Sign out
                 </button>
-              ) : (
-                <button
-                  className="secondary-button h-10 min-h-0 px-3"
-                  type="button"
-                  disabled={!firebaseClients || authBusy}
-                  onClick={continueAsDev}
-                >
-                  {authBusy ? (
-                    <Loader2
-                      className="animate-spin"
-                      size={16}
-                      aria-hidden="true"
-                    />
-                  ) : (
-                    <Shield size={16} aria-hidden="true" />
-                  )}
-                  Dev sign in
-                </button>
-              )}
+              ) : null}
             </>
           ) : null}
           <button
@@ -721,7 +682,7 @@ export function AdminWorkflowConfig({
             <div className="flex items-center justify-between gap-3">
               <span className="text-[var(--muted)]">Role gate</span>
               <strong className="min-w-0 max-w-[58%] break-words text-right">
-                Placeholder
+                Enforced
               </strong>
             </div>
             <div className="flex items-center justify-between gap-3">

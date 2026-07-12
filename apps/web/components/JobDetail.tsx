@@ -729,7 +729,7 @@ export function JobDetail({
         <div className="panel rounded-xl p-5">
           <p className="font-bold">Sign in to view this job.</p>
           <p className="mt-2 text-sm text-[var(--muted)]">
-            Use the same account or guest session that created the upload.
+            Use the same account that created the upload.
           </p>
         </div>
       </section>
@@ -1166,7 +1166,7 @@ export function JobDetail({
           <p className="mt-2 text-sm text-[var(--muted)]">
             {operatorMode
               ? "Use an operator or admin account."
-              : "Use the same account or guest session that created the upload."}
+              : "Use the same account that created the upload."}
           </p>
         </div>
       ) : null}

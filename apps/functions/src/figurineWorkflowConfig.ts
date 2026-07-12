@@ -277,9 +277,9 @@ export const defaultFigurineWorkflowConfig: FigurineWorkflowConfig = {
   visibleStyleCount: 5,
   styles: defaultStyles,
   roleGate: {
-    enabled: false,
+    enabled: true,
     requiredRole: "admin",
-    note: "Placeholder only during dev. The save callable requires a signed-in user, but custom-claim role enforcement is not active yet.",
+    note: "Admin workflow controls require the admin custom claim. Customer upload and checkout require a non-anonymous account.",
   },
 };
 

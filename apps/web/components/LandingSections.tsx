@@ -202,7 +202,7 @@ export function LandingSections() {
             Bring them home.
           </h2>
           <Link
-            href="/start"
+            href="/start?auth=create#account"
             className="inline-flex min-h-[56px] items-center justify-center rounded-lg bg-[var(--cream)] px-9 text-lg font-extrabold text-[var(--ink)] transition-transform hover:-translate-y-0.5"
           >
             Start

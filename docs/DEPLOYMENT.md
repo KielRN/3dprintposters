@@ -47,7 +47,7 @@ Recommended before public staging:
 - Enable Firestore.
 - Enable Firebase Auth.
 - Enable Email/Password sign-in for named test accounts.
-- Enable Anonymous sign-in if the guest-session MVP path should be available.
+- Do not enable Anonymous sign-in for the public customer path; upload, job creation, proof approval, scene preview, base naming, and checkout require a non-anonymous account.
 - Enable Cloud Storage.
 - Configure Firebase Functions 2nd gen.
 - Add secrets with Firebase Functions secrets or Google Secret Manager.

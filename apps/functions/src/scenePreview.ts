@@ -8,6 +8,7 @@ import {
   extractGeneratedImage,
   generateVertexImage,
 } from "./aiProvider.js";
+import { requireSignedInAccount } from "./authRoles.js";
 import { refreshJobCostFromFirestore } from "./figurineBuild.js";
 
 const sceneIds = ["bookshelf", "desk", "unboxing"] as const;
@@ -386,9 +387,7 @@ export const generateScenePreview = onCall(
     memory: "512MiB",
   },
   async (request) => {
-    if (!request.auth) {
-      throw new HttpsError("unauthenticated", "Sign in first.");
-    }
+    const account = requireSignedInAccount(request);
     const parsed = generateScenePreviewSchema.safeParse(request.data);
     if (!parsed.success) {
       throw new HttpsError(
@@ -403,7 +402,7 @@ export const generateScenePreview = onCall(
     const jobRef = db.collection("jobs").doc(jobId);
     const jobSnap = await jobRef.get();
     const jobData = jobSnap.data();
-    if (!jobSnap.exists || !jobData || jobData.uid !== request.auth.uid) {
+    if (!jobSnap.exists || !jobData || jobData.uid !== account.uid) {
       throw new HttpsError("not-found", "Job not found.");
     }
 

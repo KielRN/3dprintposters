@@ -2,6 +2,17 @@
 
 All notable project changes will be documented in this file.
 
+## [Unreleased] - 2026-07-11
+
+### Added
+
+- Added Firebase Auth custom-claim role enforcement for the admin/operator surfaces. Admin claims now unlock `/admin`, workflow configuration, support actions, refunds, requeues, and operator access; operator claims unlock the print console and print-readiness tooling without admin powers. Added `apps/functions/src/authRoles.ts`, focused role tests, and `npm run dev:seed-auth-roles` to seed the current dev project roles.
+
+### Changed
+
+- Customer upload, proof approval, scene preview, base-name updates, and checkout now require a non-anonymous Firebase account. The shared `AuthPanel` no longer offers guest sign-in; clicking or dropping on the upload zone while signed out switches the account panel to account creation, and landing-page CTAs carry the create-account intent into `/start`.
+- Firebase Storage and Firestore rules now reject anonymous customer access. Admin workflow reference images under `admin/workflow-style-references/` require the admin custom claim instead of any signed-in user.
+
 ## [Unreleased] - 2026-07-10
 
 ### Added

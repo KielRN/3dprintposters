@@ -120,6 +120,41 @@ textarea {
   transform: none;
 }
 
+/* Compact primary — lighter and shorter than .primary-button, for dense
+   surfaces like the auth form. Defined unlayered so its font-size/weight win
+   over the global `button { font: inherit }` reset. */
+.button-primary-compact {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 8px;
+  border: 0;
+  background: var(--ember);
+  color: #ffffff;
+  padding: 0 16px;
+  font-size: 14px;
+  font-weight: 600;
+  transition:
+    background-color 150ms ease,
+    transform 120ms ease;
+}
+
+.button-primary-compact:hover {
+  background: var(--terracotta);
+}
+
+.button-primary-compact:active {
+  transform: translateY(1px);
+}
+
+.button-primary-compact:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  transform: none;
+}
+
 .text-input {
   min-height: 44px;
   width: 100%;
@@ -135,6 +170,36 @@ textarea {
   border: 1px dashed rgba(63, 107, 76, 0.55);
   border-radius: 8px;
   background: rgba(63, 107, 76, 0.06);
+}
+
+/* Auth modal entrance */
+@media (prefers-reduced-motion: no-preference) {
+  .modal-backdrop {
+    animation: modal-fade 200ms ease-out both;
+  }
+  .modal-card {
+    animation: modal-pop 240ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+}
+
+@keyframes modal-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modal-pop {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 /* Landing: scroll-reveal (IntersectionObserver toggles data-shown) */

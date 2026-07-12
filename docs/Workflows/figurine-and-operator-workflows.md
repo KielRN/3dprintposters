@@ -1,6 +1,6 @@
 # Figurine And Operator Workflows
 
-Status: current implementation map as of 2026-07-09.
+Status: current implementation map as of 2026-07-11.
 
 This document explains the current app workflows in plain language. It focuses on what the customer sees, where proof generation happens, how the style choices change the backend path, which Vertex/Gemini and generated-3D provider calls are used, and what the operator/admin consoles control.
 
@@ -13,7 +13,7 @@ Proof generation is the 2D image stage. It happens before Meshy makes a 3D model
 In the generated-options figurine path:
 
 1. Customer uses `/start`.
-2. Customer signs in or continues as guest.
+2. Customer creates or signs into an email/password account.
 3. Customer uploads a JPG/PNG source photo.
 4. Customer chooses a visible style from the workflow config.
 5. The browser uploads the source photo to Firebase Storage under `uploads/{uid}/{jobId}/source.{jpg|png}`.

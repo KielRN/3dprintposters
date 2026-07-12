@@ -2,7 +2,7 @@
 
 ## Product Shape
 
-3D Print Posters is pivoting to a mobile-first web/PWA flow for proving personalized AI figurine demand. Public customers create a verified email account, upload a photo, choose a figurine style and posture, approve a 2D proof, preview a standalone generated 3D figurine, and check out only after the active full-color partner fulfillment path is validated.
+3D Print Posters is pivoting to a mobile-first web/PWA flow for proving personalized AI figurine demand. Public customers create an email/password account, upload a photo, choose a figurine style and posture, approve a 2D proof, preview a standalone generated 3D figurine, and check out only after the active full-color partner fulfillment path is validated.
 
 The poster-relief product remains implemented R&D. If that line resumes, users upload a photo, choose a style, approve controlled generated art, preview a 5in x 7in 3D relief, pay for a physical poster, and track fulfillment. The "Super Dad" generated proof remains the parked relief north star.
 
@@ -16,7 +16,7 @@ Location: `apps/web`
 
 - Next.js App Router.
 - Mobile-first responsive UI.
-- Firebase Auth for user identity. The current UI still contains email/password and anonymous guest-session plumbing, but the public creation target is verified email before upload or job creation.
+- Firebase Auth for user identity. Customer upload/job/checkout flows require a non-anonymous email/password account; anonymous guest creation is no longer a public path.
 - Firebase Storage for source uploads and generated assets.
 - Firebase callable Functions for authenticated generation job creation, proof approval, and checkout session creation.
 - Firestore reads for job/order status.
@@ -164,21 +164,20 @@ with side paths off the fulfillment portion of the lifecycle (`paid` and later):
 
 **`pipelineStage` on `jobs/{jobId}`.** The Stripe webhook and every operator/admin fulfillment mutation also stamp a denormalized `pipelineStage` (plus `pipelineUpdatedAt`) directly onto the job document, so the `/admin` and `/operator` work-queue lists can filter and sort on one field instead of joining the order doc per row. `derivePipelineStage` is the single source of truth for reading effective stage: it prefers the stamped `jobs/{jobId}.pipelineStage`, falls back to `orders/{jobId}.fulfillment.stage`, falls back to legacy paid-order detection (orders paid before this pipeline existed), and finally derives a pre-payment stage from job status/product-type fields for jobs that never reached checkout.
 
-**Operator allowlist.** A new `OPERATOR_ALLOWLIST` secret (same shape as `ADMIN_SUPPORT_ALLOWLIST`: UIDs or case-insensitive emails) gates the `/operator` route and its callables, separately from the admin support allowlist. Admins on `ADMIN_SUPPORT_ALLOWLIST` are implicitly treated as operators as well, so the product owner does not need a second allowlist entry to exercise the operator view; a plain operator is not implicitly an admin.
+**Admin/operator claims.** Firebase Auth custom claims gate privileged surfaces. Admin accounts (`role: "admin"` or `admin: true`) can use `/admin`, workflow controls, support actions, refunds/requeues, and operator tools. Operator accounts (`role: "operator"` or `operator: true`) can use `/operator` and print-readiness/tooling callables, but are not admins. Customer accounts are non-anonymous Firebase Auth users; the seeded user role also carries `checkout: true` for clarity.
 
 **Required new secrets/env:**
 
-- `OPERATOR_ALLOWLIST` - operator console access, see above.
 - `STRIPE_FIGURINE_PAINTED_PRICE_ID` / `STRIPE_FIGURINE_UNPAINTED_PRICE_ID` - Stripe price ids selected by the customer's painted/unpainted figurine choice at checkout; both fall back to hardcoded prices if unset.
 
 ## Data Flow
 
 Active figurine target flow:
 
-1. User signs in with a verified email/password account before upload.
+1. User signs in with a non-anonymous email/password account before upload.
 2. Web app creates a job id and uploads a source JPG or PNG to `uploads/{uid}/{jobId}/source.{jpg|png}`.
 3. Web app calls `createGenerationJob` with `jobId`, `sourceImagePath`, selected figurine style, and selected posture.
-4. Function verifies the signed-in user owns the upload path, has verified email, has enough creation credits for the requested step, and creates `jobs/{jobId}` with `status: "generating"`.
+4. Function verifies the signed-in user owns the upload path, is not anonymous, has enough creation credits for the requested step, and creates `jobs/{jobId}` with `status: "generating"`.
 5. Function reserves/consumes the needed creation credits, calls the internal AI provider adapter, stores the generated 2D proof under `generated/{uid}/{jobId}/preview.{png|jpg|webp}`, stores non-secret `aiGeneration` metadata, and marks the job `preview_ready` or `failed`.
 6. Job `generatedImages` lists the generated proof Storage path so the approval and checkout flow use the real AI output.
 7. User selects/approves one concept; the Function records `selectedConceptId`, `approvedImagePath`, and concept approval metadata.

@@ -1,14 +1,22 @@
 "use client";
 
+import { callableErrorMessage } from "@/lib/callableRetry";
 import { getFirebaseClients } from "@/lib/firebase";
 import { BriefcaseBusiness, House, Loader2, LogOut, Shield } from "lucide-react";
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut, type User } from "firebase/auth";
+import { httpsCallable } from "firebase/functions";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { AdminSupportJobs } from "./AdminSupportJobs";
 import { AdminWorkflowConfig } from "./AdminWorkflowConfig";
 
 type AdminTab = "support" | "workflow";
+type ConsoleRole = {
+  role: string | null;
+  isAdmin: boolean;
+  isOperator: boolean;
+  isUser: boolean;
+};
 
 export function AdminDashboard() {
   const firebaseClients = useMemo(() => getFirebaseClients(), []);
@@ -18,6 +26,9 @@ export function AdminDashboard() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [authError, setAuthError] = useState("");
+  const [role, setRole] = useState<ConsoleRole | null>(null);
+  const [roleError, setRoleError] = useState("");
+  const [roleLoading, setRoleLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<AdminTab>("support");
 
   useEffect(() => {
@@ -28,9 +39,51 @@ export function AdminDashboard() {
 
     return onAuthStateChanged(firebaseClients.auth, (nextUser) => {
       setUser(nextUser);
+      setRole(null);
+      setRoleError("");
       setAuthLoading(false);
     });
   }, [firebaseClients]);
+
+  useEffect(() => {
+    if (!firebaseClients || authLoading || !user) {
+      setRoleLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    const getRole = httpsCallable<Record<string, never>, ConsoleRole>(
+      firebaseClients.functions,
+      "getConsoleRole",
+    );
+    setRoleLoading(true);
+    setRoleError("");
+    void user
+      .getIdToken(true)
+      .then(() => getRole({}))
+      .then((result) => {
+        if (!cancelled) {
+          setRole(result.data);
+          setAuthError("");
+          setRoleError("");
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setRole({ role: null, isAdmin: false, isOperator: false, isUser: false });
+          setRoleError(callableErrorMessage(error, "Access check failed."));
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setRoleLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, firebaseClients, user]);
 
   async function submitSignIn() {
     if (!firebaseClients) {
@@ -97,6 +150,13 @@ export function AdminDashboard() {
           </div>
         ) : null}
 
+        {!authLoading && user && roleLoading ? (
+          <div className="panel flex min-h-40 items-center justify-center gap-3 rounded-lg text-sm font-bold text-[var(--muted)]">
+            <Loader2 className="animate-spin" size={18} aria-hidden="true" />
+            Checking admin role
+          </div>
+        ) : null}
+
         {!authLoading && !user ? (
           <section className="panel mx-auto grid w-full max-w-lg gap-4 rounded-lg p-5 sm:p-6">
             <div className="flex items-center gap-3">
@@ -149,7 +209,23 @@ export function AdminDashboard() {
           </section>
         ) : null}
 
-        {!authLoading && user ? (
+        {!authLoading && user && role && !role.isAdmin ? (
+          <section className="panel mx-auto grid w-full max-w-lg gap-3 rounded-lg p-5 sm:p-6">
+            <div className="flex items-center gap-3">
+              <Shield className="text-[var(--coral)]" size={22} aria-hidden="true" />
+              <h2 className="text-xl font-semibold">
+                {roleError ? "Admin access check failed" : "Admin role required"}
+              </h2>
+            </div>
+            <p className="text-sm text-[var(--muted)]">
+              {roleError
+                ? roleError
+                : "This account is signed in but does not have the admin role."}
+            </p>
+          </section>
+        ) : null}
+
+        {!authLoading && user && role?.isAdmin ? (
           <>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap gap-2">

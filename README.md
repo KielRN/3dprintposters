@@ -11,7 +11,7 @@ This project is still in local MVP development. It is not production-ready yet.
 Working now:
 
 - Next.js customer app in `apps/web`
-- Firebase Auth sign-in; public creation target is verified email before upload/job creation
+- Firebase Auth sign-in; public creation requires a non-anonymous email/password account before upload/job creation
 - Browser upload to Firebase Storage
 - Firebase callable Functions for job creation, proof approval, print-file generation orchestration, and checkout
 - Direct Vertex/Gemini proof-generation adapter in `apps/functions`
@@ -105,7 +105,7 @@ sequenceDiagram
   participant DB as Firestore
   participant Stripe as Stripe Checkout
 
-  Customer->>Web: Sign in or continue as guest
+  Customer->>Web: Create account or sign in
   Customer->>Web: Choose JPG/PNG, figurine style, and posture
   Web->>Storage: Upload source photo
   Web->>Fn: createGenerationJob(jobId, path, style)
@@ -369,7 +369,7 @@ Use these steps when testing the implemented relief app as a beginner. The forme
 - [ ] Start `npm run firebase:emulators:functions`.
 - [ ] Start `npm run dev`.
 - [ ] Open `http://127.0.0.1:3000`.
-- [ ] Sign in or continue as guest.
+- [ ] Create an account or sign in.
 - [ ] Upload a JPG or PNG.
 - [ ] Pick a style.
 - [ ] Click Generate.
@@ -457,8 +457,8 @@ Use Stripe test mode until payment, webhook, and fulfillment state transitions a
 - [ ] Add `staging` and `production` aliases to `.firebaserc`.
 - [ ] Enable Firebase Auth in staging and production.
 - [ ] Enable Email/Password sign-in.
-- [ ] Require verified email before public upload/job creation.
-- [ ] Disable anonymous public creation, or keep anonymous sign-in restricted to local/internal testing.
+- [x] Require a non-anonymous account before public upload/job creation.
+- [x] Disable anonymous public creation in the customer UI and callable/rules gates.
 - [ ] Add account lifecycle flows for password reset, email change, account deletion/export, and past-order retention.
 - [ ] Enable Firestore.
 - [ ] Enable Cloud Storage.

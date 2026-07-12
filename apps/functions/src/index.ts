@@ -55,10 +55,8 @@ import {
 } from "./operatorConsole.js";
 import { canTransition, displayJobId, pipelineStages } from "./pipeline.js";
 import {
-  adminSupportDevelopmentAccessReason,
   adminSupportIssueTypes,
   adminSupportStatuses,
-  isAdminSupportAllowed,
   jobMatchesAdminSupportFilters,
   normalizeAdminSupportNoteBody,
   normalizeAdminSupportStatus,
@@ -67,6 +65,13 @@ import {
   type AdminSupportFilters,
   type AdminSupportJobSummary,
 } from "./adminSupport.js";
+import {
+  requireAdminRole,
+  requireOperatorRole,
+  requireSignedInAccount,
+  rolesFromAuth,
+  type CallableAuth,
+} from "./authRoles.js";
 import {
   enabledWorkflowStyleReferenceImages,
   publicFigurineWorkflowConfig,
@@ -101,9 +106,6 @@ const stripeFigurinePaintedPriceId = defineSecret(
 const stripeFigurineUnpaintedPriceId = defineSecret(
   "STRIPE_FIGURINE_UNPAINTED_PRICE_ID",
 );
-const adminSupportAllowlist = defineSecret("ADMIN_SUPPORT_ALLOWLIST");
-const operatorAllowlist = defineSecret("OPERATOR_ALLOWLIST");
-
 const figurineUnpaintedFallbackCents = 9900;
 const figurinePaintedFallbackCents = 14900;
 
@@ -671,9 +673,7 @@ export const getFigurineWorkflowConfig = onCall(async () => {
 });
 
 export const getAdminFigurineWorkflowConfig = onCall(
-  {
-    secrets: [adminSupportAllowlist],
-  },
+  {},
   async (request) => {
     requireAdminSupport(request);
     const config = await readFigurineWorkflowConfig(db);
@@ -690,9 +690,7 @@ export const getAdminFigurineWorkflowConfig = onCall(
 );
 
 export const saveFigurineWorkflowConfig = onCall(
-  {
-    secrets: [adminSupportAllowlist],
-  },
+  {},
   async (request) => {
     const admin = requireAdminSupport(request);
     const requestedConfig =
@@ -734,12 +732,7 @@ export const createGenerationJob = onCall(
     timeoutSeconds: printFileGenerationTimeoutSeconds,
   },
   async (request) => {
-    if (!request.auth) {
-      throw new HttpsError(
-        "unauthenticated",
-        "Sign in before creating a poster.",
-      );
-    }
+    const account = requireSignedInAccount(request);
 
     const parsed = createJobSchema.safeParse(request.data);
     if (!parsed.success) {
@@ -749,7 +742,7 @@ export const createGenerationJob = onCall(
       );
     }
 
-    const expectedUploadPrefix = `uploads/${request.auth.uid}/${parsed.data.jobId}/`;
+    const expectedUploadPrefix = `uploads/${account.uid}/${parsed.data.jobId}/`;
     const allowedImagePath = /\.(jpe?g|png)$/i.test(
       parsed.data.sourceImagePath,
     );
@@ -796,7 +789,7 @@ export const createGenerationJob = onCall(
     if (existingJob.exists) {
       const existingJobData = existingJob.data();
       const isSameUpload =
-        existingJobData?.uid === request.auth.uid &&
+        existingJobData?.uid === account.uid &&
         existingJobData.sourceImagePath === parsed.data.sourceImagePath &&
         existingJobData.selectedStyle === workflowStyle.id &&
         (existingJobData.productType ?? "poster") === productType;
@@ -816,7 +809,7 @@ export const createGenerationJob = onCall(
     }
 
     await jobRef.set({
-      uid: request.auth.uid,
+      uid: account.uid,
       productType,
       status: "generating",
       sourceImagePath: parsed.data.sourceImagePath,
@@ -899,7 +892,7 @@ export const createGenerationJob = onCall(
       const aiProvider = createPosterAiProvider();
       const generation = await aiProvider.generatePosterConcept({
         jobId: jobRef.id,
-        uid: request.auth.uid,
+        uid: account.uid,
         sourceImagePath: parsed.data.sourceImagePath,
         selectedStyle: workflowStyle.id,
         selectedStyleLabel: workflowStyle.label,
@@ -984,9 +977,9 @@ export const createGenerationJob = onCall(
 
         const concept = await generateCreativeLabPrototypeConcept({
           jobId: jobRef.id,
-          uid: request.auth.uid,
+          uid: account.uid,
           sourceImagePath: faceSwapImagePath,
-          conceptOutputPrefix: `generated/${request.auth.uid}/${jobRef.id}`,
+          conceptOutputPrefix: `generated/${account.uid}/${jobRef.id}`,
           modelId: "creative-lab-original",
           apiKey: resolveMeshyApiKeyForFigurine(),
         });
@@ -1115,12 +1108,7 @@ export const approveGeneratedImage = onCall(
     timeoutSeconds: printFileGenerationTimeoutSeconds,
   },
   async (request) => {
-    if (!request.auth) {
-      throw new HttpsError(
-        "unauthenticated",
-        "Sign in before approving a proof.",
-      );
-    }
+    const account = requireSignedInAccount(request);
 
     const parsed = approveGeneratedImageSchema.safeParse(request.data);
     if (!parsed.success) {
@@ -1134,7 +1122,7 @@ export const approveGeneratedImage = onCall(
     const jobSnap = await jobRef.get();
     const jobData = jobSnap.data();
 
-    if (!jobSnap.exists || jobData?.uid !== request.auth.uid) {
+    if (!jobSnap.exists || jobData?.uid !== account.uid) {
       throw new HttpsError("not-found", "Job not found.");
     }
 
@@ -1168,7 +1156,7 @@ export const approveGeneratedImage = onCall(
         printFileStatus: isFigurineJob ? "not_applicable" : "generating",
         printFileOutputPrefix: isFigurineJob
           ? null
-          : `print-files/${request.auth.uid}/${parsed.data.jobId}`,
+          : `print-files/${account.uid}/${parsed.data.jobId}`,
         printFileError: null,
         // Figurine approval is approval-only: it records the concept choice
         // and unlocks checkout. The 3D asset build runs after payment via
@@ -1204,7 +1192,7 @@ export const approveGeneratedImage = onCall(
       printFileArtifacts = await generatePrintFilesForApprovedJob({
         jobRef,
         jobId: jobRef.id,
-        uid: request.auth.uid,
+        uid: account.uid,
         selectedImagePath: parsed.data.imagePath,
         selectedStyle:
           typeof jobData.selectedStyle === "string"
@@ -1248,9 +1236,7 @@ export const createCheckoutSession = onCall(
     ],
   },
   async (request) => {
-    if (!request.auth) {
-      throw new HttpsError("unauthenticated", "Sign in before checkout.");
-    }
+    const account = requireSignedInAccount(request);
 
     const parsed = checkoutSchema.safeParse(request.data);
     if (!parsed.success) {
@@ -1259,7 +1245,7 @@ export const createCheckoutSession = onCall(
 
     const jobSnap = await db.collection("jobs").doc(parsed.data.jobId).get();
     const jobData = jobSnap.data();
-    if (!jobSnap.exists || jobData?.uid !== request.auth.uid) {
+    if (!jobSnap.exists || jobData?.uid !== account.uid) {
       throw new HttpsError("not-found", "Job not found.");
     }
 
@@ -1308,7 +1294,7 @@ export const createCheckoutSession = onCall(
     const existingOrderData = existingOrder.data();
     if (
       existingOrder.exists &&
-      (existingOrderData?.uid !== request.auth.uid ||
+      (existingOrderData?.uid !== account.uid ||
         existingOrderData.jobId !== parsed.data.jobId)
     ) {
       throw new HttpsError("already-exists", "A different order uses this id.");
@@ -1340,7 +1326,7 @@ export const createCheckoutSession = onCall(
         : Math.max(previousCheckoutAttempt, 1);
     const checkoutIdempotencyKey = [
       "checkout",
-      request.auth.uid,
+      account.uid,
       parsed.data.jobId,
       String(jobData.approvedImagePath),
       checkoutAttempt,
@@ -1412,7 +1398,7 @@ export const createCheckoutSession = onCall(
         },
         line_items: lineItems,
         metadata: {
-          uid: request.auth.uid,
+          uid: account.uid,
           jobId: parsed.data.jobId,
           orderId: orderRef.id,
           paintOption: paintOption ?? "",
@@ -1425,7 +1411,7 @@ export const createCheckoutSession = onCall(
 
     await orderRef.set(
       {
-        uid: request.auth.uid,
+        uid: account.uid,
         jobId: parsed.data.jobId,
         approvedImagePath: jobData.approvedImagePath,
         printFileOutputPrefix: jobData.printFileOutputPrefix ?? null,
@@ -1790,94 +1776,24 @@ async function generateFigurineNamedBaseForJob(input: {
 }
 
 function requireAdminSupport(request: {
-  auth?: { uid: string; token?: Record<string, unknown> };
+  auth?: CallableAuth;
 }): { uid: string; email: string | null } {
-  if (!request.auth) {
-    throw new HttpsError(
-      "unauthenticated",
-      "Sign in with an admin account first.",
-    );
-  }
-
-  const email =
-    typeof request.auth.token?.email === "string"
-      ? request.auth.token.email
-      : null;
-  const principal = {
-    uid: request.auth.uid,
-    email,
-  };
-  const developmentAccessReason = adminSupportDevelopmentAccessReason(
-    process.env,
-  );
-  if (developmentAccessReason) {
-    return principal;
-  }
-
-  const secretAllowlist = adminSupportAllowlist.value()?.trim();
-  const allowlist =
-    secretAllowlist || process.env.ADMIN_SUPPORT_ALLOWLIST?.trim() || "";
-
-  if (
-    !isAdminSupportAllowed({ allowlist, principal })
-  ) {
-    throw new HttpsError(
-      "permission-denied",
-      "This account is not allowed to use admin/support tools.",
-    );
-  }
-
-  return principal;
-}
-
-function consolePrincipal(request: {
-  auth?: { uid: string; token?: Record<string, unknown> };
-}): { uid: string; email: string | null } {
-  if (!request.auth) {
-    throw new HttpsError("unauthenticated", "Sign in first.");
-  }
-  return {
-    uid: request.auth.uid,
-    email:
-      typeof request.auth.token?.email === "string"
-        ? request.auth.token.email
-        : null,
-  };
+  return requireAdminRole(request);
 }
 
 function consoleRoles(request: {
-  auth?: { uid: string; token?: Record<string, unknown> };
-}): { principal: { uid: string; email: string | null }; isAdmin: boolean; isOperator: boolean } {
-  const principal = consolePrincipal(request);
-  if (adminSupportDevelopmentAccessReason(process.env)) {
-    return { principal, isAdmin: true, isOperator: true };
+  auth?: CallableAuth;
+}): { principal: { uid: string; email: string | null }; role: string | null; isAdmin: boolean; isOperator: boolean; isUser: boolean } {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Sign in first.");
   }
-  const adminList =
-    adminSupportAllowlist.value()?.trim() ||
-    process.env.ADMIN_SUPPORT_ALLOWLIST?.trim() ||
-    "";
-  const operatorList =
-    operatorAllowlist.value()?.trim() ||
-    process.env.OPERATOR_ALLOWLIST?.trim() ||
-    "";
-  const isAdmin = isAdminSupportAllowed({ allowlist: adminList, principal });
-  // Admins are implicitly operators so the owner can exercise the operator view.
-  const isOperator =
-    isAdmin || isAdminSupportAllowed({ allowlist: operatorList, principal });
-  return { principal, isAdmin, isOperator };
+  return rolesFromAuth(request.auth);
 }
 
 function requireOperator(request: {
-  auth?: { uid: string; token?: Record<string, unknown> };
+  auth?: CallableAuth;
 }): { uid: string; email: string | null } {
-  const roles = consoleRoles(request);
-  if (!roles.isOperator) {
-    throw new HttpsError(
-      "permission-denied",
-      "This account is not on the operator allowlist.",
-    );
-  }
-  return roles.principal;
+  return requireOperatorRole(request);
 }
 
 function buildAdminSupportFilters(
@@ -2017,9 +1933,6 @@ async function adminSupportDetailForJob(input: {
 }
 
 export const listAdminSupportJobs = onCall(
-  {
-    secrets: [adminSupportAllowlist],
-  },
   async (request) => {
     try {
       requireAdminSupport(request);
@@ -2132,9 +2045,6 @@ export const listAdminSupportJobs = onCall(
 );
 
 export const getAdminSupportJob = onCall(
-  {
-    secrets: [adminSupportAllowlist],
-  },
   async (request) => {
     requireAdminSupport(request);
     const parsed = getAdminSupportJobSchema.safeParse(request.data);
@@ -2159,7 +2069,7 @@ export const getAdminSupportJob = onCall(
 
 export const getAdminJobPreview = onCall(
   {
-    secrets: [adminSupportAllowlist, appStorageBucket],
+    secrets: [appStorageBucket],
   },
   async (request) => {
     requireAdminSupport(request);
@@ -2190,9 +2100,6 @@ export const getAdminJobPreview = onCall(
 );
 
 export const addAdminSupportNote = onCall(
-  {
-    secrets: [adminSupportAllowlist],
-  },
   async (request) => {
     const admin = requireAdminSupport(request);
     const parsed = addAdminSupportNoteSchema.safeParse(request.data);
@@ -2264,9 +2171,6 @@ export const addAdminSupportNote = onCall(
 // attempts + 1, which re-fires onFigurineBuildQueued. Support handles
 // customer comms at current volume.
 export const requeueFigurineBuild = onCall(
-  {
-    secrets: [adminSupportAllowlist],
-  },
   async (request) => {
     const admin = requireAdminSupport(request);
     const parsed = requeueFigurineBuildSchema.safeParse(request.data);
@@ -2316,19 +2220,20 @@ export const requeueFigurineBuild = onCall(
 );
 
 export const getConsoleRole = onCall(
-  {
-    secrets: [adminSupportAllowlist, operatorAllowlist],
-  },
+  {},
   async (request) => {
     const roles = consoleRoles(request);
-    return { isAdmin: roles.isAdmin, isOperator: roles.isOperator };
+    return {
+      role: roles.role,
+      isAdmin: roles.isAdmin,
+      isOperator: roles.isOperator,
+      isUser: roles.isUser,
+    };
   },
 );
 
 export const listOperatorJobs = onCall(
-  {
-    secrets: [adminSupportAllowlist, operatorAllowlist],
-  },
+  {},
   async (request) => {
     requireOperator(request);
     const parsed = listOperatorJobsSchema.safeParse(request.data);
@@ -2809,7 +2714,7 @@ async function operatorJobDetailPayload(jobId: string) {
 
 export const getOperatorJob = onCall(
   {
-    secrets: [adminSupportAllowlist, operatorAllowlist, appStorageBucket],
+    secrets: [appStorageBucket],
   },
   async (request) => {
     requireOperator(request);
@@ -2940,7 +2845,7 @@ async function buildPrintBundle(input: { jobId: string }): Promise<void> {
 
 export const operatorAcceptJob = onCall(
   {
-    secrets: [adminSupportAllowlist, operatorAllowlist, appStorageBucket],
+    secrets: [appStorageBucket],
     timeoutSeconds: 300,
     memory: "1GiB",
   },
@@ -2972,7 +2877,7 @@ export const operatorAcceptJob = onCall(
 
 export const operatorUpdateFulfillment = onCall(
   {
-    secrets: [adminSupportAllowlist, operatorAllowlist, appStorageBucket],
+    secrets: [appStorageBucket],
   },
   async (request) => {
     const operator = requireOperator(request);
@@ -3081,7 +2986,7 @@ const adminJobIdSchema = z.object({ jobId: z.string().min(1) });
 
 export const adminRefundJob = onCall(
   {
-    secrets: [adminSupportAllowlist, stripeSecretKey],
+    secrets: [stripeSecretKey],
   },
   async (request) => {
     const admin = requireAdminSupport(request);
@@ -3138,9 +3043,6 @@ const adminSetFulfillmentSchema = z.object({
 });
 
 export const adminSetFulfillment = onCall(
-  {
-    secrets: [adminSupportAllowlist],
-  },
   async (request) => {
     const admin = requireAdminSupport(request);
     const parsed = adminSetFulfillmentSchema.safeParse(request.data);
@@ -3331,12 +3233,7 @@ export const updateFigurineBaseConfig = onCall(
     timeoutSeconds: 540,
   },
   async (request) => {
-    if (!request.auth) {
-      throw new HttpsError(
-        "unauthenticated",
-        "Sign in before editing the figurine base.",
-      );
-    }
+    const account = requireSignedInAccount(request);
 
     const parsed = updateFigurineBaseConfigSchema.safeParse(request.data);
     if (!parsed.success) {
@@ -3350,7 +3247,7 @@ export const updateFigurineBaseConfig = onCall(
     const jobSnap = await jobRef.get();
     const jobData = jobSnap.data();
 
-    if (!jobSnap.exists || jobData?.uid !== request.auth.uid) {
+    if (!jobSnap.exists || jobData?.uid !== account.uid) {
       throw new HttpsError("not-found", "Job not found.");
     }
 
@@ -3414,7 +3311,7 @@ export const updateFigurineBaseConfig = onCall(
       namedBase = await generateFigurineNamedBaseForJob({
         jobRef,
         jobId: parsed.data.jobId,
-        uid: request.auth.uid,
+        uid: account.uid,
         baseId: parsed.data.baseId,
         signText,
       });
@@ -3462,7 +3359,7 @@ export const updateFigurineBaseConfig = onCall(
       assembly = await generateFigurineAssemblyForJob({
         jobRef,
         jobId: parsed.data.jobId,
-        uid: request.auth.uid,
+        uid: account.uid,
         jobData: {
           ...jobData,
           baseConfig,
@@ -3528,12 +3425,7 @@ export const generateFigurineAssembly = onCall(
     timeoutSeconds: 540,
   },
   async (request) => {
-    if (!request.auth) {
-      throw new HttpsError(
-        "unauthenticated",
-        "Sign in before assembling the figurine package.",
-      );
-    }
+    requireOperator(request);
 
     const parsed = generateFigurineAssemblySchema.safeParse(request.data);
     if (!parsed.success) {
@@ -3543,7 +3435,7 @@ export const generateFigurineAssembly = onCall(
     const jobRef = db.collection("jobs").doc(parsed.data.jobId);
     const jobSnap = await jobRef.get();
     const jobData = jobSnap.data() as Record<string, unknown> | undefined;
-    if (!jobSnap.exists || jobData?.uid !== request.auth.uid) {
+    if (!jobSnap.exists || !jobData) {
       throw new HttpsError("not-found", "Job not found.");
     }
     if (!jobDataIsFigurine(jobData)) {
@@ -3557,7 +3449,7 @@ export const generateFigurineAssembly = onCall(
       const assembly = await generateFigurineAssemblyForJob({
         jobRef,
         jobId: parsed.data.jobId,
-        uid: request.auth.uid,
+        uid: typeof jobData.uid === "string" ? jobData.uid : "unknown",
         jobData,
       });
       return {
@@ -3597,16 +3489,11 @@ export const generateFigurineAssembly = onCall(
 
 export const runFigurinePrintTooling = onCall(
   {
-    secrets: [appStorageBucket, meshyApiKey, adminSupportAllowlist],
+    secrets: [appStorageBucket, meshyApiKey],
     timeoutSeconds: 540,
   },
   async (request) => {
-    if (!request.auth) {
-      throw new HttpsError(
-        "unauthenticated",
-        "Sign in before running figurine print tooling.",
-      );
-    }
+    const operator = requireOperator(request);
 
     const parsed = runFigurinePrintToolingSchema.safeParse(request.data);
     if (!parsed.success) {
@@ -3620,9 +3507,6 @@ export const runFigurinePrintTooling = onCall(
       throw new HttpsError("not-found", "Job not found.");
     }
     const jobUid = typeof jobData.uid === "string" ? jobData.uid : null;
-    if (jobUid !== request.auth.uid) {
-      requireAdminSupport(request);
-    }
     if (!jobDataIsFigurine(jobData)) {
       throw new HttpsError(
         "failed-precondition",
@@ -3634,7 +3518,7 @@ export const runFigurinePrintTooling = onCall(
       const tooling = await runFigurinePrintToolingForJob({
         jobRef,
         jobId: parsed.data.jobId,
-        uid: jobUid ?? request.auth.uid,
+        uid: jobUid ?? operator.uid,
         jobData,
       });
       return {

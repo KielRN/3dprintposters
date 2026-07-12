@@ -32,7 +32,9 @@ type CreateGenerationJobResult = {
 type UploadPanelProps = {
   style: WorkflowStyleConfig; // preselected and locked to the route
   user: User | null;
+  authLoading?: boolean;
   firebaseClients: FirebaseClients | null;
+  onAuthRequired?: () => void;
 };
 
 function sourceFilePath(uid: string, jobId: string, file: File) {
@@ -42,7 +44,13 @@ function sourceFilePath(uid: string, jobId: string, file: File) {
 
 // Photo dropzone + generation-job creation. The style is locked to the
 // route; drag-and-drop joins tap-to-pick.
-export function UploadPanel({ style, user, firebaseClients }: UploadPanelProps) {
+export function UploadPanel({
+  style,
+  user,
+  authLoading = false,
+  firebaseClients,
+  onAuthRequired,
+}: UploadPanelProps) {
   const router = useRouter();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState("");
@@ -55,6 +63,7 @@ export function UploadPanel({ style, user, firebaseClients }: UploadPanelProps) 
     "Choose a photo to start.",
   );
   const isFigurine = style.productType !== "poster";
+  const hasAccount = Boolean(user && !user.isAnonymous);
   const nameError = isFigurine ? signNameError(heroFirstName) : null;
   const nameMissing = isFigurine && Boolean(nameError);
 
@@ -67,6 +76,13 @@ export function UploadPanel({ style, user, firebaseClients }: UploadPanelProps) 
   }, [sourcePreviewUrl]);
 
   function handleFile(file: File | null) {
+    if (!hasAccount) {
+      setWorkflowError("Create an account before choosing a photo.");
+      setStatusMessage("Create an account to start.");
+      onAuthRequired?.();
+      return;
+    }
+
     if (file && file.type !== "image/png" && file.type !== "image/jpeg") {
       setWorkflowError("Choose a JPG or PNG photo.");
       return;
@@ -88,8 +104,10 @@ export function UploadPanel({ style, user, firebaseClients }: UploadPanelProps) 
       return;
     }
 
-    if (!user) {
-      setWorkflowError("Sign in before creating your figurine.");
+    const account = user && !user.isAnonymous ? user : null;
+    if (!account) {
+      setWorkflowError("Create an account before creating your figurine.");
+      onAuthRequired?.();
       return;
     }
 
@@ -104,12 +122,12 @@ export function UploadPanel({ style, user, firebaseClients }: UploadPanelProps) 
     }
 
     const nextJobId = crypto.randomUUID();
-    const sourceImagePath = sourceFilePath(user.uid, nextJobId, selectedFile);
+    const sourceImagePath = sourceFilePath(account.uid, nextJobId, selectedFile);
     let uploadCompleted = false;
 
     setWorkflowError("");
     setJobState("queued");
-    setStatusMessage("You've started the transformation…");
+    setStatusMessage("You've started the transformation...");
 
     try {
       await uploadBytes(
@@ -164,6 +182,12 @@ export function UploadPanel({ style, user, firebaseClients }: UploadPanelProps) 
         className="field-shell flex min-h-40 cursor-pointer flex-col overflow-hidden text-center"
         data-drag={dragActive || undefined}
         style={dragActive ? { background: "rgba(63, 107, 76, 0.14)" } : undefined}
+        onClick={(event) => {
+          if (!hasAccount) {
+            event.preventDefault();
+            handleFile(null);
+          }
+        }}
         onDragOver={(event) => {
           event.preventDefault();
           setDragActive(true);
@@ -172,6 +196,10 @@ export function UploadPanel({ style, user, firebaseClients }: UploadPanelProps) 
         onDrop={(event) => {
           event.preventDefault();
           setDragActive(false);
+          if (!hasAccount) {
+            handleFile(null);
+            return;
+          }
           handleFile(event.dataTransfer.files?.[0] ?? null);
         }}
       >
@@ -217,6 +245,7 @@ export function UploadPanel({ style, user, firebaseClients }: UploadPanelProps) 
           className="sr-only"
           type="file"
           accept="image/png,image/jpeg"
+          disabled={!hasAccount || authLoading}
           onChange={(event) => handleFile(event.target.files?.[0] ?? null)}
         />
       </label>
@@ -265,7 +294,7 @@ export function UploadPanel({ style, user, firebaseClients }: UploadPanelProps) 
         <button
           className="primary-button"
           type="button"
-          disabled={!fileName || !user || nameMissing || jobState === "queued"}
+          disabled={!fileName || !hasAccount || nameMissing || jobState === "queued"}
           onClick={createGenerationJob}
         >
           {jobState === "queued" ? (

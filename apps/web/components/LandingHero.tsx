@@ -24,16 +24,28 @@ function LandingHeader({ solid }: { solid: boolean }) {
         >
           3DPrintYou
         </Link>
-        <Link
-          href="/start"
-          className={`text-sm font-semibold transition-colors ${
-            solid
-              ? "text-[var(--ink)] hover:text-[var(--ember)]"
-              : "text-white/90 hover:text-white"
-          }`}
-        >
-          Sign in
-        </Link>
+        <nav className="flex items-center gap-4 text-sm font-semibold">
+          <Link
+            href="/start?auth=sign-in#account"
+            className={`transition-colors ${
+              solid
+                ? "text-[var(--ink)] hover:text-[var(--ember)]"
+                : "text-white/85 hover:text-white"
+            }`}
+          >
+            Sign in
+          </Link>
+          <Link
+            href="/start?auth=create#account"
+            className={`transition-colors ${
+              solid
+                ? "text-[var(--ink)] hover:text-[var(--ember)]"
+                : "text-white/90 hover:text-white"
+            }`}
+          >
+            Create account
+          </Link>
+        </nav>
       </div>
     </header>
   );
@@ -139,7 +151,7 @@ export function LandingHero() {
             <h1 className="sr-only">
               From a photo. To a hero. Yours to hold.
             </h1>
-            <Link href="/start" className="sr-only">
+            <Link href="/start?auth=create#account" className="sr-only">
               Start your figurine
             </Link>
 
@@ -201,7 +213,7 @@ export function LandingHero() {
             </h1>
             <div className="mt-8">
               <Link
-                href="/start"
+                href="/start?auth=create#account"
                 className="primary-button h-12 px-7 text-base"
               >
                 Start your figurine

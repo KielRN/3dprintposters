@@ -6,8 +6,19 @@ service firebase.storage {
       return request.auth != null;
     }
 
+    function hasAccount() {
+      return signedIn()
+        && request.auth.token.firebase.sign_in_provider != "anonymous";
+    }
+
+    function isAdmin() {
+      return hasAccount()
+        && (request.auth.token.admin == true
+          || request.auth.token.role == "admin");
+    }
+
     function underUserPath(uid) {
-      return signedIn() && request.auth.uid == uid;
+      return hasAccount() && request.auth.uid == uid;
     }
 
     match /uploads/{uid}/{jobId}/{fileName} {
@@ -22,10 +33,9 @@ service firebase.storage {
       allow write: if false;
     }
 
-    // DEV ONLY: tighten this to admin custom claims before production.
     match /admin/workflow-style-references/{styleId}/{fileName} {
-      allow read: if signedIn();
-      allow write: if signedIn()
+      allow read: if isAdmin();
+      allow write: if isAdmin()
         && request.resource.size < 5 * 1024 * 1024
         && request.resource.contentType.matches('image/(jpeg|png)');
     }

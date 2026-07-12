@@ -1,17 +1,31 @@
 import { PwaInstallButton } from "@/components/PwaInstallButton";
 import { ProjectPageView } from "@/components/storyfront/ProjectPageView";
 import { StepPills } from "@/components/storyfront/StepPills";
-import { ClipboardList, Settings } from "lucide-react";
 import Link from "next/link";
+
+type AuthIntent = "sign-in" | "create";
 
 type ProjectPageProps = {
   params: Promise<{
     styleId: string;
   }>;
+  searchParams?: Promise<{
+    auth?: string;
+  }>;
 };
 
-export default async function ProjectPage({ params }: ProjectPageProps) {
+export default async function ProjectPage({
+  params,
+  searchParams,
+}: ProjectPageProps) {
   const { styleId } = await params;
+  const resolvedSearchParams = await searchParams;
+  const initialAuthMode: AuthIntent | undefined =
+    resolvedSearchParams?.auth === "create"
+      ? "create"
+      : resolvedSearchParams?.auth === "sign-in"
+        ? "sign-in"
+        : undefined;
 
   return (
     <main className="min-h-screen bg-[var(--cream)] text-[var(--ink)]">
@@ -25,26 +39,12 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
           </Link>
           <StepPills current={2} />
           <div className="flex items-center gap-2">
-            <Link
-              className="secondary-button h-10 min-h-0 shrink-0 px-3"
-              href="/operator"
-            >
-              <ClipboardList size={16} aria-hidden="true" />
-              Operator
-            </Link>
-            <Link
-              className="secondary-button h-10 min-h-0 shrink-0 px-3"
-              href="/admin"
-            >
-              <Settings size={16} aria-hidden="true" />
-              Admin
-            </Link>
             <PwaInstallButton />
           </div>
         </header>
 
         <div className="flex-1 pb-10">
-          <ProjectPageView styleId={styleId} />
+          <ProjectPageView initialAuthMode={initialAuthMode} styleId={styleId} />
         </div>
       </section>
     </main>

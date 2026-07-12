@@ -62,7 +62,7 @@ export function PwaInstallButton() {
 
   return (
     <button
-      className="secondary-button h-10 min-h-0 shrink-0 px-3"
+      className="secondary-button h-9 min-h-0 shrink-0 px-3 text-sm"
       type="button"
       onClick={async () => {
         const prompt = installPrompt;
