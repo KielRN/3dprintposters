@@ -1,6 +1,6 @@
 "use client";
 
-import type { FirebaseClients } from "@/lib/firebase";
+import type { FirebaseCoreClients } from "@/lib/firebaseCore";
 import { AlertCircle, Loader2, LogIn, LogOut, UserPlus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -17,7 +17,7 @@ type AuthMode = "sign-in" | "create";
 type AuthPanelProps = {
   user: User | null;
   authLoading: boolean;
-  firebaseClients: FirebaseClients | null;
+  firebaseClients: FirebaseCoreClients | null;
   focusRequestKey?: number;
   initialMode?: AuthMode;
   prompt?: string;
@@ -245,4 +245,3 @@ export function AuthPanel({
     </div>
   );
 }
-

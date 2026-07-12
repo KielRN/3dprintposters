@@ -13,12 +13,22 @@ function sleep(ms: number) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
-function callableErrorCode(error: unknown) {
+export function callableErrorCode(error: unknown) {
   if (error && typeof error === "object" && "code" in error) {
     const code = (error as { code?: unknown }).code;
     return typeof code === "string" ? code : "";
   }
   return "";
+}
+
+export function isCallableAccessError(error: unknown) {
+  const code = callableErrorCode(error);
+  return (
+    code === "unauthenticated" ||
+    code === "permission-denied" ||
+    code === "functions/unauthenticated" ||
+    code === "functions/permission-denied"
+  );
 }
 
 export function callableErrorMessage(error: unknown, fallback: string) {

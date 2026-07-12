@@ -37,6 +37,8 @@ type UploadPanelProps = {
   onAuthRequired?: () => void;
 };
 
+const AUTH_REQUIRED_PHOTO_ERROR = "Create an account before choosing a photo.";
+
 function sourceFilePath(uid: string, jobId: string, file: File) {
   const extension = file.type === "image/png" ? "png" : "jpg";
   return `uploads/${uid}/${jobId}/source.${extension}`;
@@ -75,9 +77,24 @@ export function UploadPanel({
     };
   }, [sourcePreviewUrl]);
 
+  useEffect(() => {
+    if (hasAccount && workflowError === AUTH_REQUIRED_PHOTO_ERROR) {
+      setWorkflowError("");
+      setStatusMessage(
+        selectedFile ? "Photo ready for upload." : "Choose a photo to start.",
+      );
+    }
+  }, [hasAccount, selectedFile, workflowError]);
+
   function handleFile(file: File | null) {
+    if (authLoading) {
+      setWorkflowError("");
+      setStatusMessage("Checking your account...");
+      return;
+    }
+
     if (!hasAccount) {
-      setWorkflowError("Create an account before choosing a photo.");
+      setWorkflowError(AUTH_REQUIRED_PHOTO_ERROR);
       setStatusMessage("Create an account to start.");
       onAuthRequired?.();
       return;
@@ -183,7 +200,7 @@ export function UploadPanel({
         data-drag={dragActive || undefined}
         style={dragActive ? { background: "rgba(63, 107, 76, 0.14)" } : undefined}
         onClick={(event) => {
-          if (!hasAccount) {
+          if (authLoading || !hasAccount) {
             event.preventDefault();
             handleFile(null);
           }
@@ -196,7 +213,7 @@ export function UploadPanel({
         onDrop={(event) => {
           event.preventDefault();
           setDragActive(false);
-          if (!hasAccount) {
+          if (authLoading || !hasAccount) {
             handleFile(null);
             return;
           }

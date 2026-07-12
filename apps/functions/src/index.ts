@@ -1,5 +1,6 @@
 import { initializeApp } from "firebase-admin/app";
 import {
+  FieldPath,
   FieldValue,
   getFirestore,
   Timestamp,
@@ -164,6 +165,12 @@ const getAdminJobPreviewSchema = z.object({
 
 const listOperatorJobsSchema = z.object({
   tab: z.enum(operatorTabs),
+  cursor: z.string().trim().min(1).max(128).optional(),
+  limit: z.number().int().min(1).max(100).default(50),
+});
+const operatorJobsCursorPayloadSchema = z.object({
+  updatedAtMs: z.number().int().nonnegative(),
+  jobId: jobIdSchema,
 });
 const operatorJobIdSchema = z.object({
   jobId: jobIdSchema,
@@ -2232,9 +2239,27 @@ export const getConsoleRole = onCall(
   },
 );
 
+function encodeOperatorJobsCursor(input: { updatedAtMs: number; jobId: string }): string {
+  return Buffer.from(JSON.stringify(input), "utf8").toString("base64url");
+}
+
+function decodeOperatorJobsCursor(cursor: string): z.infer<typeof operatorJobsCursorPayloadSchema> {
+  try {
+    const decoded = JSON.parse(Buffer.from(cursor, "base64url").toString("utf8"));
+    const parsed = operatorJobsCursorPayloadSchema.safeParse(decoded);
+    if (parsed.success) {
+      return parsed.data;
+    }
+  } catch {
+    // Fall through to the stable callable error below.
+  }
+  throw new HttpsError("invalid-argument", "The operator jobs cursor is invalid.");
+}
+
 export const listOperatorJobs = onCall(
   {},
   async (request) => {
+    const startedAt = Date.now();
     requireOperator(request);
     const parsed = listOperatorJobsSchema.safeParse(request.data);
     if (!parsed.success) {
@@ -2242,24 +2267,59 @@ export const listOperatorJobs = onCall(
     }
 
     const stages = operatorTabStages[parsed.data.tab];
-    const jobsSnap = await db
+    let jobsQuery = db
       .collection("jobs")
       .where("pipelineStage", "in", stages)
-      .limit(200)
-      .get();
+      .orderBy("pipelineUpdatedAt", "desc")
+      .orderBy(FieldPath.documentId(), "desc")
+      .limit(parsed.data.limit + 1);
 
-    const items = await Promise.all(
-      jobsSnap.docs.map(async (jobDoc) => {
-        const orderSnap = await db.collection("orders").doc(jobDoc.id).get();
-        return sanitizeOperatorJobSummary({
-          jobId: jobDoc.id,
-          jobData: jobDoc.data() as Record<string, unknown>,
-          orderData: (orderSnap.data() ?? {}) as Record<string, unknown>,
-        });
+    if (parsed.data.cursor) {
+      const cursor = decodeOperatorJobsCursor(parsed.data.cursor);
+      jobsQuery = jobsQuery.startAfter(
+        Timestamp.fromMillis(cursor.updatedAtMs),
+        cursor.jobId,
+      );
+    }
+
+    const jobsSnap = await jobsQuery.get();
+    const hasMore = jobsSnap.docs.length > parsed.data.limit;
+    const pageDocs = jobsSnap.docs.slice(0, parsed.data.limit);
+    const orderRefs = pageDocs.map((jobDoc) => db.collection("orders").doc(jobDoc.id));
+    const orderSnaps = orderRefs.length > 0 ? await db.getAll(...orderRefs) : [];
+    const ordersById = new Map(
+      orderSnaps.map((orderSnap) => [
+        orderSnap.id,
+        (orderSnap.data() ?? {}) as Record<string, unknown>,
+      ]),
+    );
+
+    const items = pageDocs.map((jobDoc) =>
+      sanitizeOperatorJobSummary({
+        jobId: jobDoc.id,
+        jobData: jobDoc.data() as Record<string, unknown>,
+        orderData: ordersById.get(jobDoc.id) ?? {},
       }),
     );
-    items.sort((a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? ""));
-    return { items };
+    const lastPageDoc = hasMore ? pageDocs.at(-1) : null;
+    const lastPageUpdatedAt = lastPageDoc?.get("pipelineUpdatedAt");
+    if (lastPageDoc && !(lastPageUpdatedAt instanceof Timestamp)) {
+      throw new HttpsError("internal", "The operator jobs page could not be continued.");
+    }
+    const nextCursor =
+      lastPageDoc && lastPageUpdatedAt
+        ? encodeOperatorJobsCursor({
+            updatedAtMs: lastPageUpdatedAt.toMillis(),
+            jobId: lastPageDoc.id,
+          })
+        : null;
+    console.info("operator jobs listed", {
+      tab: parsed.data.tab,
+      count: items.length,
+      hasMore,
+      durationMs: Date.now() - startedAt,
+    });
+    return { items, nextCursor };
   },
 );
 

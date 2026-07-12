@@ -1,17 +1,18 @@
 "use client";
 
 import { AuthPanel } from "@/components/AuthPanel";
-import { getFirebaseClients } from "@/lib/firebase";
+import { getFirebaseCoreClients } from "@/lib/firebaseCore";
 import {
   callableErrorMessage,
   callWithTransientRetry,
+  isCallableAccessError,
 } from "@/lib/callableRetry";
 import { pipelineStageLabels, type FulfillmentStage } from "@/lib/pipeline";
 import { onAuthStateChanged, signOut, type User } from "firebase/auth";
 import { Box, Home, LogOut, Settings, Wrench } from "lucide-react";
 import { httpsCallable } from "firebase/functions";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type OperatorTab = "all" | "available" | "mine" | "done";
 
@@ -46,6 +47,11 @@ type OperatorJobDetail = OperatorJobSummary & {
   files: Array<{ name: string; url: string | null }>;
 };
 
+type OperatorJobPage = {
+  items: OperatorJobSummary[];
+  nextCursor: string | null;
+};
+
 const tabs: Array<{ id: OperatorTab; label: string }> = [
   { id: "all", label: "All Jobs" },
   { id: "available", label: "Available" },
@@ -77,13 +83,13 @@ function stageTone(stage: FulfillmentStage) {
 }
 
 export function OperatorConsole() {
-  const firebaseClients = useMemo(() => getFirebaseClients(), []);
+  const firebaseClients = useMemo(() => getFirebaseCoreClients(), []);
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(Boolean(firebaseClients));
   const [role, setRole] = useState<{ isOperator: boolean } | null>(null);
   const [roleError, setRoleError] = useState("");
   const [tab, setTab] = useState<OperatorTab>("available");
-  const [jobs, setJobs] = useState<OperatorJobSummary[]>([]);
+  const [jobPages, setJobPages] = useState<Partial<Record<OperatorTab, OperatorJobPage>>>({});
   const [selectedJobId, setSelectedJobId] = useState("");
   const [detail, setDetail] = useState<OperatorJobDetail | null>(null);
   const [listLoading, setListLoading] = useState(false);
@@ -93,6 +99,13 @@ export function OperatorConsole() {
   const [rejectReason, setRejectReason] = useState("");
   const [carrier, setCarrier] = useState("");
   const [trackingNumber, setTrackingNumber] = useState("");
+  const jobPagesRef = useRef<Partial<Record<OperatorTab, OperatorJobPage>>>({});
+  const listRequestsRef = useRef(
+    new Map<string, { promise: Promise<void>; token: symbol }>(),
+  );
+
+  const jobs = jobPages[tab]?.items ?? [];
+  const nextCursor = jobPages[tab]?.nextCursor ?? null;
 
   useEffect(() => {
     if (!firebaseClients) {
@@ -104,53 +117,96 @@ export function OperatorConsole() {
       setAuthLoading(false);
       setRole(null);
       setRoleError("");
+      jobPagesRef.current = {};
+      listRequestsRef.current.clear();
+      setJobPages({});
+      setListLoading(false);
+      setSelectedJobId("");
+      setDetail(null);
     });
   }, [firebaseClients]);
 
-  useEffect(() => {
-    if (!firebaseClients || authLoading || !user) {
-      return;
-    }
-    if (user.isAnonymous) {
-      setRole({ isOperator: false });
-      setRoleError("Sign in with an operator account before opening the print console.");
-      return;
-    }
-    const getRole = httpsCallable<Record<string, never>, { isOperator: boolean }>(
-      firebaseClients.functions,
-      "getConsoleRole",
-    );
-    setRole(null);
-    setRoleError("");
-    user
-      .getIdToken(true)
-      .then(() => callWithTransientRetry(() => getRole({})))
-      .then((result) => setRole(result.data))
-      .catch((accessError) => {
-        setRole({ isOperator: false });
-        setRoleError(callableErrorMessage(accessError, "Could not verify operator access."));
-      });
-  }, [authLoading, firebaseClients, user]);
+  const loadJobs = useCallback(
+    async (nextTab: OperatorTab, options: { append?: boolean } = {}) => {
+      if (!firebaseClients) {
+        return;
+      }
 
-  async function loadJobs(nextTab: OperatorTab) {
-    if (!firebaseClients) {
-      return;
-    }
-    setListLoading(true);
-    setError("");
-    try {
-      const list = httpsCallable<{ tab: OperatorTab }, { items: OperatorJobSummary[] }>(
-        firebaseClients.functions,
-        "listOperatorJobs",
-      );
-      const result = await callWithTransientRetry(() => list({ tab: nextTab }));
-      setJobs(result.data.items);
-    } catch (listError) {
-      setError(callableErrorMessage(listError, "Loading jobs failed."));
-    } finally {
-      setListLoading(false);
-    }
-  }
+      const cursor = options.append ? jobPagesRef.current[nextTab]?.nextCursor : null;
+      if (options.append && !cursor) {
+        return;
+      }
+
+      const requestKey = `${nextTab}:${cursor ?? "first"}`;
+      const existingRequest = listRequestsRef.current.get(requestKey)?.promise;
+      if (existingRequest) {
+        return existingRequest;
+      }
+
+      const requestUid = firebaseClients.auth.currentUser?.uid ?? null;
+      const requestToken = Symbol(requestKey);
+      const request = (async () => {
+        setListLoading(true);
+        setError("");
+        try {
+          const list = httpsCallable<
+            { tab: OperatorTab; cursor?: string; limit: number },
+            { items: OperatorJobSummary[]; nextCursor: string | null }
+          >(firebaseClients.functions, "listOperatorJobs");
+          const result = await callWithTransientRetry(() =>
+            list({
+              tab: nextTab,
+              limit: 50,
+              ...(cursor ? { cursor } : {}),
+            }),
+          );
+          if (firebaseClients.auth.currentUser?.uid !== requestUid) {
+            return;
+          }
+
+          setRole({ isOperator: true });
+          setRoleError("");
+          setJobPages((current) => {
+            const priorItems = options.append ? (current[nextTab]?.items ?? []) : [];
+            const byId = new Map(
+              [...priorItems, ...result.data.items].map((item) => [item.jobId, item]),
+            );
+            const next = {
+              ...current,
+              [nextTab]: {
+                items: Array.from(byId.values()),
+                nextCursor: result.data.nextCursor,
+              },
+            };
+            jobPagesRef.current = next;
+            return next;
+          });
+        } catch (listError) {
+          if (firebaseClients.auth.currentUser?.uid !== requestUid) {
+            return;
+          }
+          if (isCallableAccessError(listError)) {
+            setRole({ isOperator: false });
+            setRoleError(
+              callableErrorMessage(listError, "Could not verify operator access."),
+            );
+            return;
+          }
+          setRole((current) => current ?? { isOperator: true });
+          setError(callableErrorMessage(listError, "Loading jobs failed."));
+        } finally {
+          if (listRequestsRef.current.get(requestKey)?.token === requestToken) {
+            listRequestsRef.current.delete(requestKey);
+          }
+          setListLoading(listRequestsRef.current.size > 0);
+        }
+      })();
+
+      listRequestsRef.current.set(requestKey, { promise: request, token: requestToken });
+      return request;
+    },
+    [firebaseClients],
+  );
 
   async function loadDetail(jobId: string) {
     if (!firebaseClients) {
@@ -173,13 +229,18 @@ export function OperatorConsole() {
   }
 
   useEffect(() => {
-    if (role?.isOperator) {
-      void loadJobs(tab);
-      setSelectedJobId("");
-      setDetail(null);
+    if (!firebaseClients || authLoading || !user) {
+      return;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [role, tab]);
+    if (user.isAnonymous) {
+      setRole({ isOperator: false });
+      setRoleError("Sign in with an operator account before opening the print console.");
+      return;
+    }
+    void loadJobs(tab);
+    setSelectedJobId("");
+    setDetail(null);
+  }, [authLoading, firebaseClients, loadJobs, tab, user]);
 
   async function runAction(input: Record<string, unknown>, callableName: string) {
     if (!firebaseClients || !detail) {
@@ -332,6 +393,16 @@ export function OperatorConsole() {
               </span>
             </button>
           ))}
+          {nextCursor ? (
+            <button
+              type="button"
+              disabled={listLoading}
+              onClick={() => void loadJobs(tab, { append: true })}
+              className="secondary-button mt-2 h-10 min-h-0 w-full px-3 disabled:opacity-50"
+            >
+              {listLoading ? "Loading more…" : "Load more"}
+            </button>
+          ) : null}
         </div>
 
         <div className="rounded-lg border border-black/10 p-4">

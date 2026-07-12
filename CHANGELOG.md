@@ -6,6 +6,7 @@ All notable project changes will be documented in this file.
 
 ### Fixed
 
+- The `/operator` Print Console now authorizes and loads its first queue in one callable instead of forcing an ID-token refresh and waiting on a separate role request. The route initializes only the Firebase Auth/Functions client instead of also shipping the unused Firestore and Storage browser SDKs. Queue tabs keep their last loaded rows while refreshing, load 50 jobs at a time with a cursor, and use one batched orders read per page instead of one Firestore request per job. The queue query is now ordered by `pipelineUpdatedAt` and backed by a dedicated composite index.
 - The `/start` style gallery now renders bundled cards immediately instead of holding the entire grid behind the public workflow-config callable, reuses the last successful config while refreshing in the background, and serves the already-compressed card WebPs directly to avoid intermittent first-request image optimization delays.
 
 ## [Unreleased] - 2026-07-11

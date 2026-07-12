@@ -293,6 +293,7 @@ Plain meaning:
 - `/operator` is not where proof prompts are edited.
 - It is where paid/production jobs move through fulfillment.
 - It also links to the customer-style preview page and the print-readiness review page.
+- Opening the console authorizes through `listOperatorJobs` and returns the first 50 server-ordered rows in the same request. Tabs retain their loaded rows while refreshing, and additional rows use a cursor-backed `Load more` request.
 
 Current operator actions:
 
@@ -388,7 +389,7 @@ Print-tooling endpoints:
 | `/jobs/{jobId}/print-readiness` | Review assembled and print-tooling artifacts. | `FigurinePrintReadinessReview` | Firestore snapshot, `runFigurinePrintTooling` |
 | `/jobs/{jobId}/print-readiness?operator=1` | Operator-safe print-readiness page with signed asset URLs. | `FigurinePrintReadinessReview` | `getAdminJobPreview`, `runFigurinePrintTooling` |
 | `/admin` | Admin/support console and workflow controls. | `AdminDashboard`, `AdminWorkflowConfig` | `getAdminFigurineWorkflowConfig`, `saveFigurineWorkflowConfig`, support callables |
-| `/operator` | Production/fulfillment print console. | `OperatorConsole` | `getConsoleRole`, `listOperatorJobs`, `getOperatorJob`, `operatorAcceptJob`, `operatorUpdateFulfillment` |
+| `/operator` | Production/fulfillment print console. | `OperatorConsole` | `listOperatorJobs`, `getOperatorJob`, `operatorAcceptJob`, `operatorUpdateFulfillment` |
 
 ## Source Map
 
