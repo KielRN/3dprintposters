@@ -109,7 +109,8 @@ export function ProjectPageView({
 
   const content = styleCardContent(style.id);
   const conceptCount =
-    style.proofMode === "template_face_swap"
+    style.proofMode === "template_face_swap" ||
+    style.proofRendering === "realistic_person"
       ? 1
       : workflowConfig.proofGenerationCount;
 

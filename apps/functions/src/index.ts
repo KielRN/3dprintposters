@@ -47,6 +47,10 @@ export {
 } from "./scenePreview.js";
 import { runMeshyFigurinePrintTooling } from "./meshyPrintTooling.js";
 import {
+  customerJobDeletionBlock,
+  isCustomerDeletedJob,
+} from "./customerJobs.js";
+import {
   buildJobSheet,
   customerFieldsFromSession,
   operatorTabStages,
@@ -149,6 +153,14 @@ const createJobSchema = z.object({
 const checkoutSchema = z.object({
   jobId: jobIdSchema,
   paintOption: z.enum(["painted", "unpainted"]).optional(),
+});
+
+const reconcileGenerationSchema = z.object({
+  jobId: jobIdSchema,
+});
+
+const deleteOwnJobSchema = z.object({
+  jobId: jobIdSchema,
 });
 
 const adminSupportStatusSchema = z.enum(adminSupportStatuses);
@@ -849,6 +861,10 @@ export const saveFigurineWorkflowConfig = onCall(
 export const createGenerationJob = onCall(
   {
     secrets: [...vertexRuntimeSecrets, meshyApiKey],
+    // Vertex image responses plus provider handoff can exceed the 256 MiB
+    // default before JavaScript gets a catchable exception. Keep enough headroom
+    // for the proof bytes, Firebase SDK, and provider request at the same time.
+    memory: "512MiB",
     timeoutSeconds: printFileGenerationTimeoutSeconds,
   },
   async (request) => {
@@ -1257,6 +1273,121 @@ export const createGenerationJob = onCall(
   },
 );
 
+export const deleteOwnJob = onCall({}, async (request) => {
+  const account = requireSignedInAccount(request);
+  const parsed = deleteOwnJobSchema.safeParse(request.data);
+  if (!parsed.success) {
+    throw new HttpsError("invalid-argument", "jobId is required.");
+  }
+
+  const jobRef = db.collection("jobs").doc(parsed.data.jobId);
+  const orderRef = db.collection("orders").doc(parsed.data.jobId);
+  const result = await db.runTransaction(async (tx) => {
+    const [jobSnap, orderSnap] = await Promise.all([
+      tx.get(jobRef),
+      tx.get(orderRef),
+    ]);
+    const jobData = jobSnap.data() as Record<string, unknown> | undefined;
+    if (!jobSnap.exists || !jobData || jobData.uid !== account.uid) {
+      throw new HttpsError("not-found", "Job not found.");
+    }
+
+    const orderData = orderSnap.data() as Record<string, unknown> | undefined;
+    const blockMessage = customerJobDeletionBlock({ jobData, orderData });
+    if (blockMessage) {
+      throw new HttpsError("failed-precondition", blockMessage);
+    }
+
+    const now = FieldValue.serverTimestamp();
+    tx.set(
+      jobRef,
+      {
+        customerDeleted: true,
+        customerDeletedAt: now,
+        customerDeletedBy: account.uid,
+        updatedAt: now,
+      },
+      { merge: true },
+    );
+
+    return { jobId: parsed.data.jobId, deleted: true };
+  });
+
+  return result;
+});
+
+type StaleGenerationReconciliationResult = {
+  reconciled: boolean;
+  status: string;
+};
+
+async function reconcileStaleGenerationJob(input: {
+  jobRef: DocumentReference;
+  nowMs: number;
+  ownerUid?: string;
+}): Promise<StaleGenerationReconciliationResult> {
+  return db.runTransaction(async (tx) => {
+    const freshSnap = await tx.get(input.jobRef);
+    const freshData = freshSnap.data() as Record<string, unknown> | undefined;
+    if (!freshSnap.exists || !freshData) {
+      if (input.ownerUid) {
+        throw new HttpsError("not-found", "Job not found.");
+      }
+      return { reconciled: false, status: "missing" };
+    }
+    if (input.ownerUid && freshData.uid !== input.ownerUid) {
+      throw new HttpsError("not-found", "Job not found.");
+    }
+    if (
+      !shouldMarkGenerationStale({
+        jobData: freshData,
+        nowMs: input.nowMs,
+        staleAfterMs: defaultGenerationStaleAfterMs,
+      })
+    ) {
+      return {
+        reconciled: false,
+        status:
+          typeof freshData.status === "string" ? freshData.status : "unknown",
+      };
+    }
+
+    tx.set(
+      input.jobRef,
+      {
+        status: "failed",
+        error: {
+          message:
+            "Generation watchdog moved the job to personal studio review after stale progress.",
+          stage: "generation_recovery",
+        },
+        aiGeneration: {
+          status: "failed",
+          failedAt: FieldValue.serverTimestamp(),
+          failureCode: "generation_stale_timeout",
+        },
+        generationState: {
+          state: "stale",
+          stage: "stale_reconciled",
+          lastProgressAt: FieldValue.serverTimestamp(),
+          completedAt: FieldValue.serverTimestamp(),
+          failureCode: "generation_stale_timeout",
+          publicMessage: publicGenerationRecoveryMessage(),
+        },
+        readinessStatus: "personal_studio_review",
+        manualCheckoutEligibility: {
+          eligible: true,
+          reason: "personal_studio_review",
+        },
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+
+    return { reconciled: true, status: "failed" };
+  });
+}
+
 export const reconcileStaleGenerationJobs = onSchedule(
   {
     schedule: "every 10 minutes",
@@ -1285,56 +1416,12 @@ export const reconcileStaleGenerationJobs = onSchedule(
           return;
         }
 
-        const didReconcile = await db.runTransaction(async (tx) => {
-          const freshSnap = await tx.get(candidate.ref);
-          const freshData = freshSnap.data() as Record<string, unknown> | undefined;
-          if (
-            !freshSnap.exists ||
-            !freshData ||
-            !shouldMarkGenerationStale({
-              jobData: freshData,
-              nowMs,
-              staleAfterMs: defaultGenerationStaleAfterMs,
-            })
-          ) {
-            return false;
-          }
-
-          tx.set(
-            candidate.ref,
-            {
-              status: "failed",
-              error: {
-                message:
-                  "Generation watchdog moved the job to personal studio review after stale progress.",
-                stage: "generation_recovery",
-              },
-              aiGeneration: {
-                status: "failed",
-                failedAt: FieldValue.serverTimestamp(),
-                failureCode: "generation_stale_timeout",
-              },
-              generationState: {
-                state: "stale",
-                stage: "stale_reconciled",
-                lastProgressAt: FieldValue.serverTimestamp(),
-                completedAt: FieldValue.serverTimestamp(),
-                failureCode: "generation_stale_timeout",
-                publicMessage: publicGenerationRecoveryMessage(),
-              },
-              readinessStatus: "personal_studio_review",
-              manualCheckoutEligibility: {
-                eligible: true,
-                reason: "personal_studio_review",
-              },
-              updatedAt: FieldValue.serverTimestamp(),
-            },
-            { merge: true },
-          );
-          return true;
+        const result = await reconcileStaleGenerationJob({
+          jobRef: candidate.ref,
+          nowMs,
         });
 
-        if (didReconcile) {
+        if (result.reconciled) {
           reconciled += 1;
           console.warn("stale generation reconciled", {
             jobId: candidate.id,
@@ -1351,6 +1438,31 @@ export const reconcileStaleGenerationJobs = onSchedule(
     });
   },
 );
+
+// The deployed scheduler is the global safety net. This owned callable gives
+// the customer page the same server-validated recovery path in local emulator
+// runs and when a customer revisits a stale job before the next schedule tick.
+export const reconcileOwnStaleGenerationJob = onCall({}, async (request) => {
+  const account = requireSignedInAccount(request);
+  const parsed = reconcileGenerationSchema.safeParse(request.data);
+  if (!parsed.success) {
+    throw new HttpsError("invalid-argument", "jobId is required.");
+  }
+
+  const result = await reconcileStaleGenerationJob({
+    jobRef: db.collection("jobs").doc(parsed.data.jobId),
+    nowMs: Date.now(),
+    ownerUid: account.uid,
+  });
+  if (result.reconciled) {
+    console.warn("customer stale generation reconciled", {
+      jobId: parsed.data.jobId,
+      status: "failed",
+      failureCode: "generation_stale_timeout",
+    });
+  }
+  return { jobId: parsed.data.jobId, ...result };
+});
 
 export const approveGeneratedImage = onCall(
   {
@@ -1376,6 +1488,9 @@ export const approveGeneratedImage = onCall(
     const jobData = jobSnap.data();
 
     if (!jobSnap.exists || jobData?.uid !== account.uid) {
+      throw new HttpsError("not-found", "Job not found.");
+    }
+    if (isCustomerDeletedJob(jobData)) {
       throw new HttpsError("not-found", "Job not found.");
     }
 
@@ -1735,6 +1850,9 @@ export const createCheckoutSession = onCall(
     if (!jobSnap.exists || jobData?.uid !== account.uid) {
       throw new HttpsError("not-found", "Job not found.");
     }
+    if (isCustomerDeletedJob(jobData)) {
+      throw new HttpsError("not-found", "Job not found.");
+    }
 
     const isFigurine = jobData.productType === "figurine";
     const paintOption = isFigurine
@@ -1822,14 +1940,21 @@ export const createFallbackFigurineCheckoutSession = onCall(
     const jobRef = db.collection("jobs").doc(parsed.data.jobId);
     const jobSnap = await jobRef.get();
     const jobData = jobSnap.data() as Record<string, unknown> | undefined;
+    if (!jobSnap.exists || !jobData || jobData.uid !== account.uid) {
+      throw new HttpsError("not-found", "Job not found.");
+    }
+    if (isCustomerDeletedJob(jobData)) {
+      throw new HttpsError("not-found", "Job not found.");
+    }
+
     const fallbackEligibility = fallbackFigurineCheckoutEligibility({
       jobId: parsed.data.jobId,
       uid: account.uid,
       jobData,
     });
-    if (!jobSnap.exists || !jobData || !fallbackEligibility.eligible) {
+    if (!fallbackEligibility.eligible) {
       throw new HttpsError(
-        fallbackEligibility.eligible ? "not-found" : "failed-precondition",
+        "failed-precondition",
         publicGenerationRecoveryMessage(),
       );
     }

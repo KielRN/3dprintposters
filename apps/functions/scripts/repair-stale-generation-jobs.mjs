@@ -68,20 +68,20 @@ async function main() {
       status: "failed",
       error: {
         message:
-          "Generation repair moved the job to personal studio review after worker preflight exit.",
+          "Generation repair moved the job to personal studio review after stale progress.",
         stage: "generation_recovery",
       },
       aiGeneration: {
         status: "failed",
         failedAt: FieldValue.serverTimestamp(),
-        failureCode: "worker_memory_exhausted_during_image_preflight",
+        failureCode: "generation_stale_timeout",
       },
       generationState: {
         state: "failed",
         stage: "manual_repair",
         lastProgressAt: FieldValue.serverTimestamp(),
         completedAt: FieldValue.serverTimestamp(),
-        failureCode: "worker_memory_exhausted_during_image_preflight",
+        failureCode: "generation_stale_timeout",
         publicMessage: publicMessage(),
       },
       readinessStatus: "personal_studio_review",

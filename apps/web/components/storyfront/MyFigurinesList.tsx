@@ -1,11 +1,13 @@
 "use client";
 
+import { callableErrorMessage } from "@/lib/callableRetry";
 import type { FirebaseClients } from "@/lib/firebase";
 import Image from "next/image";
 import Link from "next/link";
 import { AlertCircle, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { User } from "firebase/auth";
+import { httpsCallable } from "firebase/functions";
 import {
   collection,
   limit,
@@ -25,6 +27,7 @@ const emptyHero = (manifest as Record<string, ManifestEntry>)[
 ];
 
 type ListedJob = { id: string; data: JobCardSource };
+type DeleteOwnJobResult = { jobId: string; deleted: boolean };
 
 type MyFigurinesListProps = {
   user: User | null;
@@ -32,9 +35,31 @@ type MyFigurinesListProps = {
   firebaseClients: FirebaseClients | null;
 };
 
+const nonDeletablePipelineStages = new Set([
+  "paid",
+  "accepted",
+  "in_production",
+  "shipped",
+  "completed",
+  "rejected_by_operator",
+  "refunded",
+]);
+
+function isVisibleCustomerJob(job: JobCardSource) {
+  return job.customerDeleted !== true && job.customerDeletedAt == null;
+}
+
+function canDeleteFromHeroGrid(job: JobCardSource) {
+  return (
+    !nonDeletablePipelineStages.has(job.pipelineStage ?? "") &&
+    job.status !== "checkout_created"
+  );
+}
+
 // "Your heroes": the customer's previous generations, newest first, all
 // styles in one list. Owner reads are allowed by rules and covered by the
-// uid+updatedAt composite index; no backend work involved.
+// uid+updatedAt composite index. Deletion goes through an owner-checked
+// callable so clients never get broad job write access.
 export function MyFigurinesList({
   user,
   authLoading,
@@ -45,6 +70,8 @@ export function MyFigurinesList({
     {},
   );
   const [listError, setListError] = useState("");
+  const [deleteError, setDeleteError] = useState("");
+  const [deletingJobId, setDeletingJobId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!firebaseClients || !user) {
@@ -63,10 +90,12 @@ export function MyFigurinesList({
       jobsQuery,
       (snapshot) => {
         setJobs(
-          snapshot.docs.map((docSnapshot) => ({
-            id: docSnapshot.id,
-            data: docSnapshot.data() as JobCardSource,
-          })),
+          snapshot.docs
+            .map((docSnapshot) => ({
+              id: docSnapshot.id,
+              data: docSnapshot.data() as JobCardSource,
+            }))
+            .filter((job) => isVisibleCustomerJob(job.data)),
         );
         setListError("");
       },
@@ -113,6 +142,39 @@ export function MyFigurinesList({
     };
   }, [firebaseClients, jobs]);
 
+  async function deleteJob(jobId: string, job: JobCardSource) {
+    if (!firebaseClients || deletingJobId) {
+      return;
+    }
+
+    const styleLabel =
+      job.selectedStyleLabel ?? job.selectedStyle ?? "this hero";
+    if (
+      !window.confirm(
+        `Delete ${styleLabel} from Your heroes? This removes it from the grid.`,
+      )
+    ) {
+      return;
+    }
+
+    setDeleteError("");
+    setDeletingJobId(jobId);
+    try {
+      const deleteOwnJob = httpsCallable<
+        { jobId: string },
+        DeleteOwnJobResult
+      >(firebaseClients.functions, "deleteOwnJob", { timeout: 30_000 });
+      await deleteOwnJob({ jobId });
+      setJobs((currentJobs) =>
+        currentJobs?.filter((listedJob) => listedJob.id !== jobId) ?? null,
+      );
+    } catch (error) {
+      setDeleteError(callableErrorMessage(error, "This hero did not delete."));
+    } finally {
+      setDeletingJobId(null);
+    }
+  }
+
   if (authLoading) {
     return null;
   }
@@ -139,6 +201,12 @@ export function MyFigurinesList({
         <p className="mt-4 flex items-start gap-2 text-sm font-semibold text-[var(--coral)]">
           <AlertCircle className="mt-0.5 shrink-0" size={16} aria-hidden="true" />
           {listError}
+        </p>
+      ) : null}
+      {deleteError ? (
+        <p className="mt-4 flex items-start gap-2 text-sm font-semibold text-[var(--coral)]">
+          <AlertCircle className="mt-0.5 shrink-0" size={16} aria-hidden="true" />
+          {deleteError}
         </p>
       ) : null}
 
@@ -182,15 +250,21 @@ export function MyFigurinesList({
           </Link>
           {jobs.map((job) => {
             const path = thumbnailPath(job.data);
+            const styleLabel =
+              job.data.selectedStyleLabel ??
+              job.data.selectedStyle ??
+              "Figurine";
             return (
               <JobCard
                 jobId={job.id}
                 job={job.data}
                 thumbnailUrl={path ? (thumbnailUrls[path] ?? null) : null}
-                styleLabel={
-                  job.data.selectedStyleLabel ??
-                  job.data.selectedStyle ??
-                  "Figurine"
+                styleLabel={styleLabel}
+                deleting={deletingJobId === job.id}
+                onDelete={
+                  canDeleteFromHeroGrid(job.data)
+                    ? () => void deleteJob(job.id, job.data)
+                    : undefined
                 }
                 key={job.id}
               />

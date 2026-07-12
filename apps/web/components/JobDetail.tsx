@@ -154,6 +154,12 @@ type CreateCheckoutSessionResult = {
   checkoutUrl: string | null;
 };
 
+type ReconcileOwnStaleGenerationJobResult = {
+  jobId: string;
+  reconciled: boolean;
+  status: string;
+};
+
 type PrintFileArtifacts = {
   modelStl?: string;
   heightmapPng?: string;
@@ -455,6 +461,49 @@ export function JobDetail({
       },
     );
   }, [firebaseClients, jobId, user]);
+
+  useEffect(() => {
+    if (
+      !firebaseClients ||
+      !user ||
+      operatorMode ||
+      job?.productType !== "figurine" ||
+      job.status !== "generating"
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+    let retryTimer: number | undefined;
+    const reconcile = httpsCallable<
+      { jobId: string },
+      ReconcileOwnStaleGenerationJobResult
+    >(firebaseClients.functions, "reconcileOwnStaleGenerationJob", {
+      timeout: 30_000,
+    });
+
+    const check = async () => {
+      try {
+        const result = await reconcile({ jobId });
+        if (cancelled || result.data.reconciled) {
+          return;
+        }
+      } catch {
+        if (cancelled) {
+          return;
+        }
+      }
+      retryTimer = window.setTimeout(check, 60_000);
+    };
+
+    void check();
+    return () => {
+      cancelled = true;
+      if (retryTimer !== undefined) {
+        window.clearTimeout(retryTimer);
+      }
+    };
+  }, [firebaseClients, job?.productType, job?.status, jobId, operatorMode, user]);
 
   useEffect(() => {
     if (!firebaseClients || !job) {

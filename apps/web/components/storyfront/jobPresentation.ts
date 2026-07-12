@@ -20,6 +20,8 @@ export type JobCardSource = {
   figurineBuild?: { status?: string } | null;
   selectedStyle?: string;
   selectedStyleLabel?: string;
+  customerDeleted?: boolean;
+  customerDeletedAt?: unknown;
   updatedAt?: { toDate?: () => Date } | null;
 };
 

@@ -64,6 +64,13 @@ npm run graphify:update:global  # also merge this repo into the user-level globa
 - The skill lives at `.agents/skills/seed-dev-paid-order/SKILL.md` and wraps `npm run dev:seed-paid-order -- <jobId>`.
 - The seeder mirrors the Stripe webhook's paid-order shape for dev data: `jobs/{jobId}.pipelineStage = "paid"` plus paid `orders/{jobId}` status, payment status, and fulfillment stage. Do not use it as proof of a real payment.
 
+## Figurine Workflow Skills
+
+- Use the repo-scoped `$edit-figurine-workflow-prompts` skill when changing Vertex/Gemini proof prompts, reusable prompt presets, `template_face_swap` wording, `generated_options` prompts, proof rendering, or admin-visible prompt options.
+- Use the repo-scoped `$debug-figurine-workflow` skill when a figurine workflow fails or stalls, including misleading upload errors, missing proofs, Meshy/Hi3D provider failures, stuck job state, missing GLB artifacts, or provider task IDs.
+- Use the repo-scoped `$add-figurine-workflow-style` skill when adding, mirroring, seeding, or exposing a public/admin figurine style.
+- These skills live under `.agents/skills/` and include small helper scripts for prompt-surface checks, workflow-style parity checks, and curated job diagnostics. They do not replace the normal build/typecheck/test verification gates.
+
 ## Project Shape
 
 - Web app: `apps/web`, Next.js PWA.

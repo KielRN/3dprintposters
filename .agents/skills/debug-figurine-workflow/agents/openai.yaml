@@ -1,0 +1,4 @@
+interface:
+  display_name: "Debug Figurine Workflow"
+  short_description: "Trace failed figurine jobs precisely"
+  default_prompt: "Use $debug-figurine-workflow to diagnose a failed 3DPrintPosters figurine job."

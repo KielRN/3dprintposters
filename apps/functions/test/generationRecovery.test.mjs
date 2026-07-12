@@ -110,6 +110,21 @@ test("stale generation detection uses durable progress timestamps", () => {
     }),
     false,
   );
+  assert.equal(
+    shouldMarkGenerationStale({
+      nowMs: 1_000_000,
+      staleAfterMs: 100_000,
+      jobData: {
+        productType: "figurine",
+        status: "generating",
+        // Legacy/pre-watchdog jobs have no generationState. Their persisted
+        // job timestamp must still make them recoverable from the job page.
+        updatedAt: timestamp(850_000),
+        aiGeneration: { status: "queued" },
+      },
+    }),
+    true,
+  );
 });
 
 test("manual proof mode is recognized on jobs, orders, and fulfillment", () => {

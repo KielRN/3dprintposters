@@ -1,0 +1,4 @@
+interface:
+  display_name: "Add Figurine Workflow Style"
+  short_description: "Add mirrored figurine styles safely"
+  default_prompt: "Use $add-figurine-workflow-style to add or mirror a public figurine workflow style."

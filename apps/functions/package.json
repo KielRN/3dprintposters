@@ -12,6 +12,7 @@
     "test:job-cost": "npm run build && node --test test/jobCost.test.mjs",
     "test:workflow-config": "npm run build && node --test test/figurineWorkflowConfig.test.mjs test/aiProviderReferenceImages.test.mjs test/meshyFigurineProvider.test.mjs",
     "test:pipeline": "npm run build && node --test test/pipeline.test.mjs test/operatorConsole.test.mjs",
+    "test:customer-jobs": "npm run build && node --test test/customerJobs.test.mjs",
     "typecheck": "tsc --noEmit",
     "seed:auth-roles": "node scripts/seed-auth-roles.mjs",
     "seed:dev-paid-order": "node scripts/seed-dev-paid-order.mjs",

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Edit Figurine Workflow Prompts"
+  short_description: "Edit Vertex prompt presets safely"
+  default_prompt: "Use $edit-figurine-workflow-prompts to update a reusable Vertex workflow prompt preset."
