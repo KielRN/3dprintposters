@@ -54,7 +54,7 @@ export default async function StartPage({ searchParams }: StartPageProps) {
         <div className="flex-1 pt-6">
           {authIntent ? <StartAccountPanel authIntent={authIntent} /> : null}
           <ComicBanner variant="full" />
-          <StyleCardGrid authIntent={authIntent} />
+          <StyleCardGrid />
         </div>
 
         <TrustStrip />
@@ -62,4 +62,3 @@ export default async function StartPage({ searchParams }: StartPageProps) {
     </main>
   );
 }
-

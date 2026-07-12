@@ -8,7 +8,7 @@ export function LandingFooter() {
           3DPrintYou
         </Link>
         <nav className="flex flex-wrap items-center gap-x-8 gap-y-3 text-sm font-semibold">
-          <Link href="/start?auth=create#account" className="text-[var(--cream)]/80 hover:text-[var(--cream)]">
+          <Link href="/start" className="text-[var(--cream)]/80 hover:text-[var(--cream)]">
             Start
           </Link>
           <Link href="/privacy" className="text-[var(--cream)]/80 hover:text-[var(--cream)]">

@@ -151,7 +151,7 @@ export function LandingHero() {
             <h1 className="sr-only">
               From a photo. To a hero. Yours to hold.
             </h1>
-            <Link href="/start?auth=create#account" className="sr-only">
+            <Link href="/start" className="sr-only">
               Start your figurine
             </Link>
 
@@ -213,7 +213,7 @@ export function LandingHero() {
             </h1>
             <div className="mt-8">
               <Link
-                href="/start?auth=create#account"
+                href="/start"
                 className="primary-button h-12 px-7 text-base"
               >
                 Start your figurine

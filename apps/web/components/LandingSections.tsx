@@ -118,18 +118,22 @@ export function LandingSections() {
         </Reveal>
         <div className="mx-auto mt-12 grid max-w-7xl grid-cols-2 gap-x-5 gap-y-10 px-5 sm:px-7 md:grid-cols-4 lg:px-10">
           {gallery.map((tile) => (
-            <figure
+            <Link
               key={tile.label}
-              className="w-full"
+              href="/start"
+              className="group block w-full rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ember)] focus-visible:ring-offset-2"
+              aria-label={`Start with ${tile.label}`}
             >
-              <div className="flex aspect-[4/5] items-center justify-center overflow-hidden rounded-xl border border-[var(--clay)] bg-[var(--cream)] shadow-sm">
-                <img src={tile.img} alt={tile.label} className="h-full w-full object-cover object-center" loading="lazy" />
-              </div>
-              <figcaption className="mt-4 flex flex-col gap-1">
-                <span className="text-base font-bold text-[var(--ink)]">{tile.label}</span>
-                <span className="text-sm leading-snug text-[var(--muted)]">{tile.desc}</span>
-              </figcaption>
-            </figure>
+              <figure>
+                <div className="flex aspect-[4/5] items-center justify-center overflow-hidden rounded-xl border border-[var(--clay)] bg-[var(--cream)] shadow-sm transition-transform duration-300 ease-out motion-safe:group-hover:-translate-y-1">
+                  <img src={tile.img} alt={tile.label} className="h-full w-full object-cover object-center" loading="lazy" />
+                </div>
+                <figcaption className="mt-4 flex flex-col gap-1">
+                  <span className="text-base font-bold text-[var(--ink)]">{tile.label}</span>
+                  <span className="text-sm leading-snug text-[var(--muted)]">{tile.desc}</span>
+                </figcaption>
+              </figure>
+            </Link>
           ))}
         </div>
       </section>
@@ -202,7 +206,7 @@ export function LandingSections() {
             Bring them home.
           </h2>
           <Link
-            href="/start?auth=create#account"
+            href="/start"
             className="inline-flex min-h-[56px] items-center justify-center rounded-lg bg-[var(--cream)] px-9 text-lg font-extrabold text-[var(--ink)] transition-transform hover:-translate-y-0.5"
           >
             Start
