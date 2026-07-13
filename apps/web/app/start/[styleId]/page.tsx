@@ -33,7 +33,7 @@ export default async function ProjectPage({
         <header className="flex items-center justify-between gap-4 border-b border-[var(--line)] pb-4">
           <Link
             href="/"
-            className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)] transition-colors hover:text-[var(--ink)]"
+            className="display text-xl tracking-tight text-[var(--ember)] transition-colors hover:text-[var(--ink)]"
           >
             3DPrintYou
           </Link>

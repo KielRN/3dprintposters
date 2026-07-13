@@ -6,36 +6,16 @@ import {
   normalizeFigurineWorkflowConfigResponse,
   visibleWorkflowStyles,
 } from "@/lib/figurineWorkflowConfig";
+import {
+  cacheStoryfrontWorkflowConfig,
+  readCachedStoryfrontWorkflowConfig,
+} from "@/lib/storyfrontWorkflowConfigCache";
 import { useEffect, useMemo, useState } from "react";
 import { httpsCallable } from "firebase/functions";
 import { StyleCard } from "./StyleCard";
 
 const workflowConfigRetryLimit = 12;
 const workflowConfigRetryDelayMs = 2000;
-const workflowConfigCacheKey = "storyfront-workflow-config-v1";
-
-function readCachedWorkflowConfig() {
-  try {
-    const cachedConfig = window.localStorage.getItem(workflowConfigCacheKey);
-    return cachedConfig
-      ? normalizeFigurineWorkflowConfigResponse(JSON.parse(cachedConfig))
-      : null;
-  } catch {
-    return null;
-  }
-}
-
-function cacheWorkflowConfig(rawConfig: unknown) {
-  try {
-    window.localStorage.setItem(
-      workflowConfigCacheKey,
-      JSON.stringify(rawConfig),
-    );
-  } catch {
-    // Storage can be unavailable in privacy modes. The bundled defaults still
-    // give the page an immediate, usable first render.
-  }
-}
 
 // Render bundled public styles immediately, then replace them with the cached
 // and live config so Firebase startup never blocks the gallery.
@@ -50,7 +30,7 @@ export function StyleCardGrid() {
       return;
     }
 
-    const cachedConfig = readCachedWorkflowConfig();
+    const cachedConfig = readCachedStoryfrontWorkflowConfig();
     if (cachedConfig) {
       setWorkflowConfig(cachedConfig);
     }
@@ -73,7 +53,7 @@ export function StyleCardGrid() {
             result.data,
           );
           setWorkflowConfig(normalizedConfig);
-          cacheWorkflowConfig(result.data);
+          cacheStoryfrontWorkflowConfig(result.data);
         })
         .catch(() => {
           if (cancelled) {

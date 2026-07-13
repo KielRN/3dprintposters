@@ -81,28 +81,37 @@ textarea {
 .story-nav-link {
   display: inline-flex !important;
   width: fit-content;
+  min-height: 38px;
   align-items: center;
   justify-content: flex-start;
   flex-direction: row;
   flex-wrap: nowrap;
   gap: 7px;
   appearance: none;
-  border: 0;
-  background: transparent;
+  border: 1px solid rgba(232, 85, 46, 0.16);
+  border-radius: 3px !important;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 10px 24px rgba(26, 23, 20, 0.12);
   color: var(--ember);
-  padding: 0;
-  font-size: 14px;
+  padding: 0 13px;
+  font-size: 15px;
   font-weight: 800;
   line-height: 1;
   text-align: left;
   text-decoration: none;
   white-space: nowrap;
   transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    box-shadow 150ms ease,
     color 150ms ease,
     transform 150ms ease;
 }
 
 .story-nav-link:hover {
+  border-color: rgba(26, 23, 20, 0.16);
+  background: #ffffff;
+  box-shadow: 0 14px 30px rgba(26, 23, 20, 0.16);
   color: var(--ink);
   transform: translateX(-1px);
 }
@@ -113,7 +122,7 @@ textarea {
 }
 
 .story-nav-link:focus-visible {
-  border-radius: 6px;
+  border-radius: 3px;
   outline: 2px solid var(--ember);
   outline-offset: 3px;
 }

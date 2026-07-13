@@ -18,6 +18,7 @@ export function StyleCard({
     <Link
       className="group block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ember)] focus-visible:ring-offset-2"
       href={href}
+      prefetch
     >
       <article className="panel overflow-hidden rounded-xl transition-transform duration-300 ease-out motion-safe:group-hover:-translate-y-1">
         <div className="relative aspect-[2/1] overflow-hidden bg-[var(--clay)]">

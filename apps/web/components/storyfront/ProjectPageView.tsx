@@ -8,6 +8,10 @@ import {
   normalizeFigurineWorkflowConfigResponse,
   visibleWorkflowStyles,
 } from "@/lib/figurineWorkflowConfig";
+import {
+  cacheStoryfrontWorkflowConfig,
+  readCachedStoryfrontWorkflowConfig,
+} from "@/lib/storyfrontWorkflowConfigCache";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { onAuthStateChanged, type User } from "firebase/auth";
@@ -34,7 +38,12 @@ export function ProjectPageView({
   const [workflowConfig, setWorkflowConfig] = useState(
     defaultFigurineWorkflowConfig,
   );
-  const [configLoading, setConfigLoading] = useState(Boolean(firebaseClients));
+  const [configLoading, setConfigLoading] = useState(
+    () =>
+      !visibleWorkflowStyles(defaultFigurineWorkflowConfig).some(
+        (candidate) => candidate.id === styleId,
+      ),
+  );
   const [authPromptKey, setAuthPromptKey] = useState(0);
 
   useEffect(() => {
@@ -50,6 +59,12 @@ export function ProjectPageView({
   }, [firebaseClients]);
 
   useEffect(() => {
+    const cachedConfig = readCachedStoryfrontWorkflowConfig();
+    if (cachedConfig) {
+      setWorkflowConfig(cachedConfig);
+      setConfigLoading(false);
+    }
+
     if (!firebaseClients) {
       setConfigLoading(false);
       return;
@@ -67,6 +82,7 @@ export function ProjectPageView({
           return;
         }
         setWorkflowConfig(normalizeFigurineWorkflowConfigResponse(result.data));
+        cacheStoryfrontWorkflowConfig(result.data);
         setConfigLoading(false);
       })
       .catch(() => {
