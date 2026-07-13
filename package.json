@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "npm --workspace apps/web run dev",
     "build": "npm --workspace apps/web run build",
+    "start": "node apps/web/.next/standalone/apps/web/server.js",
     "firebase:emulators:functions": "npm --workspace apps/functions run build && firebase emulators:start --only functions --project dev",
     "firebase:emulators:full": "npm --workspace apps/functions run build && node scripts/firebase/check-emulator-java.mjs && firebase emulators:start --only auth,functions,firestore,storage --project dev",
     "firebase:emulators:full:export": "npm --workspace apps/functions run build && node scripts/firebase/check-emulator-java.mjs && firebase emulators:start --only auth,functions,firestore,storage --project dev --import .codex-run/firebase-emulators --export-on-exit .codex-run/firebase-emulators",

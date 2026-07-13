@@ -18,6 +18,11 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "3DPrintYou",
   description: "From your photo to a printed figurine. Send us a picture, approve the proof, we print and ship.",
+  robots: {
+    index: false,
+    follow: false,
+    nocache: true
+  },
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
