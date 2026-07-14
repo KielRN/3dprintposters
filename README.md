@@ -27,7 +27,7 @@ Working now:
 - Poster-relief job-page proof, heightmap, 3D GLB inspection view, and local `.tmp` print-package mirroring after proof approval
 - Firestore and Storage security rules for the dev Firebase project
 - Stripe Checkout session creation boundary
-- PWA manifest, icons, and install behavior
+- PWA manifest and icons
 - Local Next.js testing at `http://127.0.0.1:3000`
 - Function-only Firebase emulator testing at `http://127.0.0.1:5001`
 - Full Firebase emulator testing for Auth, Functions, Firestore, and Storage

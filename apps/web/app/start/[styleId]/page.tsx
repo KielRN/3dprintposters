@@ -1,4 +1,3 @@
-import { PwaInstallButton } from "@/components/PwaInstallButton";
 import { ProjectPageView } from "@/components/storyfront/ProjectPageView";
 import { StepPills } from "@/components/storyfront/StepPills";
 import Link from "next/link";
@@ -38,9 +37,6 @@ export default async function ProjectPage({
             3DPrintYou
           </Link>
           <StepPills current={2} styleId={styleId} />
-          <div className="flex items-center gap-2">
-            <PwaInstallButton />
-          </div>
         </header>
 
         <div className="flex-1 pb-10">
