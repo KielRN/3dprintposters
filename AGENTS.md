@@ -74,10 +74,11 @@ npm run graphify:update:global  # also merge this repo into the user-level globa
 ## Project Shape
 
 - Web app: `apps/web`, Next.js PWA.
+- Current web deployment candidate: Railway standalone service at `https://3dprintposters-production.up.railway.app`, configured by root `railway.toml`. It is noindexed and still uses the shared dev Firebase project; it is not the branded production launch.
 - Backend orchestration: `apps/functions`, Firebase Cloud Functions 2nd gen on Node.js 22.
 - Print-file generator: `services/print-file-generator`, FastAPI service intended for Cloud Run.
 - Dev Firebase/GCP project: `gen-lang-client-0675309660`.
-- Product domains: `3dprintyou.com` is the preferred candidate for the figurine/customer-acquisition pivot; `3dprintposters.com` remains available for the parked poster-relief line.
+- Product domains: `3dprintyou.com` is the public coming-soon/customer-acquisition surface; the Railway-generated `3dprintposters-production.up.railway.app` hostname is the temporary full-app candidate; `3dprintposters.com` remains available for the parked poster-relief line.
 
 ## Current Business Priority
 

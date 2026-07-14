@@ -28,9 +28,9 @@ firebase use dev
 
 Project strategy:
 
-- `dev` and `default`: `gen-lang-client-0675309660` for local development and current MVP testing.
-- `staging`: create a dedicated Firebase/GCP project before the first public staging deploy.
-- `production`: create a separate dedicated Firebase/GCP project before launch.
+- `dev` and `default`: `gen-lang-client-0675309660` for local development, current MVP testing, and the temporary noindexed Railway product-app candidate.
+- `staging`: optional until a persistent pre-production data/identity boundary is needed; do not create it only to duplicate the current dev-backed candidate.
+- `production`: create a separate dedicated Firebase/GCP project before branded public traffic or live fulfillment.
 
 Dev project Firebase Storage:
 
@@ -38,9 +38,9 @@ Dev project Firebase Storage:
 - Location: `US-CENTRAL1`
 - Storage class: `STANDARD`
 
-Do not use the shared `gen-lang-client-0675309660` project for public staging or production traffic.
+The Railway service name and its `production` environment label do not make the shared Firebase project production. Do not promote or send public traffic to the candidate as a production app while it still uses `gen-lang-client-0675309660`.
 
-Recommended before public staging:
+Recommended before branded public traffic:
 
 - Create the dedicated staging and production Firebase/GCP projects.
 - Add `staging` and `production` aliases to `.firebaserc`.
@@ -62,6 +62,10 @@ The customer app now initializes Firebase directly in the browser. Add these pub
 - `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`
 - `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
 - `NEXT_PUBLIC_FIREBASE_APP_ID`
+- `NEXT_PUBLIC_USE_FIREBASE_EMULATORS=false`
+- `NEXT_PUBLIC_USE_FIREBASE_FUNCTIONS_EMULATOR=false`
+
+The Railway product-app service uses those eight values. It does not need backend/provider credentials or a browser Stripe secret. Checkout creation stays in the Firebase callable Function.
 
 For full local emulator testing, install JDK 21+, set `NEXT_PUBLIC_USE_FIREBASE_EMULATORS=true`, and run Firebase emulators for Auth, Functions, Firestore, and Storage:
 
@@ -96,13 +100,15 @@ npm run firebase:deploy:rules:dry-run
 npm run firebase:deploy:rules:dev
 ```
 
-Storage rules control who can read and write objects. The current admin reference-image Storage rule is dev-only and allows signed-in users to read/write the `admin/workflow-style-references/` lane with JPG/PNG and 5 MB limits; tighten it to admin custom claims before staging or production. Browser-based GLB previews also need bucket CORS so Three.js can fetch `preview.glb` from the web app origin:
+Storage rules control who can read and write objects. Admin reference-image access under `admin/workflow-style-references/` requires the admin custom claim and keeps JPG/PNG plus 5 MB limits. Browser-based media/GLB reads also need bucket CORS for every deployed web origin:
 
 ```powershell
 npm run firebase:deploy:storage-cors:dev
 ```
 
 The Firestore and Storage rules dry-run successfully for the `dev` project, and both rule sets have been deployed to `dev`.
+
+As of 2026-07-13, the tracked CORS policy and live dev bucket include `https://3dprintposters-production.up.railway.app` alongside the local and existing branded origins.
 
 The `:dev` scripts target the `.firebaserc` `dev` alias. For staging or production, create dedicated Firebase projects and aliases first, then run the equivalent `firebase deploy --only firestore:rules,storage --project staging` or `--project production` command intentionally.
 
@@ -153,37 +159,30 @@ Current public SEO launch, verified 2026-07-05:
 - `www.3dprintyou.com` has a proxied CNAME to `3dprintyou.com`, but `https://www.3dprintyou.com` returned `404` on 2026-07-05. Finish the Railway `www` custom domain or create a Cloudflare redirect to the apex before treating `www` as live.
 - Keep `api.3dprintyou.com` unchanged; it remains the Cloudflare Worker custom domain for the Meshy webhook receiver.
 
-Future full product app target: Firebase App Hosting for the Next.js customer app in `apps/web`.
+Current full product-app candidate, verified 2026-07-13:
 
-App Hosting setup plan:
+- URL: `https://3dprintposters-production.up.railway.app`.
+- Railway placement: service `3dprintposters` in the same Railway project and `production` environment as the standalone `3dprintyou` coming-soon service. The services remain separate and deploy from separate GitHub repositories.
+- Source: `KielRN/3dprintposters`, branch `main`, repository root.
+- Delivery: pushes to `main` automatically trigger a Railway deployment for this service.
+- Build: Railpack runs root `npm run build`; the web workspace runs `next build` plus `apps/web/scripts/prepare-standalone.mjs` to copy `public/` and `.next/static/` into the traced standalone bundle.
+- Start: `HOSTNAME=0.0.0.0 npm start`; the root start script launches `apps/web/.next/standalone/apps/web/server.js` on Railway's injected `PORT`.
+- Healthcheck: `/api/health`, 120-second timeout. The route is dynamic, returns `{ "status": "ok" }`, and disables caching.
+- Indexing: `apps/web/next.config.ts` and app metadata send `noindex, nofollow, noarchive` for the temporary candidate.
+- Runtime boundary: the browser app runs on Railway; Firebase Cloud Functions 2nd gen, Auth, Firestore, Storage, callable checkout, webhooks, provider orchestration, and their secrets remain in Firebase/GCP.
+- Firebase integration: the Railway hostname is authorized in Firebase Auth and Storage CORS. Firebase Functions secret `PUBLIC_APP_URL` points checkout return navigation at the Railway origin; only `createCheckoutSession` needed redeployment for that change.
 
-- Create a dedicated staging Firebase/GCP project, then create a staging App Hosting backend.
-- Use `apps/web` as the App Hosting app root directory.
-- Use `us-central1` unless a closer customer or fulfillment reason appears.
-- Suggested staging backend name: `3dprintposters-web-staging`.
-- Suggested production backend name: `3dprintposters-web-production`.
-- Keep automatic rollouts enabled for staging and disabled or manually controlled for production until launch.
-- Keep `apps/web/apphosting.yaml` checked in for Cloud Run runtime sizing and non-secret environment defaults.
+The Railway environment label is not a production-readiness claim. This candidate still uses the shared dev Firebase project and must remain unadvertised/noindexed until the release gates below are complete.
 
-Official setup references:
+Release gates before branded public traffic:
 
-- [Firebase App Hosting monorepo setup](https://firebase.google.com/docs/app-hosting/monorepos): choose the app root directory inside the repository, here `apps/web`.
-- [Firebase App Hosting configuration](https://firebase.google.com/docs/app-hosting/configure): `apphosting.yaml` belongs in the app root and can define runtime settings and non-secret environment defaults.
+- Run a full browser flow on the Railway origin: account creation/sign-in, upload, proof generation/approval, page-4 scene/claim, checkout creation and cancel/success return, order display, and admin/operator visibility. Do not treat a healthcheck alone as product validation.
+- Create the dedicated production Firebase/GCP project and configure matching Auth, Firestore, Storage, rules, indexes, Functions, secrets, and public web values. Create a separate staging project only when the team needs a durable pre-production data/identity boundary.
+- Add production monitoring, provider-spend/abuse controls, policy gates, and fulfillment readiness before sending public traffic.
+- Choose whether the product app should use a branded subdomain such as `app.3dprintyou.com` or replace/redirect the apex after the coming-soon period. Preserve the noindex guard on a thin app subdomain until the SEO/canonical strategy intentionally changes.
+- Keep `api.3dprintyou.com` on the existing Cloudflare Worker webhook surface and keep `3dprintposters.com` available for the parked poster-relief line or redirect strategy.
 
-App Hosting environment values to set on each backend:
-
-- Public Firebase web config values from the matching staging or production Firebase project.
-- `NEXT_PUBLIC_USE_FIREBASE_EMULATORS=false`.
-- `NEXT_PUBLIC_USE_FIREBASE_FUNCTIONS_EMULATOR=false`.
-- Server-only values and secrets through Firebase App Hosting environment settings or Secret Manager.
-
-Future full-app Cloudflare DNS plan:
-
-- Preferred figurine pivot domain: `3dprintyou.com`, currently occupied by the standalone coming-soon Railway site until the full app is ready.
-- Current local Cloudflare credentials are only partially sufficient: on 2026-05-23 the account-scoped token verified successfully and both project zones were visible, but zone DNS record reads and Worker route reads returned `403`.
-- First public test: point a staging hostname such as `staging.3dprintyou.com` to the staging App Hosting backend domain generated by Firebase.
-- Launch/migration: replace or redirect the standalone Railway coming-soon site only after the full Firebase app can represent checkout, fulfillment, and support honestly.
-- Keep `3dprintposters.com` available for the parked poster-relief line or redirect strategy.
+`apps/web/apphosting.yaml` remains historical Firebase App Hosting configuration and is not the active Railway deployment manifest. `railway.toml` at the repository root is the current web-hosting source of truth.
 
 ## Cloud Run 3D Conversion Service
 

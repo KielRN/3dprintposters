@@ -2,6 +2,25 @@
 
 All notable project changes will be documented in this file.
 
+## [Unreleased] - 2026-07-13
+
+### Added
+
+- Added the first deployed full product-app candidate at `https://3dprintposters-production.up.railway.app` in the existing Railway project. The repo now builds the `apps/web` Next.js app as a standalone server, copies its static/public assets into the standalone bundle, exposes `/api/health`, and starts through the root `railway.toml` with `HOSTNAME=0.0.0.0` on Railway's injected port.
+
+### Changed
+
+- Selected Railway for the current Next.js app deployment while keeping Firebase Cloud Functions, Auth, Firestore, Storage, and Stripe checkout orchestration on Firebase. Railway receives only the public Firebase web configuration and disabled-emulator flags; backend/provider/Stripe secrets remain in Firebase Secret Manager.
+- Removed the unused Next.js Stripe checkout route so the Firebase callable `createCheckoutSession` remains the single checkout-session boundary.
+- Added the Railway origin to Firebase Auth authorized domains and the tracked Firebase Storage CORS policy. Updated the deployed `PUBLIC_APP_URL` secret and redeployed only `createCheckoutSession` so Stripe success/cancel navigation returns to the Railway app.
+- Added app-wide `noindex, nofollow, noarchive` metadata and response headers for the temporary Railway candidate so it does not compete with the public `https://3dprintyou.com` coming-soon SEO surface.
+
+### Verified
+
+- Verified the Functions TypeScript build, the Railway standalone build/start path, and a successful Railway healthcheck rollout after correcting the server bind address.
+- Verified the active Railway release returns `200` for `/` and `{ "status": "ok" }` for `/api/health`, with the expected `X-Robots-Tag` header.
+- Verified Firebase Auth lists the Railway hostname, Firebase Storage CORS includes the exact HTTPS origin, and deployed `createCheckoutSession` is active with the current `PUBLIC_APP_URL` secret version.
+
 ## [Unreleased] - 2026-07-12
 
 ### Added

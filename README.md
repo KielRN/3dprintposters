@@ -4,20 +4,20 @@
 
 The existing poster-relief path still works as R&D: it turns controlled stylized art into a 5in x 7in relief window inside a 5.5in x 7.5in physical object. The Super Dad proof remains the north star if that line resumes, but relief quality is not the next customer-acquisition blocker. `3dprintyou.com` is the live standalone public coming-soon domain for the figurine pivot; `3dprintposters.com` can stay attached to the parked poster-relief line or become a redirect later.
 
-This project is still in local MVP development. It is not production-ready yet.
+This project is still an MVP and is not production-ready. A noindexed full-app candidate is deployed for browser validation, but it still uses the shared dev Firebase project and is not the public launch.
 
 ## Where We Are Now
 
 Working now:
 
-- Next.js customer app in `apps/web`
+- Next.js customer app in `apps/web`, deployed as a standalone Railway candidate at `https://3dprintposters-production.up.railway.app`
 - Firebase Auth sign-in; public creation requires a non-anonymous email/password account before upload/job creation
 - Browser upload to Firebase Storage
 - Firebase callable Functions for job creation, proof approval, print-file generation orchestration, and checkout
 - Direct Vertex/Gemini proof-generation adapter in `apps/functions`
-- Dev `/admin` workflow controls for the base proof prompt, four default proof options, visible Style count, per-style prompts, and per-style proof reference images; role-based access is a placeholder during local MVP development
+- Dev `/admin` workflow controls for the base proof prompt, four default proof options, visible Style count, per-style prompts, and per-style proof reference images, protected by Firebase Auth custom claims
 - New product direction documented in `research/FIGURINE_PROVIDER_RESEARCH.md` and `docs/Workflows/`: PrintU-like figurine workflow first, generated-3D providers behind server-side adapters, relief parked as R&D
-- Standalone public coming-soon site deployed from `KielRN/3dprintyou` to Railway at `https://3dprintyou.com`; this repo still owns the full app, Functions, provider orchestration, and print-file services
+- Standalone public coming-soon site deployed from `KielRN/3dprintyou` to Railway at `https://3dprintyou.com`; this repo owns the separately deployed full-app candidate, Firebase Functions/provider orchestration, and print-file services
 - Local secret files can contain paid provider credentials such as `MESHY_API_KEY` and Hi3D keys; never print or commit the values
 - Funded-build figurine workflow: concept approval unlocks checkout, Stripe payment queues the server-side Meshy/Hi3D provider build, and generated GLBs/print-readiness stay operator/support-only
 - Planned user model: customer accounts, admin/operator users, and print-partner users with separate server-enforced permissions
@@ -44,7 +44,7 @@ Not done yet:
 - Deployed Cloud Run print-file generator endpoint
 - Fulfillment partner integration
 - Production Firebase projects
-- Full public app hosting deployment for this repo
+- Branded public app cutover backed by a dedicated production Firebase project
 - Production monitoring, quotas, moderation, and cleanup jobs
 
 ## The Big Picture
@@ -470,11 +470,12 @@ Use Stripe test mode until payment, webhook, and fulfillment state transitions a
 - [x] Deploy standalone static coming-soon site from `KielRN/3dprintyou` to Railway for `https://3dprintyou.com`.
 - [x] Point apex `3dprintyou.com` to Railway through Cloudflare.
 - [ ] Finish `www.3dprintyou.com` Railway custom-domain or Cloudflare redirect; DNS exists but HTTP returned `404` on 2026-07-05.
-- [ ] Create Firebase App Hosting backend for `apps/web` staging.
-- [ ] Create Firebase App Hosting backend for `apps/web` production.
-- [ ] Configure public Firebase web env values for each App Hosting backend.
-- [ ] Point a staging hostname such as `staging.3dprintyou.com` to staging App Hosting.
-- [ ] Decide when the full app should replace or redirect the standalone coming-soon Railway surface.
+- [x] Deploy the current `apps/web` candidate to Railway at `https://3dprintposters-production.up.railway.app` with standalone output, `/api/health`, and app-wide noindex headers.
+- [x] Configure the Railway build with the public Firebase web values and disabled-emulator flags only.
+- [x] Authorize the Railway hostname in Firebase Auth and Storage CORS, and point Firebase checkout return navigation at the Railway origin.
+- [ ] Run the complete sign-in/upload/proof/page-4/checkout/order/admin/operator browser smoke test on the Railway origin.
+- [ ] Create and configure the dedicated production Firebase/GCP project before branded public traffic; add a staging project only when a persistent pre-production boundary is useful.
+- [ ] Choose a branded app hostname or decide when the full app should replace/redirect the standalone coming-soon Railway surface.
 - [ ] Decide whether `3dprintposters.com` remains a separate poster-relief domain or redirects into the new offer.
 
 ### Backend and AI
