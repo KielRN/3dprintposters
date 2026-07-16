@@ -2,6 +2,16 @@
 
 All notable project changes will be documented in this file.
 
+## [Unreleased] - 2026-07-16
+
+### Changed
+
+- Figurine assembly now floats the provider body a 10mm clearance gap above the named-base top plane instead of seating it 1mm into the base (`assemblyPolicy: support_plane_clearance_gap_above_base_top_plane_v3`). Meshy/Hi3D sometimes add their own plinth under the figurine; the gap leaves the 3D print service room to edit the provider plinth away before joining the body to the base. The gap is configurable per base asset via `placementZones.bodyBaseClearanceGapMm` (`figurine-square-v1` sets `10.0`), and assembly metrics report `bodyBaseClearanceGapMm` in place of `bodyBaseSeatingOverlapMm`.
+
+### Verified
+
+- Verified the print-file-generator suite (79 passed, 1 skipped) and a local end-to-end assembly of a plinth-bearing fixture body onto the Elliott named base: metrics report a measured 10.0mm gap above the base top plane and the Blender front render shows the provider plinth floating clear of the base.
+
 ## [Unreleased] - 2026-07-13
 
 ### Added

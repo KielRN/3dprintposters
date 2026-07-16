@@ -12,7 +12,10 @@ import numpy as np
 from .models import FigurineAssemblyRequest
 from .storage import StorageAdapter, artifact_path
 
-DEFAULT_BODY_BASE_SEATING_OVERLAP_MM = 1.0
+# Vertical air gap between the base top plane and the body's support plane.
+# Providers (Meshy/Hi3D) sometimes bake their own plinth under the figurine;
+# the gap leaves room for the print service to edit it away before joining.
+DEFAULT_BODY_BASE_CLEARANCE_GAP_MM = 10.0
 CONTACT_SEARCH_HEIGHT_FRACTION = 0.25
 CONTACT_SEARCH_HEIGHT_MAX_MM = 30.0
 CONTACT_Z_BIN_MM = 0.05
@@ -167,10 +170,10 @@ def _top_plane_z(manifest: dict, base_mesh) -> float:
     return float(configured) if configured is not None else float(base_mesh.bounds[1][2])
 
 
-def _body_base_seating_overlap_mm(manifest: dict) -> float:
-    configured = manifest.get("placementZones", {}).get("bodyBaseSeatingOverlapMm")
+def _body_base_clearance_gap_mm(manifest: dict) -> float:
+    configured = manifest.get("placementZones", {}).get("bodyBaseClearanceGapMm")
     if configured is None:
-        return DEFAULT_BODY_BASE_SEATING_OVERLAP_MM
+        return DEFAULT_BODY_BASE_CLEARANCE_GAP_MM
     return max(float(configured), 0.0)
 
 
@@ -213,9 +216,9 @@ def assemble_figurine_package(
         )
         target_center_xy = _foot_zone_center_xy(manifest, named_base)
         top_z = _top_plane_z(manifest, named_base)
-        seating_overlap_mm = _body_base_seating_overlap_mm(manifest)
+        clearance_gap_mm = _body_base_clearance_gap_mm(manifest)
         placement_contact = _placement_contact_z(body)
-        target_contact_z = top_z - seating_overlap_mm
+        target_contact_z = top_z + clearance_gap_mm
         body.apply_translation(
             [
                 float(target_center_xy[0] - body_center_xy[0]),
@@ -247,7 +250,7 @@ def assemble_figurine_package(
             "scaleFactor": float(scale_factor),
             "detectedSourceUpAxis": detected_up_axis,
             "baseTopPlaneZMm": top_z,
-            "bodyBaseSeatingOverlapMm": seating_overlap_mm,
+            "bodyBaseClearanceGapMm": clearance_gap_mm,
             "bodyPlacementContact": {
                 **placement_contact,
                 "targetContactZMm": target_contact_z,
@@ -280,12 +283,9 @@ def assemble_figurine_package(
             warnings.append(
                 "Assembled package is not watertight before downstream print tooling."
             )
-        if float(placement_contact["ignoredLowerGeometryMm"]) > max(
-            seating_overlap_mm * 2.0,
-            2.0,
-        ):
+        if float(placement_contact["ignoredLowerGeometryMm"]) > 2.0:
             warnings.append(
-                "Provider mesh includes isolated lower geometry below the support footprint; the broader contact plane was seated into the base."
+                "Provider mesh includes isolated lower geometry below the support footprint; the broader contact plane was aligned to the clearance gap above the base."
             )
 
         checksums = {
@@ -301,7 +301,7 @@ def assemble_figurine_package(
             "namedBaseStl": request.named_base_stl_path,
             "namedBaseRevision": request.named_base_revision,
             "coordinateSystem": "millimeter_z_up",
-            "assemblyPolicy": "support_plane_overlap_to_base_top_plane_v2",
+            "assemblyPolicy": "support_plane_clearance_gap_above_base_top_plane_v3",
             "metrics": metrics,
             "warnings": warnings,
             "artifacts": artifact_files,

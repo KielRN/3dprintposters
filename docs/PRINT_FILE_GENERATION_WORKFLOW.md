@@ -50,7 +50,7 @@ Implementation rule:
 
 1. Load the raw Meshy Creative Lab `model.glb`; do not overwrite or resize the provider source file.
 2. Load the generated named-base STL from the deterministic base service.
-3. Align the figurine feet/contact area onto the base top plane and seat it slightly into the base, so feet-only bodies and provider outputs with their own plinth still touch the deterministic square base.
+3. Align the figurine feet/contact area over the base and float the body's support plane a `10mm` clearance gap above the base top plane (`placementZones.bodyBaseClearanceGapMm` in the base manifest, default `10.0`). Meshy/Hi3D sometimes bake their own plinth under the body; the gap leaves the 3D print service room to edit the provider plinth away before joining the body to the deterministic base.
 4. Scale the body to `150mm` figurine height while keeping the named base in millimeter product units.
 5. Export print-review artifacts, separating inherited Meshy body defects from deterministic base/name/assembly defects.
 

@@ -84,16 +84,20 @@ def test_assembly_exports_review_artifacts_and_metadata(tmp_path: Path) -> None:
     assert metrics["bodyHeightBeforeScaleMm"] == pytest.approx(30.0)
     assert metrics["scaleFactor"] == pytest.approx(5.0)
     assert metrics["detectedSourceUpAxis"] == "y"
+    # The body must float a clearance gap above the base top plane so the
+    # print service can edit away any provider-added plinth before joining.
+    assert metrics["bodyBaseClearanceGapMm"] == pytest.approx(10.0)
     assert metrics["bodyBoundsMm"]["min"]["z"] == pytest.approx(
-        metrics["baseTopPlaneZMm"] - metrics["bodyBaseSeatingOverlapMm"],
+        metrics["baseTopPlaneZMm"] + metrics["bodyBaseClearanceGapMm"],
         abs=0.001,
     )
     assert metrics["bodyPlacementContact"]["targetContactZMm"] == pytest.approx(
-        metrics["baseTopPlaneZMm"] - metrics["bodyBaseSeatingOverlapMm"],
+        metrics["baseTopPlaneZMm"] + metrics["bodyBaseClearanceGapMm"],
         abs=0.001,
     )
     assert metrics["bodyPlacementContact"]["method"] == "lowest_bounds_broad_footprint"
-    assert metrics["assembledExtentsMm"]["z"] > 150.0
+    # base 24mm + 10mm gap + 150mm body
+    assert metrics["assembledExtentsMm"]["z"] == pytest.approx(184.0, abs=0.01)
 
 
 def test_assembly_seats_provider_base_instead_of_low_outlier(
@@ -109,7 +113,7 @@ def test_assembly_seats_provider_base_instead_of_low_outlier(
 
     metrics = response["metrics"]
     target_contact_z = (
-        metrics["baseTopPlaneZMm"] - metrics["bodyBaseSeatingOverlapMm"]
+        metrics["baseTopPlaneZMm"] + metrics["bodyBaseClearanceGapMm"]
     )
     contact = metrics["bodyPlacementContact"]
 

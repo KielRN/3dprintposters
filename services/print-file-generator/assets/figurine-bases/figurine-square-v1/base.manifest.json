@@ -39,7 +39,7 @@
   },
   "placementZones": {
     "topPlaneZMm": 24.000001907348633,
-    "bodyBaseSeatingOverlapMm": 1.0,
+    "bodyBaseClearanceGapMm": 10.0,
     "nameTextZone": {
       "front": "negative-y",
       "surface": "sloped front plaque recessed panel",
