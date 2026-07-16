@@ -63,7 +63,9 @@ import { canTransition, displayJobId, pipelineStages } from "./pipeline.js";
 import {
   adminSupportIssueTypes,
   adminSupportStatuses,
+  collectAdminJobAssets,
   jobMatchesAdminSupportFilters,
+  matchesAdminSupportSearch,
   normalizeAdminSupportNoteBody,
   normalizeAdminSupportStatus,
   sanitizeAdminSupportJobDetail,
@@ -172,6 +174,7 @@ const listAdminSupportJobsSchema = z.object({
   supportStatus: adminSupportStatusSchema.optional(),
   issueType: adminSupportIssueTypeSchema.optional(),
   pipelineStage: z.enum(pipelineStages).optional(),
+  selectedStyle: z.string().trim().min(1).max(80).optional(),
   search: z.string().trim().max(120).optional(),
   pageSize: z.coerce.number().int().min(1).max(50).default(25),
   cursor: jobIdSchema.optional(),
@@ -2439,7 +2442,22 @@ function buildAdminSupportFilters(
     ...(data.supportStatus ? { supportStatus: data.supportStatus } : {}),
     ...(data.issueType ? { issueType: data.issueType } : {}),
     ...(data.pipelineStage ? { pipelineStage: data.pipelineStage } : {}),
+    ...(data.selectedStyle ? { selectedStyle: data.selectedStyle } : {}),
   };
+}
+
+// Customer name/email searches join the order per job, so bound how many
+// recent jobs a single search scans. Matches the ceiling the filtered-list
+// path already uses.
+const ADMIN_SUPPORT_SEARCH_SCAN_LIMIT = 250;
+
+function compareAdminSupportByUpdatedAtDesc(
+  a: AdminSupportJobSummary,
+  b: AdminSupportJobSummary,
+): number {
+  const aTime = a.updatedAt ? Date.parse(a.updatedAt) : 0;
+  const bTime = b.updatedAt ? Date.parse(b.updatedAt) : 0;
+  return (Number.isNaN(bTime) ? 0 : bTime) - (Number.isNaN(aTime) ? 0 : aTime);
 }
 
 function applyPrimaryAdminSupportFilter(
@@ -2530,6 +2548,7 @@ async function adminSupportSummaryForJobDoc(input: {
     sanitizeAdminSupportJobSummary({
       jobId: input.jobId,
       jobData: input.jobData,
+      orderData: orderData ?? null,
     }),
     orderData,
   );
@@ -2582,6 +2601,9 @@ export const listAdminSupportJobs = onCall(
       const search = parsed.data.search?.trim();
       if (search) {
         const snapshots = new Map<string, Record<string, unknown>>();
+
+        // Exact job-id and uid lookups find matches of any age, even when the
+        // job is older than the recent-scan window below.
         const directJob = await db.collection("jobs").doc(search).get();
         if (directJob.exists) {
           snapshots.set(
@@ -2599,6 +2621,18 @@ export const listAdminSupportJobs = onCall(
           snapshots.set(jobSnap.id, jobSnap.data() as Record<string, unknown>);
         }
 
+        // Customer name/email live on the order, which Firestore can't
+        // substring-search, so scan recent jobs and match in memory after the
+        // per-job order join in adminSupportSummaryForJobDoc.
+        const recentScan = await db
+          .collection("jobs")
+          .orderBy("updatedAt", "desc")
+          .limit(ADMIN_SUPPORT_SEARCH_SCAN_LIMIT)
+          .get();
+        for (const jobSnap of recentScan.docs) {
+          snapshots.set(jobSnap.id, jobSnap.data() as Record<string, unknown>);
+        }
+
         const summaries = await Promise.all(
           Array.from(snapshots.entries()).map(([jobId, jobData]) =>
             adminSupportSummaryForJobDoc({ jobId, jobData }),
@@ -2606,7 +2640,9 @@ export const listAdminSupportJobs = onCall(
         );
         return {
           items: summaries
+            .filter((summary) => matchesAdminSupportSearch(summary, search))
             .filter((summary) => jobMatchesAdminSupportFilters(summary, filters))
+            .sort(compareAdminSupportByUpdatedAtDesc)
             .slice(0, parsed.data.pageSize),
           nextCursor: null,
         };
@@ -2678,7 +2714,35 @@ export const listAdminSupportJobs = onCall(
   },
 );
 
+async function buildAdminJobAssetLinks(input: {
+  jobId: string;
+  jobData: Record<string, unknown>;
+  orderData: Record<string, unknown> | null;
+}): Promise<Array<{ label: string; category: string; ext: string; url: string }>> {
+  const assets = collectAdminJobAssets(input);
+  if (assets.length === 0) {
+    return [];
+  }
+  const bucketName = resolveRequiredEnv("APP_STORAGE_BUCKET");
+  const assetUrls = await operatorAssetUrls({
+    bucketName,
+    storagePaths: assets.map((asset) => asset.storagePath),
+  });
+  return assets
+    .map((asset) => {
+      const url = assetUrls[asset.storagePath];
+      return url
+        ? { label: asset.label, category: asset.category, ext: asset.ext, url }
+        : null;
+    })
+    .filter(
+      (asset): asset is { label: string; category: string; ext: string; url: string } =>
+        asset !== null,
+    );
+}
+
 export const getAdminSupportJob = onCall(
+  { secrets: [appStorageBucket] },
   async (request) => {
     requireAdminSupport(request);
     const parsed = getAdminSupportJobSchema.safeParse(request.data);
@@ -2686,18 +2750,23 @@ export const getAdminSupportJob = onCall(
       throw new HttpsError("invalid-argument", "jobId is required.");
     }
 
-    const jobSnap = await db.collection("jobs").doc(parsed.data.jobId).get();
+    const [jobSnap, orderSnap] = await Promise.all([
+      db.collection("jobs").doc(parsed.data.jobId).get(),
+      db.collection("orders").doc(parsed.data.jobId).get(),
+    ]);
     const jobData = jobSnap.data() as Record<string, unknown> | undefined;
     if (!jobSnap.exists || !jobData) {
       throw new HttpsError("not-found", "Job not found.");
     }
+    const orderData =
+      (orderSnap.data() as Record<string, unknown> | undefined) ?? null;
 
-    return {
-      job: await adminSupportDetailForJob({
-        jobId: parsed.data.jobId,
-        jobData,
-      }),
-    };
+    const [detail, assets] = await Promise.all([
+      adminSupportDetailForJob({ jobId: parsed.data.jobId, jobData }),
+      buildAdminJobAssetLinks({ jobId: parsed.data.jobId, jobData, orderData }),
+    ]);
+
+    return { job: { ...detail, assets } };
   },
 );
 

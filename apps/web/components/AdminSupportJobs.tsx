@@ -10,6 +10,7 @@ import {
   Box,
   CheckCircle2,
   Clock3,
+  Download,
   Loader2,
   MessageSquarePlus,
   RefreshCw,
@@ -20,6 +21,7 @@ import { httpsCallable } from "firebase/functions";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { pipelineStageLabels, pipelineStages, type PipelineStage } from "@/lib/pipeline";
+import { normalizeFigurineWorkflowConfigResponse } from "@/lib/figurineWorkflowConfig";
 
 type SupportStatus = "open" | "watching" | "blocked" | "resolved";
 type ProductType = "poster" | "figurine";
@@ -48,6 +50,8 @@ type JobCostSummary = {
 type JobSummary = {
   jobId: string;
   uid: string | null;
+  customerName: string | null;
+  customerEmail: string | null;
   productType: string | null;
   status: string | null;
   selectedStyle: string | null;
@@ -133,7 +137,15 @@ type JobDetail = JobSummary & {
     printFileArtifactCount: number;
     figurineArtifactCount: number;
   };
+  assets?: JobAsset[];
   supportNotes: SupportNote[];
+};
+
+type JobAsset = {
+  label: string;
+  category: string;
+  ext: string;
+  url: string;
 };
 
 type ListAdminSupportJobsRequest = {
@@ -142,10 +154,13 @@ type ListAdminSupportJobsRequest = {
   supportStatus?: SupportStatus;
   issueType?: IssueType;
   pipelineStage?: PipelineStage;
+  selectedStyle?: string;
   search?: string;
   pageSize?: number;
   cursor?: string;
 };
+
+type StyleOption = { id: string; label: string };
 
 type ListAdminSupportJobsResult = {
   items: JobSummary[];
@@ -208,6 +223,33 @@ function label(value: string | number | boolean | null | undefined) {
   return String(value).replaceAll("_", " ");
 }
 
+// Human-readable style for a job card: prefer the stored label, fall back to a
+// prettified style id, and empty when the job has no style (e.g. posters).
+function jobStyleLabel(job: JobSummary): string {
+  if (job.selectedStyleLabel) {
+    return job.selectedStyleLabel;
+  }
+  if (job.selectedStyle) {
+    return job.selectedStyle.replaceAll("_", " ");
+  }
+  return "";
+}
+
+// Groups job assets by category, preserving the server's ordering (Source,
+// Proofs, 3D preview, Print files, Assembly & tooling, Order bundle).
+function groupAssets(assets: JobAsset[]): Array<[string, JobAsset[]]> {
+  const groups = new Map<string, JobAsset[]>();
+  for (const asset of assets) {
+    const list = groups.get(asset.category);
+    if (list) {
+      list.push(asset);
+    } else {
+      groups.set(asset.category, [asset]);
+    }
+  }
+  return Array.from(groups.entries());
+}
+
 function compactRequest(input: ListAdminSupportJobsRequest) {
   return Object.fromEntries(
     Object.entries(input).filter(([, value]) => value !== "" && value != null),
@@ -259,11 +301,14 @@ export function AdminSupportJobs({ active }: { active: boolean }) {
   const [selectedJob, setSelectedJob] = useState<JobDetail | null>(null);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [productType, setProductType] = useState<"" | ProductType>("");
   const [jobStatus, setJobStatus] = useState("");
   const [supportStatus, setSupportStatus] = useState<"" | SupportStatus>("");
   const [issueType, setIssueType] = useState<"" | IssueType>("");
   const [pipelineStage, setPipelineStage] = useState<"" | PipelineStage>("");
+  const [selectedStyle, setSelectedStyle] = useState("");
+  const [styleOptions, setStyleOptions] = useState<StyleOption[]>([]);
   const [jobsLoading, setJobsLoading] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [noteBusy, setNoteBusy] = useState(false);
@@ -274,13 +319,21 @@ export function AdminSupportJobs({ active }: { active: boolean }) {
   const [error, setError] = useState("");
 
   const filterKey = [
-    search,
+    debouncedSearch,
     productType,
     jobStatus,
     supportStatus,
     issueType,
     pipelineStage,
+    selectedStyle,
   ].join("|");
+
+  // Debounce the free-text search: customer lookups scan recent jobs and join
+  // their orders, so reloading on every keystroke would be needlessly costly.
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search.trim()), 350);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   async function loadJobs(options: { append?: boolean; cursor?: string } = {}) {
     if (!firebaseClients) {
@@ -298,12 +351,13 @@ export function AdminSupportJobs({ active }: { active: boolean }) {
         ListAdminSupportJobsResult
       >(firebaseClients.functions, "listAdminSupportJobs");
       const request = compactRequest({
-        search,
+        search: debouncedSearch,
         productType: productType || undefined,
         jobStatus: jobStatus.trim() || undefined,
         supportStatus: supportStatus || undefined,
         issueType: issueType || undefined,
         pipelineStage: pipelineStage || undefined,
+        selectedStyle: selectedStyle || undefined,
         pageSize: 25,
         cursor: options.cursor,
       });
@@ -456,17 +510,47 @@ export function AdminSupportJobs({ active }: { active: boolean }) {
     }
   }, [active, selectedJobId]);
 
+  useEffect(() => {
+    if (!firebaseClients || !active) {
+      return;
+    }
+
+    let cancelled = false;
+    const getWorkflowConfig = httpsCallable<Record<string, never>, unknown>(
+      firebaseClients.functions,
+      "getAdminFigurineWorkflowConfig",
+    );
+    void getWorkflowConfig({})
+      .then((result) => {
+        if (cancelled) {
+          return;
+        }
+        const config = normalizeFigurineWorkflowConfigResponse(result.data);
+        setStyleOptions(
+          config.styles.map((style) => ({ id: style.id, label: style.label })),
+        );
+      })
+      .catch(() => {
+        // Non-fatal: the Style filter simply stays empty if the workflow
+        // config cannot be loaded.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [active, firebaseClients]);
+
   return (
     <section className="grid gap-5">
       <div className="panel rounded-lg p-4">
-        <div className="grid gap-3 lg:grid-cols-[minmax(180px,1.2fr)_150px_150px_150px_150px_180px_auto]">
+        <div className="grid gap-3 lg:grid-cols-[minmax(180px,1.2fr)_150px_150px_150px_150px_150px_180px_auto]">
           <label className="grid gap-1 text-xs font-bold uppercase text-[var(--muted)]">
             Search
             <div className="relative">
               <Search className="absolute left-3 top-3 text-[var(--muted)]" size={16} aria-hidden="true" />
               <input
                 className="text-input pl-9"
-                placeholder="Job ID or UID"
+                placeholder="Customer, Job ID, or UID"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
               />
@@ -478,6 +562,21 @@ export function AdminSupportJobs({ active }: { active: boolean }) {
               <option value="">All</option>
               <option value="figurine">Figurine</option>
               <option value="poster">Poster</option>
+            </select>
+          </label>
+          <label className="grid gap-1 text-xs font-bold uppercase text-[var(--muted)]">
+            Style
+            <select
+              className="text-input"
+              value={selectedStyle}
+              onChange={(event) => setSelectedStyle(event.target.value)}
+            >
+              <option value="">All styles</option>
+              {styleOptions.map((style) => (
+                <option value={style.id} key={style.id}>
+                  {style.label}
+                </option>
+              ))}
             </select>
           </label>
           <label className="grid gap-1 text-xs font-bold uppercase text-[var(--muted)]">
@@ -571,9 +670,13 @@ export function AdminSupportJobs({ active }: { active: boolean }) {
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-black">{job.jobId}</p>
+                    <p className="truncate text-sm font-black">
+                      {job.customerName ?? "No customer yet"}
+                    </p>
                     <p className="truncate text-xs font-semibold text-[var(--muted)]">
-                      {job.uid ?? "No UID"}
+                      {jobStyleLabel(job)
+                        ? `${jobStyleLabel(job)} · #${job.jobId.slice(0, 8)}`
+                        : `#${job.jobId.slice(0, 8)}`}
                     </p>
                   </div>
                   <span className={`shrink-0 rounded-full border px-2 py-1 text-xs font-black ${statusTone(job.pipelineStage)}`}>
@@ -630,8 +733,10 @@ export function AdminSupportJobs({ active }: { active: boolean }) {
               <div className="flex flex-wrap items-start justify-between gap-3 border-b border-black/10 pb-3">
                 <div className="min-w-0">
                   <p className="text-xs font-bold uppercase text-[var(--muted)]">Selected job</p>
-                  <h2 className="mt-1 break-all text-xl font-semibold">{selectedJob.jobId}</h2>
-                  <p className="mt-1 break-all text-sm font-semibold text-[var(--muted)]">{selectedJob.uid}</p>
+                  <h2 className="mt-1 break-words text-xl font-semibold">
+                    {selectedJob.customerName ?? "No customer yet"}
+                  </h2>
+                  <p className="mt-1 break-all text-sm font-semibold text-[var(--muted)]">#{selectedJob.jobId}</p>
                 </div>
                 <div className="flex flex-wrap items-center justify-end gap-2">
                   {hasPreviewPageAssets(selectedJob) ? (
@@ -711,6 +816,45 @@ export function AdminSupportJobs({ active }: { active: boolean }) {
                   ]}
                 />
               </div>
+
+              {selectedJob.assets && selectedJob.assets.length > 0 ? (
+                <div className="grid gap-3 rounded-lg border border-black/10 p-3">
+                  <div className="flex items-center gap-2">
+                    <Download size={18} className="text-[var(--teal)]" aria-hidden="true" />
+                    <h3 className="font-semibold">Assets</h3>
+                    <span className="text-sm font-bold text-[var(--muted)]">
+                      {selectedJob.assets.length}
+                    </span>
+                  </div>
+                  {groupAssets(selectedJob.assets).map(([category, items]) => (
+                    <div className="grid gap-1.5" key={category}>
+                      <p className="text-xs font-bold uppercase tracking-wide text-[var(--muted)]">
+                        {category}
+                      </p>
+                      {items.map((asset, index) => (
+                        <a
+                          className="flex items-center justify-between gap-3 rounded-lg border border-black/10 bg-white px-3 py-2 text-sm font-semibold transition hover:border-[var(--teal)]/50"
+                          key={`${category}-${index}`}
+                          href={asset.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <span className="flex min-w-0 items-center gap-2">
+                            <span className="shrink-0 rounded bg-black/5 px-1.5 py-0.5 text-xs font-black uppercase tracking-wide">
+                              {asset.ext}
+                            </span>
+                            <span className="truncate">{asset.label}</span>
+                          </span>
+                          <span className="flex shrink-0 items-center gap-1 text-[var(--teal)]">
+                            <Download size={14} aria-hidden="true" />
+                            Download
+                          </span>
+                        </a>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              ) : null}
 
               {selectedJob.order?.fulfillment ? (
                 <div className="mt-4 rounded-lg border border-black/10 p-3">

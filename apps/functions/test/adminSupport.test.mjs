@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  collectAdminJobAssets,
   jobMatchesAdminSupportFilters,
+  matchesAdminSupportSearch,
   normalizeAdminSupportNoteBody,
   sanitizeAdminSupportJobDetail,
   sanitizeAdminSupportJobSummary,
@@ -74,6 +76,117 @@ test("job summary exposes support fields without raw storage paths", () => {
     ["cost", "failed", "needs_review", "open_support", "print_readiness"].sort(),
   );
   assert.equal(JSON.stringify(summary).includes("print-files/"), false);
+});
+
+test("job summary exposes customer name and email from order data", () => {
+  const summary = sanitizeAdminSupportJobSummary({
+    jobId: "job-1",
+    jobData: baseJob(),
+    orderData: {
+      customerName: "Jane Cooper",
+      customerEmail: "jane@example.com",
+    },
+  });
+
+  assert.equal(summary.customerName, "Jane Cooper");
+  assert.equal(summary.customerEmail, "jane@example.com");
+});
+
+test("job summary customer fields are null without order data", () => {
+  const summary = sanitizeAdminSupportJobSummary({
+    jobId: "job-1",
+    jobData: baseJob(),
+  });
+
+  assert.equal(summary.customerName, null);
+  assert.equal(summary.customerEmail, null);
+});
+
+test("selectedStyle filter matches the job's style id", () => {
+  const summary = sanitizeAdminSupportJobSummary({
+    jobId: "job-1",
+    jobData: baseJob(),
+  });
+
+  assert.equal(
+    jobMatchesAdminSupportFilters(summary, {
+      selectedStyle: "creative_lab_figure",
+    }),
+    true,
+  );
+  assert.equal(
+    jobMatchesAdminSupportFilters(summary, { selectedStyle: "chibi_female" }),
+    false,
+  );
+});
+
+test("search matches job id, uid, customer name, and email case-insensitively", () => {
+  const summary = sanitizeAdminSupportJobSummary({
+    jobId: "job-1",
+    jobData: baseJob(),
+    orderData: {
+      customerName: "Jane Cooper",
+      customerEmail: "jane@example.com",
+    },
+  });
+
+  assert.equal(matchesAdminSupportSearch(summary, "jane"), true);
+  assert.equal(matchesAdminSupportSearch(summary, "COOPER"), true);
+  assert.equal(matchesAdminSupportSearch(summary, "jane@example"), true);
+  assert.equal(matchesAdminSupportSearch(summary, "job-1"), true);
+  assert.equal(matchesAdminSupportSearch(summary, "customer-1"), true);
+  assert.equal(matchesAdminSupportSearch(summary, "nomatch"), false);
+  assert.equal(matchesAdminSupportSearch(summary, ""), true);
+});
+
+test("collectAdminJobAssets gathers labeled, deduped assets across categories", () => {
+  const assets = collectAdminJobAssets({
+    jobId: "job-1",
+    jobData: {
+      sourceImagePath: "uploads/customer-1/job-1/photo.jpg",
+      approvedImagePath: "approved/customer-1/job-1/approved.png",
+      generatedImages: [
+        { storagePath: "generated/customer-1/job-1/preview-1.png" },
+        { storagePath: "generated/customer-1/job-1/preview-2.png" },
+      ],
+      figurinePreview: {
+        thumbnailPath: "print-files/customer-1/job-1/thumb.png",
+        artifacts: { previewGlb: "print-files/customer-1/job-1/preview.glb" },
+      },
+      printFileArtifacts: {
+        modelStl: "print-files/customer-1/job-1/model.stl",
+        fullColor3mf: "print-files/customer-1/job-1/full.3mf",
+        previewGlb: "print-files/customer-1/job-1/preview.glb",
+      },
+      figurineAssembly: {
+        artifacts: { assembledGlb: "print-files/customer-1/job-1/assembly.glb" },
+      },
+    },
+    orderData: {
+      printBundle: { status: "ready", storagePath: "bundles/job-1/bundle.zip" },
+    },
+  });
+
+  const byPath = new Map(assets.map((asset) => [asset.storagePath, asset]));
+
+  assert.equal(byPath.get("uploads/customer-1/job-1/photo.jpg")?.category, "Source");
+  assert.equal(byPath.get("uploads/customer-1/job-1/photo.jpg")?.ext, "jpg");
+  assert.equal(byPath.get("generated/customer-1/job-1/preview-1.png")?.category, "Proofs");
+  assert.equal(byPath.get("print-files/customer-1/job-1/model.stl")?.ext, "stl");
+  assert.equal(byPath.get("bundles/job-1/bundle.zip")?.category, "Order bundle");
+  assert.equal(byPath.get("bundles/job-1/bundle.zip")?.ext, "zip");
+
+  const glbEntries = assets.filter(
+    (asset) => asset.storagePath === "print-files/customer-1/job-1/preview.glb",
+  );
+  assert.equal(glbEntries.length, 1);
+});
+
+test("collectAdminJobAssets returns nothing when the job has no assets", () => {
+  assert.deepEqual(
+    collectAdminJobAssets({ jobId: "job-1", jobData: {}, orderData: null }),
+    [],
+  );
 });
 
 test("job filters match sanitized summaries", () => {

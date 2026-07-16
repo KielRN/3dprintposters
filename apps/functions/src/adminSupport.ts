@@ -29,11 +29,14 @@ export type AdminSupportFilters = {
   supportStatus?: AdminSupportStatus;
   issueType?: AdminSupportIssueType;
   pipelineStage?: PipelineStage;
+  selectedStyle?: string;
 };
 
 export type AdminSupportJobSummary = {
   jobId: string;
   uid: string | null;
+  customerName: string | null;
+  customerEmail: string | null;
   productType: string | null;
   status: string | null;
   selectedStyle: string | null;
@@ -155,8 +158,10 @@ export function normalizeAdminSupportNoteBody(value: unknown): string | null {
 export function sanitizeAdminSupportJobSummary(input: {
   jobId: string;
   jobData: Record<string, unknown>;
+  orderData?: Record<string, unknown> | null;
 }): AdminSupportJobSummary {
   const jobData = input.jobData;
+  const orderData = input.orderData ?? undefined;
   const supportSummary = asRecord(jobData.supportSummary);
   const jobCost = asRecord(jobData.jobCost);
   const checkoutEligibility = asRecord(jobData.checkoutEligibility);
@@ -169,6 +174,8 @@ export function sanitizeAdminSupportJobSummary(input: {
   const summary: AdminSupportJobSummary = {
     jobId: input.jobId,
     uid: asString(jobData.uid),
+    customerName: asString(orderData?.customerName),
+    customerEmail: asString(orderData?.customerEmail),
     productType: asString(jobData.productType),
     status: asString(jobData.status),
     selectedStyle: asString(jobData.selectedStyle),
@@ -221,6 +228,7 @@ export function sanitizeAdminSupportJobDetail(input: {
   const summary = sanitizeAdminSupportJobSummary({
     jobId: input.jobId,
     jobData: input.jobData,
+    orderData: input.orderData ?? null,
   });
   const aiGeneration = asRecord(input.jobData.aiGeneration);
   const figurineGeneration = asRecord(input.jobData.figurineGeneration);
@@ -285,11 +293,33 @@ export function sanitizeAdminSupportNote(input: {
   };
 }
 
+// Free-text search for the admin jobs list. Firestore has no substring index,
+// so the caller scans recent jobs and matches in memory. Customer name/email
+// come from the joined order; job id and uid come from the job itself.
+export function matchesAdminSupportSearch(
+  summary: AdminSupportJobSummary,
+  search: string,
+): boolean {
+  const term = search.trim().toLowerCase();
+  if (!term) {
+    return true;
+  }
+  return [
+    summary.jobId,
+    summary.uid,
+    summary.customerName,
+    summary.customerEmail,
+  ].some((value) => value != null && value.toLowerCase().includes(term));
+}
+
 export function jobMatchesAdminSupportFilters(
   summary: AdminSupportJobSummary,
   filters: AdminSupportFilters,
 ): boolean {
   if (filters.productType && summary.productType !== filters.productType) {
+    return false;
+  }
+  if (filters.selectedStyle && summary.selectedStyle !== filters.selectedStyle) {
     return false;
   }
   if (filters.jobStatus && summary.status !== filters.jobStatus) {
@@ -311,6 +341,102 @@ export function jobMatchesAdminSupportFilters(
     return false;
   }
   return true;
+}
+
+export type AdminJobAsset = {
+  label: string;
+  category: string;
+  storagePath: string;
+  ext: string;
+};
+
+// Gathers every downloadable asset for a job into a labeled, category-grouped,
+// de-duplicated list. Returns internal storage paths; the callable signs them
+// into download URLs and strips the paths before returning to the client.
+export function collectAdminJobAssets(input: {
+  jobId: string;
+  jobData: Record<string, unknown>;
+  orderData?: Record<string, unknown> | null;
+}): AdminJobAsset[] {
+  const jobData = input.jobData;
+  const orderData = input.orderData ?? undefined;
+  const assets: AdminJobAsset[] = [];
+  const seen = new Set<string>();
+
+  const push = (label: string, category: string, value: unknown) => {
+    const storagePath = asString(value);
+    if (!storagePath || seen.has(storagePath)) {
+      return;
+    }
+    seen.add(storagePath);
+    assets.push({ label, category, storagePath, ext: assetExtension(storagePath) });
+  };
+
+  const pushArtifacts = (
+    category: string,
+    prefix: string,
+    artifacts: Record<string, unknown> | undefined,
+  ) => {
+    if (!artifacts) {
+      return;
+    }
+    for (const [key, value] of Object.entries(artifacts)) {
+      push(`${prefix}: ${humanizeArtifactKey(key)}`, category, value);
+    }
+  };
+
+  push("Original photo", "Source", jobData.sourceImagePath);
+
+  const generatedImages = Array.isArray(jobData.generatedImages)
+    ? jobData.generatedImages
+    : [];
+  generatedImages.forEach((image, index) => {
+    push(`Proof ${index + 1}`, "Proofs", asRecord(image)?.storagePath);
+  });
+  push("Approved 2D", "Proofs", jobData.approvedImagePath);
+
+  const figurinePreview = asRecord(jobData.figurinePreview);
+  push("Preview thumbnail", "3D preview", figurinePreview?.thumbnailPath);
+  pushArtifacts("3D preview", "Preview", asRecord(figurinePreview?.artifacts));
+
+  const printFileArtifacts = asRecord(jobData.printFileArtifacts);
+  push("Print STL", "Print files", printFileArtifacts?.modelStl);
+  push("Full-color 3MF", "Print files", printFileArtifacts?.fullColor3mf);
+  push("Print preview GLB", "Print files", printFileArtifacts?.previewGlb);
+
+  pushArtifacts(
+    "Assembly & tooling",
+    "Base",
+    asRecord(asRecord(jobData.figurineNamedBase)?.artifacts),
+  );
+  pushArtifacts(
+    "Assembly & tooling",
+    "Assembly",
+    asRecord(asRecord(jobData.figurineAssembly)?.artifacts),
+  );
+  pushArtifacts(
+    "Assembly & tooling",
+    "Tooling",
+    asRecord(asRecord(jobData.figurinePrintTooling)?.artifacts),
+  );
+
+  push("Order bundle (ZIP)", "Order bundle", asRecord(orderData?.printBundle)?.storagePath);
+
+  return assets;
+}
+
+function assetExtension(path: string): string {
+  const match = /\.([a-z0-9]+)$/i.exec(path);
+  return match ? match[1].toLowerCase() : "bin";
+}
+
+function humanizeArtifactKey(key: string): string {
+  const spaced = key
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/[_-]+/g, " ")
+    .trim()
+    .toLowerCase();
+  return spaced ? spaced.charAt(0).toUpperCase() + spaced.slice(1) : key;
 }
 
 function sanitizeOrder(orderData: Record<string, unknown>) {
