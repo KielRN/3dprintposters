@@ -2,6 +2,16 @@
 
 All notable project changes will be documented in this file.
 
+## [Unreleased] - 2026-08-08
+
+### Added
+
+- Added `research/FIGURINE_FULFILLMENT_SUPPLY_CHAIN.md` as the durable supplier-research, RFQ, landed-cost, sample-scorecard, open-question, decision, and research-journal record for comparing the current PolyX 3D San Antonio baseline with Mexico-based printing and painting options. Updated the agent and project-manager source maps so future work continues in that record.
+
+### Changed
+
+- Marked U.S./Mexico physical fulfillment economics as an active roadmap and launch-blocker workstream. Recorded the reported three-sample baseline of more than `$100` per painted unit at `$20/hour` painting labor, while keeping PolyX 3D as the comparison baseline pending an itemized cost review rather than treating the provider as rejected.
+
 ## [Unreleased] - 2026-07-16
 
 ### Changed

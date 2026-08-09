@@ -11,6 +11,7 @@ Source-of-truth split:
 - `CHANGELOG.md` — completed changes and verification history.
 - `docs/DESIGN.md` — front-end design system: brand, color/type tokens, landing-page architecture, and the hero scrub spec.
 - `research/MESHY_SERVICE_IMPLEMENTATION_PLAN.md` — Meshy API findings, experiment results, and implementation backlog.
+- `research/FIGURINE_FULFILLMENT_SUPPLY_CHAIN.md` — physical supplier research, RFQs, landed-cost comparisons, open questions, and sourcing decisions.
 - `docs/Workflows/figurine-and-operator-workflows.md` and `docs/Workflows/figurine-style-workflow-contracts.md` — current figurine/customer/operator workflow contracts.
 - `docs/MESHY_FIGURINE_UI_WORKFLOW.md` — PrintU-inspired figurine planning reference.
 - `docs/PRINT_FILE_GENERATION_WORKFLOW.md` — poster-relief print-file service contract.
@@ -29,7 +30,8 @@ Source-of-truth split:
 - 🟡 Named base service — deterministic `figurine-square-v1` named-base service exists with `POST /v1/figurine/named-base`, `updateFigurineBaseConfig`, fresh artifact prefixes, and job-page preview controls. Manual lettering, slicer, and manifest approval are still needed before calling it product-approved.
 - 🟡 Body/base assembly — deterministic body-on-named-base composition now exists in `services/print-file-generator` with explicit `150mm` body scaling, source preservation, GLB/STL/3MF exports, and `generateFigurineAssembly`. Real-job Blender/slicer validation is still required.
 - 🟡 Print conversion/readiness — `runFigurinePrintTooling` now promotes the Exp 010-style provider path into Functions for assembled packages: Analyze, Repair, Analyze repaired, Remesh, and Analyze remeshed GLB/STL. The core decision remains open because Meshy Repair is textureless and Meshy Remesh may still fail printability.
-- 🔴 Fulfillment path — first intended public purchase path is automated checkout for full-color partner fulfillment, but checkout remains blocked until the selected partner's file, quote, order, policy, and print-readiness requirements are validated. No path should imply automatic print readiness yet.
+- 🔴 Fulfillment path — first intended public purchase path is automated checkout for full-color partner fulfillment, but checkout remains blocked until the selected partner's file, quote, order, policy, landed economics, sample quality, and print-readiness requirements are validated. No path should imply automatic print readiness yet.
+- 🟡 U.S./Mexico supply-chain comparison — the San Antonio PolyX 3D sample run is the baseline, but the three painted samples were reportedly over `$100` each after painting at `$20/hour`. Itemize that baseline and compare it with Mexico-based combined print/paint and specialist-pair options through a common RFQ, paid samples, and a 5-10 unit pilot. The working plan and evidence log live in `research/FIGURINE_FULFILLMENT_SUPPLY_CHAIN.md`.
 - 🔴 Public policy and economics — provider terms, cost ceilings, likeness/privacy rules, moderation, and customer-content limits still need explicit product decisions before public traffic.
 
 ## Phase C — Provider Boundary And Job State
@@ -66,7 +68,7 @@ Source-of-truth split:
 - ⚪ Additional figurine styles — evaluate Bobblehead, Cartoon, Image pose, and T-pose only after the two approved style families stay reliable. Chibi graduated to an approved Phase A style track on 2026-07-03.
 - 🟢 Multi-Image-to-3D revisit — resolved 2026-07-03: direct Multi-Image-to-3D is no longer a Creative-Lab fallback; it is the approved pipeline for the faithful-identity style track (Phase A).
 - ⚪ Native mobile packaging — defer until the web PWA proves the workflow.
-- ⚪ Additional fulfillment providers — add after the first path has real evidence.
+- ⚪ Additional fulfillment geographies/providers — defer expansion beyond the active U.S./Mexico comparison until the first path has itemized quotes, comparable samples, and pilot evidence.
 
 ## PM Plan Workspace
 

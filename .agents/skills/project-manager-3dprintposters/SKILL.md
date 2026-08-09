@@ -23,6 +23,7 @@ Start with the most relevant of these files, depending on the request:
 - `docs/MESHY_FIGURINE_UI_WORKFLOW.md`: PrintU-inspired figurine planning reference; not the current style-by-style workflow source of truth.
 - `docs/PRINT_FILE_GENERATION_WORKFLOW.md`: print-file flow and service contract.
 - `research/FIGURINE_PROVIDER_RESEARCH.md`: current 2026-05-23 customer-acquisition pivot, PrintU UX reference, Meshy provider research, and next validation steps.
+- `research/FIGURINE_FULFILLMENT_SUPPLY_CHAIN.md`: physical supplier research, U.S./Mexico RFQs, landed-cost comparisons, sample/pilot evidence, open questions, and sourcing decisions.
 - `research/HEIGHTMAP_AND_3D_WORKFLOW_RESEARCH.md`: heightmap experiment status and decisions.
 - `.tmp/pm-plans/`: optional ignored scratch space for detailed PM plans and implementation notes. Use it only for active temporary planning, not as durable source of truth.
 - `.tmp/human-tasks/`: optional ignored scratch space for short-lived human handoffs. Do not treat it as durable source of truth and do not recreate tracked `human-tasks/`.

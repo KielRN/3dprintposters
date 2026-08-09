@@ -1,10 +1,10 @@
 # 3DPrintPosters - Project State
 
-Last updated: 2026-07-12
+Last updated: 2026-08-08
 
 ## Purpose
 
-This file is compact current-state memory for future AI developers. Keep durable product and architecture decisions in `DECISIONS.md`. Keep operating rules, local commands, security rules, and verification commands in `AGENTS.md`. `CHECKLIST.md` is now an archive pointer, not an active tracker. Keep chronology in `CHANGELOG.md`, the front-end design system (brand, tokens, type, landing/hero) in `docs/DESIGN.md`, detailed service contracts in `docs/`, and Meshy implementation detail in `research/MESHY_SERVICE_IMPLEMENTATION_PLAN.md`. If an agent needs a short-lived human handoff, use ignored `.tmp/human-tasks/` instead of tracked docs.
+This file is compact current-state memory for future AI developers. Keep durable product and architecture decisions in `DECISIONS.md`. Keep operating rules, local commands, security rules, and verification commands in `AGENTS.md`. `CHECKLIST.md` is now an archive pointer, not an active tracker. Keep chronology in `CHANGELOG.md`, the front-end design system (brand, tokens, type, landing/hero) in `docs/DESIGN.md`, detailed service contracts in `docs/`, Meshy implementation detail in `research/MESHY_SERVICE_IMPLEMENTATION_PLAN.md`, and physical supplier research/evidence in `research/FIGURINE_FULFILLMENT_SUPPLY_CHAIN.md`. If an agent needs a short-lived human handoff, use ignored `.tmp/human-tasks/` instead of tracked docs.
 
 Do not let this file become a second copy of those sources. Keep only current implementation facts, active direction, and risks that would materially change future development.
 
@@ -78,7 +78,7 @@ Phase 3 is now about business-model proof and customer acquisition:
 2. Extend the backend services beyond the validated preview-only slice: verified-email creation, creation-credit ledger and hard stops, richer model history, retry/status surfaces, webhook/poll reconciliation, downstream print-tooling state, editor-config persistence, and automated checkout gating.
 3. Evaluate print readiness from the official preview asset through downstream repair/conversion and slicer review; do not use Exp 010 repaired/remeshed outputs as customer preview assets.
 4. Keep generated provider assets under user/job-scoped Storage paths and show the original textured Creative Lab GLB in the job page while print readiness remains `needs_review`.
-5. Validate the first full-color print partner's file format, quote, order, shipping, policy, and fulfillment requirements before enabling automated checkout.
+5. Validate physical fulfillment through the active U.S./Mexico comparison: itemize the PolyX 3D San Antonio baseline, normalize Mexico print/paint RFQs to landed and delivered cost, order comparable samples, and run a 5-10 unit pilot before enabling automated checkout. Keep the evidence and open questions in `research/FIGURINE_FULFILLMENT_SUPPLY_CHAIN.md`.
 6. Add analytics for verified account creation, upload, style/posture selection, proof approval, credit exhaustion, 3D generation success, preview engagement, checkout intent, partner download, refund/support actions, and abandonment.
 7. Keep the relief generator documented and available as a later product path, but do not make more relief tuning the next customer-acquisition milestone.
 
@@ -106,6 +106,7 @@ Paused relief review notes:
 - 2026-07-05 SEO launch update: `https://3dprintyou.com` is the canonical coming-soon marketing domain for public customer-acquisition SEO and returned `200 OK` on 2026-07-05. The launch page lives outside this repo in `E:\PROJECTS\3DPrintyou` / `KielRN/3dprintyou` as a static Next/Railway site with the same scroll-scrubbed hero pattern and no Firebase, Functions, upload, admin/operator, job, Stripe, Meshy, or print-file routes. Cloudflare has the apex CNAME proxied to Railway and a Railway verification TXT present. `www.3dprintyou.com` has DNS but returned `404` on 2026-07-05, so finish the Railway `www` custom domain or Cloudflare redirect before advertising it. Keep `api.3dprintyou.com` reserved for the existing Cloudflare Worker/webhook surface.
 - 2026-07-13 product-app deployment update: `https://3dprintposters-production.up.railway.app` is a reachable noindexed candidate, not the public production launch. It still uses `gen-lang-client-0675309660`; full browser validation, a dedicated production Firebase project, monitoring/abuse controls, policy decisions, and branded-domain strategy remain release gates. The Railway `production` environment label does not change that boundary.
 - Meshy/API provider economics, commercial-use terms, data retention, likeness/privacy handling, and moderation must be verified before public checkout.
+- Physical fulfillment economics are not yet viable or validated. The three PolyX 3D samples were reportedly more than `$100` each after painting at `$20/hour`; exact cost components are still missing. The backend fallback prices are `$99` unpainted and `$149` painted, so the current painted baseline leaves less than `$49` before shipping, fees, AI/provider cost, support, refunds, replacements, and overhead. Treat this as an active launch blocker, not as a final rejection of PolyX 3D; compare itemized U.S. and Mexico evidence under `research/FIGURINE_FULFILLMENT_SUPPLY_CHAIN.md`.
 - Provider-generated figurines may look good on screen but fail slicing, require supports/manual cleanup, or disappoint customers physically; real slicer and physical-print validation are mandatory.
 - Meshy and similar providers are external dependencies. Keep provider calls server-side, store returned assets immediately, record audit metadata, and avoid a UI that assumes one provider forever.
 - Customer likeness, celebrity/IP, fan art, and minors/consent policies need explicit product rules before public traffic.

@@ -14,6 +14,7 @@ This file is the first place Codex or another coding agent should read before wo
 - Do not recreate tracked `human-tasks/` files. If an agent needs a short-lived human handoff, put it under ignored `.tmp/human-tasks/` and summarize the action in the response. Durable product decisions belong in the normal docs, not in an accumulating task folder.
 - Develop toward the intended final product behavior first. Do not leave a chosen direction as opt-in, experimental, or hidden behind a fallback plan after a decision has been made; wire it into the real workflow and let testing reveal the next fix.
 - `CHECKLIST.md` is now an archive pointer, not the active tracker. Do not add new task lists there. Use `PROJECT_STATE.md` for compact current state, `DECISIONS.md` for durable decisions, `docs/DESIGN.md` for the front-end design system (brand, tokens, type, the landing/hero spec, the storyfront funnel, and voice/persuasion principles), `research/MESHY_SERVICE_IMPLEMENTATION_PLAN.md` for Meshy implementation detail, `docs/Workflows/figurine-and-operator-workflows.md` for the current customer/operator flow map, and `docs/Workflows/figurine-style-workflow-contracts.md` for current style contracts. `docs/MESHY_FIGURINE_UI_WORKFLOW.md` is a PrintU-inspired planning reference, not the current workflow source of truth.
+- Use `research/FIGURINE_FULFILLMENT_SUPPLY_CHAIN.md` as the durable working record for physical supplier discovery, U.S./Mexico RFQs, landed-cost comparisons, open fulfillment questions, samples, pilots, and sourcing decisions. Keep only high-level traffic-light status in `docs/ROADMAP.md`.
 - `elliot_quick_dev_Startup.md` is a local, ignored runbook for Elliot's startup and experiment commands. Reference it from `.tmp` handoffs when useful, and keep personal or local-only details there instead of copying them into tracked docs.
 
 ## Project Manager Skill
@@ -268,3 +269,4 @@ When behavior changes, update the relevant docs:
 - `CHECKLIST.md` only if the archive/source-of-truth pointer changes
 - `docs/DESIGN.md` when the brand, design tokens, type system, landing/hero experience, storyfront funnel, voice/copy, or persuasion principles change
 - `docs/PRINT_FILE_GENERATION_WORKFLOW.md`
+- `research/FIGURINE_FULFILLMENT_SUPPLY_CHAIN.md` when physical supplier research, quotes, landed economics, samples, pilots, or sourcing decisions
