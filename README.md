@@ -47,6 +47,39 @@ Not done yet:
 - Branded public app cutover backed by a dedicated production Firebase project
 - Production monitoring, quotas, moderation, and cleanup jobs
 
+## Print Studio Setup
+
+As of 2026-10-24, local Snapmaker U1 access, slicing, upload, and an authorized
+print start are verified. Plate 1 (FL) of the open IKEA SAMLA top-cover base was
+observed actively printing in black PLA on physical toolhead 2 / `extruder1` /
+`T1`. Plate 1 subsequently completed all 116 layers and the owner removed it;
+plate 2 (FR) start is accepted. Physical fit/finish remains unreviewed.
+
+- Snapmaker account profile name: **3DPrintYou**. The saved name was verified
+  against both the Snapmaker Space profile and the universal account.
+- Printer name: **3DPrintYou-U1**. Authenticated Snapmaker cloud access was
+  tested successfully, and the linked printer reported online on 2026-10-23.
+  Local Moonraker access was subsequently verified on October 24.
+- Account credentials stay in the ignored root `.env` under
+  `SNAPMAKER_APP_USER_ID` and `SNAPMAKER_APP_PASSWORD`. Never copy their values,
+  session tokens, or printer credentials into tracked documentation or browser
+  configuration. The profile name is separate from the sign-in email.
+- The `orcaslicer` MCP prepares files with portable OrcaSlicer 2.4.0; Snapmaker
+  Orca's GUI is the tested recovery path for project conversion/CLI crashes.
+  Local Moonraker handles upload/start separately. No automatic printer/order
+  or inventory integration has been implemented.
+- Use [U1 Connection And Printing](docs/SNAPMAKER_U1_OPERATIONS.md) for the
+  verified workflow. Machine paths and the LAN address stay in the ignored
+  `elliot_quick_dev_Startup.md`. Each next plate requires part removal and a
+  fresh clear-bed confirmation.
+- Next physical checks: inspect fit/finish and the remaining cover plates, then
+  validate the representative Chibi in the U1 slicer and on the printer.
+
+Use [Print Studio Inventory](docs/PRINT_STUDIO_INVENTORY.md) for current
+equipment, filament, and packaging stock, and
+[fulfillment research](research/FIGURINE_FULFILLMENT_SUPPLY_CHAIN.md) for
+multicolor conversion evidence and physical-print validation.
+
 ## The Big Picture
 
 Think of this app as four cooperating pieces:
@@ -185,6 +218,9 @@ Start with these files when you feel lost:
 - `docs/ARCHITECTURE.md`: deeper system design
 - `docs/DESIGN.md`: front-end design system — brand, color/type tokens, the landing/hero spec, the storyfront funnel, and voice/persuasion principles
 - `docs/DEPLOYMENT.md`: hosting, Firebase, Cloudflare, and secret notes
+- `docs/PRINT_STUDIO_INVENTORY.md`: current printer commissioning, filament, and packaging stock
+- `docs/SNAPMAKER_U1_OPERATIONS.md`: local printer connection, slicer recovery, tool mapping, and authorized plate workflow
+- `research/FIGURINE_FULFILLMENT_SUPPLY_CHAIN.md`: suppliers, multicolor experiments, and physical fulfillment validation
 - `docs/PRINT_FILE_GENERATION_WORKFLOW.md`: current print-file generator contract and product direction
 - `research/FIGURINE_PROVIDER_RESEARCH.md`: current PrintU/Meshy pivot and provider research
 - `research/HEIGHTMAP_AND_3D_WORKFLOW_RESEARCH.md`: historical AI depth and image-to-3D research behind the relief plan

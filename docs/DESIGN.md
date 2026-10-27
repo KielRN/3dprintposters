@@ -46,6 +46,25 @@ scrub is the cinematic centerpiece) / `VISUAL_DENSITY 3` (airy, editorial).
   bucket, and source-code identifiers stay as "posters"/internal names. See the
   brand decision in `DECISIONS.md`.
 
+## Customer Packaging
+
+Owner-selected direction, 2026-10-23: a simple branded gift box with logo seal,
+tissue, and a personalized card. This supersedes the earlier same-day window-box
+preference. Use the fulfillment research for supplier, fit, protection, and cost
+details; packaging appearance alone does not establish shipping readiness.
+
+Proposed first-trial styling is a white stock box, plain cream tissue, an
+approximately 2-inch round matte logo seal, and a 4 x 6-inch matte card. Reuse the
+existing ink/cream/ember palette and approved customer-facing wordmark. The card
+sits above the folded tissue and leads with the recipient's first name; an
+approved gift message can replace the standard thank-you line. Seal placement
+should be consistent across the lid closure. These styling specifications are
+defaults for sampling, not print-ready approved artwork.
+
+Before printing, reconcile the app's 3DPrintU identity above with the later
+3dprintyou.com public-acquisition decision in `DECISIONS.md`; verify the actual
+wordmark and support destination rather than printing a new mark or old domain.
+
 ## Color
 
 Warm, marketplace-adjacent palette. Defined as CSS custom properties in
@@ -259,6 +278,14 @@ The comic story is composed in CSS/JSX, never baked into images:
   verbatim. The generation prompts and QA history live in the chat-2 asset log
   (temporary planning folder, since deleted; regeneration goes through
   `scripts/storyfront/generate-assets.mjs`).
+- `chibi_female` (**Chibi heroic fantasy female**) media is design-locked to
+  `apps/functions/assets/workflow-style-references/chibi_female/chibi-heroic-fantasy-female-v3.png`.
+  Its storyfront card and five narrative images, plus
+  `apps/web/public/landing/cards/chibi_fantasy_female_forest.png`, preserve the
+  V3 royal-blue cape, plain blue diamond chest emblem, unstriped white skirt,
+  and upright swept-guard sword. `scripts/storyfront/generate-assets.mjs` uses
+  the same live template and checked-in fallback. The landing hero frame sets
+  contain only the male caped hero, so V3 does not replace any animation frame.
 
 ### Cards, chips, and states
 

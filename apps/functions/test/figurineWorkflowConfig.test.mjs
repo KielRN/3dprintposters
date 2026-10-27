@@ -117,11 +117,27 @@ test("default workflow config exposes only the approved public styles", () => {
   );
   assert.match(
     templateFaceSwapFemaleCollectiblePrompt,
-    /full-body collectible action figure/,
+    /royal-blue cape/,
   );
   assert.match(
     templateFaceSwapFemaleCollectiblePrompt,
-    /smooth toy material/,
+    /plain blue diamond-shaped chest emblem/,
+  );
+  assert.match(
+    templateFaceSwapFemaleCollectiblePrompt,
+    /plain white skirt with no gold vertical lines or decorative striping/,
+  );
+  assert.match(
+    templateFaceSwapFemaleCollectiblePrompt,
+    /swept crescent-like gold guard, blue diamond accent, blue grip, and subtle blade engraving/,
+  );
+  assert.match(
+    templateFaceSwapFemaleCollectiblePrompt,
+    /smooth vinyl-toy materials/,
+  );
+  assert.match(
+    templateFaceSwapFemaleCollectiblePrompt,
+    /Do not add a base, pedestal/,
   );
   assert.equal(
     config.styles.find((style) => style.id === "heroic_fantasy_male")

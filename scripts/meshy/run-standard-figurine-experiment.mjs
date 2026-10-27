@@ -50,6 +50,7 @@ const WORKFLOWS = new Set([
   "standard-multiview",
   "creative-lab-figure",
   "existing-model-print-tools",
+  "existing-model-multi-color",
 ]);
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -66,10 +67,17 @@ Options:
   --run-folder-name <name>          Exact run folder name under output root. Default: generated timestamp folder.
   --workflow <name>                 standard-multiview or creative-lab-figure. Default: standard-multiview.
                                      existing-model-print-tools runs only Meshy print tooling against existing GLB/STL inputs.
+                                     existing-model-multi-color converts one existing textured GLB to colored 3MFs.
   --existing-models <csv>            Existing local 3D models for existing-model-print-tools.
                                      Default: the three Experiment 009 Creative Lab raw GLBs.
   --existing-model-labels <csv>      Labels for existing models. Default: pass-1,pass-2,pass-3.
   --existing-model-task-ids <csv>    Optional Meshy task ids used only to recover live model_url values.
+  --multi-color-styles <csv>        Existing-model color conversion styles. Default: cartoon,realistic.
+  --multi-color-provider <name>     Existing-model conversion provider: meshy (default) or hi3d.
+  --min-region-faces <n>            Hi3D small adjacent region merge threshold. Default: 50.
+  --resume-task-id <id>             Resume an existing Hi3D task in --run-folder-name without resubmitting.
+  --max-colors <n>                  Multi-color palette limit, 1-16. Default: 4 for Snapmaker U1.
+  --printer-brand <name>            Multi-color 3MF slicer preset. Default: snapmaker.
   --model-url-source <value>         live-or-data-uri, live-url, or data-uri. Default: live-or-data-uri.
   --candidate-analysis-python <cmd>  Python command for local candidate analysis. Default: python.
   --candidate-target-height-mm <n>   Height used for base-fit analysis. Default: 75.
@@ -2140,6 +2148,199 @@ async function runCreativeLabFigureWorkflow(
   console.log(`Printability: ${summary.printability_status}`);
 }
 
+// Research-only conversion of existing assets: no new concept or geometry generation.
+// Keep this stage in the standard runner so paid experiments remain reproducible.
+async function runExistingModelMultiColorWorkflow(apiKey, args) {
+  if (args.multiColorProvider === "hi3d") {
+    await runExistingModelHi3dMultiColorWorkflow(args);
+    return;
+  }
+  if (args.multiColorProvider && args.multiColorProvider !== "meshy") throw new Error("Unsupported --multi-color-provider.");
+  if (!apiKey) throw new Error("MESHY_API_KEY is required for multi-color conversion.");
+  const models = splitCsv(args.existingModels);
+  if (models.length !== 1) throw new Error("Multi-color research requires exactly one --existing-models GLB path.");
+  const styles = splitCsv(args.multiColorStyles, ["cartoon", "realistic"]);
+  if (!styles.length || new Set(styles).size !== styles.length || styles.some((style) => !["cartoon", "realistic"].includes(style))) {
+    throw new Error("--multi-color-styles must contain unique cartoon and/or realistic values.");
+  }
+  const maxColors = Number(args.maxColors ?? 4);
+  if (!Number.isInteger(maxColors) || maxColors < 1 || maxColors > 16) throw new Error("--max-colors must be an integer from 1 to 16.");
+  const printerBrand = args.printerBrand ?? "snapmaker";
+  if (!["bambu", "anycubic", "creality", "elegoo", "flashforge", "prusa", "qidi", "snapmaker", "ankermake"].includes(printerBrand)) {
+    throw new Error("Unsupported --printer-brand.");
+  }
+  const sourcePath = resolveFromRoot(models[0]);
+  const stats = await fs.stat(sourcePath);
+  if (path.extname(sourcePath).toLowerCase() !== ".glb" || stats.size > 100_000_000) {
+    throw new Error("Multi-color local uploads require a GLB no larger than 100 MB.");
+  }
+  const outputRoot = resolveFromRoot(args.outputRoot, ".tmp/experiments/meshy/standard");
+  const slug = args.experimentSlug ?? "existing-model-multi-color";
+  if (!/^[a-z0-9][a-z0-9-]*$/i.test(slug)) throw new Error("Invalid --experiment-slug.");
+  const folder = args.runFolderName ?? `${slug}-${timestampForPath()}`;
+  if (folder !== path.basename(folder) || [".", ".."].includes(folder)) throw new Error("Invalid --run-folder-name.");
+  await fs.mkdir(outputRoot, { recursive: true });
+  const runDir = path.join(outputRoot, folder);
+  await fs.mkdir(runDir); // Refuse to overwrite or accidentally rebill an existing run.
+  const summary = {
+    created_at: new Date().toISOString(),
+    experiment_runner: "standard-figurine-v1",
+    workflow: "existing-model-multi-color",
+    experiment_slug: slug,
+    status: "started",
+    run_dir: runDir,
+    source_model: sourcePath,
+    source_bytes: stats.size,
+    max_colors: maxColors,
+    printer_brand: printerBrand,
+    conversions: [],
+    physical_print_validated: false,
+  };
+  await writeExperimentSummary(outputRoot, runDir, summary);
+  try {
+    const bytes = await fs.readFile(sourcePath);
+    const modelUrl = `data:model/gltf-binary;base64,${bytes.toString("base64")}`;
+    for (const style of styles) {
+      const outputDir = path.join(runDir, "meshy", style);
+      const request = { model_url: modelUrl, max_colors: maxColors, style, printer_brand: printerBrand };
+      await writeJson(path.join(outputDir, "multi-color-task.request.sanitized.json"), {
+        ...request, model_url: "<local-glb-data-uri-redacted>",
+      });
+      console.log(`Creating ${style} ${maxColors}-color ${printerBrand} conversion from existing GLB.`);
+      const created = await meshyJson(apiKey, "/print/multi-color", { method: "POST", body: request });
+      const conversion = { style, task_id: created.result, status: "submitted" };
+      summary.conversions.push(conversion);
+      await writeExperimentSummary(outputRoot, runDir, summary);
+      const task = await pollTask(apiKey, "/print/multi-color", created.result, outputDir, "multi-color-task", sanitizeModelTask, args);
+      Object.assign(conversion, { status: task.status, consumed_credits: task.consumed_credits ?? null });
+      if (task.status === "SUCCEEDED") {
+        if (!task.model_urls?.["3mf"]) throw new Error("Successful conversion did not return a 3MF URL.");
+        const destination = path.join(outputDir, `model.${style}.${maxColors}-color.3mf`);
+        conversion.output_bytes = await downloadFile(task.model_urls["3mf"], destination);
+        conversion.output_path = destination;
+      }
+      await writeJson(path.join(outputDir, "multi-color-task.final.sanitized.json"), sanitizeModelTask(task));
+      await writeExperimentSummary(outputRoot, runDir, summary);
+    }
+    summary.status = summary.conversions.every((item) => item.status === "SUCCEEDED") ? "completed" : "failed";
+    summary.completed_at = new Date().toISOString();
+    summary.consumed_credits = summary.conversions.reduce((sum, item) => sum + (item.consumed_credits ?? 0), 0);
+    await writeExperimentSummary(outputRoot, runDir, summary);
+    if (summary.status !== "completed") throw new Error("One or more multi-color tasks failed; inspect sanitized task files.");
+    console.log(`Multi-color experiment done: ${runDir} (${summary.consumed_credits} credits).`);
+  } catch (error) {
+    summary.status = "failed";
+    await writeExperimentSummary(outputRoot, runDir, summary);
+    // An upstream validation error may echo the upload; never log its base64 data.
+    throw new Error(String(error.message).replace(/data:[^\s"']+/g, "<data-uri-redacted>").replaceAll(apiKey, "<api-key-redacted>").slice(0, 1000));
+  }
+}
+
+async function runExistingModelHi3dMultiColorWorkflow(args) {
+  const accessKey = process.env.HI3D_ACCESS_KEY;
+  const secretKey = process.env.HI3D_SECRET_KEY;
+  if (!accessKey || !secretKey) throw new Error("HI3D_ACCESS_KEY and HI3D_SECRET_KEY are required.");
+  const models = splitCsv(args.existingModels);
+  if (models.length !== 1) throw new Error("Hi3D conversion requires exactly one --existing-models GLB path.");
+  const maxColors = Number(args.maxColors ?? 4);
+  const minRegionFaces = Number(args.minRegionFaces ?? 50);
+  if (!Number.isInteger(maxColors) || maxColors < 1 || maxColors > 8) throw new Error("Hi3D --max-colors must be an integer from 1 to 8.");
+  if (!Number.isInteger(minRegionFaces) || minRegionFaces < 1) throw new Error("--min-region-faces must be a positive integer.");
+  const sourcePath = resolveFromRoot(models[0]);
+  const stats = await fs.stat(sourcePath);
+  if (path.extname(sourcePath).toLowerCase() !== ".glb" || stats.size > 200_000_000) throw new Error("Hi3D requires a textured GLB no larger than 200 MB.");
+  const outputRoot = resolveFromRoot(args.outputRoot, ".tmp/experiments/hi3d");
+  const slug = args.experimentSlug ?? "existing-model-hi3d-multi-color";
+  if (!/^[a-z0-9][a-z0-9-]*$/i.test(slug)) throw new Error("Invalid --experiment-slug.");
+  const folder = args.runFolderName ?? `${slug}-${timestampForPath()}`;
+  if (folder !== path.basename(folder) || [".", ".."].includes(folder)) throw new Error("Invalid --run-folder-name.");
+  await fs.mkdir(outputRoot, { recursive: true });
+  const runDir = path.join(outputRoot, folder);
+  if (!args.resumeTaskId) await fs.mkdir(runDir);
+  let summary = {
+    created_at: new Date().toISOString(), experiment_runner: "standard-figurine-v1",
+    workflow: "existing-model-multi-color", provider: "hi3d", status: "started",
+    experiment_slug: slug, source_model: sourcePath, source_bytes: stats.size,
+    max_colors: maxColors, min_region_faces: minRegionFaces, output_format: "3mf",
+    documented_credit_cost: 20, consumed_credits: null, physical_print_validated: false,
+  };
+  if (args.resumeTaskId) {
+    if (!args.runFolderName) throw new Error("Resuming requires --run-folder-name.");
+    summary = await readJson(path.join(runDir, "experiment.sanitized.json"));
+    if (summary.provider !== "hi3d" || summary.task_id !== args.resumeTaskId || summary.source_model !== sourcePath || summary.max_colors !== maxColors || summary.min_region_faces !== minRegionFaces) {
+      throw new Error("Resume arguments do not match the saved Hi3D task.");
+    }
+  }
+  await writeExperimentSummary(outputRoot, runDir, summary);
+  const apiRoot = "https://api.hitem3d.ai/open-api/v1";
+  const safeJson = async (response, label) => {
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || payload.code !== 200) throw new Error(`Hi3D ${label}: HTTP ${response.status}, code=${payload.code ?? "unknown"}.`);
+    return payload.data;
+  };
+  let token;
+  try {
+    const auth = await safeJson(await fetch(`${apiRoot}/auth/token`, {
+      method: "POST", headers: { Authorization: `Basic ${Buffer.from(`${accessKey}:${secretKey}`).toString("base64")}`, "Content-Type": "application/json" },
+    }), "token exchange");
+    token = auth?.accessToken;
+    if (!token) throw new Error("Hi3D token exchange did not return an access token.");
+    if (!args.resumeTaskId) {
+      const request = { model: "multicolor", number_color: maxColors, min_region_faces: minRegionFaces, format: 6 };
+      await writeJson(path.join(runDir, "request.sanitized.json"), { ...request, mesh: "<existing-local-glb-upload>" });
+      const form = new FormData();
+      for (const [key, value] of Object.entries(request)) form.append(key, String(value));
+      form.append("mesh", new Blob([await fs.readFile(sourcePath)], { type: "model/gltf-binary" }), "model.glb");
+      console.log(`Submitting Hi3D ${maxColors}-color 3MF conversion (min_region_faces=${minRegionFaces}).`);
+      // The provider documents this spelling specifically for task creation.
+      const created = await safeJson(await fetch(`${apiRoot}/muilticolor/create-task`, {
+        method: "POST", headers: { Authorization: `Bearer ${token}` }, body: form,
+      }), "multicolor create");
+      if (!created?.task_id) throw new Error("Hi3D create did not return a task ID.");
+      summary.task_id = created.task_id;
+      summary.status = created.state ?? "submitted";
+      await writeExperimentSummary(outputRoot, runDir, summary);
+    }
+    const started = Date.now();
+    const timeoutMs = Number(args.timeoutMinutes ?? 20) * 60_000;
+    while (Date.now() - started < timeoutMs) {
+      const url = `${apiRoot}/multicolor/query-task?task_id=${encodeURIComponent(summary.task_id)}`;
+      // Live verification: Token yields HTTP 200/code 401; Bearer succeeds.
+      const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      const task = await safeJson(response, "multicolor query");
+      const safeTask = { task_id: summary.task_id, state: task.state, progress: task.progress ?? null, checked_at: new Date().toISOString(), has_model_url: Boolean(task.url), has_cover_url: Boolean(task.cover_url) };
+      await writeJson(path.join(runDir, "task.latest.sanitized.json"), safeTask);
+      await appendJsonLine(path.join(runDir, "task.poll-log.jsonl"), safeTask);
+      console.log(`Hi3D ${summary.task_id}: ${task.state}`);
+      summary.status = task.state;
+      if (["success", "failed"].includes(task.state)) {
+        if (task.state !== "success") throw new Error("Hi3D multicolor task failed; provider policy refunds failed generations.");
+        if (!task.url) throw new Error("Hi3D succeeded without an output URL.");
+        summary.output_path = path.join(runDir, `model.hi3d.${maxColors}-color.3mf`);
+        summary.output_bytes = await downloadFile(task.url, summary.output_path);
+        if (task.cover_url) {
+          try { await downloadFile(task.cover_url, path.join(runDir, "provider-cover.png")); }
+          catch { summary.cover_download_failed = true; }
+        }
+        summary.status = "completed";
+        summary.completed_at = new Date().toISOString();
+        await writeExperimentSummary(outputRoot, runDir, summary);
+        console.log(`Hi3D multicolor experiment done: ${runDir}`);
+        return;
+      }
+      await writeExperimentSummary(outputRoot, runDir, summary);
+      await sleep(Number(args.pollIntervalMs ?? 10_000));
+    }
+    throw new Error("Hi3D polling timed out; task ID is saved. Query that task before submitting another paid request.");
+  } catch (error) {
+    summary.status = "interrupted_or_failed";
+    await writeExperimentSummary(outputRoot, runDir, summary);
+    let message = String(error.message);
+    for (const secret of [accessKey, secretKey, token]) if (secret) message = message.replaceAll(secret, "<redacted>");
+    throw new Error(message.slice(0, 500));
+  }
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   if (args.help) {
@@ -2160,6 +2361,11 @@ async function main() {
     );
   }
   args.workflow = workflow;
+
+  if (workflow === "existing-model-multi-color") {
+    await runExistingModelMultiColorWorkflow(process.env.MESHY_API_KEY, args);
+    return;
+  }
 
   const outputRoot = resolveFromRoot(
     args.outputRoot,

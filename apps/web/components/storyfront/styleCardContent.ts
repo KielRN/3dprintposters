@@ -39,7 +39,7 @@ const cards: Record<
 > = {
   chibi_female: {
     description:
-      "The heroine of the story, sculpted with your favorite person's smile.",
+      "A blue-caped Chibi heroine, sculpted with your favorite person's smile.",
     bannerTitle: "The Chibi Heroine",
   },
   chibi_figure: {

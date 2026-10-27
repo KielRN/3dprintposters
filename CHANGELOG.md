@@ -2,6 +2,54 @@
 
 All notable project changes will be documented in this file.
 
+## [Unreleased] - 2026-10-24
+
+### Documentation
+
+- Added the Snapmaker U1 operating guide with the verified MCP/GUI/Moonraker boundary, CLI crash recovery, per-job physical tool mapping, upload checksum verification, printer acceptance checks, and clear-bed requirements between plates. Updated studio inventory, README, agent guidance, project state, roadmap, workflow overview, and fulfillment research. Exact Windows paths and LAN connection details stay in the ignored local startup runbook.
+- Recorded the authorized open SAMLA top-cover FL plate start in black SnapSpeed PLA on physical toolhead 2 / T1, with active first-layer extrusion observed. Its final slice estimates 63.45g and 1h 17m 40s plus startup; completion, visual quality, and Chibi production readiness remain unverified.
+- Recorded the owner's Amazon spool-case parts order and one OVERTURE TPU 95A Flexible Black 1.75mm, 1kg spool expected 2026-10-25. Receipt, itemized parts, TPU profile validation, and actual material consumption remain pending.
+
+## [Unreleased] - 2026-10-23
+
+### Documentation
+
+- Updated the README, studio inventory, project state, roadmap, and fulfillment research for the U1 setup: owner-reported assembly and calibration underway, verified Snapmaker cloud login and linked `3DPrintYou-U1` online status, and the verified account profile rename to `3DPrintYou`. Added README links to the inventory and fulfillment records. Credential values and tokens remain outside documentation; calibration completion, first print, and physical product validation are still unconfirmed.
+
+## [Unreleased] - 2026-10-21
+
+### Added
+
+- Added an existing-model multicolor conversion stage to the standard Meshy experiment runner, with configurable style, palette limit, and printer brand; sanitized task evidence and downloaded 3MFs stay under ignored experiment paths. Recorded the owner's Snapmaker U1 purchase, installation status, and eleven-roll PLA inventory in the fulfillment research.
+- Extended that standard conversion stage to Hi3D, with four-color/small-region controls, sanitized evidence, and task resume that avoids another paid submission. Live query authentication requires `Bearer`, despite the documentation's `Token` example.
+
+### Verified
+
+- Converted the existing 75mm Chibi heroine using Meshy's cartoon and realistic four-color modes with the Snapmaker preset. Both live tasks succeeded, consuming 20 credits total. Inspected real triangle-paint assignments and U1 preset metadata, and rendered a comparison from the exported cartoon 3MF. The cartoon mesh remains non-watertight; exported machine settings conflict with the installed four-toolhead U1 profile. Slicer acceptance, physical prints, costs, and zero-painting appearance are not validated. Meshy Auto Split and Snapmaker Full Spectrum remain researched alternatives.
+- Completed two Hi3D four-color 3MF conversions of the same GLB, with cleanup thresholds 50 and 1. Both pass closed-volume checks but have weaker facial color boundaries than Meshy cartoon; default cleanup loses eyebrows/eye detail, while minimal cleanup has rough eye edges. Hi3D rescales the body to 100mm and embeds a Bambu A1 profile. Saved matching-camera/native-palette and shared-display-palette renders. Expected list cost is 40 Hi3D credits ($0.80); actual deductions were not reconciled. No physical print or U1 slicing was validated, and no production-provider choice changed.
+
+## [Unreleased] - 2026-08-26
+
+### Changed
+
+- Finalized the public launch catalog as four Chibi-only styles: Chibi female, Chibi male, Chibi heroic fantasy female, and Chibi heroic fantasy male. Marked the implemented direct Heroic fantasy, Super Hero, faithful/realistic, and other variants as deferred R&D/admin options because their reviewed results did not meet the launch-quality bar.
+- Promoted the approved V3 design for `chibi_female` (**Chibi heroic fantasy female**) into the checked-in workflow template and customer media. The new template uses a royal-blue cape, plain blue diamond chest emblem, unstriped white skirt with only the gold belt, and upright redesigned sword; the mirrored face-swap prompt locks those details while changing only customer identity, and the workflow remains `template_face_swap` plus Meshy `creative_lab_figure`. Replaced the old local-only template naming/path with `apps/functions/assets/workflow-style-references/chibi_female/chibi-heroic-fantasy-female-v3.png` and the neutral Storage reference `admin/workflow-style-references/chibi_female/chibi-heroic-fantasy-female-v3.png`. Updated the style card, landing gallery, and five storyfront narrative images; the desktop/mobile landing hero sequences were audited and left unchanged because they contain only the male caped hero.
+
+### Verified
+
+- Ran one paid `chibi_female` V3 validation through the production Vertex/Gemini face swap and Meshy Creative Lab prototype/build path. The face swap and provider concept/build preserved the blue-cape heroine, unstriped white skirt, upright sword, and base-free body. Meshy tasks `01a03fe5-a2b8-7dde-b4f3-966199b52c69` (prototype), `01a03feb-035f-72ab-82bb-520b2db839d7` (build), and `01a03fee-2086-70fb-a612-44d88982726e` (printability) completed successfully, and local normalization exported 75mm STL/3MF/GLB artifacts. The asset remains operator-review-only, not print-ready: Meshy reported one warning with 309,928 degenerate faces, while local normalized topology remained non-watertight with 70,476 boundary/non-manifold edges. No paid retry or provider repair was submitted.
+
+## [Unreleased] - 2026-08-11
+
+### Added
+
+- Added the first Mexico supplier response to the fulfillment record: Resino Lab confirmed in-house printing and painting, STL input, ABS or standard photopolymer options, a preliminary `$30-$55` unpainted estimate, `1-2 day` unpainted prototype timing plus shipping, and access to a customs broker. Painted/batch pricing, capacity, packaging, shipping, and remake terms remain pending sample review.
+- Added an AI-assisted multicolor segmentation research track to compare full hand painting with printer-addressable color/material regions plus targeted touch-up, while preserving the server-side deterministic base, name, packaging, and assembly boundary.
+
+### Changed
+
+- Replaced the estimated PolyX sample-cost note with the actual pickup result: `$300` total / `$100` each for three finished models. Recorded that the owner likes the visible quality while the painting-inclusive cost remains too high for the intended profitability model.
+
 ## [Unreleased] - 2026-08-08
 
 ### Added
@@ -130,7 +178,7 @@ All notable project changes will be documented in this file.
 
 ### Added
 
-- Added the default public `Chibi female` style (`chibi_female`) as the female Creative Lab template-face-swap counterpart to Chibi. It uses `proofMode: "template_face_swap"` plus `generationWorkflow: "creative_lab_figure"`, stores one Meshy Creative Lab prototype concept for customer review, and continues Meshy build from the stored prototype task after approval. Added `npm --workspace apps/functions run seed:chibi-female-workflow` and the no-write `npm --workspace apps/functions run seed:chibi-female-workflow:dry-run` to upload `C:\Users\Eliud\Desktop\Styles\SheRa-ChatGPTv4 Christina.png` to `admin/workflow-style-references/chibi_female/shera-christina-template.png` and upsert the workflow config without committing the image. The current compact style-contract doc is `docs/Workflows/figurine-style-workflow-contracts.md`.
+- Added the default public `Chibi heroic fantasy female` style (`chibi_female`) as the female Creative Lab template-face-swap counterpart to Chibi. It uses `proofMode: "template_face_swap"` plus `generationWorkflow: "creative_lab_figure"`, stores one Meshy Creative Lab prototype concept for customer review, and continues Meshy build from the stored prototype task after approval. Added `npm --workspace apps/functions run seed:chibi-female-workflow` and the no-write `npm --workspace apps/functions run seed:chibi-female-workflow:dry-run` to upload its checked-in approved template to the style's admin workflow-reference path and upsert the workflow config. The current compact style-contract doc is `docs/Workflows/figurine-style-workflow-contracts.md`.
 - Added the default public `Heroic fantasy female` style (`heroic_fantasy_female`) as the female direct Multi-Image-to-3D counterpart to Heroic fantasy male. It uses `proofMode: "template_face_swap"` plus `generationWorkflow: "direct_multi_image_to_3d"`, shares the validated 2K Gemini Interactions proof route, and feeds the approved swapped image directly to Meshy Multi-Image-to-3D. Added `npm --workspace apps/functions run seed:heroic-female-workflow` to upload `C:\Users\Eliud\Desktop\Styles\Heroic Female.png` to `admin/workflow-style-references/heroic_fantasy_female/heroic-female-template.png` and upsert the workflow config without committing the image.
 - Added an explicit per-style 3D workflow selector to `/admin` Workflow controls. Styles now choose either `Creative Lab API` or `Multi-Image-to-3D direct`; legacy saved styles default to Creative Lab. Added the default public `Heroic fantasy male` style (`heroic_fantasy_male`) after Chibi, wired to `template_face_swap` plus direct Meshy Multi-Image-to-3D using the exp 014/018 request shape (`meshy-6`, texture on, PBR off, remesh on, image enhancement on, lighting removal on, moderation on, GLB/STL/3MF, target polycount `100000`, pre-remeshed GLB saved). The direct workflow skips the Creative Lab concept gate: the Vertex face-swapped image is the customer-reviewed proof and the single direct-3D input. Added `npm --workspace apps/functions run seed:heroic-workflow` with `--dry-run` to upload the local-only `Heroic Male.png` template and upsert the workflow config without committing the image.
 - Added an operator console at `/operator`, gated by a new `OPERATOR_ALLOWLIST` secret (admins on `ADMIN_SUPPORT_ALLOWLIST` are implicitly operators too, so the owner can exercise the operator view without a second allowlist entry). The console has three work-queue tabs (Available, My jobs, Shipped & Done) backed by read-only `listOperatorJobs`/`getOperatorJob` callables that return sanitized job summaries and signed preview/bundle/file URLs, plus a detail pane with stage-gated action buttons. Ship-to name/address and customer email stay hidden in both the list and detail views until a job reaches "accepted" or later, so operators cannot see customer PII on jobs they have not claimed.

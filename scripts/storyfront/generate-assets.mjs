@@ -79,6 +79,9 @@ const NO_TEXT_EXCEPT_NAME =
 const NAVY_CAPE =
   "Recolor directive: every costume element that is red in the reference image — especially the cape and its lining — must be deep navy blue (around #22304f) instead: same fabric, same gold trim, same shading and material response, just navy blue in place of red. No red anywhere on the character.";
 
+const CHIBI_HEROINE_V3 =
+  "Approved V3 character lock: preserve the friendly full-body chibi heroine exactly as shown in the reference, including her hairstyle silhouette, oversized head, compact toy body, large eyes, smooth vinyl-toy materials, royal-blue cape, plain blue diamond-shaped chest emblem, plain white skirt with no gold vertical lines or decorative striping, and only the gold belt around the skirt. Keep her sword upright with the same swept crescent-like gold guard, blue diamond accent, blue grip, subtle blade engraving, exact hand grip, and exact angle. Do not reintroduce a red cape, floral or starburst chest emblem, striped skirt, lowered sword, or the previous sword design.";
+
 const BASE_REF =
   'The figurine stands permanently mounted on its printed display base, shown in the LAST reference image: a square, gently tapered pedestal with a raised rectangular front nameplate reading "Christina" in raised letters. Reproduce the base\'s exact shape and the exact nameplate text from that reference. The base is matte warm ivory, part of the printed product, and the nameplate faces the camera.';
 
@@ -117,19 +120,14 @@ const specs = [
     aspect: "21:9",
     crop: "west",
     budgetKB: 150,
-    // Elliot-approved production chibi concept (2026-07-10 storyfront fixes,
-    // issue 1): the card recreates real style output, not the live template.
-    styleRef: null,
-    extraRefs: [
-      {
-        path: path.join(rawDir, "refs-provided", "chibi-heroic-female-concept.png"),
-        label: "concept",
-      },
-    ],
+    // The card uses the same approved V3 template as the live workflow so the
+    // style selector cannot drift from the customer proof design.
+    styleRef: "chibi_female",
     kind: "card",
     prompts: [
       joinPrompt(
-        "The attached reference image is the official product output for this style: a chibi heroic fantasy heroine figurine. Recreate exactly the same character: same face, same hair, same armor and outfit with every detail, same colors, same materials, and the same chibi proportions — oversized head about one third of the total height, compact rounded body, large expressive eyes, chunky simplified hands and boots, smooth vinyl-toy surfaces with a matte collectible finish. Do not redesign her, do not make her realistic, and do not change her proportions.",
+        "The attached reference image is the official V3 product template for this style. Recreate exactly the same chibi heroic fantasy heroine: same face, hair, costume, sword, colors, materials, pose language, and proportions. Do not redesign her, do not make her realistic, and do not change her proportions.",
+        CHIBI_HEROINE_V3,
         "Render her standing in a proud, warm, confident pose with a friendly smile, as a clean collectible chibi figurine render.",
         CARD_COMPO,
         NO_CROP,
@@ -140,7 +138,8 @@ const specs = [
         NO_TEXT,
       ),
       joinPrompt(
-        "Recreate the chibi heroic fantasy heroine figurine from the reference image exactly — identical character, outfit, colors, and vinyl-toy chibi proportions (oversized head, compact rounded body).",
+        "Recreate the approved V3 chibi heroic fantasy heroine figurine from the reference image exactly.",
+        CHIBI_HEROINE_V3,
         "Pose: standing tall and friendly, warm smile.",
         CARD_COMPO,
         NO_CROP,
@@ -151,7 +150,7 @@ const specs = [
         NO_TEXT,
       ),
     ],
-    alt: "Chibi heroic fantasy heroine figurine with an oversized head and fantasy armor, standing full body on a warm cream studio field",
+    alt: "Blue-caped Chibi heroic fantasy heroine with a blue diamond chest emblem and upright sword, standing full body on a warm cream studio field",
   },
   {
     id: "card-chibi_figure",
@@ -478,7 +477,7 @@ const specs = [
       joinPrompt(
         fidelity("heroic fantasy heroine character"),
         "Scene: the heroine mid-transformation power-up — a dynamic heroic pose, hair and outfit lifted by rising energy, surrounded by a radiant burst of ember orange and muted gold comic energy, with bold ink burst shapes and halftone dot rays exploding outward behind her.",
-        NAVY_CAPE,
+        CHIBI_HEROINE_V3,
         NO_CROP,
         PANEL_SAFE,
         "Camera: slightly below her chest height, looking gently upward, so she reads powerful and triumphant.",
@@ -489,7 +488,7 @@ const specs = [
       joinPrompt(
         fidelity("stylized collectible fantasy heroine figure"),
         "Scene: the heroine in a triumphant dynamic pose inside a warm radiating comic energy burst of ember orange and gold, halftone rays behind her.",
-        NAVY_CAPE,
+        CHIBI_HEROINE_V3,
         NO_CROP,
         PANEL_SAFE,
         PALETTE,
@@ -497,7 +496,7 @@ const specs = [
         NO_TEXT,
       ),
     ],
-    alt: "The heroine mid-transformation in a radiant ember and gold comic energy burst",
+    alt: "The blue-caped Chibi heroine holding her upright sword in a radiant ember and gold comic energy burst",
   },
   {
     id: "panel-figurine",
@@ -519,7 +518,7 @@ const specs = [
       joinPrompt(
         "A real product photograph: the character from the FIRST reference image as a physical hand-finished 3D-printed figurine, about 15 cm tall, standing on a warm wooden shelf in a cozy home.",
         "The figurine keeps the exact same character design, costume, and proportions as the first reference, rendered as a real printed and painted object: matte, slightly satin surface, subtle paint layering, hand-finished quality.",
-        NAVY_CAPE,
+        CHIBI_HEROINE_V3,
         BASE_REF,
         "Setting: soft window light from the upper left, warm blurred home background with hints of books and a plant, shallow depth of field, soft contact shadow under the base.",
         "The entire figurine and its base are visible, from the top of the head to the bottom of the base, nothing cropped.",
@@ -530,7 +529,7 @@ const specs = [
       ),
       joinPrompt(
         "A real, cozy product photo of a small hand-painted 3D-printed collectible figurine of the character from the first reference image, mounted on its printed square base with the raised nameplate reading \"Christina\" exactly as in the last reference image, standing on a wooden home shelf in soft warm window light, blurred domestic background.",
-        NAVY_CAPE,
+        CHIBI_HEROINE_V3,
         "The whole figurine and base are in frame.",
         PHOTOREAL,
         PANEL_SAFE,
@@ -538,7 +537,7 @@ const specs = [
         NO_TEXT_EXCEPT_NAME,
       ),
     ],
-    alt: "A 3D-printed figurine of the heroine on its printed base with a Christina nameplate, standing on a wooden home shelf in soft window light",
+    alt: "A blue-caped Chibi heroine figurine with an upright sword on a Christina nameplate base, standing on a wooden home shelf",
   },
   {
     id: "panel-gift",
@@ -560,7 +559,7 @@ const specs = [
       joinPrompt(
         "A real photograph of a warm gift-giving moment: exactly two hands — the left hand and right hand of one person, anatomically correct — holding a shallow open kraft-paper gift box with soft tissue paper.",
         "Standing upright in the box is the character from the FIRST reference image as a physical hand-finished 3D-printed figurine, about 15 cm tall, matte painted surface, exact same character design as that reference.",
-        NAVY_CAPE,
+        CHIBI_HEROINE_V3,
         BASE_REF,
         "The shallow box leaves the figurine fully visible from the top of her head down to the bottom of the base — nothing hidden, nothing cropped.",
         "Setting: warm cozy home light from the upper left, soft clay and cream tones, shallow depth of field, quiet emotional mood.",
@@ -571,14 +570,14 @@ const specs = [
       ),
       joinPrompt(
         "A real warm photo of exactly two hands (one person's left and right hands) offering a shallow open gift box with tissue paper; standing in it, fully visible from head to the bottom of its printed base with the raised \"Christina\" nameplate exactly as in the last reference image, is a small hand-painted 3D-printed figurine of the character from the first reference image. Warm home light, cream and clay tones.",
-        NAVY_CAPE,
+        CHIBI_HEROINE_V3,
         PHOTOREAL,
         PANEL_SAFE,
         FORM_LIGHT,
         NO_TEXT_EXCEPT_NAME,
       ),
     ],
-    alt: "Two hands presenting an open gift box with the heroine figurine standing inside on its Christina-nameplate base",
+    alt: "Two hands presenting an open gift box with the blue-caped Chibi heroine standing inside on its Christina-nameplate base",
   },
 
   // --- Supporting art ------------------------------------------------------
@@ -595,8 +594,8 @@ const specs = [
     prompts: [
       joinPrompt(
         fidelity("heroic fantasy heroine character"),
-        "Pose: waving warmly at the viewer with one raised hand, the other hand beckoning in a friendly welcoming gesture, cheerful open expression.",
-        NAVY_CAPE,
+        "Pose: the free hand waves warmly at the viewer while the sword hand preserves the approved upright grip and angle; cheerful open expression.",
+        CHIBI_HEROINE_V3,
         NO_CROP,
         CAM_FRIEND,
         "Background: a very clean, minimal warm cream #f5f1ea field with the faintest clay-toned vignette. Nothing else in the scene.",
@@ -606,8 +605,8 @@ const specs = [
       ),
       joinPrompt(
         fidelity("stylized collectible fantasy heroine figure"),
-        "Pose: friendly wave toward the viewer, welcoming smile.",
-        NAVY_CAPE,
+        "Pose: friendly wave with the free hand, welcoming smile, sword still upright in the other hand.",
+        CHIBI_HEROINE_V3,
         NO_CROP,
         CAM_FRIEND,
         "Background: minimal warm cream field.",
@@ -616,7 +615,7 @@ const specs = [
         NO_TEXT,
       ),
     ],
-    alt: "The heroine waving a friendly welcome on a clean warm cream background",
+    alt: "The blue-caped Chibi heroine waving with her free hand and holding her sword upright on a warm cream background",
   },
   {
     id: "epilogue-shelf",
@@ -637,7 +636,7 @@ const specs = [
     prompts: [
       joinPrompt(
         "A real photograph of a warm home interior: a wooden family shelf holding a few framed photos, a small green plant in a ceramic pot, and — standing proudly among them — the character from the FIRST reference image as a physical hand-finished 3D-printed figurine, about 15 cm tall, matte painted surface, exact same character design as that reference.",
-        NAVY_CAPE,
+        CHIBI_HEROINE_V3,
         BASE_REF,
         "The framed photos are angled away or softly out of focus so their contents stay indistinct — no readable faces and no readable lettering in them.",
         "Mood: every hero deserves a shelf — warm, loved, domestic. Soft window light from the upper left, gentle shadows, cream and clay and warm wood tones.",
@@ -648,13 +647,13 @@ const specs = [
       ),
       joinPrompt(
         "A real cozy photo of a shelf in a warm home: framed pictures softly out of focus, a small plant, and a hand-painted 3D-printed figurine of the character from the first reference image standing among them on its printed square base with the raised \"Christina\" nameplate exactly as in the last reference image. Warm window light, wood and cream tones, whole figurine and base in frame.",
-        NAVY_CAPE,
+        CHIBI_HEROINE_V3,
         PHOTOREAL,
         FORM_LIGHT,
         NO_TEXT_EXCEPT_NAME,
       ),
     ],
-    alt: "A warm family shelf with framed photos, a plant, and the heroine figurine on its Christina-nameplate base standing among them",
+    alt: "A warm family shelf with framed photos, a plant, and the blue-caped Chibi heroine on its Christina-nameplate base",
   },
 
   // --- Scene plates — 1600x1200 + PNG masters to Storage -------------------
@@ -754,7 +753,15 @@ const specs = [
 
 // Local fallback template files if Storage is unreachable (plan.md §2).
 const localTemplateFallbacks = {
-  chibi_female: "C:\\Users\\Eliud\\Desktop\\Styles\\SheRa-ChatGPTv4 Christina.png",
+  chibi_female: path.join(
+    repoRoot,
+    "apps",
+    "functions",
+    "assets",
+    "workflow-style-references",
+    "chibi_female",
+    "chibi-heroic-fantasy-female-v3.png",
+  ),
   heroic_fantasy_male: "C:\\Users\\Eliud\\Desktop\\Styles\\Heroic Male.png",
   heroic_fantasy_female: "C:\\Users\\Eliud\\Desktop\\Styles\\Heroic Female.png",
   super_hero_figure_female: "C:\\Users\\Eliud\\Desktop\\Styles\\Super Hero Female.png",

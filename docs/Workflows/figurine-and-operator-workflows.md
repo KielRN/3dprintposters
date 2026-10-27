@@ -1,10 +1,16 @@
 # Figurine And Operator Workflows
 
-Status: current implementation map as of 2026-07-12.
+Status: current implementation map with launch-scope overlay as of 2026-08-26.
 
 This document explains the current app workflows in plain language. It focuses on what the customer sees, where proof generation happens, how the style choices change the backend path, which Vertex/Gemini and generated-3D provider calls are used, and what the operator/admin consoles control.
 
 Rendering note: these are live Mermaid diagrams. VS Code 1.121 and newer can render them with the built-in Markdown preview, without a Mermaid extension. Exact routes, Storage paths, callable names, and endpoint names are kept in the text around each diagram.
+
+Local studio printing is a separate operator workflow documented in
+[Snapmaker U1 Connection And Printing](../SNAPMAKER_U1_OPERATIONS.md). As of
+2026-10-24, local slicing/upload/start has been exercised for an accessory
+plate; the app does not automatically dispatch orders to the U1. This does not
+establish figurine print readiness or change customer checkout eligibility.
 
 ## Quick Answer
 
@@ -139,9 +145,10 @@ graph LR
 Plain meaning:
 
 - `template_face_swap` means Vertex/Gemini edits the first enabled admin template image with the customer's identity.
+- The `chibi_female` template-face-swap path uses the approved V3 blue-cape, plain-diamond, unstriped-skirt, upright-sword template and keeps its existing Meshy Creative Lab concept/build route.
 - `generated_options` with `proofRendering: realistic_person` means Vertex/Gemini creates one internal realistic-person cleanup render before Meshy Creative Lab. The customer does not review that internal render.
 - `creative_lab_figure` means Meshy Creative Lab prototype creates the customer-reviewed concept, and the paid build later continues from the stored prototype task.
-- `direct_multi_image_to_3d` means the customer-reviewed swapped image is the later direct provider input. Hi3D is the current runtime provider for public direct styles, with Meshy `meshy-6` still available as the admin rollback provider.
+- `direct_multi_image_to_3d` means the customer-reviewed swapped image is the later direct provider input. Hi3D remains the runtime provider for deferred admin/R&D direct styles, with Meshy `meshy-6` still available as the admin rollback provider; direct styles are excluded from the 2026-08-26 launch catalog.
 - Customers see the 2D concept and the page-4 scene/claim surface. Provider GLBs and print-readiness stay operator-only.
 - `template_face_swap` styles require at least one enabled admin reference image. If a style has no enabled template image, proof generation fails before Meshy or Hi3D is called.
 

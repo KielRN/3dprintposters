@@ -59,6 +59,14 @@ npm run graphify:update:global  # also merge this repo into the user-level globa
 - The skill lives at `.agents/skills/cloudflare-3dprintyou/SKILL.md` and includes the account-scoped token verification pattern, known project zone IDs, and safe commands that do not print secrets.
 - Prefer read-only Cloudflare inspection before mutating live DNS or Worker configuration. State the intended external change before applying it, and ask first if it could disrupt live traffic.
 
+## Snapmaker U1 Operations
+
+- Read `docs/SNAPMAKER_U1_OPERATIONS.md` before preparing or controlling the studio printer `3DPrintYou-U1`; it records the verified MCP/GUI/Moonraker boundary and physical tool numbering.
+- Keep machine-specific paths and the LAN address in the ignored `elliot_quick_dev_Startup.md`. Cloud credentials remain in ignored `.env` files; never copy values or tokens into docs or print files.
+- The `orcaslicer` MCP prepares/analyzes files only. Check live printer status, actual tool/material mapping, and the exported slice before an authorized upload/start. Never change firmware/configuration for this workflow.
+- Physical toolhead 2 is zero-based `extruder1` / `T1`, observed with black SnapSpeed PLA on 2026-10-24; recheck before each job. A black swatch or object filament number alone is insufficient evidence.
+- Starting one plate does not authorize subsequent starts. Require removal of finished parts and a fresh clear-bed confirmation before each next plate. Verify actual printer acceptance before reporting a start; print completion/quality require separate evidence.
+
 ## Dev Seeding Skill
 
 - Use the repo-scoped `$seed-dev-paid-order` skill when a dev/test job must appear in the Print Console by being seeded as a paid order.
@@ -84,6 +92,8 @@ npm run graphify:update:global  # also merge this repo into the user-level globa
 ## Current Business Priority
 
 As of 2026-05-23, the active priority is customer acquisition and business-model proof, not more poster-relief tuning. Build toward a PrintU-like personalized figurine workflow first:
+
+Launch scope was finalized on 2026-08-26 as Chibi-only: `chibi_photo_female` (Chibi female), `chibi_photo_male` (Chibi male), `chibi_female` (Chibi heroic fantasy female), and `chibi_figure` (Chibi heroic fantasy male). Other styles did not meet the owner's launch-quality bar and must remain disabled or admin/R&D-only unless a later reviewed decision explicitly restores them. The implemented Hi3D direct Multi-Image-to-3D styles are not launch offers.
 
 1. User uploads a photo.
 2. User chooses figurine style, with MakerWorld PrintU as UX reference: Bobblehead, Chibi, Cartoon, Emoji, or provider-backed equivalents.
@@ -270,3 +280,5 @@ When behavior changes, update the relevant docs:
 - `docs/DESIGN.md` when the brand, design tokens, type system, landing/hero experience, storyfront funnel, voice/copy, or persuasion principles change
 - `docs/PRINT_FILE_GENERATION_WORKFLOW.md`
 - `research/FIGURINE_FULFILLMENT_SUPPLY_CHAIN.md` when physical supplier research, quotes, landed economics, samples, pilots, or sourcing decisions
+
+## Imported Claude Cowork project instructions

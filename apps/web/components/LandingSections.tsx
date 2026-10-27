@@ -70,7 +70,7 @@ const gallery = [
   { img: "/landing/cards/super_hero_male_skyline.png", label: "Super Hero Figure - Male", desc: "A confident caped hero with a starburst emblem." },
   { img: "/landing/cards/super_hero_female_rooftop.png", label: "Super Hero Figure - Female", desc: "An arms-crossed hero in deep navy, standing her ground." },
   { img: "/landing/cards/chibi_fantasy_male_ruins.png", label: "Chibi heroic fantasy male", desc: "A noble fantasy hero, sword at rest, ready for the shelf." },
-  { img: "/landing/cards/chibi_fantasy_female_forest.png", label: "Chibi heroic fantasy female", desc: "The heroine of the story, sculpted with your favorite person's smile." },
+  { img: "/landing/cards/chibi_fantasy_female_forest.png", label: "Chibi heroic fantasy female", desc: "A blue-caped Chibi heroine, sculpted with your favorite person's smile." },
   { img: "/landing/cards/chibi_photo_male_livingroom.png", label: "Chibi male", desc: "A friendly chibi likeness straight from his photo." },
   { img: "/landing/cards/chibi_photo_female_cafe.png", label: "Chibi female", desc: "A friendly chibi likeness straight from her photo." },
   { img: "/landing/cards/heroic_fantasy_male_mountain.png", label: "Heroic fantasy male", desc: "A grounded warrior sculpt with real stature." },

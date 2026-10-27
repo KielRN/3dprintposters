@@ -1,23 +1,37 @@
 import { readFile, stat } from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { initializeApp } from "firebase-admin/app";
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
 
-const defaultSourcePath =
-  "C:\\Users\\Eliud\\Desktop\\Styles\\SheRa-ChatGPTv4 Christina.png";
+const repoRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../../..",
+);
+const defaultSourcePath = path.join(
+  repoRoot,
+  "apps",
+  "functions",
+  "assets",
+  "workflow-style-references",
+  "chibi_female",
+  "chibi-heroic-fantasy-female-v3.png",
+);
 const storagePath =
-  "admin/workflow-style-references/chibi_female/shera-christina-template.png";
+  "admin/workflow-style-references/chibi_female/chibi-heroic-fantasy-female-v3.png";
 const bucketName =
   process.env.APP_STORAGE_BUCKET ??
   "gen-lang-client-0675309660.firebasestorage.app";
 
 const templateFaceSwapFemaleCollectiblePrompt = [
-  "Template face swap-female (single concept). The first image is the approved female heroic fantasy style template character. The second image is the customer photo.",
-  "Edit the first image so the character's facial identity becomes the person from the second image: face, head shape, skin tone, hair or baldness, facial hair, glasses, and expression cues come from the customer photo while staying rendered as a full-body collectible action figure.",
-  "Preserve the template's pose, body proportions, costume language, colors, studio background, and head-to-feet framing, but make the result read as a safe toy reference rather than a photorealistic adult person.",
-  "Use smooth toy material across the face, skin, hair, armor, boots, cape, props, and costume surfaces. Avoid realistic skin texture, pores, glossy human skin, sensual styling, fragile fabric realism, or emphasis on exposed body detail.",
-  "Keep the whole character visible head to feet with clean margins. Keep props and costume details simplified, toy-like, and suitable for a collectible figure concept.",
+  "Template face swap for one Chibi heroic fantasy female concept. The first image is the approved V3 style template character. The second image is the customer photo.",
+  "Change only the character's facial identity to the person in the customer photo: preserve recognizable facial features, head shape, skin tone, glasses or facial hair if present, and expression cues, all rendered in the template's friendly chibi toy style. Keep the approved heroine's hairstyle silhouette and styling.",
+  "Preserve the approved V3 design exactly: royal-blue cape; plain blue diamond-shaped chest emblem; plain white skirt with no gold vertical lines or decorative striping; and only the gold belt around the skirt.",
+  "Preserve the upright sword and its exact design: swept crescent-like gold guard, blue diamond accent, blue grip, and subtle blade engraving. Keep the same hand grip, upright angle, pose, costume, boots, and accessories.",
+  "Preserve the template's oversized-head chibi proportions, compact full body, large friendly eyes, smooth vinyl-toy materials, broad clean color regions, studio lighting, white background treatment, and full-body head-to-feet framing with clear margins.",
+  "Do not add a base, pedestal, platform, stand, plaque, nameplate, sign, ground disk, scenery, freestanding text, or watermark. Do not redesign, simplify, recolor, or repaint anything outside the customer's facial identity.",
   "Output only the edited image.",
 ].join("\n");
 
@@ -31,8 +45,8 @@ const chibiFemaleStyle = {
   enabled: true,
   referenceImages: [
     {
-      id: "shera-christina-template",
-      label: "SheRa Christina",
+      id: "chibi-heroic-fantasy-female-v3",
+      label: "Chibi heroic fantasy female V3",
       storagePath,
       mimeType: "image/png",
       enabled: true,
@@ -63,14 +77,7 @@ function upsertChibiFemaleStyle(config) {
       ...existing,
       ...chibiFemaleStyle,
       enabled: existing.enabled === false ? false : true,
-      referenceImages: [
-        chibiFemaleStyle.referenceImages[0],
-        ...(Array.isArray(existing.referenceImages)
-          ? existing.referenceImages.filter(
-              (image) => image?.storagePath !== storagePath,
-            )
-          : []),
-      ].slice(0, 4),
+      referenceImages: chibiFemaleStyle.referenceImages,
     };
   } else {
     const chibiIndex = styles.findIndex(
@@ -140,8 +147,8 @@ async function main() {
         cacheControl: "private, max-age=3600",
         metadata: {
           styleId: chibiFemaleStyle.id,
-          imageId: "shera-christina-template",
-          originalFileName: "SheRa-ChatGPTv4 Christina.png",
+          imageId: "chibi-heroic-fantasy-female-v3",
+          originalFileName: "chibi-heroic-fantasy-female-v3.png",
           workflow: "figurine-style-reference",
         },
       },

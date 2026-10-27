@@ -144,7 +144,7 @@ hidden family past
 > afraid of letting her down.
 >
 > The seed had to reach the spring pool before sunrise. If it did not, no
-> flowers would grow in the valley that year. Grandmother tied her old red cape
+> flowers would grow in the valley that year. Grandmother tied her old blue cape
 > around {Name}'s shoulders. "Remember," she said. "A true guard protects life
 > before treasure."
 >
@@ -156,13 +156,13 @@ hidden family past
 > glowing seed was food. {Name} took it back. Then they looked at the baby and
 > remembered Grandmother's words.
 >
-> Sunrise was close, but {Name} wrapped the baby in the red cape. The older
+> Sunrise was close, but {Name} wrapped the baby in the blue cape. The older
 > dragon breathed warm fire across the frozen road. Together, they reached the
 > pool in time. The seed opened, and flowers covered the valley. Grandmother
 > hugged {Name}. "You guarded exactly what mattered," she said.
 >
 > Then one flower turned toward Grandmother. A picture formed on its petals: a
-> young woman in a red cape, standing beside that same dragon.
+> young woman in a blue cape, standing beside that same dragon.
 >
 > Grandmother stepped back. "No one was ever meant to see that."
 >

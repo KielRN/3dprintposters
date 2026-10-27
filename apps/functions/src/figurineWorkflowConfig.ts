@@ -105,11 +105,12 @@ export const defaultTemplateFaceSwapPrompt = [
 ].join("\n");
 
 export const templateFaceSwapFemaleCollectiblePrompt = [
-  "Template face swap-female (single concept). The first image is the approved female heroic fantasy style template character. The second image is the customer photo.",
-  "Edit the first image so the character's facial identity becomes the person from the second image: face, head shape, skin tone, hair or baldness, facial hair, glasses, and expression cues come from the customer photo while staying rendered as a full-body collectible action figure.",
-  "Preserve the template's pose, body proportions, costume language, colors, studio background, and head-to-feet framing, but make the result read as a safe toy reference rather than a photorealistic adult person.",
-  "Use smooth toy material across the face, skin, hair, armor, boots, cape, props, and costume surfaces. Avoid realistic skin texture, pores, glossy human skin, sensual styling, fragile fabric realism, or emphasis on exposed body detail.",
-  "Keep the whole character visible head to feet with clean margins. Keep props and costume details simplified, toy-like, and suitable for a collectible figure concept.",
+  "Template face swap for one Chibi heroic fantasy female concept. The first image is the approved V3 style template character. The second image is the customer photo.",
+  "Change only the character's facial identity to the person in the customer photo: preserve recognizable facial features, head shape, skin tone, glasses or facial hair if present, and expression cues, all rendered in the template's friendly chibi toy style. Keep the approved heroine's hairstyle silhouette and styling.",
+  "Preserve the approved V3 design exactly: royal-blue cape; plain blue diamond-shaped chest emblem; plain white skirt with no gold vertical lines or decorative striping; and only the gold belt around the skirt.",
+  "Preserve the upright sword and its exact design: swept crescent-like gold guard, blue diamond accent, blue grip, and subtle blade engraving. Keep the same hand grip, upright angle, pose, costume, boots, and accessories.",
+  "Preserve the template's oversized-head chibi proportions, compact full body, large friendly eyes, smooth vinyl-toy materials, broad clean color regions, studio lighting, white background treatment, and full-body head-to-feet framing with clear margins.",
+  "Do not add a base, pedestal, platform, stand, plaque, nameplate, sign, ground disk, scenery, freestanding text, or watermark. Do not redesign, simplify, recolor, or repaint anything outside the customer's facial identity.",
   "Output only the edited image.",
 ].join("\n");
 

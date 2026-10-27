@@ -1,6 +1,6 @@
 # Figurine Style Workflow Contracts
 
-Status: current runtime/admin contract as of 2026-07-12.
+Status: current runtime/admin contract plus final launch scope as of 2026-08-26.
 
 This document is the compact source of truth for public/admin figurine style behavior. It replaces the former per-style workflow pages, which duplicated fast-moving state and had drifted from the funded-build and storyfront flows.
 
@@ -16,21 +16,32 @@ This document is the compact source of truth for public/admin figurine style beh
 
 ## Current Runtime Style Matrix
 
-The saved admin config currently has `proofGenerationCount: 4` and `visibleStyleCount: 8`. The first eight enabled styles are the public storyfront set.
+The saved admin config last checked on 2026-07-12 had `proofGenerationCount: 4` and `visibleStyleCount: 8`. That runtime snapshot exposed eight storyfront styles, but the final 2026-08-26 launch decision approves only the four Chibi styles. Runtime config/defaults must be aligned to the **Launch: Yes** rows before public launch.
 
-| Style ID | Public label | Enabled | Proof mode | Proof rendering | 3D workflow | Runtime provider/model | Enabled references | Customer-reviewed concept |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `creative_lab_figure` | Super Hero Figure - Male | Yes | `template_face_swap` | None | `direct_multi_image_to_3d` | `hi3d` / `hitem3dv2.1` | 1 | Vertex swapped template image |
-| `super_hero_figure_female` | Super Hero Figure - Female | Yes | `template_face_swap` | None | `direct_multi_image_to_3d` | `hi3d` / `hitem3dv2.1` | 1 | Vertex swapped template image |
-| `chibi_figure` | Chibi heroic fantasy male | Yes | `template_face_swap` | None | `creative_lab_figure` | Meshy Creative Lab | 1 | Meshy prototype concept |
-| `chibi_female` | Chibi heroic fantasy female | Yes | `template_face_swap` | None | `creative_lab_figure` | Meshy Creative Lab | 1 | Meshy prototype concept |
-| `chibi_photo_male` | Chibi male | Yes | `generated_options` | `realistic_person` | `creative_lab_figure` | Meshy Creative Lab | 0 | Meshy prototype concept |
-| `chibi_photo_female` | Chibi female | Yes | `generated_options` | `realistic_person` | `creative_lab_figure` | Meshy Creative Lab | 0 | Meshy prototype concept |
-| `heroic_fantasy_male` | Heroic fantasy male | Yes | `template_face_swap` | None | `direct_multi_image_to_3d` | `hi3d` / `hitem3dv2.1` | 1 | Vertex swapped template image |
-| `heroic_fantasy_female` | Heroic fantasy female | Yes | `template_face_swap` | None | `direct_multi_image_to_3d` | `hi3d` / `scene-portraitv2.1` | 1 | Vertex swapped template image |
-| `emoji_avatar` | Emoji Avatar | No | `generated_options` | None | `creative_lab_figure` | Meshy Creative Lab if enabled | 0 | Vertex proof options unless changed |
+| Style ID | Public label | Runtime enabled (last checked) | Launch | Proof mode | Proof rendering | 3D workflow | Runtime provider/model | Enabled references | Customer-reviewed concept |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `creative_lab_figure` | Super Hero Figure - Male | Yes | **No** | `template_face_swap` | None | `direct_multi_image_to_3d` | `hi3d` / `hitem3dv2.1` | 1 | Vertex swapped template image |
+| `super_hero_figure_female` | Super Hero Figure - Female | Yes | **No** | `template_face_swap` | None | `direct_multi_image_to_3d` | `hi3d` / `hitem3dv2.1` | 1 | Vertex swapped template image |
+| `chibi_figure` | Chibi heroic fantasy male | Yes | **Yes** | `template_face_swap` | None | `creative_lab_figure` | Meshy Creative Lab | 1 | Meshy prototype concept |
+| `chibi_female` | Chibi heroic fantasy female | Yes | **Yes** | `template_face_swap` | None | `creative_lab_figure` | Meshy Creative Lab | 1 | Meshy prototype concept |
+| `chibi_photo_male` | Chibi male | Yes | **Yes** | `generated_options` | `realistic_person` | `creative_lab_figure` | Meshy Creative Lab | 0 | Meshy prototype concept |
+| `chibi_photo_female` | Chibi female | Yes | **Yes** | `generated_options` | `realistic_person` | `creative_lab_figure` | Meshy Creative Lab | 0 | Meshy prototype concept |
+| `heroic_fantasy_male` | Heroic fantasy male | Yes | **No** | `template_face_swap` | None | `direct_multi_image_to_3d` | `hi3d` / `hitem3dv2.1` | 1 | Vertex swapped template image |
+| `heroic_fantasy_female` | Heroic fantasy female | Yes | **No** | `template_face_swap` | None | `direct_multi_image_to_3d` | `hi3d` / `scene-portraitv2.1` | 1 | Vertex swapped template image |
+| `emoji_avatar` | Emoji Avatar | No | **No** | `generated_options` | None | `creative_lab_figure` | Meshy Creative Lab if enabled | 0 | Vertex proof options unless changed |
 
-Checked-in defaults may differ from the saved admin config for load-bearing historical IDs. Treat the runtime admin config as the current public style set, then update checked-in defaults/seeds when a style contract should survive config resets.
+Checked-in defaults may differ from the saved admin config for load-bearing historical IDs. Treat the four **Launch: Yes** rows as product policy. Before launch, update the saved admin config and checked-in defaults/seeds so only those four styles are public; keep non-launch styles disabled or admin-only without deleting their historical IDs or provider implementation.
+
+## Launch Catalog Decision
+
+The complete launch catalog is:
+
+1. **Chibi female** — `chibi_photo_female`
+2. **Chibi male** — `chibi_photo_male`
+3. **Chibi heroic fantasy female** — `chibi_female`
+4. **Chibi heroic fantasy male** — `chibi_figure`
+
+The owner rejected the other tested style results because they did not meet the launch-quality bar. Direct Heroic fantasy, Super Hero, faithful/realistic, Emoji, and any other variants are non-launch unless a later reviewed decision explicitly restores them.
 
 ## Common Customer Contract
 
@@ -53,10 +64,12 @@ Manual studio review is the exception path: server-confirmed terminal generation
 Styles: `chibi_figure`, `chibi_female`.
 
 - The first enabled admin reference image is the fixed style template.
+- `chibi_female` uses the single approved V3 template `chibi-heroic-fantasy-female-v3` from `admin/workflow-style-references/chibi_female/chibi-heroic-fantasy-female-v3.png`. Its prompt preserves the royal-blue cape, plain blue diamond chest emblem, unstriped white skirt with only the gold belt, upright swept-guard sword, chibi proportions, toy materials, and full-body framing while changing only customer facial identity.
 - Vertex/Gemini edits that template with the customer's face/head identity.
 - Meshy Creative Lab prototype turns the swapped image into the single customer-reviewed concept.
 - Approval records the Meshy concept.
 - The paid build continues from the stored Creative Lab prototype task.
+- The 2026-08-26 paid `chibi_female` V3 validation proved that this route can preserve the approved design through face swap, Creative Lab prototype, and 3D build. Its normalized outputs remain operator-review-only because Meshy found 309,928 degenerate faces and local normalization found 70,476 boundary/non-manifold edges; topology repair plus slicer/physical review is required before print-ready status.
 
 ### Realistic Person Cleanup + Creative Lab
 
@@ -71,13 +84,13 @@ Styles: `chibi_photo_male`, `chibi_photo_female`.
 
 ### Template Face Swap + Direct Multi-Image-to-3D
 
-Styles: `creative_lab_figure` as Super Hero Figure - Male, `super_hero_figure_female`, `heroic_fantasy_male`, `heroic_fantasy_female`.
+Deferred non-launch styles: `creative_lab_figure` as Super Hero Figure - Male, `super_hero_figure_female`, `heroic_fantasy_male`, `heroic_fantasy_female`.
 
 - The first enabled admin reference image is the fixed style template.
 - Vertex/Gemini edits that template with the customer's face/head identity.
 - The swapped image is both the customer-reviewed concept and the later direct-3D input.
 - Approval records the swapped concept.
-- The paid build calls the job-stamped direct provider/model. Hi3D is the current runtime provider for the public direct styles, and Meshy `meshy-6` remains the admin-selectable rollback provider.
+- If exercised in R&D/admin flows, the paid build calls the job-stamped direct provider/model. Hi3D is the current runtime provider for these deferred direct styles, and Meshy `meshy-6` remains the admin-selectable rollback provider.
 
 ## Change Rules
 
