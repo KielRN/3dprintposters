@@ -86,8 +86,26 @@ npm run graphify:update:global  # also merge this repo into the user-level globa
 - Current web deployment candidate: Railway standalone service at `https://3dprintposters-production.up.railway.app`, configured by root `railway.toml`. It is noindexed and still uses the shared dev Firebase project; it is not the branded production launch.
 - Backend orchestration: `apps/functions`, Firebase Cloud Functions 2nd gen on Node.js 22.
 - Print-file generator: `services/print-file-generator`, FastAPI service intended for Cloud Run.
-- Dev Firebase/GCP project: `gen-lang-client-0675309660`.
+- Dev Firebase/GCP project: `gen-lang-client-0675309660`. It is SHARED with other apps; read "Shared Firebase Project" below before deploying any Firestore rules or indexes.
 - Product domains: `3dprintyou.com` is the public coming-soon/customer-acquisition surface; the Railway-generated `3dprintposters-production.up.railway.app` hostname is the temporary full-app candidate; `3dprintposters.com` remains available for the parked poster-relief line.
+
+## Shared Firebase Project (read before deploying rules)
+
+Firebase project `gen-lang-client-0675309660` is shared by several apps:
+
+- 3DPrintPosters / 3DPrintYou web app (this repo): `jobs`, `orders`, `fulfillmentEvents`, plus server-only collections.
+- SupplyCloset iOS/Android app (`E:\PROJECTS\SupplyCloset`): `facilities/**`, `procedures`, `tags`, `leaderboard`, `udi_cache`, `recalls`.
+- Texas AI Consulting website admin sign-in (`E:\PROJECTS\TexasAI Landing Page`): Firebase Auth only.
+
+All of them share ONE Firestore database `(default)`, so ONE Firestore rules file, and one pool of Firebase Auth users. A Firestore rules deploy replaces the whole file for every app.
+
+- The single source of truth for Firestore rules is `infra/firebase/firestore.rules` in THIS repo. It contains every app's rules in labeled sections.
+- Deploy Firestore rules only from this repo: `npm run firebase:deploy:firestore-rules:dry-run`, then `npm run firebase:deploy:firestore-rules:dev`. Never deploy Firestore rules from another repo.
+- To change one app's rules, edit only that app's section, leave the other sections as they are, and test both apps' access before deploying (for example with the Firebase Rules test API).
+- `users/{userId}` is shared: it uses SupplyCloset's stricter rule. This web app never reads or writes `users/` from the browser; only `apps/functions/scripts/seed-auth-roles.mjs` writes it, through the Admin SDK.
+- Also shared: Firestore indexes (deploy with `--only firestore:indexes`, never with `--force`, which deletes other apps' indexes) and Firebase Auth users (deleting or disabling a user affects every app). Functions are separated by codebase (`api` here, `default` in SupplyCloset); keep those names distinct.
+- Always use `--only ...` with `firebase deploy` against this project.
+- History: on 2026-11-09 a SupplyCloset rules deploy locked 3DPrintYou customers out of their jobs and orders. On 2026-11-23 a 3DPrintPosters-only redeploy locked SupplyCloset out. Both were fixed by merging the rules into this one file (commit `c3cbe79`).
 
 ## Current Business Priority
 
