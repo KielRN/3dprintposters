@@ -45,6 +45,15 @@ export {
   generateScenePreview,
   onJobConceptReadyRenderScenes,
 } from "./scenePreview.js";
+// 3DPrintYou PRD R9-R11: GHL contact sync, order-milestone emails, and
+// in-app order support requests.
+export {
+  onJobStageQueueGhlSync,
+  processGhlSyncTask,
+  requestOrderSupport,
+  syncCustomerContact,
+} from "./ghlSyncFunctions.js";
+import { ghlContactLinkForUid } from "./ghlSyncFunctions.js";
 import { runMeshyFigurinePrintTooling } from "./meshyPrintTooling.js";
 import {
   customerJobDeletionBlock,
@@ -2582,7 +2591,8 @@ async function adminSupportDetailForJob(input: {
     })),
   });
 
-  return addPaymentIssue(detail, orderData);
+  const ghlContactUrl = await ghlContactLinkForUid(input.jobData.uid);
+  return { ...addPaymentIssue(detail, orderData), ghlContactUrl };
 }
 
 export const listAdminSupportJobs = onCall(

@@ -11,6 +11,7 @@ import {
   CheckCircle2,
   Clock3,
   Download,
+  ExternalLink,
   Loader2,
   MessageSquarePlus,
   RefreshCw,
@@ -139,6 +140,8 @@ type JobDetail = JobSummary & {
   };
   assets?: JobAsset[];
   supportNotes: SupportNote[];
+  // Set once the customer has been synced to GHL (3DPrintYou PRD R11).
+  ghlContactUrl?: string | null;
 };
 
 type JobAsset = {
@@ -273,6 +276,13 @@ function statusTone(status: string | null | undefined) {
   return "border-[var(--gold)]/30 bg-[var(--gold)]/10 text-[#8a6412]";
 }
 
+function deepLinkedJobId(): string {
+  if (typeof window === "undefined") {
+    return "";
+  }
+  return new URLSearchParams(window.location.search).get("job")?.trim() ?? "";
+}
+
 function hasPreviewPageAssets(job: JobSummary) {
   return (
     job.generatedImageCount > 0 ||
@@ -297,11 +307,14 @@ function hasPrintReadinessAssets(job: JobSummary) {
 export function AdminSupportJobs({ active }: { active: boolean }) {
   const firebaseClients = useMemo(() => getFirebaseClients(), []);
   const [jobs, setJobs] = useState<JobSummary[]>([]);
-  const [selectedJobId, setSelectedJobId] = useState("");
+  // `/admin?job=<jobId>` (the GHL contact's 3DPY admin link) opens that job
+  // directly by pre-filling the search and selection.
+  const [deepLinkJobId] = useState(deepLinkedJobId);
+  const [selectedJobId, setSelectedJobId] = useState(deepLinkJobId);
   const [selectedJob, setSelectedJob] = useState<JobDetail | null>(null);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [search, setSearch] = useState(deepLinkJobId);
+  const [debouncedSearch, setDebouncedSearch] = useState(deepLinkJobId);
   const [productType, setProductType] = useState<"" | ProductType>("");
   const [jobStatus, setJobStatus] = useState("");
   const [supportStatus, setSupportStatus] = useState<"" | SupportStatus>("");
@@ -756,6 +769,17 @@ export function AdminSupportJobs({ active }: { active: boolean }) {
                       <Wrench size={16} aria-hidden="true" />
                       Print Readiness
                     </Link>
+                  ) : null}
+                  {selectedJob.ghlContactUrl ? (
+                    <a
+                      className="secondary-button h-10 min-h-0 px-3"
+                      href={selectedJob.ghlContactUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <ExternalLink size={16} aria-hidden="true" />
+                      GHL contact
+                    </a>
                   ) : null}
                   <span className={`rounded-full border px-3 py-1 text-sm font-black ${statusTone(selectedJob.supportSummary.status)}`}>
                     {label(selectedJob.supportSummary.status)}

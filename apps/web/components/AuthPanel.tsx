@@ -11,6 +11,23 @@ import {
   signOut,
   type User,
 } from "firebase/auth";
+import { httpsCallable } from "firebase/functions";
+
+// Queues the new account's GHL contact sync (3DPrintYou PRD R9). Marketing
+// consent is passed only when the customer ticked the box. Fire-and-forget:
+// a sync failure must never block account creation.
+function queueCustomerContactSync(
+  clients: FirebaseCoreClients,
+  marketingEmailOptIn: boolean,
+) {
+  const sync = httpsCallable<
+    { marketingEmailOptIn: boolean },
+    { queued: boolean }
+  >(clients.functions, "syncCustomerContact");
+  void sync({ marketingEmailOptIn }).catch((error) => {
+    console.warn("Customer contact sync was not queued.", error);
+  });
+}
 
 type AuthMode = "sign-in" | "create";
 
@@ -51,6 +68,7 @@ export function AuthPanel({
   const effectiveMode: AuthMode = allowCreate ? authMode : "sign-in";
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
+  const [marketingEmailOptIn, setMarketingEmailOptIn] = useState(false);
   const [authBusy, setAuthBusy] = useState(false);
   const [authError, setAuthError] = useState("");
   const emailInputRef = useRef<HTMLInputElement>(null);
@@ -85,6 +103,7 @@ export function AuthPanel({
             authPassword,
           );
         }
+        queueCustomerContactSync(firebaseClients, marketingEmailOptIn);
       } else {
         await signInWithEmailAndPassword(
           firebaseClients.auth,
@@ -167,6 +186,20 @@ export function AuthPanel({
             }
           }}
         />
+        {effectiveMode === "create" ? (
+          <label className="flex items-start gap-2 text-sm text-[var(--muted)]">
+            <input
+              type="checkbox"
+              className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--ember)]"
+              checked={marketingEmailOptIn}
+              onChange={(event) => setMarketingEmailOptIn(event.target.checked)}
+            />
+            <span>
+              Email me 3DPrintYou news and offers. Optional; unsubscribe
+              anytime. Order updates are sent either way.
+            </span>
+          </label>
+        ) : null}
         <button
           className="button-primary-compact mt-1 w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ember)] focus-visible:ring-offset-2"
           type="button"

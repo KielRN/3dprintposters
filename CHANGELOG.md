@@ -2,6 +2,20 @@
 
 All notable project changes will be documented in this file.
 
+## [Unreleased] - 2026-11-23
+
+### Added
+
+- GoHighLevel (GHL) customer sync for 3DPrintYou (3DPrintyou PRD R9–R11). App events queue tasks in the server-only `ghlSyncTasks` collection, and `processGhlSyncTask` calls GHL with retries for up to 24 hours, so a GHL outage never blocks signup or checkout. Contacts are upserted by email into the Texas AI Consulting sub-account.
+- Order-milestone tags for GHL order emails: `3dpy-proof-ready`, `3dpy-paid`, `3dpy-in-production`, `3dpy-shipped`, `3dpy-delivered`, at most once per order. Payment also moves the `3DPY – Customers` opportunity to Ordered and clears Email DND only.
+- Optional, unchecked "Email me 3DPrintYou news and offers" box on account creation. Marketing consent (`3dpy-email-optin`) is synced only when it is ticked.
+- "Contact support about this order" on `/orders/{orderId}`: the message becomes an admin Support note and a GHL contact note tagged `3dpy-support-request`, with an email fallback to support@3dprintyou.com.
+- Admin Support deep link `/admin?job={jobId}` (stored on the GHL contact) and a "GHL contact" button on the selected job.
+
+### Configuration
+
+- New Functions secret `GHL_API_TOKEN`: the existing Texas AI Consulting GHL Private Integration token (no separate app token). Set on the dev project 2026-11-23 (and mirrored in ignored `apps/functions/.secret.local`); when it is empty, GHL tasks are marked `skipped`. GHL workflows WF3–WF8 that send the emails are built in GHL (IDs in `E:\PROJECTS\3DPrintyou\GHL-build-spec.md`).
+
 ## [Unreleased] - 2026-10-24
 
 ### Documentation

@@ -1,6 +1,8 @@
 "use client";
 
+import { OrderSupportPanel } from "@/components/OrderSupportPanel";
 import { getFirebaseClients } from "@/lib/firebase";
+import { displayJobId } from "@/lib/pipeline";
 import {
   AlertCircle,
   ArrowLeft,
@@ -256,6 +258,12 @@ export function OrderDetail({ orderId }: { orderId: string }) {
               </p>
             </article>
           </div>
+
+          <OrderSupportPanel
+            firebaseClients={firebaseClients}
+            orderId={orderId}
+            displayOrderId={displayJobId(orderId)}
+          />
         </div>
       ) : null}
     </section>
