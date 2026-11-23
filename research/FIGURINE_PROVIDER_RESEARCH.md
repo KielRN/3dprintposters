@@ -1,7 +1,27 @@
 # Figurine Provider And PrintU Workflow Research
 
 Date: 2026-05-23
-Last updated: 2026-07-08
+Last updated: 2026-10-28
+
+## 2026-10-28 Evaluation: Meshy MCP For Blender
+
+Status: installed and integration-tested locally; useful studio-tool candidate. Physical print quality and operator time savings remain unverified.
+
+Source: Meshy announcement email shared by Elliot on 2026-10-28, titled "Your Meshy API key now works in MCP for Blender", followed by the owner's authorization to install and test. Official references: [Meshy's Blender MCP guide](https://www.meshy.ai/tutorials/blender-mcp-guide), [the integration's Meshy documentation](https://www.mcp-for-blender.com/docs/integrations/meshy), and [Meshy API pricing](https://docs.meshy.ai/en/api/pricing).
+
+Verified in this evaluation:
+
+- Installed the community `mcp-for-blender` package 2.2.6, bundled add-on 1.8 / protocol 15, on Blender 5.1.1. Registered it for Codex with a 600-second tool timeout; preserved the older Blender Lab registration disabled to avoid the shared-port conflict. Telemetry is disabled.
+- Imported the existing exp-021 Chibi model with its 4K color texture, set exact 150 mm height, and exported GLB/STL through actual stdio MCP tool calls. The existing STL is one watertight component.
+- Generated one new model through the integration's `generate_3d` tool from exp-021's body-only concept, using `latest` (currently documented as Meshy 7.1). Task `01a1830b-5a08-7209-8ca3-d8260cab9484` completed and imported automatically with color, normal, and metallic/roughness textures. Credit balances reconciled to exactly 30 credits consumed; no second generation was submitted.
+- The integration's automatic size was 1.7 m tall, so explicit product scaling was still needed. The 150 mm export measures approximately 117.32 x 70.25 x 150 mm. Saved front, three-quarter, and back inspection renders.
+- Raw output had 721,815 triangles, including five isolated single-triangle fragments. The main body was watertight. Removed only those five verified fragments through Blender MCP; independently checked the cleaned STL as one watertight, consistently wound component with 721,810 triangles. The cleaned GLB retains all three PBR texture maps.
+- Original and cleaned STL both sliced successfully in portable OrcaSlicer 2.4.0 using the stock U1 / 0.20 mm / SnapSpeed PLA profiles. Supports were disabled in that compatibility test; this is not a manufacturing recipe or physical print validation. No printer upload or start occurred.
+- Restarted Blender, reopened the saved review scene, and reconnected through MCP successfully. Meshy remained enabled; credentials were loaded from the existing local secret source into process memory, and the scene's API-key field stayed empty. Exact machine setup and artifact paths are in the ignored local startup runbook.
+
+Evidence and review artifacts: `.tmp/experiments/meshy/blender-mcp-2026-10-28/`. This is a one-off external integration evaluation, not another Meshy experiment runner; accompanying product/API experiments should continue through the standard runner.
+
+Assessment: promising for conversational inspection, exact sizing, small cleanup operations, rendering, and export. Next validation is operator review of the saved scene and a properly supported physical sample, including sword/cape fragility and finish. One successful integration test does not establish production quality or measured time savings. No production provider, customer workflow, or launch-scope change has been decided.
 
 ## 2026-07-08 Update: Hi3D (Hitem3D v2.1) Replaces Meshy For Direct Multi-Image-to-3D
 

@@ -16,6 +16,12 @@ All notable project changes will be documented in this file.
 
 - New Functions secret `GHL_API_TOKEN`: the existing Texas AI Consulting GHL Private Integration token (no separate app token). Set on the dev project 2026-11-23 (and mirrored in ignored `apps/functions/.secret.local`); when it is empty, GHL tasks are marked `skipped`. GHL workflows WF3–WF8 that send the emails are built in GHL (IDs in `E:\PROJECTS\3DPrintyou\GHL-build-spec.md`).
 
+## [Unreleased] - 2026-10-28
+
+### Verified
+
+- Installed and tested the Meshy-enabled community Blender MCP integration for local studio work. Imported/scaled/exported an existing Chibi; generated and automatically imported one body-only concept for 30 credits; preserved PBR textures; removed five stray triangles and independently verified a single watertight 150 mm mesh; rendered three inspection views; and sliced original/cleaned STL with the stock U1 profile. Verified reconnection after a Blender restart. Setup and artifact paths remain in the ignored local runbook. Supports, physical print quality, and operator time savings remain unvalidated; production workflows and launch scope are unchanged.
+
 ## [Unreleased] - 2026-10-24
 
 ### Documentation

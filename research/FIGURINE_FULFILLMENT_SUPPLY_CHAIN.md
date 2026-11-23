@@ -356,6 +356,62 @@ Verification completed: JavaScript syntax; rejection of invalid colors/cleanup v
 
 Recommendation: retain **Meshy cartoon as the current color-boundary benchmark** for this Chibi. Hi3D's closed-volume output is useful evidence for print preparation, but the tested multicolor defaults are not an appearance upgrade. Do not switch the public Chibi provider or select a manufacturing method from this comparison. Physical testing still requires U1 installation/calibration, appropriate skin-tone filament, a verified U1 profile, geometry/support review, and owner approval of the visible result.
 
+#### 2026-10-28 - U1 Four-Color Chibi Slicer Preflight
+
+Reused the preferred Meshy cartoon result from `exp-022-u1-four-color-chibi`;
+no new generation or paid conversion was requested. Official Snapmaker Orca
+2.4.0 imported the painted 3MF and exported a slice using the installed U1
+machine preset: four independent 0.4mm nozzles,
+`single_extruder_multi_material=0`, textured PEI, 0.20mm layers, 220 C PLA,
+65 C bed, automatic tree supports, and the standard 45mm3 prime volume.
+The original provider artifact remains unchanged. The figure is approximately
+47.27 x 35.79 x 75mm, upright, without the deterministic product base.
+
+For a functional test with the original loaded spools, the working project
+substitutes red for blue and yellow for tan/skin; black and light clothing
+remain black and off-white. This is a stock-color placement test, not approval
+of the final figurine's skin tone or appearance. Planned mapping is logical
+filament 1 black to physical tool 2 / FIL-015; logical 2 white to physical tool
+1 / FIL-014; logical 3 red to physical tool 3 / FIL-012; logical 4 yellow to
+physical tool 4 / FIL-013. This mapping has not been applied/read back for a
+printer job; verify it in the official print dialog before any eventual start.
+
+| Slicer estimate | Amount |
+| --- | ---: |
+| Print time | 4h 24m 9s, plus any additional printer startup |
+| Total filament | 69.25g |
+| Black / white / red / yellow, raw G-code arrays | 16.57g / 23.40g / 4.21g / 25.06g |
+| Model / support / prime tower, GUI rounded | 15.66g / 7.03g / 46.55g |
+| Layers | 375 |
+
+Raw per-color values and GUI totals differ slightly through rounding. These
+are estimates, not consumed inventory. The prime tower dominates this first
+standard-profile slice; optimize only after assessing the experimental result
+and priming quality.
+
+Geometry remains an explicit limitation: the GUI reports 78 non-manifold
+edges. Its local Windows-service repair removed that error but also cleared
+the four-color painting. Undo restored the original geometry and all original
+triangle painting counts; the saved copy retains them. The un-repaired painted
+mesh slices and produces all four executable tool selections. Successful
+slicing does not establish closed-volume quality, fine-feature strength,
+support removability, nozzle registration, or acceptable physical output.
+
+Local project, exported G-code, source provenance, per-tool arrays, SHA256,
+movement bounds, thumbnail, and pending checks live under ignored
+`.tmp/experiments/u1/2026-10-28-chibi-four-color/`. Explicit G0/G1 movement
+inspection found no arcs and maxima X185 / Y187.631 / Z75.45mm, including
+startup movements; firmware macro motion is not expanded by that inspection.
+
+**No upload or print start occurred.** Black FIL-015 is LOW: the owner's earlier
+approximately 15g visual estimate is below the slice's 16.57g black requirement
+before additional reserve. Replace it or verify sufficient net stock, then
+recheck the actual material profile, tool mapping, supports, live readiness,
+specific-plate authorization and fresh installed-and-clear-bed confirmation.
+The owner confirmed on October 28 that none of the original loaded spools has
+been changed. Shared spool IDs and consumption are reconciled once across the
+business and home inventory records; this preparation deducts nothing.
+
 ### Phase 3 - Quote Normalization And Samples
 
 Normalize every quote into USD using the exchange rate and fees on the comparison date. Keep supplier currency and original quote date alongside the normalized amount.

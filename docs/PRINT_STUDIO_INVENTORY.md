@@ -1,14 +1,48 @@
 # Print Studio Inventory
 
-Last updated: 2026-10-24
+Last updated: 2026-11-06 (shared spool checkpoint; other supplies retain their dated evidence)
 
-This is the current source of truth for owner-reported printing equipment,
-filament, and physical packing supplies, with verified account-access checks
+This records owner-reported printing equipment and physical packing supplies.
+Current shared filament balances live in the home ledger linked below;
+verified account-access checks are
 identified separately. Supplier research, historical prices,
 and experiment evidence remain in
 [the fulfillment research](../research/FIGURINE_FULFILLMENT_SUPPLY_CHAIN.md).
 
-## Current Summary
+### Shared spool checkpoint - 2026-11-06
+
+Owner requested approximate grams left for every spool after a chat-history
+audit. The canonical [home inventory](../../Home3DPrinting/INVENTORY.md),
+[shared ledger](../../Home3DPrinting/SPOOL_LEDGER.json) and
+[audit](../../Home3DPrinting/SPOOL_AUDIT_2026-11-06.md) now cover **19 physical
+spools: 18 PLA and one TPU**. Use those balances for business jobs too; update
+each unique attempt there once, rather than subtracting independently here.
+All balances are estimates, not weighed. FIL-018 white is ~90 g; FIL-019 white
+is ~866 g after R06. FIL-014 white is ~230 g including prior-test allowance;
+FIL-015 black retains the later owner ~15 g baseline. See the ledger for all
+other spools and assumptions, especially FIL-001's unrecorded intervening use.
+Current loading: port 2 empty; ELEGOO FIL-018 in port 3/T2 and FIL-019 in
+port 4/T3 per owner; port 1 last recorded FIL-014. Official Snapmaker Orca UI
+only for printer operations until owner explicitly enables the MCP. Recheck
+physical spool identity/feed each job. No physical consumption occurs on a
+loading/storage change or a slice/upload alone.
+
+### Historical checkpoint - 2026-10-28
+
+The same physical spools are also used for home prints. The more recent
+[home inventory](../../Home3DPrinting/INVENTORY.md) and
+[attempt history](../../Home3DPrinting/PRINT_HISTORY.md) record home usage;
+retain the same FIL-* IDs and reconcile each attempt only once across projects.
+The owner confirms none of the original four loaded spools has been changed:
+tool 1/T0 white FIL-014, tool 2/T1 black FIL-015, tool 3/T2 red FIL-012,
+tool 4/T3 yellow FIL-013. Black remains LOW; its earlier approximately 3% / 15 g
+balance is a visual estimate, not a current scale measurement. Home drybox R01
+has already been reconciled once against white FIL-014, leaving approximately
+240 g at most before prior small tests and additional startup/purge use. Red and
+yellow were nearly full per the owner's October 25 report; exact balances remain
+unknown. Chibi experiment preparation alone records no filament consumption.
+
+## Historical Summary (2026-10-28; filament superseded above)
 
 - **Equipment:** one Snapmaker U1, `3DPrintYou-U1`, with four factory 0.4 mm
   nozzles. Local Moonraker access, slicing, upload, and print start were verified
@@ -16,13 +50,16 @@ and experiment evidence remain in
   printing in black PLA on physical toolhead 2 and later confirmed complete at
   116/116 layers. The owner removed it; plate 2 (FR) start is accepted. Physical
   fit/finish remains unreviewed. See [U1 operations](SNAPMAKER_U1_OPERATIONS.md).
-- **Filament on hand:** 15 spools across 11 reported color names. Red, Yellow,
+- **Filament on hand:** 16 PLA spools across 12 reported color names, including
+  skin-tone FIL-016 confirmed on hand by the owner on 2026-10-28, plus
+  received black TPU FIL-017. Red, Yellow,
   White, and Black each have an ANYCUBIC spool and an included printer spool;
   these are separate stock items and not necessarily matching shades.
-- **Filament ordered:** one Overture Matte Skin PLA 1kg spool, ordered
-  2026-10-23 and expected **2026-10-24**; one OVERTURE TPU 95A Black 1.75mm,
-  1kg spool, ordered from Amazon for the spool case and expected **2026-10-25**.
-  Neither delivery is confirmed.
+- **Recent filament receipts:** skin-tone PLA FIL-016 is on hand, confirmed by
+  the owner on 2026-10-28 against the existing Overture Matte Skin order;
+  label, condition and remaining weight have not been rechecked. OVERTURE TPU
+  95A Black 1.75mm FIL-017 was received per the owner's October 25 report in the
+  home inventory. Neither has replaced a loaded PLA spool.
 - **Nominal material:** eleven reported 1kg spools on hand, plus four included
   Snapmaker PLA SnapSpeed spools reporting 500g nominal weight each by RFID.
   Remaining usable filament has not been weighed.
@@ -31,7 +68,7 @@ and experiment evidence remain in
 - **Packaging:** branded gift box, logo seal, tissue, personalized card,
   protective insert, and outer carton are planned; stock on hand is unconfirmed.
 
-## Filament Register
+## Filament Register (identity/purchase reference; balances in shared ledger)
 
 One row represents one physical spool. IDs stay with the spool as it is opened,
 loaded, or used up. Color names are label/reported names, not calibrated matches
@@ -52,13 +89,15 @@ to a photograph, model palette, or another brand's similarly named color.
 | FIL-011 | Bambu Lab, color 10204, with spool | Hot Pink | PLA | 1 | 1kg | On hand |
 | FIL-012 | Snapmaker SnapSpeed; RFID manufacturer Polymaker | Red #E72F1D | PLA, 1.75mm | 1 | 500g per RFID | On hand; RFID at physical toolhead 3 / T2 |
 | FIL-013 | Snapmaker SnapSpeed; RFID manufacturer Polymaker | Yellow #F4C032 | PLA, 1.75mm | 1 | 500g per RFID | On hand; RFID at physical toolhead 4 / T3 |
-| FIL-014 | Snapmaker SnapSpeed; RFID manufacturer Polymaker | White #E2DEDB | PLA, 1.75mm | 1 | 500g per RFID | On hand; physical toolhead 1 / T0; feed reported loaded |
-| FIL-015 | Snapmaker SnapSpeed; RFID manufacturer Polymaker | Black #080A0D | PLA, 1.75mm | 1 | 500g per RFID | On hand; physical toolhead 2 / T1; feed and active printing verified 2026-10-24 |
-| FIL-016 | Overture Matte, with spool | Matte Skin | PLA, 1.75mm | 1 | 1kg | Ordered 2026-10-23; expected 2026-10-24 |
-| FIL-017 | OVERTURE TPU 95A Flexible | Black | TPU 95A, 1.75mm | 1 | 1kg | Ordered from Amazon; owner confirmed 2026-10-24; expected 2026-10-25; for spool case |
+| FIL-014 | Snapmaker SnapSpeed; RFID manufacturer Polymaker | White #E2DEDB | PLA, 1.75mm | 1 | 500g per RFID | Original spool remains on toolhead 1 / T0, owner confirmed 2026-10-28; roughly 240g at most by home-use estimate, not weighed |
+| FIL-015 | Snapmaker SnapSpeed; RFID manufacturer Polymaker | Black #080A0D | PLA, 1.75mm | 1 | 500g per RFID | LOW; original spool remains on toolhead 2 / T1, owner confirmed 2026-10-28; earlier approximately 3% / 15g visual estimate, not weighed |
+| FIL-016 | Overture Matte, with spool | Matte Skin | PLA, 1.75mm | 1 | 1kg | Received; owner confirmed having skin-tone spool 2026-10-28; not loaded; label/condition not rechecked |
+| FIL-017 | OVERTURE TPU 95A Flexible | Black | TPU 95A, 1.75mm | 1 | 1kg | Received, owner confirmed 2026-10-25 in home inventory; not loaded; for spool case |
+| FIL-018 | ELEGOO, cardboard spool | White | PLA, 1.75mm | 1 | 1kg | Received/loaded Nov 4 port 3/T2; ~90g estimated after home R02-R05; canonical shared ledger |
+| FIL-019 | ELEGOO, cardboard spool | White | PLA, 1.75mm | 1 | 1kg | Received/loaded Nov 4 port 4/T3; ~866g estimated after home R06; canonical shared ledger |
 
 Toolhead assignments above are a 2026-10-24 snapshot; recheck them before a job.
-RFID presence alone does not establish that filament is fed. TPU is an incoming
+RFID presence alone does not establish that filament is fed. TPU is a received
 material for the separate spool-case project; it is not loaded or validated with
 a U1 TPU profile, and the active SAMLA top-cover print uses black PLA.
 For all spools, storage location, remaining net grams, and batch/lot are not yet
@@ -134,6 +173,13 @@ Supplier quotes and proposed purchases do not count as stock received.
 
 ## Keeping This Current
 
+Owner instruction Nov 6: every physical spool needs an approximate numeric
+grams-left balance, basis, confidence and date in the canonical shared home
+ledger. Assumed nominal new-spool baselines must stay labeled assumptions.
+Reconcile completed/failed/canceled attempts once, release reservations and
+report approximate remaining grams; never subtract covered historical events
+again after a new measured/owner remaining baseline.
+
 - When the owner reports an order, add it as **ordered**, with quantity and
   expected arrival. Mark **on hand** only after receipt is confirmed.
 - Record material, finish, exact color code/name, diameter, nominal weight,
@@ -161,3 +207,5 @@ Supplier quotes and proposed purchases do not count as stock received.
 | 2026-10-24 | Local Moonraker/RFID checks, slicer export, and authorized print start | Recorded four 0.4 mm nozzles, SnapSpeed PLA RFID assignments, and open SAMLA FL plate printing on black T1. First completed print and physical quality pending. |
 | 2026-10-24 | Owner's Amazon order report | Added FIL-017: one OVERTURE TPU 95A Flexible Black 1.75mm, 1kg spool for the spool case, expected 2026-10-25. Spool-case parts were also ordered; itemized components and receipt remain unconfirmed. |
 | 2026-10-24 | Printer completion status and owner clear-bed confirmation | FL plate completed 116/116 layers; owner removed it. FR plate uploaded, mapped to black T1, and start accepted; completion pending. |
+| 2026-10-28 | Owner no-spool-change confirmation and shared home inventory | Original white/black/red/yellow spools remain on tools 1/2/3/4. Black FIL-015 remains LOW. Linked home usage under the same spool IDs; noted received TPU and the existing white estimate. Chibi slice preparation consumes no stock and creates no second deduction. |
+| 2026-10-28 | Owner skin-tone spool confirmation | Marked existing ordered FIL-016 as received/on hand in both shared inventories; no spool change or material consumption reported. |
