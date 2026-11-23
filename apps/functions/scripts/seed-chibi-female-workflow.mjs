@@ -23,7 +23,7 @@ const storagePath =
   "admin/workflow-style-references/chibi_female/chibi-heroic-fantasy-female-v3.png";
 const bucketName =
   process.env.APP_STORAGE_BUCKET ??
-  "gen-lang-client-0675309660.firebasestorage.app";
+  "app-3dprintyou.firebasestorage.app";
 
 const templateFaceSwapFemaleCollectiblePrompt = [
   "Template face swap for one Chibi heroic fantasy female concept. The first image is the approved V3 style template character. The second image is the customer photo.",
@@ -105,7 +105,7 @@ async function main() {
   }
 
   initializeApp({
-    projectId: process.env.GCLOUD_PROJECT ?? "gen-lang-client-0675309660",
+    projectId: process.env.GCLOUD_PROJECT ?? "app-3dprintyou",
     storageBucket: bucketName,
   });
 

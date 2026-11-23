@@ -48,9 +48,9 @@ const interactionsBaseUrl =
 const vertexExpressBaseUrl = (
   process.env.VERTEX_EXPRESS_BASE_URL ?? "https://aiplatform.googleapis.com/v1"
 ).replace(/\/$/, "");
-const projectId = process.env.GCLOUD_PROJECT ?? "gen-lang-client-0675309660";
+const projectId = process.env.GCLOUD_PROJECT ?? "app-3dprintyou";
 const bucketName =
-  process.env.APP_STORAGE_BUCKET ?? "gen-lang-client-0675309660.firebasestorage.app";
+  process.env.APP_STORAGE_BUCKET ?? "app-3dprintyou.firebasestorage.app";
 const minSecondsBetweenRequests = 10;
 const referenceByteLimit = 5 * 1024 * 1024;
 

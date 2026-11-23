@@ -93,7 +93,7 @@ async function main() {
   const dryRun = hasFlag("--dry-run");
 
   initializeApp({
-    projectId: process.env.GCLOUD_PROJECT ?? "gen-lang-client-0675309660",
+    projectId: process.env.GCLOUD_PROJECT ?? "app-3dprintyou",
   });
 
   const db = getFirestore();

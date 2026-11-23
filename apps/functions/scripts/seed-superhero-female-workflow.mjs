@@ -8,7 +8,7 @@ const defaultSourcePath = "C:\\Users\\Eliud\\Desktop\\Styles\\Super Hero Female.
 const storagePath =
   "admin/workflow-style-references/super_hero_figure_female/superhero-female-template.png";
 const bucketName =
-  process.env.APP_STORAGE_BUCKET ?? "gen-lang-client-0675309660.firebasestorage.app";
+  process.env.APP_STORAGE_BUCKET ?? "app-3dprintyou.firebasestorage.app";
 
 const defaultTemplateFaceSwapPrompt = [
   "Face swap task. The first image is the approved style template character. The second image is the customer photo.",
@@ -98,7 +98,7 @@ async function main() {
   }
 
   initializeApp({
-    projectId: process.env.GCLOUD_PROJECT ?? "gen-lang-client-0675309660",
+    projectId: process.env.GCLOUD_PROJECT ?? "app-3dprintyou",
     storageBucket: bucketName,
   });
 

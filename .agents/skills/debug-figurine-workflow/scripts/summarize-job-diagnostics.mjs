@@ -366,7 +366,7 @@ async function main() {
     readArg("--project") ??
     process.env.GCLOUD_PROJECT ??
     process.env.GOOGLE_CLOUD_PROJECT ??
-    "gen-lang-client-0675309660";
+    "app-3dprintyou";
 
   const input = await readLiveFirestore(jobId, projectId);
   console.log(JSON.stringify(summarizeJob(input), null, 2));

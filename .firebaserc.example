@@ -1,8 +1,8 @@
 {
   "projects": {
-    "default": "gen-lang-client-0675309660",
-    "dev": "gen-lang-client-0675309660",
+    "default": "app-3dprintyou",
+    "dev": "app-3dprintyou",
     "staging": "replace-with-dedicated-staging-project-id",
-    "production": "replace-with-dedicated-production-project-id"
+    "production": "app-3dprintyou"
   }
 }

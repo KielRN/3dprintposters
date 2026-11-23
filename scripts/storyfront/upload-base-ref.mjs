@@ -21,9 +21,9 @@ const localPath = path.join(
   "base-view-az000.png",
 );
 const storagePath = "admin/scene-plates/base-square.png";
-const projectId = process.env.GCLOUD_PROJECT ?? "gen-lang-client-0675309660";
+const projectId = process.env.GCLOUD_PROJECT ?? "app-3dprintyou";
 const bucketName =
-  process.env.APP_STORAGE_BUCKET ?? "gen-lang-client-0675309660.firebasestorage.app";
+  process.env.APP_STORAGE_BUCKET ?? "app-3dprintyou.firebasestorage.app";
 
 initializeApp({ projectId, storageBucket: bucketName });
 

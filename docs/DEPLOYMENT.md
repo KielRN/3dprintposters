@@ -28,17 +28,16 @@ firebase use dev
 
 Project strategy:
 
-- `dev` and `default`: `gen-lang-client-0675309660` for local development, current MVP testing, and the temporary noindexed Railway product-app candidate.
-- `staging`: optional until a persistent pre-production data/identity boundary is needed; do not create it only to duplicate the current dev-backed candidate.
-- `production`: create a separate dedicated Firebase/GCP project before branded public traffic or live fulfillment.
+- `default`, `production`, and `dev`: dedicated Firebase/GCP project `app-3dprintyou` ("3DPrintYou", created and migrated 2026-11-23 off the legacy shared `gen-lang-client-0675309660` project).
+- `staging`: optional until a persistent pre-production data/identity boundary is needed; do not create it only to duplicate the current candidate.
 
-Dev project Firebase Storage:
+Dedicated project Firebase Storage:
 
-- Default bucket: `gen-lang-client-0675309660.firebasestorage.app`
+- Default bucket: `app-3dprintyou.firebasestorage.app`
 - Location: `US-CENTRAL1`
 - Storage class: `STANDARD`
 
-The Railway service name and its `production` environment label do not make the shared Firebase project production. Do not promote or send public traffic to the candidate as a production app while it still uses `gen-lang-client-0675309660`.
+Legacy shared project `gen-lang-client-0675309660` remains untouched for SupplyCloset and Texas AI Consulting landing page admin sign-in. Never deploy `app-3dprintyou`'s 3DPrintYou-only `infra/firebase/firestore.rules` to `gen-lang-client-0675309660`.
 
 Recommended before branded public traffic:
 

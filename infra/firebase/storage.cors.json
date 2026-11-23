@@ -3,6 +3,9 @@
     "origin": [
       "http://localhost:3000",
       "http://127.0.0.1:3000",
+      "https://3dprintyou.com",
+      "https://www.3dprintyou.com",
+      "https://app.3dprintyou.com",
       "https://3dprintposters.com",
       "https://www.3dprintposters.com",
       "https://3dprintposters-production.up.railway.app"

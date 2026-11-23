@@ -20,7 +20,7 @@
     "firebase:deploy:firestore-rules:dev": "firebase deploy --only firestore:rules --project dev",
     "firebase:deploy:storage-rules:dry-run": "firebase deploy --only storage --project dev --dry-run",
     "firebase:deploy:storage-rules:dev": "firebase deploy --only storage --project dev",
-    "firebase:deploy:storage-cors:dev": "gcloud storage buckets update gs://gen-lang-client-0675309660.firebasestorage.app --cors-file=infra/firebase/storage.cors.json",
+    "firebase:deploy:storage-cors:dev": "gcloud storage buckets update gs://app-3dprintyou.firebasestorage.app --cors-file=infra/firebase/storage.cors.json",
     "firebase:deploy:rules:dev": "firebase deploy --only firestore:rules,storage --project dev",
     "firebase:deploy:rules:dry-run": "firebase deploy --only firestore:rules,storage --project dev --dry-run",
     "meshy:analyze-printability": "node scripts/meshy/analyze-printability-task.mjs",

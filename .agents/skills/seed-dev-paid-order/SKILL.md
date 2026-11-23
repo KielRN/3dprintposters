@@ -36,7 +36,7 @@ It also copies job print fields into the order snapshot where available, matchin
 
 ## Guardrails
 
-- If `FIRESTORE_EMULATOR_HOST` is set, the script targets the emulator. Otherwise it targets the configured dev Firebase project, defaulting to `gen-lang-client-0675309660`.
+- If `FIRESTORE_EMULATOR_HOST` is set, the script targets the emulator. Otherwise it targets the configured dev Firebase project, defaulting to `app-3dprintyou`.
 - The script fails if `jobs/{jobId}` does not exist.
 - The script refuses to move an existing advanced fulfillment stage such as `accepted`, `in_production`, or `shipped` back to `paid` unless `--reset-stage` is passed.
 - Do not paste or print credential contents. Rely on local ADC/service-account configuration already available to Firebase Admin.
