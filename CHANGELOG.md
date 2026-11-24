@@ -2,6 +2,12 @@
 
 All notable project changes will be documented in this file.
 
+## [Unreleased] - 2026-11-24
+
+### Documentation
+
+- Recorded the owner-approved working U1 palette for four-color Chibi tests in the studio inventory: black, white, Overture Matte Skin, and one costume color swapped per style. It is based on Meshy's cartoon four-color conversion. The skin shade, the four-color slice, and the physical print are not yet validated, and the spools currently loaded are unchanged.
+
 ## [Unreleased] - 2026-11-23
 
 ### Added

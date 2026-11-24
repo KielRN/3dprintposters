@@ -1,6 +1,6 @@
 # Print Studio Inventory
 
-Last updated: 2026-11-06 (shared spool checkpoint; other supplies retain their dated evidence)
+Last updated: 2026-11-24 (working four-color Chibi palette; spool balances from the 2026-11-06 checkpoint; other supplies retain their dated evidence)
 
 This records owner-reported printing equipment and physical packing supplies.
 Current shared filament balances live in the home ledger linked below;
@@ -26,6 +26,32 @@ port 4/T3 per owner; port 1 last recorded FIL-014. Official Snapmaker Orca UI
 only for printer operations until owner explicitly enables the MCP. Recheck
 physical spool identity/feed each job. No physical consumption occurs on a
 loading/storage change or a slice/upload alone.
+
+### Working four-color Chibi palette - 2026-11-24
+
+Owner-approved working U1 load for four-color Chibi figurine tests. This is a
+test palette, not a validated production palette.
+
+| Slot role | Filament | Covers |
+| --- | --- | --- |
+| Black | Black PLA (FIL-015 is LOW; FIL-001 ANYCUBIC Black is the backup) | Hair, outlines, pupils |
+| White | White PLA (FIL-014, FIL-018 or FIL-019) | Eyes, highlights, light trim |
+| Skin | Overture Matte Skin FIL-016 (`#F0DDC2` maker swatch) | Face, hands, exposed skin |
+| Costume | Swapped per style or design (e.g. FIL-006 Blue for the tested heroine) | Main outfit color |
+
+Basis: Meshy's cartoon four-color conversion of the Chibi heroine in
+`exp-022-u1-four-color-chibi` chose near-black, light off-white, deep blue, and
+tan. The orange substitute failed as skin. See
+[the fulfillment research](../research/FIGURINE_FULFILLMENT_SUPPLY_CHAIN.md).
+Meshy chooses its own palette, so map its output slots to these spools by hand
+in the slicer. Toolhead order is not fixed: record the actual tool-to-spool
+mapping per job.
+
+Still unvalidated: Matte Skin's printed shade and its sheen next to standard
+PLA, any U1 four-color slice or print, and whether a fifth tone (brown or gold)
+is needed for some designs. Next step: run a small face/hand sample with this
+load before buying more skin shades. Recording this palette does not change
+what is currently loaded.
 
 ### Historical checkpoint - 2026-10-28
 
