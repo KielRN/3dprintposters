@@ -6,6 +6,8 @@ All notable project changes will be documented in this file.
 
 ### Documentation
 
+- Added a four-color figurine slicing section to the U1 operations guide, from the first physical four-color Chibi test (`BIZ-CHIBI-4C-T01-A01`, started 2026-11-24). It covers U1-profile import of the Meshy 3MF, support settings (15° threshold, build-plate only, default support filament), prime volume 15 mm³, a variant comparison (73.2 g / 8h defaults to 55.7 g / 6h 55m), and the upload and toolhead-mapping steps. It also points to the current owner rule (official Snapmaker Orca GUI only). Recorded the test start in the fulfillment research and project state. Print outcome and quality are pending.
+
 - Recorded the owner-approved working U1 palette for four-color Chibi tests in the studio inventory: black, white, Overture Matte Skin, and one costume color swapped per style. It is based on Meshy's cartoon four-color conversion. The skin shade, the four-color slice, and the physical print are not yet validated, and the spools currently loaded are unchanged.
 
 ## [Unreleased] - 2026-11-23

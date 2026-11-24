@@ -1,6 +1,6 @@
 # Snapmaker U1 Connection And Printing
 
-Last verified: 2026-10-25
+Last verified: 2026-11-24 (four-color figurine slice and start; earlier sections 2026-10-25)
 
 This is the operator guide for the studio printer **3DPrintYou-U1**. Local
 Moonraker access, slicing, upload, and print start have been exercised. This is
@@ -109,6 +109,88 @@ does not prove which physical nozzle will print it.
 Do not change printer firmware/configuration as part of slicing or starting a
 job. Never expose credentials. Read-only status checks are appropriate while
 printing; leave control actions to the authorized job scope.
+
+**Current owner rule (since 2026-10-28):** prepare, upload, check and start jobs
+through the official Snapmaker Orca GUI only, not direct Moonraker calls or the
+Snapmaker MCP, until the owner says otherwise. The canonical one-plate checklist
+is `E:\PROJECTS\Home3DPrinting\PRINTER.md`, and spool balances live in that
+project's shared `SPOOL_LEDGER.json`. The API steps above are historical reference.
+
+## Four-Color Figurine Slicing
+
+First used 2026-11-24 for attempt `BIZ-CHIBI-4C-T01-A01`: the 75 mm Meshy cartoon
+four-color Chibi heroine from `exp-022-u1-four-color-chibi`. These are the starting
+settings for four-color figurine tests. They are not validated until the physical
+result is reviewed (see Outcome below).
+
+### Import
+
+1. Work on a copy of the Meshy multicolor 3MF; keep the downloaded original untouched.
+2. In Snapmaker Orca, select the **Snapmaker U1 (0.4 nozzle)** printer preset first,
+   then use **Import** (Ctrl+I) on the 3MF. The triangle painting comes through on
+   the four filament slots. Meshy's embedded machine settings are not adopted: the
+   exported G-code reports `single_extruder_multi_material = 0` and four 0.4 mm nozzles.
+3. Decline the "more than 1M triangles, simplify?" prompt. Simplifying could move the
+   color boundaries; that is untested.
+
+### Settings
+
+| Area | Setting | Value | Why |
+| --- | --- | --- | --- |
+| Process | Preset | 0.12mm Standard @Snapmaker U1 | Face/eye color detail; 624 layers at 75 mm |
+| Support | Type / style | Tree (auto), default style | Default tree supports |
+| Support | Threshold angle | **15°** (default 25°) | Supports only near-flat overhangs (hair underside, arms, hands, skirt hem) |
+| Support | On build plate only | On | Supports never land on the painted figure |
+| Support | Critical regions only | Off | Saves just 0.7 g; risks chin/hair sag |
+| Support | Base / interface filament | **Default** | Uses whichever filament is active, so supports add no tool changes. Forcing one color adds changes. |
+| Multimaterial | Prime tower | On, Rib wall, width 30 | Snapmaker default; keeps a tall, thin tower stable |
+| Multimaterial | Prime volume | **15 mm³** (default 27) | Biggest single saving; see results |
+| Multimaterial | No sparse layers (beta) | Off | Saves only 2.4 g, adds time, splits the job into 1,114 layers |
+| Multimaterial | Walls / infill / solid infill filament | 1 (black) | Interior prints in the most plentiful color |
+
+Snapmaker Orca numeric fields append text on triple-click. Use click, Ctrl+A,
+type, Tab, then read the value back. One attempt turned 25 into "2515", which
+clamped to 90°.
+
+### Results On The 75 mm Chibi
+
+| Variant | Supports | Prime tower | Total | Time |
+| --- | ---: | ---: | ---: | ---: |
+| Snapmaker defaults (0.12 mm) | 8.0 g | 49.7 g | 73.2 g | 8h 00m |
+| + 15° support threshold | 6.3 g | 49.7 g | 71.6 g | 7h 46m |
+| **+ prime volume 15 (printed)** | **6.3 g** | **33.8 g** | **55.7 g** | **6h 55m** |
+| + critical regions only (rejected) | 5.7 g | 33.8 g | 55.0 g | 6h 48m |
+| + no sparse layers (rejected) | 6.3 g | 31.4 g | 53.3 g | 7h 02m |
+
+Support placement was effectively unchanged by "on build plate only", so the
+trees already rose from the plate. The model itself is 15.55 g. With 887 color
+changes, the prime tower is still about 61% of the material. Untested, quality-trading
+ways to cut it further: 0.16 mm layers (roughly 25% fewer changes, softer
+face detail); prime volume 10; or a small no-tower test print.
+
+### Save, Upload, Map, Start
+
+1. Use **File > Save Project as** with a new name. In testing, Ctrl+Alt+S silently
+   saved over the open 3MF.
+2. Export the G-code and check the per-tool `filament used [g]` array,
+   `prime_volume`, the support settings and the temperatures in the header.
+3. **Print > Upload** (not "Upload and Print") > select `3DPrintYou-U1` LAN > Send.
+4. **Device** tab > folder icon > Local Files > the file > **File information**.
+   It auto-maps slicer filaments to toolheads by display color. For this load it
+   correctly chose slicer 1 black > toolhead 2, 2 white > 1, 3 blue > 3,
+   4 skin > 4. Always verify this against the physical load. A display color is
+   not proof of material identity.
+5. Turn on Extrusion Flow Calibration and Auto Leveling; leave time-lapse off.
+   Click Send once, then verify the exact filename shows `working` at 0/N layers.
+
+### Outcome
+
+Started 2026-11-24 about 14:11 CST: 624 layers, 6h 54m estimate, 55.69 g
+(black 14.29, white 17.89, blue 3.19, skin 20.32). Not yet verified: first layer,
+tool-change ooze at prime volume 15, completion, color registration, face
+quality, support removal, and the Matte Skin shade. Record the result here and in
+the [fulfillment research](../research/FIGURINE_FULFILLMENT_SUPPLY_CHAIN.md).
+The start receipt is `receipts/BIZ-CHIBI-4C-T01/start-receipt.json` in Home3DPrinting.
 
 ## Verified First Job: Open SAMLA Top-Cover Base
 

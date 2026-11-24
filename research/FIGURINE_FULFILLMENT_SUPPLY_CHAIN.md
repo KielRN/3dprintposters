@@ -287,6 +287,27 @@ Important preflight findings:
 
 Next physical test after installation: commission/calibrate the U1 with a small four-color test; load the Chibi into a verified U1 profile; repair/validate the model and review supports; map the palette to actual spools; then slice and record print hours, grams by color, prime-tower/waste grams, cleanup minutes, defects, and finish acceptance. Use an existing-stock palette only for functional testing. For appearance testing, choose skin-tone filament appropriate to the subject; brown and gold may also be needed depending on the design. Compare four-color simplification with separately printed color parts before promising zero painting. No purchase or production-method decision was made in this session.
 
+#### 2026-11-24 - First Physical U1 Four-Color Test Started
+
+The owner loaded the working palette: ELEGOO white FIL-018 on toolhead 1,
+ANYCUBIC black FIL-001 on 2, ANYCUBIC blue FIL-006 on 3 and Overture Matte Skin
+FIL-016 on 4. The exp-022 Meshy cartoon 3MF was imported into Snapmaker Orca on
+the U1 profile. The painting carried over, and the conflicting Meshy machine
+settings did not, which resolves the slicer-import question noted above for this
+file. It printed at its native 75 mm, not watertight-repaired, with 0.12 mm
+layers and 887 color changes. Supports were tuned to a 15° threshold and the
+prime tower to a 15 mm³ prime volume, giving 55.69 g in total (model 15.55 g,
+supports 6.33 g, tower 33.82 g) and a 6h 54m estimate, down from 73.22 g / 8h
+with the defaults. The tower is still about 61% of the material: that is the
+main waste cost of four-color figurines on the U1, and it scales with the number
+of color changes.
+
+The owner authorized the start, and the printer accepted it as attempt
+`BIZ-CHIBI-4C-T01-A01`. Print outcome, color registration, face quality, support
+cleanup minutes, the Matte Skin shade and real grams used are pending. Slice
+settings, variant comparison and the upload/mapping steps are in
+[U1 operations](../docs/SNAPMAKER_U1_OPERATIONS.md#four-color-figurine-slicing).
+
 #### 2026-10-21 - Broader Search For Recent Segmentation Models
 
 The owner recalled a recently released multicolor segmentation model and requested research beyond the Meshy conversion tested above. The exact remembered model is unidentified. The strongest recent research-model match found is **SAM3D-Part**, whose paper was submitted on September 14, 2026. This is a candidate identification, not confirmation of what the owner saw.
