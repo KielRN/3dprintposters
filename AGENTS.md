@@ -80,6 +80,13 @@ npm run graphify:update:global  # also merge this repo into the user-level globa
 - Use the repo-scoped `$add-figurine-workflow-style` skill when adding, mirroring, seeding, or exposing a public/admin figurine style.
 - These skills live under `.agents/skills/` and include small helper scripts for prompt-surface checks, workflow-style parity checks, and curated job diagnostics. They do not replace the normal build/typecheck/test verification gates.
 
+## Meshy MCP
+
+- User-global Meshy MCP is configured across Antigravity (Meshy Marketplace plugin via `mcp.meshy.ai`), Claude (`~/.claude.json` and Claude Desktop), and Codex (`~/.codex/config.toml` via `@meshy-ai/meshy-mcp-server`). Keep `MESHY_API_KEY` in user-global or ignored local config only; never create tracked `.mcp.json` or `.codex/config.toml` files with credentials.
+- Read-only and diagnostic MCP calls are safe to run freely: credit/usage checks (`get_balance` / `meshy_check_balance`, `meshy_list_usage`), task/model inspection (`get_task` / `meshy_get_task_status`, `list_tasks` / `meshy_list_tasks`, `meshy_list_models`, `download_model` / `meshy_download_model`), and free FDM printability checks (`meshy_analyze_printability`). Prefer these alongside `$debug-figurine-workflow` when checking stuck provider task IDs or expiring Meshy assets.
+- Require explicit user confirmation and state expected credit cost before calling any paid or mutating Meshy MCP tool (`meshy_creative_lab`, `image_to_3d` / `meshy_image_to_3d`, `meshy_multi_image_to_3d`, `text_to_3d_*`, `text_to_image` / `image_to_image`, `texture_model` / `meshy_retexture`, `meshy_remesh`, `meshy_repair_printability`, `meshy_process_multicolor`).
+- Do not replace repo pipelines with ad-hoc MCP calls: production generation stays behind the server-side adapter in `apps/functions`, repeatable figurine benchmarks stay in `npm run meshy:experiment` (`scripts/meshy/run-standard-figurine-experiment.mjs`), and generated figurines remain body-only with deterministic base/text assembly in `services/print-file-generator`.
+
 ## Project Shape
 
 - Web app: `apps/web`, Next.js PWA.
