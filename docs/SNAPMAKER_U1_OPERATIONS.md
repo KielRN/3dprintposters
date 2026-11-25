@@ -119,9 +119,10 @@ project's shared `SPOOL_LEDGER.json`. The API steps above are historical referen
 ## Four-Color Figurine Slicing
 
 First used 2026-11-24 for attempt `BIZ-CHIBI-4C-T01-A01`: the 75 mm Meshy cartoon
-four-color Chibi heroine from `exp-022-u1-four-color-chibi`. These are the starting
-settings for four-color figurine tests. They are not validated until the physical
-result is reviewed (see Outcome below).
+four-color Chibi heroine from `exp-022-u1-four-color-chibi`. These are the
+settings that first test printed with. The print completed, but the sword broke
+while the supports were being removed. Use them together with the
+[support changes for the next test](#support-changes-for-the-next-test).
 
 ### Import
 
@@ -138,7 +139,7 @@ result is reviewed (see Outcome below).
 | Area | Setting | Value | Why |
 | --- | --- | --- | --- |
 | Process | Preset | 0.12mm Standard @Snapmaker U1 | Face/eye color detail; 624 layers at 75 mm |
-| Support | Type / style | Tree (auto), default style | Default tree supports |
+| Support | Type / style | Tree (auto), default style | Orca's default tree style is Organic |
 | Support | Threshold angle | **15°** (default 25°) | Supports only near-flat overhangs (hair underside, arms, hands, skirt hem) |
 | Support | On build plate only | On | Supports never land on the painted figure |
 | Support | Critical regions only | Off | Saves just 0.7 g; risks chin/hair sag |
@@ -185,12 +186,172 @@ face detail); prime volume 10; or a small no-tower test print.
 
 ### Outcome
 
-Started 2026-11-24 about 14:11 CST: 624 layers, 6h 54m estimate, 55.69 g
-(black 14.29, white 17.89, blue 3.19, skin 20.32). Not yet verified: first layer,
-tool-change ooze at prime volume 15, completion, color registration, face
-quality, support removal, and the Matte Skin shade. Record the result here and in
-the [fulfillment research](../research/FIGURINE_FULFILLMENT_SUPPLY_CHAIN.md).
-The start receipt is `receipts/BIZ-CHIBI-4C-T01/start-receipt.json` in Home3DPrinting.
+Started 2026-11-24 about 14:11 CST. The owner reported it complete on 2026-11-25.
+Filament use was recorded once at the exported estimate of 55.69 g (black 14.29,
+white 17.89, blue 3.19, skin 20.32). Receipts are under `receipts/BIZ-CHIBI-4C-T01/`
+in Home3DPrinting.
+
+- **Colors:** the owner likes the multicolor result. It is good enough for a test.
+- **Size:** 75 mm is too small. Run the next test at 100 mm.
+- **Sword:** it broke at the right arm while the supports were being removed. The
+  owner will glue it. At 75 mm, the sword's thinnest point is the grip between the
+  fist and the crossguard, about 1.6 × 1.5 mm. In the G-code, the organic trees
+  holding up the hair over that shoulder run up beside the blade, about 0.4 mm
+  away, for roughly 13 mm. Other support tips touch the fist, pommel and
+  crossguard. Pulling those supports off bends the sword at its thinnest point.
+- **Blue cape:** it did not show on the print, but the slice is not the cause. The
+  cape is blue paint on a shoulder mantle, partly under the hair, not a thin
+  separate sheet. Blue was printed within about 0.2 mm of 99% of that painted
+  surface. The cause on the printer is still open. If the sword grip and the gems
+  also missed their blue, suspect toolhead 3 feeding or under-extrusion. If they
+  are blue, the cape was hidden by hair or came off with the supports.
+- Still not recorded: support-removal minutes, face and eye registration, the
+  Matte Skin shade, and any tool-change ooze at prime volume 15.
+
+### Support Changes For The Next Test
+
+A four-color figurine uses all four toolheads, so there is no free head for a
+breakaway support material. For four-color prints, tune the PLA supports instead.
+These changes are untested:
+
+| Setting | Test 1 (75 mm) | Next test | Why |
+| --- | --- | --- | --- |
+| Scale | 75 mm | **100 mm** | The sword grip grows to about 2.1 × 2.0 mm: roughly 1.8× the area and 2.4× the bending strength |
+| Support/object XY distance | 0.35 mm | **0.8 mm** | Keeps the hair-support trunks off the blade |
+| Top Z distance | 0.12 mm (1 layer) | **0.24 mm (2 layers)** | Looser tip contact. Guides suggest 0.2–0.3 mm for PLA when easy removal matters more than smooth undersides |
+| Branch density | 30% | 30% (do not raise) | Orca warns that higher density is harder to remove and recommends interface layers instead |
+| Top interface layers / spacing | 2 / 0.5 mm | unchanged | Change one group of settings at a time |
+
+Everything else stays as in [Settings](#settings).
+
+To remove the supports, cut the trunks beside the sword at their base with flush
+cutters before lifting anything. Then hold the sword itself, not the branch, while
+freeing the tips under the fist, pommel and crossguard. Never twist a branch that
+touches the sword.
+
+**Breakaway interface, when a toolhead is free.** This is the option to use for
+three-color figures, or for a test that gives up one color. Snapmaker's U1 guide
+([Using a Different Filament for Support](https://wiki.snapmaker.com/en/snapmaker_u1/printing_guides/pla_and_petg))
+pairs a PLA model with a PLA support base and a PETG support interface:
+
+- Top Z distance 0, with three top interface layers in the Rectilinear Interlaced pattern.
+- Top and bottom interface spacing 0, with a Rectilinear grid base.
+- PLA at 230 °C. PETG at 265 °C, 65 °C bed, and a maximum volumetric speed of 10 mm³/s.
+- Set the prime tower's wall filament to the model's material.
+- Dry the PETG first.
+
+Orca prints the interface layer that touches the support base in the base filament,
+so three interface layers come out as two PETG plus one PLA. Snapmaker also lists
+PLA with TPU as a pairing. FIL-017 black TPU is on hand, but that pairing is
+untested here. There is no PETG in stock.
+
+**Separate weapons.** Printing a thin, raised accessory such as the sword on its
+own and gluing it on would remove its support risk entirely. It needs a mesh cut
+for each order, which could later be automated in the print-file generator. This
+is untested.
+
+### Test 2: 100 mm Chibi Male (`BIZ-CHIBI-4C-T02-A01`)
+
+Started 2026-11-25 about 10:57 CST. This was the first run with the
+[next-test support changes](#support-changes-for-the-next-test), plus four new
+steps, each described below:
+
+1. a shadow-removal pass before Meshy
+2. remapping Meshy's color regions to filaments, with an eye fix
+3. painting the head as a support blocker
+4. patching a saved Orca project instead of importing the Meshy 3MF
+
+The physical result is not reviewed yet.
+
+**1. Remove shadows before Meshy.** Meshy's cartoon four-color conversion groups
+the model's texture colors, and that texture already includes the lighting from
+the 2D concept. On the first male attempt (`exp-024`), that lighting became a
+"brown-grey" class covering shaded skin, leather and metal. Folding that class
+into skin put skin color on the sword and outfit, and the owner rejected that
+recolor. For test 2, a Vertex/Gemini pass first removed shadows, highlights and
+reflections from the Poly3D *Heroic Chibi Fantasy Male* 2D concept. The flat
+image then went to a Meshy Creative Lab build (`exp-025`) and the Meshy cartoon
+four-color conversion (`exp-026`). Meshy cost 46 credits in total. In the
+standard runner this pass is
+`--delight-input`, with an optional `--vertex-image-size`, for example `2K`.
+
+**2. Remap Meshy's color regions to filaments.** Meshy's four materials are still
+cartoon color groups, not filaments. Map each one to a filament explicitly:
+
+| Meshy region | Filament | Orca paint code | Slot / physical toolhead |
+| --- | --- | --- | --- |
+| grey | white (FIL-018) | `8` | 2 / toolhead 1 |
+| navy | blue (FIL-006) | `4` | 1 / toolhead 3 |
+| skin | Matte Skin (FIL-016) | `0C` | 3 / toolhead 4 |
+| brown | black (FIL-001) | `1C` | 4 / toolhead 2 |
+
+The eyes needed one fix. Meshy left blue and skin flecks inside each eye. Each
+eye was found as a separate non-skin area on the front of the head, between the
+brows and the mouth. Every blue or skin face inside its x–z outline, within
+1 mm of the front surface, was changed to black. That gave each eye one solid
+black region, with its white area and highlight kept: 1,590 faces changed in
+total. The owner approved a close-up render before slicing.
+
+**3. Paint the head as a support blocker.** Add `paint_supports="8"`, Orca's
+support blocker, to faces with centroid z > 66 mm and x > −18 mm in the 100 mm
+frame. The x limit leaves the sword, at x < −20, still able to get support.
+Supports then stop under the head. In the slice, the highest support extrusion
+is at Z 62.48 mm, nothing goes above 63 mm, and the eyes are at about 65–73 mm.
+
+**4. Patch a saved Orca project.** Opening or importing a Meshy 3MF loads it as a
+project and resets the process preset to 0.20 mm. Instead, keep one saved
+settings project, `exp-024-u1-four-color-chibi-male/u1-print/CHIBI-MALE-100mm-U1-0.12mm-ORCA-BASE.3mf`.
+For each new model, replace only its `3D/Objects/Object_1_1.model`:
+
+- Scale the vertices to 100 mm (×4/3 from the 75 mm render data), then subtract
+  50 from z. That puts them in Orca's object frame; the build item keeps its
+  translation `112.14, 123.68, 50`.
+- Write one `paint_color` code per triangle in the 3MF triangle order, plus the
+  `paint_supports` blocker.
+
+For a later change such as the eye fix, rewrite only the paint codes in the
+patched project. First check that every existing code matches the Meshy
+materials. Open the project with **Ctrl+O** and click **Discard** in the
+"unsaved preset" dialog, so the project's own settings load.
+
+**Settings at 100 mm** (saved in the ORCA-BASE project):
+
+| Setting | Value |
+| --- | --- |
+| Process preset | 0.12mm Standard @Snapmaker U1 |
+| Supports | Tree (auto), default (Organic) style; threshold 15°; on build plate only |
+| Support gaps | Top Z 0.24 mm; XY 0.8 mm |
+| Prime volume | 15 mm³ |
+| Walls / infill / solid infill filament | 3 (skin) |
+| Object extruder | 3 |
+
+**Slice result:** 100.04 mm tall, 833 layers, 1,472 filament changes, 11h 10m.
+
+| Part | Grams |
+| --- | ---: |
+| Model | 34.39 |
+| Supports | 7.00 |
+| Prime tower | 49.64 |
+| **Total** | **91.03** |
+
+By filament: blue 13.57 g, white 20.58 g, skin 32.42 g, black 24.46 g. The
+prime tower is again more than half the material.
+
+**Export and upload notes.**
+
+- Ctrl+G exports a `.gcode.3mf`. To get plain G-code, use **File > Export >
+  Export G-code**.
+- To upload: Print button > **Send G-code to printer host** > set the filename >
+  **Upload** (not "Upload and Print") > **Send** in the "Pretreat" dialog.
+- Selecting the filename field and pasting replaces the `.gcode` extension too, so
+  paste the full name including `.gcode`. Before uploading, check the filename
+  field to confirm the click did not land in it.
+- File information on the printer mapped blue to toolhead 3, white to 1, skin to
+  4 and black to 2.
+- In Preview, the white line on the head is the seam marker (the "Seams" legend
+  option), not paint.
+
+The start receipt is `receipts/BIZ-CHIBI-4C-T02/start-receipt.json` in Home3DPrinting.
 
 ## Verified First Job: Open SAMLA Top-Cover Base
 

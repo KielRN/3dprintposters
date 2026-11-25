@@ -308,6 +308,49 @@ cleanup minutes, the Matte Skin shade and real grams used are pending. Slice
 settings, variant comparison and the upload/mapping steps are in
 [U1 operations](../docs/SNAPMAKER_U1_OPERATIONS.md#four-color-figurine-slicing).
 
+Outcome (owner report, 2026-11-25): complete. The owner likes the multicolor and
+calls it good for a test. At 75 mm it is too small, so the next test is 100 mm.
+The sword broke at the right arm during support removal; its narrowest point is
+about 1.6 x 1.5 mm, and the hair supports ran about 0.4 mm beside the blade. The
+blue cape did not show, although the G-code put blue on about 99% of its painted
+surface, so the cause is on the printer and still open. 55.69 g was recorded
+once at the slicer estimate. A breakaway PETG/TPU interface needs a free toolhead,
+so four-color figurines stay on tuned PLA supports. Next-test changes are 100 mm,
+0.8 mm XY gap, 0.24 mm top Z gap, and flush-cutter removal; the three-color
+breakaway option is also recorded in
+[U1 operations](../docs/SNAPMAKER_U1_OPERATIONS.md#support-changes-for-the-next-test).
+Separately printed weapons are an untested production option.
+
+**Test 2 (`BIZ-CHIBI-4C-T02-A01`, started 2026-11-25):** the 100 mm four-color
+Chibi heroic fantasy male. The first male attempt (`exp-024`) failed before
+printing. Meshy's cartoon conversion turned the 2D concept's baked-in shading
+into a false "brown-grey" color region that covered shaded skin, leather and
+metal, and the owner rejected the recolor attempts.
+
+The fix was to remove the lighting before the 3D build. A Vertex/Gemini pass
+took out shadows, highlights and reflections (the runner's `--delight-input`).
+The Meshy Creative Lab build (`exp-025`) and cartoon four-color conversion
+(`exp-026`) then cost 46 Meshy credits. The owner approved the segmentation once
+two things were done: Meshy's regions were remapped explicitly to filaments
+(grey to white, navy to blue, skin to skin, brown to black), and the eyes were
+recolored to one solid black area each.
+
+The head was painted as a support blocker, so no support goes above 63 mm and
+the face stays clear. The slice is 91.03 g in 11h 10m: model 34.39 g, supports
+7.00 g, prime tower 49.64 g. The tower is still more than half of all filament.
+
+Production implications:
+
+- A shadow-removal pass should come before every multicolor Meshy conversion.
+- Remapping Meshy's color regions and fixing the eyes are per-figure
+  segmentation steps that could be automated server-side.
+- The prime tower remains the largest material and time cost for four-color
+  figurines.
+
+Physical quality, support removal and real grams used are pending. Method and
+settings are in
+[U1 operations](../docs/SNAPMAKER_U1_OPERATIONS.md#test-2-100-mm-chibi-male-biz-chibi-4c-t02-a01).
+
 #### 2026-10-21 - Broader Search For Recent Segmentation Models
 
 The owner recalled a recently released multicolor segmentation model and requested research beyond the Meshy conversion tested above. The exact remembered model is unidentified. The strongest recent research-model match found is **SAM3D-Part**, whose paper was submitted on September 14, 2026. This is a candidate identification, not confirmation of what the owner saw.

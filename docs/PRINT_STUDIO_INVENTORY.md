@@ -47,11 +47,12 @@ Meshy chooses its own palette, so map its output slots to these spools by hand
 in the slicer. Toolhead order is not fixed: record the actual tool-to-spool
 mapping per job.
 
-Still unvalidated: Matte Skin's printed shade and its sheen next to standard
-PLA, any U1 four-color slice or print, and whether a fifth tone (brown or gold)
-is needed for some designs. Next step: run a small face/hand sample with this
-load before buying more skin shades. Recording this palette does not change
-what is currently loaded.
+First four-color print (75 mm Chibi, 2026-11-25): the owner likes the multicolor.
+The blue cape did not show and the cause is open. Details are in
+[U1 operations](SNAPMAKER_U1_OPERATIONS.md#outcome). Still unvalidated: Matte
+Skin's printed shade and sheen next to standard PLA (not yet reported), the
+palette at 100 mm, and whether some designs need a fifth tone (brown or gold).
+Recording this palette does not change what is currently loaded.
 
 ### Historical checkpoint - 2026-10-28
 

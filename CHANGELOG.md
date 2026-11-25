@@ -2,6 +2,19 @@
 
 All notable project changes will be documented in this file.
 
+## [Unreleased] - 2026-11-25
+
+### Documentation
+
+- Recorded the outcome of the first four-color U1 Chibi test (`BIZ-CHIBI-4C-T01-A01`, complete per the owner): the multicolor is liked, 75 mm is too small, the sword broke during support removal, and the blue cape did not show although the G-code includes it. Added next-test support changes to the U1 operations guide: 100 mm, XY gap 0.8 mm, top Z gap 0.24 mm, and flush-cutter removal. Also added Snapmaker's PLA/PETG breakaway-interface recipe for prints that leave a toolhead free, and recorded separately printed weapons as an untested option. Filament use was reconciled once in the Home3DPrinting spool ledger.
+- Started the second four-color U1 test, `BIZ-CHIBI-4C-T02-A01`: the 100 mm Chibi heroic fantasy male, 91.03 g, 11h 10m. The U1 operations guide now documents the method this test used:
+  - removing shadows with Vertex before Meshy, so baked-in shading no longer becomes false Meshy color regions
+  - remapping Meshy's color regions to filaments explicitly, and recoloring each eye to one black area
+  - painting the head as an Orca support blocker; no support goes above 63 mm
+  - the 100 mm settings
+  - building each new project by patching a saved Orca project's object model, which keeps the 0.12 mm settings that importing a Meshy 3MF resets
+- Added `--delight-input` (a Vertex flat-lighting pass before the Meshy stages) and `--vertex-image-size` to the standard Meshy experiment runner.
+
 ## [Unreleased] - 2026-11-24
 
 ### Documentation

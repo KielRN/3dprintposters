@@ -109,6 +109,10 @@ Options:
   --skip-image-task-id <id>         Use an existing succeeded Meshy image-to-image multi-view task.
   --skip-multiview                  Direct-3D: send the concept image straight to Multi-Image-to-3D as image_urls, skipping the Image-to-Image multi-view task.
   --direct-images <csv>             Direct-3D with explicit view images (1-4 local paths, e.g. front,side). Implies --skip-multiview.
+  --delight-input                   Before the Meshy stages, ask Vertex/Gemini to flatten the image: remove shadows,
+                                     highlights, and reflections so multicolor conversion sees flat base colors.
+                                     Applies to the creative-lab-figure input image or the standard-flow concept.
+  --vertex-image-size <size>        Optional Vertex imageConfig.imageSize, e.g. 2K (gemini-3-pro-image).
   --prototype-only                  Stop after Meshy Creative Lab Figure prototype generation.
   --skip-prototype-task-id <id>     Use an existing succeeded Creative Lab Figure prototype task.
   --skip-build-task-id <id>         Use an existing succeeded Creative Lab Figure build task.
@@ -135,6 +139,7 @@ function parseArgs(argv) {
       [
         "help",
         "conceptOnly",
+        "delightInput",
         "faithfulMultiview",
         "multiviewOnly",
         "noGenerationRemesh",
@@ -402,11 +407,42 @@ function extractResponseText(response) {
     .slice(0, 4000);
 }
 
+// Flat-lighting pass for multicolor printing: baked shadows, highlights, and
+// reflections become false color regions when Meshy quantizes the texture.
+function buildVertexDelightPrompt() {
+  return [
+    "Edit this image. Remove all lighting effects: cast shadows, form shading, ambient occlusion, highlights, specular reflections, glare, sheen, rim light, and anything else that looks like lighting or a reflection.",
+    "Render every surface in its flat, unlit base color, as if lit by perfectly even, shadowless light from every direction. Each material keeps one uniform color: skin is one even skin tone, each fabric or leather is one even color, metal is one even flat color, and hair or eyebrows are one even color.",
+    "Keep everything else exactly the same: the same character, face, identity, expression, eyes, pose, proportions, outfit design, colors, props, and composition. Do not add or remove details.",
+    "Keep the full figure visible from the top of the head to the soles of the feet. Do not crop or zoom.",
+    "Plain white background. No text, no watermark.",
+    "Output only the edited image.",
+  ].join("\n");
+}
+
 async function generateVertexConcept(inputPath, runDir, args) {
+  return requestVertexImage(inputPath, runDir, args, {
+    prompt: buildVertexConceptPrompt(),
+    outputStem: "concept",
+    label: "body-only concept",
+    defaultAspectRatio: "3:4",
+  });
+}
+
+async function generateVertexDelight(inputPath, runDir, args) {
+  return requestVertexImage(inputPath, runDir, args, {
+    prompt: buildVertexDelightPrompt(),
+    outputStem: "delit",
+    label: "flat-lit (shadow/highlight-free) image",
+    defaultAspectRatio: "3:4",
+  });
+}
+
+async function requestVertexImage(inputPath, runDir, args, options) {
   const apiKey = process.env.VERTEX_API_KEY;
   if (!apiKey) {
     throw new Error(
-      "VERTEX_API_KEY is required unless --skip-concept is provided.",
+      "VERTEX_API_KEY is required for Vertex/Gemini image stages.",
     );
   }
 
@@ -414,12 +450,13 @@ async function generateVertexConcept(inputPath, runDir, args) {
     args.vertexModel ??
     process.env.VERTEX_IMAGE_MODEL ??
     DEFAULT_VERTEX_IMAGE_MODEL;
-  const prompt = buildVertexConceptPrompt();
+  const prompt = options.prompt;
   const sourceImageBuffer = await fs.readFile(inputPath);
   const sourceMimeType = contentTypeFor(inputPath);
-  const aspectRatio = args.aspectRatio ?? "3:4";
+  const aspectRatio = args.aspectRatio ?? options.defaultAspectRatio;
+  const imageSize = args.vertexImageSize;
 
-  console.log("Generating body-only concept with Vertex/Gemini...");
+  console.log(`Generating ${options.label} with Vertex/Gemini...`);
   const response = await fetch(
     buildVertexGenerateContentEndpoint(model, apiKey),
     {
@@ -449,6 +486,7 @@ async function generateVertexConcept(inputPath, runDir, args) {
           responseModalities: ["TEXT", "IMAGE"],
           imageConfig: {
             aspectRatio,
+            ...(imageSize ? { imageSize } : {}),
           },
         },
         safetySettings: [
@@ -479,7 +517,7 @@ async function generateVertexConcept(inputPath, runDir, args) {
 
   if (!response.ok) {
     throw new Error(
-      `Vertex/Gemini concept request failed with HTTP ${response.status}: ${await readErrorBody(response)}`,
+      `Vertex/Gemini ${options.outputStem} request failed with HTTP ${response.status}: ${await readErrorBody(response)}`,
     );
   }
 
@@ -489,17 +527,18 @@ async function generateVertexConcept(inputPath, runDir, args) {
   const conceptPath = path.join(
     runDir,
     "vertex",
-    `concept.${extensionForMimeType(outputMimeType)}`,
+    `${options.outputStem}.${extensionForMimeType(outputMimeType)}`,
   );
   await fs.mkdir(path.dirname(conceptPath), { recursive: true });
   await fs.writeFile(conceptPath, Buffer.from(generatedImage.data, "base64"));
 
-  await writeJson(path.join(runDir, "vertex", "concept.sanitized.json"), {
+  await writeJson(path.join(runDir, "vertex", `${options.outputStem}.sanitized.json`), {
     created_at: new Date().toISOString(),
     provider: "vertex-gemini-direct",
     model,
     model_version: vertexResponse.modelVersion,
     aspect_ratio: aspectRatio,
+    image_size: imageSize ?? null,
     output_mime_type: outputMimeType,
     source: {
       path: inputPath,
@@ -2433,6 +2472,7 @@ async function main() {
     stages: {
       existing_model_copy:
         workflow === "existing-model-print-tools" ? "pending" : "not_requested",
+      vertex_delight: args.delightInput ? "pending" : "not_requested",
       vertex_concept:
         workflow === "creative-lab-figure" ||
         workflow === "existing-model-print-tools"
@@ -2520,9 +2560,17 @@ async function main() {
         "MESHY_API_KEY is required for Meshy Creative Lab Figure stages.",
       );
     }
+    const figureInputPath = args.delightInput
+      ? await generateVertexDelight(copiedInputPath, runDir, args)
+      : inputPath;
+    if (args.delightInput) {
+      startedSummary.stages.vertex_delight = "completed";
+      startedSummary.delit_input_path = figureInputPath;
+      await writeExperimentSummary(outputRoot, runDir, startedSummary);
+    }
     await runCreativeLabFigureWorkflow(
       apiKey,
-      inputPath,
+      figureInputPath,
       runDir,
       meshyDir,
       outputRoot,
@@ -2532,9 +2580,16 @@ async function main() {
     return;
   }
 
-  const conceptPath = args.skipConcept
+  const rawConceptPath = args.skipConcept
     ? resolveFromRoot(args.skipConcept)
     : await generateVertexConcept(inputPath, runDir, args);
+  const conceptPath = args.delightInput
+    ? await generateVertexDelight(rawConceptPath, runDir, args)
+    : rawConceptPath;
+  if (args.delightInput) {
+    startedSummary.stages.vertex_delight = "completed";
+    startedSummary.delit_input_path = conceptPath;
+  }
 
   if (args.conceptOnly) {
     const summary = {
